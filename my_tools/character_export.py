@@ -79,7 +79,7 @@ so the edge boundary is preserved"""
     obj.modifiers.remove(mask_modifier)
 
     # Clean up
-    if context.mode != saved_mode:
+    if bpy.context.mode != saved_mode:
         bpy.ops.object.mode_set(mode=saved_mode)
 
 def apply_modifiers(context, obj, only_render=True):
