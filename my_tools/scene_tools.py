@@ -276,6 +276,7 @@ class MY_OT_character_export_execute(bpy.types.Operator):
             # Hide all objects that shouldn't be exported
             for obj in get_children_recursive(job.rig):
                 if obj not in saved_hide:
+                    saved_hide[obj] = (obj.hide_select, obj.hide_viewport, obj.hide_render)
                     obj.hide_render = True
 
             bpy.ops.my_tools.character_export(
