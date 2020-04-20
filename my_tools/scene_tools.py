@@ -94,14 +94,14 @@ class MY_OT_scene_export(bpy.types.Operator):
                 pattern = r"^(?:%s)_%s_\d+$" % ('|'.join(collision_prefixes), obj.name)
                 for col in context.scene.objects:
                     if re.match(pattern, col.name):
-                        col.select = True
+                        col.select_set(True)
                         collision_objs.append(col)
 
             # Move main object to world center while keeping collision relative transforms
             saved_transforms = {}
             for col in collision_objs:
                 saved_transforms[col] = col.matrix_world.copy()
-                col.matrix_world = obj.matrix_world.inverted() * col.matrix_world
+                col.matrix_world = obj.matrix_world.inverted() @ col.matrix_world
             saved_transforms[obj] = obj.matrix_world.copy()
             obj.matrix_world.identity()
 
@@ -110,7 +110,7 @@ class MY_OT_scene_export(bpy.types.Operator):
             #     name = "A_" + name[len("SK_"):]
             path_fields["object"] = obj.name
             path_fields["num"] = path_fields["num"] + 1
-            filepath = get_export_path(scn.my_tools.export_path, path_fields)
+            filepath = get_export_path(scn.my_tools.export_path, **path_fields)
             filename = bpy.path.basename(filepath)
 
             result = self.export_fbx(context, filepath)
@@ -134,7 +134,7 @@ class MY_OT_scene_export(bpy.types.Operator):
             "object":"None",
             "action":"None",
         }
-        reason = check_invalid_export_path(scn.my_tools.export_path, path_fields)
+        reason = check_invalid_export_path(scn.my_tools.export_path, **path_fields)
         if reason:
             self.report({'ERROR'}, reason)
             return {'CANCELLED'}
@@ -145,7 +145,7 @@ class MY_OT_scene_export(bpy.types.Operator):
         self.exported_files = []
 
         try:
-            self._execute(context, rig)
+            self._execute(context)
         finally:
             # Clean up
             load_selection(saved_selection)
