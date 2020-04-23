@@ -1,9 +1,348 @@
+from fnmatch import fnmatch
+from mathutils import Matrix, Vector
+import bmesh
+import bpy
+import math
 import os
 import re
-from fnmatch import fnmatch
-import bpy
-from .helpers import save_selection, load_selection, select_only, get_children_recursive
-from .helpers import get_export_path, check_invalid_export_path, intercept, beep
+from .helpers import (
+    beep,
+    check_invalid_export_path,
+    get_children_recursive,
+    get_export_path,
+    get_range_pct,
+    intercept,
+    load_selection,
+    remove_extra_data,
+    save_selection,
+    select_only,
+    sq_dist,
+)
+
+def is_box(bm, sq_threshold=0.001):
+    """Check if the shape can be represented by a box by checking if there's a vertex opposite
+across the center for each vertex, within some threshold"""
+    if len(bm.verts) != 8:
+        return False
+    center = sum((v.co for v in bm.verts), Vector()) / 8
+    for v1 in bm.verts:
+        co2 = (center - v1.co) + center
+        if not any(sq_dist(v2.co, co2) <= sq_threshold for v2 in bm.verts):
+            return False
+    return True
+
+def create_col_object_from_bm(ctx, obj, bm, wire=True, prefix=None):
+    if not prefix:
+        prefix = "UBX" if is_box(bm) else "UCX"
+
+    n = 0
+    while True:
+        name = f'{prefix}_{obj.name}_{n}'
+        n += 1
+        if name not in ctx.scene.objects:
+            break
+
+    data = bpy.data.meshes.new(name)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(data)
+
+    col_obj = bpy.data.objects.new(name, data)
+    col_obj.matrix_world = obj.matrix_world
+    col_obj.show_wire = True
+    col_obj.display_type = 'WIRE' if wire else 'SOLID'
+    col_obj.display.show_shadows = False
+    ctx.scene.collection.objects.link(col_obj)
+    return col_obj
+
+def solidify_split(ctx, obj, src_bm, thickness, wire=True, distance=0.0):
+    # Based on https://github.com/blender/blender-addons/blob/master/mesh_tools/split_solidify.py
+    # by zmj100, updated by zeffii to BMesh
+    src_bm.faces.ensure_lookup_table()
+    src_bm.verts.ensure_lookup_table()
+    src_bm.normal_update()
+    for src_f in src_bm.faces:
+        bm = bmesh.new()
+        # Add new vertices
+        vs1 = []
+        vs2 = []
+        for v in src_f.verts:
+            p1 = v.co + src_f.normal * distance  # Out
+            p2 = v.co + src_f.normal * (distance - thickness)  # In
+            vs1.append(bm.verts.new(p1))
+            vs2.append(bm.verts.new(p2))
+
+        # Add new faces
+        n = len(vs1)
+        bm.faces.new(vs1)
+        for i in range(n):
+            j = (i + 1) % n
+            vseq = vs1[i], vs2[i], vs2[j], vs1[j]
+            bm.faces.new(vseq)
+        vs2.reverse()
+        bm.faces.new(vs2)
+
+        create_col_object_from_bm(ctx, obj, bm, wire)
+        bm.free()
+
+class MY_OT_make_collision(bpy.types.Operator):
+    #tooltip
+    """Generate collision for the selected objects"""
+
+    bl_idname = "my_tools.make_collision"
+    bl_label = "Make Collision"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    shape: bpy.props.EnumProperty(
+        items=[
+            ('BOX', "Box", "Box collision.", 'MESH_CUBE', 0),
+            ('CYLINDER', "Cylinder", "Cylinder collision.", 'MESH_CYLINDER', 1),
+            ('CAPSULE', "Capsule", "Capsule collision.", 'MESH_CAPSULE', 2),
+            ('SPHERE', "Sphere", "Sphere collision.", 'MESH_UVSPHERE', 3),
+            ('CONVEX', "Convex", "Convex collision.", 'MESH_ICOSPHERE', 4),
+        ],
+        name="Shape",
+        description="Selects the collision shape",
+    )
+    wire: bpy.props.BoolProperty(
+        name="Wire",
+        description="How to display the collision objects in viewport",
+        default=True,
+    )
+    hollow: bpy.props.BoolProperty(
+        name="Hollow",
+        description="Creates a hollow shape from multiple bodies",
+        default=False,
+    )
+    thickness: bpy.props.FloatProperty(
+        name="Thickness",
+        description="Wall thickness",
+        default=0.2,
+        min=0.001,
+    )
+
+    # Box settings
+    width: bpy.props.FloatProperty(
+        name="Width",
+        description="Shape width",
+        min=0.001,
+    )
+    depth: bpy.props.FloatProperty(
+        name="Depth",
+        description="Shape depth",
+        min=0.001,
+    )
+
+    # Cylinder settings
+    sides: bpy.props.IntProperty(
+        name="Sides",
+        description="Number of sides",
+        default=8,
+        min=3,
+    )
+    diameter1: bpy.props.FloatProperty(
+        name="Diameter 1",
+        description="First diameter",
+        min=0.001,
+    )
+    diameter2: bpy.props.FloatProperty(
+        name="Diameter 2",
+        description="Second diameter",
+        min=0.001,
+    )
+    height: bpy.props.FloatProperty(
+        name="Height",
+        description="Height",
+        min=0.001,
+    )
+
+    # Sphere settings
+    diameter: bpy.props.FloatProperty(
+        name="Diameter",
+        description="Diameter",
+        min=0.001,
+    )
+
+    # Convex settings
+    target_edges_per_m3: bpy.props.FloatProperty(
+        name="Decimate Ratio",
+        description="Target number of edges per cubic meter",
+        default=30.0,
+        min=0.0,
+    )
+    x_symmetry: bpy.props.BoolProperty(
+        name="X Symmetry",
+        description="Symmetrize across X axis",
+        default=False,
+    )
+    y_symmetry: bpy.props.BoolProperty(
+        name="Y Symmetry",
+        description="Symmetrize across Y axis",
+        default=False,
+    )
+    z_symmetry: bpy.props.BoolProperty(
+        name="Z Symmetry",
+        description="Symmetrize across Z axis",
+        default=False,
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type == 'MESH' and context.mode == 'OBJECT'
+
+    def make_box_collision(self, context, obj):
+        center = sum((Vector(co) for co in obj.bound_box), Vector()) / 8
+        v = Vector((self.depth, self.width, self.height)) * 0.5
+
+        bm = bmesh.new()
+        verts = bmesh.ops.create_cube(bm, calc_uvs=False)["verts"]
+        verts[0].co = center.x - v.x, center.y - v.y, center.z - v.z
+        verts[1].co = center.x - v.x, center.y - v.y, center.z + v.z
+        verts[2].co = center.x - v.x, center.y + v.y, center.z - v.z
+        verts[3].co = center.x - v.x, center.y + v.y, center.z + v.z
+        verts[4].co = center.x + v.x, center.y - v.y, center.z - v.z
+        verts[5].co = center.x + v.x, center.y - v.y, center.z + v.z
+        verts[6].co = center.x + v.x, center.y + v.y, center.z - v.z
+        verts[7].co = center.x + v.x, center.y + v.y, center.z + v.z
+
+        if self.hollow:
+            solidify_split(context, obj, bm, self.thickness, self.wire)
+        else:
+            create_col_object_from_bm(context, obj, bm, self.wire)
+        bm.free()
+
+    def make_cylinder_collision(self, context, obj):
+        center = sum((Vector(co) for co in obj.bound_box), Vector()) / 8
+
+        bm = bmesh.new()
+        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=self.sides,
+            diameter1=self.diameter1, diameter2=self.diameter2, depth=self.height, calc_uvs=False,
+            matrix=Matrix.Translation(center))
+        if self.hollow:
+            solidify_split(context, obj, bm, self.thickness, self.wire)
+        else:
+            create_col_object_from_bm(context, obj, bm, self.wire)
+        bm.free()
+
+    def make_sphere_collision(self, context, obj):
+        center = sum((Vector(co) for co in obj.bound_box), Vector()) / 8
+
+        bm = bmesh.new()
+        bmesh.ops.create_icosphere(bm, subdivisions=2, diameter=self.diameter * 0.5,
+            calc_uvs=False, matrix=Matrix.Translation(center))
+        create_col_object_from_bm(context, obj, bm, self.wire, "USP")
+        bm.free()
+
+    def make_capsule_collision(self, context, obj):
+        raise NotImplementedError
+
+    def make_convex_collision(self, context, obj):
+        # Make hull and dissolve planar faces
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+        bmesh.ops.convex_hull(bm, input=bm.verts, use_existing_faces=True)
+        bm.normal_update()
+        bmesh.ops.dissolve_limit(bm, angle_limit=math.radians(10.0),
+            verts=bm.verts, edges=bm.edges, use_dissolve_boundaries=False, delimit=set())
+        volume = bm.calc_volume()
+        col_obj = create_col_object_from_bm(context, obj, bm, self.wire, "UCX")
+        bm.free()
+
+        context.view_layer.objects.active = col_obj
+        obj.select_set(False)
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+
+        # Simplify hull
+        if volume <= 1.0:
+            # Further decimate small objects (without completely destroying them)
+            volume = math.log(volume + 3.0)
+        decimate_ratio = (self.target_edges_per_m3 * volume) / len(col_obj.data.edges)
+        bpy.ops.mesh.decimate(ratio=decimate_ratio)
+
+        # Symmetrize
+        if self.x_symmetry:
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.symmetrize(direction='POSITIVE_X')
+        if self.y_symmetry:
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.symmetrize(direction='POSITIVE_Y')
+        if self.z_symmetry:
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.symmetrize(direction='POSITIVE_Z')
+
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+    def execute(self, context):
+        for obj in context.selected_objects[:]:
+            select_only(context, obj)
+            if self.shape == 'BOX':
+                self.make_box_collision(context, obj)
+            elif self.shape == 'CYLINDER':
+                self.make_cylinder_collision(context, obj)
+            elif self.shape == 'SPHERE':
+                self.make_sphere_collision(context, obj)
+            elif self.shape == 'CONVEX':
+                self.make_convex_collision(context, obj)
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        # Calculate initial properties
+        obj = context.object
+        corner1 = Vector(obj.bound_box[0])
+        corner2 = Vector(obj.bound_box[6])
+        center = sum((Vector(co) for co in obj.bound_box), Vector()) / 8
+
+        # Box dimensions
+        self.depth = abs(corner1.x - corner2.x)
+        self.width = abs(corner1.y - corner2.y)
+        self.height = abs(corner1.z - corner2.z)
+
+        # Cylinder diameters
+        self.diameter1 = self.diameter2 = 0.001
+        for vert in obj.data.vertices:
+            co = vert.co
+            dx = center.x - co.x
+            dy = center.y - co.y
+            d = math.sqrt(dx * dx + dy * dy)
+            influence2 = get_range_pct(corner1.z, corner2.z, co.z)
+            influence1 = 1.0 - influence2
+            self.diameter1 = max(self.diameter1, d * influence1)
+            self.diameter2 = max(self.diameter2, d * influence2)
+
+        # Sphere diameter
+        self.diameter = max(self.depth, self.width, self.height)
+
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+        col.prop(self, "shape")
+        col.prop(self, "wire")
+        if self.shape in {'BOX', 'CYLINDER'}:
+            col.prop(self, "hollow")
+            if self.hollow:
+                col.prop(self, "thickness")
+        col.separator()
+
+        if self.shape == 'BOX':
+            col.prop(self, "width")
+            col.prop(self, "height")
+            col.prop(self, "depth")
+        elif self.shape == 'CYLINDER':
+            col.prop(self, "sides")
+            col.prop(self, "diameter1")
+            col.prop(self, "diameter2")
+            col.prop(self, "height")
+        elif self.shape == 'SPHERE':
+            col.prop(self, "diameter")
+        elif self.shape == 'CONVEX':
+            col.prop(self, "target_edges_per_m3")
+            col.label(text="Symmetrize")
+            row = col.row(align=True)
+            row.prop(self, "x_symmetry", text="X", toggle=1)
+            row.prop(self, "y_symmetry", text="Y", toggle=1)
+            row.prop(self, "z_symmetry", text="Z", toggle=1)
 
 class MY_OT_scene_export(bpy.types.Operator):
     #tooltip
@@ -171,13 +510,15 @@ class MY_PT_scene_export(bpy.types.Panel):
         layout = self.layout
 
         col = layout.column()
+        col.operator("my_tools.make_collision", icon='MESH_CUBE', text="Make Collision")
+        col.separator()
         col.prop(scn.my_tools, "export_animation_only")
         col1 = col.column(align=True)
         col1.enabled = not scn.my_tools.export_animation_only
         col1.prop(scn.my_tools, "export_collision")
         col1 = col.column(align=True)
         col1.prop(scn.my_tools, "export_path", text="")
-        col1.operator("my_tools.scene_export", icon='FORWARD', text="Export selected")
+        col1.operator("my_tools.scene_export", icon='FORWARD', text="Export Selected")
 
 class MY_OT_character_export_add(bpy.types.Operator):
     #tooltip
@@ -419,6 +760,7 @@ class MY_PT_character_export(bpy.types.Panel):
             op.index = job_idx
 
 classes = (
+    MY_OT_make_collision,
     MY_OT_scene_export,
     MY_PT_scene_export,
     MY_OT_character_export_add,
