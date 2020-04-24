@@ -385,6 +385,9 @@ def remove_extra_data(obj):
     obj.shape_key_clear()
     if obj.type == 'MESH':
         mesh = obj.data
+        mesh.use_customdata_vertex_bevel = False
+        mesh.use_customdata_edge_bevel = False
+        mesh.use_customdata_edge_crease = False
         # mesh.materials.clear() seems to crash
         while mesh.materials:
             mesh.materials.pop()
