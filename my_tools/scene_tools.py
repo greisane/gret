@@ -29,7 +29,6 @@ from .helpers import (
 # make_collision for multiple objects. Should take away the shape properties and leave only the type
 # symmetrize for convex isn't good
 # collision objects shouldn't really inherit the mesh object transform
-# should it work on selected faces instead?
 
 def is_box(bm, sq_threshold=0.001):
     """Check if the shape can be represented by a box by checking if there's a vertex opposite
@@ -67,11 +66,6 @@ class MY_OT_make_collision(bpy.types.Operator):
         description="Name of the collection to link the collision objects to",
         default="Collision",
     )
-    remove_existing: bpy.props.BoolProperty(
-        name="Exclusive",
-        description="Remove existing collision objects",
-        default=True,
-    )
     wire: bpy.props.BoolProperty(
         name="Wire",
         description="How to display the collision objects in viewport",
@@ -87,6 +81,12 @@ class MY_OT_make_collision(bpy.types.Operator):
         description="Wall thickness",
         default=0.2,
         min=0.001,
+    )
+    location: bpy.props.FloatVectorProperty(
+        name="Location",
+        description="Shape location",
+        subtype='TRANSLATION',
+        size=3,
     )
 
     # Box settings
@@ -140,12 +140,6 @@ class MY_OT_make_collision(bpy.types.Operator):
         description="Capsule depth",
         min=0.001,
     )
-    cap_location: bpy.props.FloatVectorProperty(
-        name="Location",
-        description="Capsule location",
-        subtype='TRANSLATION',
-        size=3,
-    )
     cap_rotation: bpy.props.FloatVectorProperty(
         name="Rotation",
         description="Capsule rotation",
@@ -195,7 +189,9 @@ class MY_OT_make_collision(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type == 'MESH' #and context.mode == 'OBJECT'
+        return (context.object
+            and context.object.type == 'MESH'
+            and context.mode in {'OBJECT', 'EDIT_MESH'})
 
     def create_col_object_from_bm(self, context, obj, bm, prefix=None):
         if not prefix:
@@ -264,19 +260,18 @@ class MY_OT_make_collision(bpy.types.Operator):
             bm.free()
 
     def make_box_collision(self, context, obj):
-        center = sum((Vector(co) for co in obj.bound_box), Vector()) / 8
         v = Vector((self.box_depth, self.box_width, self.box_height)) * 0.5
 
         bm = bmesh.new()
         verts = bmesh.ops.create_cube(bm, calc_uvs=False)["verts"]
-        verts[0].co = center.x - v.x, center.y - v.y, center.z - v.z
-        verts[1].co = center.x - v.x, center.y - v.y, center.z + v.z
-        verts[2].co = center.x - v.x, center.y + v.y, center.z - v.z
-        verts[3].co = center.x - v.x, center.y + v.y, center.z + v.z
-        verts[4].co = center.x + v.x, center.y - v.y, center.z - v.z
-        verts[5].co = center.x + v.x, center.y - v.y, center.z + v.z
-        verts[6].co = center.x + v.x, center.y + v.y, center.z - v.z
-        verts[7].co = center.x + v.x, center.y + v.y, center.z + v.z
+        verts[0].co = self.location.x - v.x, self.location.y - v.y, self.location.z - v.z
+        verts[1].co = self.location.x - v.x, self.location.y - v.y, self.location.z + v.z
+        verts[2].co = self.location.x - v.x, self.location.y + v.y, self.location.z - v.z
+        verts[3].co = self.location.x - v.x, self.location.y + v.y, self.location.z + v.z
+        verts[4].co = self.location.x + v.x, self.location.y - v.y, self.location.z - v.z
+        verts[5].co = self.location.x + v.x, self.location.y - v.y, self.location.z + v.z
+        verts[6].co = self.location.x + v.x, self.location.y + v.y, self.location.z - v.z
+        verts[7].co = self.location.x + v.x, self.location.y + v.y, self.location.z + v.z
 
         if self.hollow:
             self.create_split_col_object_from_bm(context, obj, bm, self.thickness)
@@ -285,12 +280,11 @@ class MY_OT_make_collision(bpy.types.Operator):
         bm.free()
 
     def make_cylinder_collision(self, context, obj):
-        center = sum((Vector(co) for co in obj.bound_box), Vector()) / 8
-
+        mat = Matrix.Translation(self.location)
         bm = bmesh.new()
         bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=self.cyl_sides,
             diameter1=self.cyl_diameter1, diameter2=self.cyl_diameter2, depth=self.cyl_height,
-            calc_uvs=False, matrix=Matrix.Translation(center))
+            calc_uvs=False, matrix=mat)
         if self.hollow:
             self.create_split_col_object_from_bm(context, obj, bm, self.thickness)
         else:
@@ -298,12 +292,11 @@ class MY_OT_make_collision(bpy.types.Operator):
         bm.free()
 
     def make_capsule_collision(self, context, obj):
-        mat_rot = self.cap_rotation.to_matrix()
-
+        mat = Matrix.Translation(self.location) @ self.cap_rotation.to_matrix().to_4x4()
         bm = bmesh.new()
         bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=8,
             diameter1=self.cap_diameter, diameter2=self.cap_diameter, depth=self.cap_depth,
-            calc_uvs=False, matrix=Matrix.Translation(self.cap_location) @ mat_rot.to_4x4())
+            calc_uvs=False, matrix=mat)
         bm.faces.ensure_lookup_table()
         caps = [bm.faces[-1], bm.faces[-4]]
         bmesh.ops.poke(bm, faces=caps, offset=self.cap_diameter)
@@ -311,17 +304,23 @@ class MY_OT_make_collision(bpy.types.Operator):
         bm.free()
 
     def make_sphere_collision(self, context, obj):
-        center = sum((Vector(co) for co in obj.bound_box), Vector()) / 8
-
+        mat = Matrix.Translation(self.location)
         bm = bmesh.new()
         bmesh.ops.create_icosphere(bm, subdivisions=2, diameter=self.sph_diameter * 0.5,
-            calc_uvs=False, matrix=Matrix.Translation(center))
+            calc_uvs=False, matrix=mat)
         self.create_col_object_from_bm(context, obj, bm, "USP")
         bm.free()
 
     def make_convex_collision(self, context, obj):
-        bm = bmesh.new()
-        bm.from_mesh(obj.data)
+        if context.mode == 'EDIT_MESH':
+            bm = bmesh.from_edit_mesh(obj.data).copy()
+            bm.verts.ensure_lookup_table()
+            bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.select], context='VERTS')
+        else:
+            bm = bmesh.new()
+            dg = context.evaluated_depsgraph_get()
+            bm.from_object(obj, dg)
+
         # Clean incoming mesh
         bm.edges.ensure_lookup_table()
         for edge in bm.edges:
@@ -368,7 +367,7 @@ class MY_OT_make_collision(bpy.types.Operator):
 
     def execute(self, context):
         for obj in context.selected_objects[:]:
-            if self.remove_existing:
+            if context.mode != 'EDIT_MESH':
                 pattern = re.compile(rf"^U[A-Z][A-Z]_{obj.name}_\d+")
                 for mesh in [mesh for mesh in bpy.data.meshes if pattern.match(mesh.name)]:
                     bpy.data.meshes.remove(mesh)
@@ -387,14 +386,37 @@ class MY_OT_make_collision(bpy.types.Operator):
 
     def invoke(self, context, event):
         # Calculate initial properties
-        self.calculate_parameters(context.object)
+        try:
+
+            self.calculate_parameters(context, context.object)
+        except RuntimeError as e:
+            self.report({'ERROR'}, str(e))
+            return {'CANCELLED'}
         return context.window_manager.invoke_props_dialog(self)
 
-    def calculate_parameters(self, obj):
-        mesh = obj.data
-        corner1 = Vector(obj.bound_box[0])
-        corner2 = Vector(obj.bound_box[6])
-        center = sum((Vector(co) for co in obj.bound_box), Vector()) / 8
+    def calculate_parameters(self, context, obj):
+        if context.mode == 'EDIT_MESH':
+            bm = bmesh.from_edit_mesh(obj.data)
+            vert_cos = [vert.co for vert in bm.verts if vert.select]
+        else:
+            dg = context.evaluated_depsgraph_get()
+            obj_eval = obj.evaluated_get(dg)
+            vert_cos = [vert.co for vert in obj_eval.data.vertices]
+        if len(vert_cos) < 3:
+            raise RuntimeError("Requires at least three vertices")
+
+        axis, center = get_best_fit_line(vert_cos)
+        self.location = center
+
+        corner1 = vert_cos[0].copy()
+        corner2 = vert_cos[1].copy()
+        for co in vert_cos:
+            corner1.x = min(corner1.x, co.x)
+            corner1.y = min(corner1.y, co.y)
+            corner1.z = min(corner1.z, co.z)
+            corner2.x = max(corner2.x, co.x)
+            corner2.y = max(corner2.y, co.y)
+            corner2.z = max(corner2.z, co.z)
 
         # Box dimensions
         self.box_depth = abs(corner1.x - corner2.x)
@@ -403,8 +425,7 @@ class MY_OT_make_collision(bpy.types.Operator):
 
         # Cylinder diameters
         self.cyl_diameter1 = self.cyl_diameter2 = 0.001
-        for vert in mesh.vertices:
-            co = vert.co
+        for co in vert_cos:
             dx = center.x - co.x
             dy = center.y - co.y
             d = math.sqrt(dx * dx + dy * dy)
@@ -415,17 +436,15 @@ class MY_OT_make_collision(bpy.types.Operator):
         self.cyl_height = self.box_height
 
         # Capsule axis and diameter
-        axis_dir, axis_start = get_best_fit_line([vert.co for vert in mesh.vertices])
         depth_sqr = 0.0
-        for vert in mesh.vertices:
-            dist_to_axis = get_point_dist_to_line(vert.co, axis_dir, axis_start)
+        for co in vert_cos:
+            dist_to_axis = get_point_dist_to_line(co, axis, center)
             if dist_to_axis > self.cap_diameter:
                 self.cap_diameter = dist_to_axis
-            dist_along_axis_sqr = (vert.co - axis_start).project(axis_dir).length_squared
+            dist_along_axis_sqr = (co - center).project(axis).length_squared
             if dist_along_axis_sqr > depth_sqr:
                 depth_sqr = dist_along_axis_sqr
-        self.cap_location = axis_start
-        self.cap_rotation = axis_dir.to_track_quat('Z', 'X').to_euler('XYZ')
+        self.cap_rotation = axis.to_track_quat('Z', 'X').to_euler('XYZ')
         self.cap_depth = math.sqrt(depth_sqr) * 2.0 - self.cap_diameter
 
         # Sphere diameter
@@ -435,7 +454,6 @@ class MY_OT_make_collision(bpy.types.Operator):
         layout = self.layout
         col = layout.column()
         col.prop(self, "shape")
-        col.prop(self, "remove_existing")
         col.prop(self, "wire")
         if self.shape in {'BOX', 'CYLINDER'}:
             col.prop(self, "hollow")
