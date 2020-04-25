@@ -1,29 +1,35 @@
 from fnmatch import fnmatch
-from itertools import chain
+from itertools import chain, product
 from mathutils import Matrix, Vector
 import bmesh
 import bpy
 import math
 import os
 import re
+
+from .math_helpers import (
+    get_best_fit_line,
+    get_point_dist_to_line,
+    get_range_pct,
+    get_sq_dist,
+)
 from .helpers import (
     beep,
     check_invalid_export_path,
     get_children_recursive,
     get_export_path,
-    get_range_pct,
     intercept,
     load_selection,
     remove_extra_data,
     save_selection,
     select_only,
-    sq_dist,
 )
 
 # To do:
 # make_collision for multiple objects. Should take away the shape properties and leave only the type
-# capsule collision shape. Imported capsules come out rotated in UE4, needs investigation
 # symmetrize for convex isn't good
+# collision objects shouldn't really inherit the mesh object transform
+# should it work on selected faces instead?
 
 def is_box(bm, sq_threshold=0.001):
     """Check if the shape can be represented by a box by checking if there's a vertex opposite
@@ -33,7 +39,7 @@ across the center for each vertex, within some threshold"""
     center = sum((v.co for v in bm.verts), Vector()) / 8
     for v1 in bm.verts:
         co2 = (center - v1.co) + center
-        if not any(sq_dist(v2.co, co2) <= sq_threshold for v2 in bm.verts):
+        if not any(get_sq_dist(v2.co, co2) <= sq_threshold for v2 in bm.verts):
             return False
     return True
 
@@ -84,44 +90,73 @@ class MY_OT_make_collision(bpy.types.Operator):
     )
 
     # Box settings
-    width: bpy.props.FloatProperty(
+    box_width: bpy.props.FloatProperty(
         name="Width",
-        description="Shape width",
+        description="Box width",
         min=0.001,
     )
-    depth: bpy.props.FloatProperty(
+    box_height: bpy.props.FloatProperty(
+        name="Height",
+        description="Box height",
+        min=0.001,
+    )
+    box_depth: bpy.props.FloatProperty(
         name="Depth",
-        description="Shape depth",
+        description="Box depth",
         min=0.001,
     )
 
     # Cylinder settings
-    sides: bpy.props.IntProperty(
+    cyl_sides: bpy.props.IntProperty(
         name="Sides",
         description="Number of sides",
         default=8,
         min=3,
     )
-    diameter1: bpy.props.FloatProperty(
+    cyl_diameter1: bpy.props.FloatProperty(
         name="Diameter 1",
-        description="First diameter",
+        description="First cylinder diameter",
         min=0.001,
     )
-    diameter2: bpy.props.FloatProperty(
+    cyl_diameter2: bpy.props.FloatProperty(
         name="Diameter 2",
-        description="Second diameter",
+        description="Second cylinder diameter",
         min=0.001,
     )
-    height: bpy.props.FloatProperty(
+    cyl_height: bpy.props.FloatProperty(
         name="Height",
-        description="Height",
+        description="Cylinder height",
         min=0.001,
     )
 
-    # Sphere settings
-    diameter: bpy.props.FloatProperty(
+    # Capsule settings
+    cap_diameter: bpy.props.FloatProperty(
         name="Diameter",
-        description="Diameter",
+        description="Capsule diameter",
+        min=0.001,
+    )
+    cap_depth: bpy.props.FloatProperty(
+        name="Depth",
+        description="Capsule depth",
+        min=0.001,
+    )
+    cap_location: bpy.props.FloatVectorProperty(
+        name="Location",
+        description="Capsule location",
+        subtype='TRANSLATION',
+        size=3,
+    )
+    cap_rotation: bpy.props.FloatVectorProperty(
+        name="Rotation",
+        description="Capsule rotation",
+        subtype='EULER',
+        size=3,
+    )
+
+    # Sphere settings
+    sph_diameter: bpy.props.FloatProperty(
+        name="Diameter",
+        description="Sphere diameter",
         min=0.001,
     )
 
@@ -160,7 +195,7 @@ class MY_OT_make_collision(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type == 'MESH' and context.mode == 'OBJECT'
+        return context.object and context.object.type == 'MESH' #and context.mode == 'OBJECT'
 
     def create_col_object_from_bm(self, context, obj, bm, prefix=None):
         if not prefix:
@@ -230,7 +265,7 @@ class MY_OT_make_collision(bpy.types.Operator):
 
     def make_box_collision(self, context, obj):
         center = sum((Vector(co) for co in obj.bound_box), Vector()) / 8
-        v = Vector((self.depth, self.width, self.height)) * 0.5
+        v = Vector((self.box_depth, self.box_width, self.box_height)) * 0.5
 
         bm = bmesh.new()
         verts = bmesh.ops.create_cube(bm, calc_uvs=False)["verts"]
@@ -253,26 +288,36 @@ class MY_OT_make_collision(bpy.types.Operator):
         center = sum((Vector(co) for co in obj.bound_box), Vector()) / 8
 
         bm = bmesh.new()
-        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=self.sides,
-            diameter1=self.diameter1, diameter2=self.diameter2, depth=self.height, calc_uvs=False,
-            matrix=Matrix.Translation(center))
+        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=self.cyl_sides,
+            diameter1=self.cyl_diameter1, diameter2=self.cyl_diameter2, depth=self.cyl_height,
+            calc_uvs=False, matrix=Matrix.Translation(center))
         if self.hollow:
             self.create_split_col_object_from_bm(context, obj, bm, self.thickness)
         else:
             self.create_col_object_from_bm(context, obj, bm)
         bm.free()
 
+    def make_capsule_collision(self, context, obj):
+        mat_rot = self.cap_rotation.to_matrix()
+
+        bm = bmesh.new()
+        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=8,
+            diameter1=self.cap_diameter, diameter2=self.cap_diameter, depth=self.cap_depth,
+            calc_uvs=False, matrix=Matrix.Translation(self.cap_location) @ mat_rot.to_4x4())
+        bm.faces.ensure_lookup_table()
+        caps = [bm.faces[-1], bm.faces[-4]]
+        bmesh.ops.poke(bm, faces=caps, offset=self.cap_diameter)
+        self.create_col_object_from_bm(context, obj, bm, "UCP")
+        bm.free()
+
     def make_sphere_collision(self, context, obj):
         center = sum((Vector(co) for co in obj.bound_box), Vector()) / 8
 
         bm = bmesh.new()
-        bmesh.ops.create_icosphere(bm, subdivisions=2, diameter=self.diameter * 0.5,
+        bmesh.ops.create_icosphere(bm, subdivisions=2, diameter=self.sph_diameter * 0.5,
             calc_uvs=False, matrix=Matrix.Translation(center))
         self.create_col_object_from_bm(context, obj, bm, "USP")
         bm.free()
-
-    def make_capsule_collision(self, context, obj):
-        raise NotImplementedError
 
     def make_convex_collision(self, context, obj):
         bm = bmesh.new()
@@ -332,6 +377,8 @@ class MY_OT_make_collision(bpy.types.Operator):
                 self.make_box_collision(context, obj)
             elif self.shape == 'CYLINDER':
                 self.make_cylinder_collision(context, obj)
+            elif self.shape == 'CAPSULE':
+                self.make_capsule_collision(context, obj)
             elif self.shape == 'SPHERE':
                 self.make_sphere_collision(context, obj)
             elif self.shape == 'CONVEX':
@@ -340,32 +387,49 @@ class MY_OT_make_collision(bpy.types.Operator):
 
     def invoke(self, context, event):
         # Calculate initial properties
-        obj = context.object
+        self.calculate_parameters(context.object)
+        return context.window_manager.invoke_props_dialog(self)
+
+    def calculate_parameters(self, obj):
+        mesh = obj.data
         corner1 = Vector(obj.bound_box[0])
         corner2 = Vector(obj.bound_box[6])
         center = sum((Vector(co) for co in obj.bound_box), Vector()) / 8
 
         # Box dimensions
-        self.depth = abs(corner1.x - corner2.x)
-        self.width = abs(corner1.y - corner2.y)
-        self.height = abs(corner1.z - corner2.z)
+        self.box_depth = abs(corner1.x - corner2.x)
+        self.box_width = abs(corner1.y - corner2.y)
+        self.box_height = abs(corner1.z - corner2.z)
 
         # Cylinder diameters
-        self.diameter1 = self.diameter2 = 0.001
-        for vert in obj.data.vertices:
+        self.cyl_diameter1 = self.cyl_diameter2 = 0.001
+        for vert in mesh.vertices:
             co = vert.co
             dx = center.x - co.x
             dy = center.y - co.y
             d = math.sqrt(dx * dx + dy * dy)
             influence2 = get_range_pct(corner1.z, corner2.z, co.z)
             influence1 = 1.0 - influence2
-            self.diameter1 = max(self.diameter1, d * influence1)
-            self.diameter2 = max(self.diameter2, d * influence2)
+            self.cyl_diameter1 = max(self.cyl_diameter1, d * influence1)
+            self.cyl_diameter2 = max(self.cyl_diameter2, d * influence2)
+        self.cyl_height = self.box_height
+
+        # Capsule axis and diameter
+        axis_dir, axis_start = get_best_fit_line([vert.co for vert in mesh.vertices])
+        depth_sqr = 0.0
+        for vert in mesh.vertices:
+            dist_to_axis = get_point_dist_to_line(vert.co, axis_dir, axis_start)
+            if dist_to_axis > self.cap_diameter:
+                self.cap_diameter = dist_to_axis
+            dist_along_axis_sqr = (vert.co - axis_start).project(axis_dir).length_squared
+            if dist_along_axis_sqr > depth_sqr:
+                depth_sqr = dist_along_axis_sqr
+        self.cap_location = axis_start
+        self.cap_rotation = axis_dir.to_track_quat('Z', 'X').to_euler('XYZ')
+        self.cap_depth = math.sqrt(depth_sqr) * 2.0 - self.cap_diameter
 
         # Sphere diameter
-        self.diameter = max(self.depth, self.width, self.height)
-
-        return context.window_manager.invoke_props_dialog(self)
+        self.sph_diameter = max(self.box_depth, self.box_width, self.box_height)
 
     def draw(self, context):
         layout = self.layout
@@ -380,16 +444,19 @@ class MY_OT_make_collision(bpy.types.Operator):
         col.separator()
 
         if self.shape == 'BOX':
-            col.prop(self, "width")
-            col.prop(self, "height")
-            col.prop(self, "depth")
+            col.prop(self, "box_width")
+            col.prop(self, "box_height")
+            col.prop(self, "box_depth")
         elif self.shape == 'CYLINDER':
-            col.prop(self, "sides")
-            col.prop(self, "diameter1")
-            col.prop(self, "diameter2")
-            col.prop(self, "height")
+            col.prop(self, "cyl_sides")
+            col.prop(self, "cyl_diameter1")
+            col.prop(self, "cyl_diameter2")
+            col.prop(self, "cyl_height")
+        elif self.shape == 'CAPSULE':
+            col.prop(self, "cap_diameter")
+            col.prop(self, "cap_depth")
         elif self.shape == 'SPHERE':
-            col.prop(self, "diameter")
+            col.prop(self, "sph_diameter")
         elif self.shape == 'CONVEX':
             col.prop(self, "planar_angle")
             col.prop(self, "decimate_ratio")

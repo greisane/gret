@@ -1,22 +1,10 @@
-import os
-import io
-import re
 from collections import namedtuple
 from functools import wraps, lru_cache
-import bpy
 from mathutils import Vector, Quaternion, Euler
-
-def sq_dist(v1, v2):
-    x, y, z = v1.x - v2.x, v1.y - v2.y, v1.z - v2.z
-    return x*x + y*y + z*z
-
-def get_range_pct(min_value, max_value, value):
-    """Calculates the percentage along a line from min_value to max_value"""
-
-    divisor = max_value - min_value
-    if divisor <= 0.0001:
-        return 1.0 if value >= max_value else 0.0
-    return (value - min_value) / divisor
+import bpy
+import io
+import os
+import re
 
 def select_only(context, objs):
     """Ensures only the given object or objects are selected."""
