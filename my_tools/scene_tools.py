@@ -6,7 +6,6 @@ import bpy
 import math
 import os
 import re
-
 from .math_helpers import (
     get_best_fit_line,
     get_point_dist_to_line,
@@ -436,6 +435,7 @@ class MY_OT_make_collision(bpy.types.Operator):
         self.cyl_height = self.box_height
 
         # Capsule axis and diameter
+        self.cap_diameter = 0.001
         depth_sqr = 0.0
         for co in vert_cos:
             dist_to_axis = get_point_dist_to_line(co, axis, center)

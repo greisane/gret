@@ -84,12 +84,12 @@ so the edge boundary is preserved"""
 
 def apply_modifiers(context, obj, only_render=True):
     """Apply modifiers while preserving shape keys. Handles some modifiers specially"""
-
+    special_modifier_names = {'ARMATURE', 'MASK', 'DATA_TRANSFER', 'NORMAL_EDIT', 'WEIGHTED_NORMAL'}
     special_modifiers = []
     for modifier in obj.modifiers:
         if only_render:
             modifier.show_viewport = modifier.show_render
-        if modifier.show_viewport and modifier.type in {'ARMATURE', 'MASK', 'DATA_TRANSFER'}:
+        if modifier.show_viewport and modifier.type in special_modifier_names:
             modifier.show_viewport = False
             special_modifiers.append(modifier)
 
@@ -101,10 +101,15 @@ def apply_modifiers(context, obj, only_render=True):
 
     for modifier in special_modifiers:
         modifier.show_viewport = True
-        if modifier.type == 'MASK':
+        if modifier.type == 'ARMATURE':
+            # Do nothing, just reenable
+            pass
+        elif modifier.type == 'MASK':
+            # Try to preserve edge boundaries
             print(f"Applying mask on {obj.name}")
             apply_mask_modifier(modifier)
-        elif modifier.type == 'DATA_TRANSFER':
+        else:
+            # Apply post-mirror modifiers
             bpy.ops.object.modifier_apply(modifier=modifier.name)
 
 @intercept(error_result={'CANCELLED'})
