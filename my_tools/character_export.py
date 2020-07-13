@@ -134,7 +134,7 @@ def export_autorig(filepath, actions):
     # Unreal Options
     scn.arp_ue_root_motion = True
     scn.arp_rename_for_ue = True
-    scn.arp_ue_ik = True
+    scn.arp_ue_ik = False
     scn.arp_mannequin_axes = True
 
     # Animation
