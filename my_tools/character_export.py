@@ -135,7 +135,7 @@ def export_autorig(filepath, actions):
     scn.arp_ue_root_motion = True
     scn.arp_rename_for_ue = True
     scn.arp_ue_ik = False
-    scn.arp_mannequin_axes = True
+    scn.arp_mannequin_axes = False
 
     # Animation
     if not actions:
