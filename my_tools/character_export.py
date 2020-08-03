@@ -112,7 +112,7 @@ def apply_modifiers(context, obj, only_render=True):
             # Apply post-mirror modifiers
             bpy.ops.object.modifier_apply(modifier=modifier.name)
 
-@intercept(error_result={'CANCELLED'})
+# @intercept(error_result={'CANCELLED'})
 def export_autorig(filepath, actions):
     scn = bpy.context.scene
 
@@ -135,7 +135,7 @@ def export_autorig(filepath, actions):
     scn.arp_ue_root_motion = True
     scn.arp_rename_for_ue = True
     scn.arp_ue_ik = False
-    scn.arp_mannequin_axes = False
+    scn.arp_mannequin_axes = True
 
     # Animation
     if not actions:
