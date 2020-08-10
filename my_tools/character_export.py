@@ -112,9 +112,32 @@ def apply_modifiers(context, obj, only_render=True):
             # Apply post-mirror modifiers
             bpy.ops.object.modifier_apply(modifier=modifier.name)
 
+ik_bone_names = [
+    "ik_foot_root",
+    "ik_foot.l",
+    "ik_foot.r",
+    "ik_hand_root",
+    "ik_hand_gun",
+    "ik_hand.l",
+    "ik_hand.r"
+]
+
 # @intercept(error_result={'CANCELLED'})
-def export_autorig(filepath, actions):
-    scn = bpy.context.scene
+def export_autorig(context, filepath, actions):
+    scn = context.scene
+    rig = context.active_object
+    ik_bones_not_found = [s for s in ik_bone_names if
+        s not in rig.pose.bones or "custom_bone" not in rig.pose.bones[s]]
+    if not ik_bones_not_found:
+        # All IK bones accounted for
+        add_ik_bones = False
+    elif len(ik_bones_not_found) == len(ik_bone_names):
+        # No IK bones present, let ARP create them
+        add_ik_bones = True
+    else:
+        # Only some IK bones found. Probably a mistake
+        raise Exception("Some IK bones are missing or not marked for export: "
+            + ", ".join(ik_bones_not_found))
 
     # Configure Auto-Rig and then finally export
     scn.arp_engine_type = 'unreal'
@@ -134,7 +157,7 @@ def export_autorig(filepath, actions):
     # Unreal Options
     scn.arp_ue_root_motion = True
     scn.arp_rename_for_ue = True
-    scn.arp_ue_ik = False
+    scn.arp_ue_ik = add_ik_bones
     scn.arp_mannequin_axes = True
 
     # Animation
@@ -161,7 +184,7 @@ def export_autorig(filepath, actions):
     return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})
-def export_fbx(filepath, actions):
+def export_fbx(context, filepath, actions):
     if actions:
         # Needs to slap action strips in the NLA
         raise NotImplementedError
@@ -469,10 +492,10 @@ class MY_OT_character_export(bpy.types.Operator):
 
             if is_object_arp(rig):
                 print(f"Exporting {filename} via Auto-Rig export")
-                result = export_autorig(filepath, export_group.actions)
+                result = export_autorig(context, filepath, export_group.actions)
             else:
                 print(f"Exporting {filename}")
-                result = export_fbx(filepath, export_group.actions)
+                result = export_fbx(context, filepath, export_group.actions)
 
             if result == {'FINISHED'}:
                 exported_files.append(filepath)
