@@ -57,6 +57,7 @@ class MY_OT_make_collision(bpy.types.Operator):
             ('CAPSULE', "Capsule", "Capsule collision.", 'MESH_CAPSULE', 2),
             ('SPHERE', "Sphere", "Sphere collision.", 'MESH_UVSPHERE', 3),
             ('CONVEX', "Convex", "Convex collision.", 'MESH_ICOSPHERE', 4),
+            ('WALL', "Wall", "Wall collision.", 'MOD_SOLIDIFY', 5),
         ],
         name="Shape",
         description="Selects the collision shape",
@@ -379,6 +380,19 @@ class MY_OT_make_collision(bpy.types.Operator):
 
         bpy.ops.object.mode_set(mode='OBJECT')
 
+    def make_wall_collision(self, context, obj):
+        if context.mode == 'EDIT_MESH':
+            bm = bmesh.from_edit_mesh(obj.data).copy()
+            bm.verts.ensure_lookup_table()
+            bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.select], context='VERTS')
+        else:
+            bm = bmesh.new()
+            dg = context.evaluated_depsgraph_get()
+            bm.from_object(obj, dg)
+
+        self.create_split_col_object_from_bm(context, obj, bm, self.thickness, self.offset)
+        bm.free()
+
     def execute(self, context):
         for obj in context.selected_objects[:]:
             if context.mode != 'EDIT_MESH':
@@ -396,6 +410,8 @@ class MY_OT_make_collision(bpy.types.Operator):
                 self.make_sphere_collision(context, obj)
             elif self.shape == 'CONVEX':
                 self.make_convex_collision(context, obj)
+            elif self.shape == 'WALL':
+                self.make_wall_collision(context, obj)
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -500,6 +516,9 @@ class MY_OT_make_collision(bpy.types.Operator):
             row.prop(self, "x_symmetry", text="X", toggle=1)
             row.prop(self, "y_symmetry", text="Y", toggle=1)
             row.prop(self, "z_symmetry", text="Z", toggle=1)
+        elif self.shape == 'WALL':
+            col.prop(self, "thickness")
+            col.prop(self, "offset")
 
 class MY_OT_scene_export(bpy.types.Operator):
     #tooltip
