@@ -26,6 +26,7 @@ from .helpers import (
 
 # To do:
 # make_collision for multiple objects. Should take away the shape properties and leave only the type
+# non-aabb box
 # symmetrize for convex isn't good
 # collision objects shouldn't really inherit the mesh object transform
 
@@ -103,6 +104,12 @@ class MY_OT_make_collision(bpy.types.Operator):
         name="Depth",
         description="Box depth",
         min=0.001,
+    )
+    box_center: bpy.props.FloatVectorProperty(
+        name="Center",
+        description="Box center",
+        subtype='TRANSLATION',
+        size=3,
     )
 
     # Cylinder settings
@@ -263,14 +270,14 @@ class MY_OT_make_collision(bpy.types.Operator):
 
         bm = bmesh.new()
         verts = bmesh.ops.create_cube(bm, calc_uvs=False)["verts"]
-        verts[0].co = self.location.x - v.x, self.location.y - v.y, self.location.z - v.z
-        verts[1].co = self.location.x - v.x, self.location.y - v.y, self.location.z + v.z
-        verts[2].co = self.location.x - v.x, self.location.y + v.y, self.location.z - v.z
-        verts[3].co = self.location.x - v.x, self.location.y + v.y, self.location.z + v.z
-        verts[4].co = self.location.x + v.x, self.location.y - v.y, self.location.z - v.z
-        verts[5].co = self.location.x + v.x, self.location.y - v.y, self.location.z + v.z
-        verts[6].co = self.location.x + v.x, self.location.y + v.y, self.location.z - v.z
-        verts[7].co = self.location.x + v.x, self.location.y + v.y, self.location.z + v.z
+        verts[0].co = self.box_center.x - v.x, self.box_center.y - v.y, self.box_center.z - v.z
+        verts[1].co = self.box_center.x - v.x, self.box_center.y - v.y, self.box_center.z + v.z
+        verts[2].co = self.box_center.x - v.x, self.box_center.y + v.y, self.box_center.z - v.z
+        verts[3].co = self.box_center.x - v.x, self.box_center.y + v.y, self.box_center.z + v.z
+        verts[4].co = self.box_center.x + v.x, self.box_center.y - v.y, self.box_center.z - v.z
+        verts[5].co = self.box_center.x + v.x, self.box_center.y - v.y, self.box_center.z + v.z
+        verts[6].co = self.box_center.x + v.x, self.box_center.y + v.y, self.box_center.z - v.z
+        verts[7].co = self.box_center.x + v.x, self.box_center.y + v.y, self.box_center.z + v.z
 
         if self.hollow:
             self.create_split_col_object_from_bm(context, obj, bm, self.thickness)
@@ -421,6 +428,7 @@ class MY_OT_make_collision(bpy.types.Operator):
         self.box_depth = abs(corner1.x - corner2.x)
         self.box_width = abs(corner1.y - corner2.y)
         self.box_height = abs(corner1.z - corner2.z)
+        self.box_center = (corner1 + corner2) * 0.5
 
         # Cylinder diameters
         self.cyl_diameter1 = self.cyl_diameter2 = 0.001
