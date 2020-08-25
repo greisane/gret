@@ -82,6 +82,13 @@ class MY_OT_make_collision(bpy.types.Operator):
         default=0.2,
         min=0.001,
     )
+    offset: bpy.props.FloatProperty(
+        name="Offset",
+        description="Offset the thickness from the center",
+        default=-1.0,
+        min=-1.0,
+        max=1.0,
+    )
     location: bpy.props.FloatVectorProperty(
         name="Location",
         description="Shape location",
@@ -234,9 +241,10 @@ class MY_OT_make_collision(bpy.types.Operator):
         collection.objects.link(col_obj)
         return col_obj
 
-    def create_split_col_object_from_bm(self, context, obj, bm, thickness, distance=0.0):
+    def create_split_col_object_from_bm(self, context, obj, bm, thickness, offset=0.0):
         # Based on https://github.com/blender/blender-addons/blob/master/mesh_tools/split_solidify.py
         # by zmj100, updated by zeffii to BMesh
+        distance = thickness * (offset + 1.0) * 0.5
         src_bm = bm
         src_bm.faces.ensure_lookup_table()
         src_bm.verts.ensure_lookup_table()
@@ -280,7 +288,7 @@ class MY_OT_make_collision(bpy.types.Operator):
         verts[7].co = self.box_center.x + v.x, self.box_center.y + v.y, self.box_center.z + v.z
 
         if self.hollow:
-            self.create_split_col_object_from_bm(context, obj, bm, self.thickness)
+            self.create_split_col_object_from_bm(context, obj, bm, self.thickness, self.offset)
         else:
             self.create_col_object_from_bm(context, obj, bm)
         bm.free()
@@ -292,7 +300,7 @@ class MY_OT_make_collision(bpy.types.Operator):
             diameter1=self.cyl_diameter1, diameter2=self.cyl_diameter2, depth=self.cyl_height,
             calc_uvs=False, matrix=mat)
         if self.hollow:
-            self.create_split_col_object_from_bm(context, obj, bm, self.thickness)
+            self.create_split_col_object_from_bm(context, obj, bm, self.thickness, self.offset)
         else:
             self.create_col_object_from_bm(context, obj, bm)
         bm.free()
@@ -467,6 +475,7 @@ class MY_OT_make_collision(bpy.types.Operator):
             col.prop(self, "hollow")
             if self.hollow:
                 col.prop(self, "thickness")
+                col.prop(self, "offset")
         col.separator()
 
         if self.shape == 'BOX':
