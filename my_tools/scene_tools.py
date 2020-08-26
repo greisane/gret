@@ -201,6 +201,13 @@ class MY_OT_make_collision(bpy.types.Operator):
         default=False,
     )
 
+    # Wall settings
+    wall_fill_holes: bpy.props.BoolProperty(
+        name="Fill holes",
+        description="Fill rectangular holes in walls",
+        default=False,
+    )
+
     @classmethod
     def poll(cls, context):
         return (context.object
@@ -390,6 +397,10 @@ class MY_OT_make_collision(bpy.types.Operator):
             dg = context.evaluated_depsgraph_get()
             bm.from_object(obj, dg)
 
+        if self.wall_fill_holes:
+            result = bmesh.ops.holes_fill(bm, edges=bm.edges, sides=4)
+            hole_edges = list(chain.from_iterable(f.edges for f in result['faces']))
+            bmesh.ops.dissolve_edges(bm, edges=hole_edges, use_verts=True)
         bmesh.ops.split_edges(bm, edges=bm.edges)
         bmesh.ops.dissolve_limit(bm, angle_limit=math.radians(5.0),
             verts=bm.verts, edges=bm.edges, use_dissolve_boundaries=False, delimit=set())
@@ -523,6 +534,7 @@ class MY_OT_make_collision(bpy.types.Operator):
         elif self.shape == 'WALL':
             col.prop(self, "thickness")
             col.prop(self, "offset")
+            col.prop(self, "wall_fill_holes")
 
 class MY_OT_scene_export(bpy.types.Operator):
     #tooltip
