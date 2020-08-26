@@ -28,7 +28,7 @@ from .helpers import (
 # make_collision for multiple objects. Should take away the shape properties and leave only the type
 # non-aabb box
 # symmetrize for convex isn't good
-# collision objects shouldn't really inherit the mesh object transform
+# wall collision should try to decompose into boxes
 
 def is_box(bm, sq_threshold=0.001):
     """Check if the shape can be represented by a box by checking if there's a vertex opposite
@@ -389,6 +389,10 @@ class MY_OT_make_collision(bpy.types.Operator):
             bm = bmesh.new()
             dg = context.evaluated_depsgraph_get()
             bm.from_object(obj, dg)
+
+        bmesh.ops.split_edges(bm, edges=bm.edges)
+        bmesh.ops.dissolve_limit(bm, angle_limit=math.radians(5.0),
+            verts=bm.verts, edges=bm.edges, use_dissolve_boundaries=False, delimit=set())
 
         self.create_split_col_object_from_bm(context, obj, bm, self.thickness, self.offset)
         bm.free()
