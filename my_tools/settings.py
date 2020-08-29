@@ -213,6 +213,11 @@ class MY_PG_settings(bpy.types.PropertyGroup):
         description="Skips exporting meshes",
         default=False,
     )
+    material_name_prefix: bpy.props.StringProperty(
+        name="Material Prefix",
+        description="Ensures that exported material names begin with a prefix",
+        default="MI_",
+    )
 
     # Character export
     export_jobs: bpy.props.CollectionProperty(

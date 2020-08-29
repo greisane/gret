@@ -587,8 +587,8 @@ class MY_OT_scene_export(bpy.types.Operator):
         collision_prefixes = ("UCX", "UBX", "UCP", "USP")
         exported_armatures = []
         path_fields = {
-            "num":0,
-            "object":"None",
+            "num": 0,
+            "object": "None",
         }
 
         for obj in context.selected_objects[:]:
@@ -640,6 +640,15 @@ class MY_OT_scene_export(bpy.types.Operator):
             saved_transforms[obj] = obj.matrix_world.copy()
             obj.matrix_world.identity()
 
+            # If set, add a prefix to the exported materials
+            saved_material_names = {}
+            if obj.type == 'MESH' and scn.my_tools.material_name_prefix:
+                for mat_slot in obj.material_slots:
+                    mat = mat_slot.material
+                    if not mat.name.startswith(scn.my_tools.material_name_prefix):
+                        saved_material_names[mat] = mat.name
+                        mat.name = scn.my_tools.material_name_prefix + mat.name
+
             # if obj and obj.type == 'ARMATURE' and scn.my_tools.export_animation_only and name.startswith("SK_"):
             #     # As a special case change SK_ prefix to A_ following UE4 naming conventions
             #     name = "A_" + name[len("SK_"):]
@@ -657,6 +666,10 @@ class MY_OT_scene_export(bpy.types.Operator):
             for obj, matrix_world in saved_transforms.items():
                 obj.matrix_world = matrix_world
 
+            # Restore material names
+            for mat, name in saved_material_names.items():
+                mat.name = name
+
     def execute(self, context):
         scn = context.scene
 
@@ -665,9 +678,9 @@ class MY_OT_scene_export(bpy.types.Operator):
             return {'CANCELLED'}
 
         path_fields = {
-            "num":0,
-            "object":"None",
-            "action":"None",
+            "num": 0,
+            "object": "None",
+            "action": "None",
         }
         reason = check_invalid_export_path(scn.my_tools.export_path, **path_fields)
         if reason:
@@ -712,6 +725,7 @@ class MY_PT_scene_export(bpy.types.Panel):
         col1 = col.column(align=True)
         col1.enabled = not scn.my_tools.export_animation_only
         col1.prop(scn.my_tools, "export_collision")
+        col1.prop(scn.my_tools, "material_name_prefix")
         col1 = col.column(align=True)
         col1.prop(scn.my_tools, "export_path", text="")
         col1.operator("my_tools.scene_export", icon='FORWARD', text="Export Selected")
