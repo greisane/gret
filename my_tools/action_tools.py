@@ -28,6 +28,9 @@ class MY_OT_action_set(bpy.types.Operator):
         action = bpy.data.actions.get(self.name, None)
 
         if action:
+            # Always save it, just in case
+            action.use_fake_user = True
+
             if self.new_name:
                 # Rename
                 action.name = self.new_name
