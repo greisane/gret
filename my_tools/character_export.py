@@ -1,7 +1,8 @@
-import os
-import math
 from collections import namedtuple
 import bpy
+import math
+import os
+import time
 from .helpers import get_children_recursive, get_flipped_name, intercept
 from .helpers import get_export_path, check_invalid_export_path
 from .helpers import is_object_arp, clear_pose
@@ -122,7 +123,7 @@ ik_bone_names = [
     "ik_hand.r"
 ]
 
-# @intercept(error_result={'CANCELLED'})
+@intercept(error_result={'CANCELLED'})
 def export_autorig(context, filepath, actions):
     scn = context.scene
     rig = context.active_object
@@ -320,6 +321,7 @@ class MY_OT_character_export(bpy.types.Operator):
         return context.object and context.object.mode == "OBJECT"
 
     def _execute(self, context, rig):
+        start_time = time.time()
         path_fields = {}
         mesh_objs = []
         if self.export_meshes:
@@ -503,13 +505,14 @@ class MY_OT_character_export(bpy.types.Operator):
                 print("Failed to export!")
 
         # Finished without errors
+        elapsed = time.time() - start_time
         if not exported_files:
             self.report({"INFO"}, "Nothing exported.")
         elif len(exported_files) <= 5:
             filenames = [bpy.path.basename(filepath) for filepath in exported_files]
-            self.report({"INFO"}, "Exported %s" % ', '.join(filenames))
+            self.report({"INFO"}, f"Exported {', '.join(filenames)} in {elapsed:.2f}s.")
         else:
-            self.report({'INFO'}, "%d files exported." % len(exported_files))
+            self.report({'INFO'}, f"{len(exported_files)} files exported in {elapsed:.2f}s.")
 
     def execute(self, context):
         rig = context.object
