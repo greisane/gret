@@ -266,6 +266,28 @@ class MY_OT_property_remove(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class MY_OT_propagate_bone_inherit_scale(bpy.types.Operator):
+    #tooltip
+    """Propagates 'Inherit Scale' from the selected bone to children"""
+
+    bl_idname = "my_tools.propagate_bone_inherit_scale"
+    bl_label = "Propagate Bone Inherit Scale"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.selected_pose_bones_from_active_object
+
+    def execute(self, context):
+        obj = context.object
+
+        for active_pbone in context.selected_pose_bones_from_active_object:
+            active_bone = obj.data.bones[active_pbone.name]
+            for bone in active_bone.children_recursive:
+                bone.inherit_scale = active_bone.inherit_scale
+
+        return {'FINISHED'}
+
 class MY_PT_character(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -321,6 +343,7 @@ classes = (
     MY_OT_clear_insertor_target,
     MY_OT_property_add,
     MY_OT_property_remove,
+    MY_OT_propagate_bone_inherit_scale,
     MY_PT_character,
 )
 
