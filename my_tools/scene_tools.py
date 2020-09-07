@@ -24,11 +24,45 @@ from .helpers import (
     select_only,
 )
 
-# To do:
-# make_collision for multiple objects. Should take away the shape properties and leave only the type
-# non-aabb box
-# symmetrize for convex isn't good
-# wall collision should try to decompose into boxes
+# make_collision TODO:
+# - Multiple objects. Should take away the shape properties and leave only the type
+# - Non-AABB boxes
+# - Symmetrize for convex isn't good
+# - Wall collision should try to decompose into boxes
+
+class MY_OT_deduplicate_materials(bpy.types.Operator):
+    #tooltip
+    """Deletes duplicate materials and fixes meshes that reference them"""
+
+    bl_idname = "my_tools.deduplicate_materials"
+    bl_label = "Deduplicate Materials"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'OBJECT'
+
+    def execute(self, context):
+        redirects = {}
+        # Find duplicate materials
+        # For now, duplicate means they are suffixed with ".001", ".002" and the original exists
+        for mat in bpy.data.materials:
+            match = re.match(r"^(.*)\.\d\d\d$", mat.name)
+            if match:
+                original_name, = match.groups(0)
+                original = bpy.data.materials.get(original_name)
+                if original:
+                    redirects[mat] = original
+        # Replace references in existing meshes
+        for me in bpy.data.meshes:
+            for idx, mat in enumerate(me.materials):
+                me.materials[idx] = redirects.get(mat, mat)
+        # Delete duplicate materials
+        for mat in redirects.keys():
+            bpy.data.materials.remove(mat, do_unlink=True)
+
+        self.report({"INFO"}, f"Deleted {len(redirects)} duplicate materials.")
+        return {'FINISHED'}
 
 def is_box(bm, sq_threshold=0.001):
     """Check if the shape can be represented by a box by checking if there's a vertex opposite
@@ -803,7 +837,7 @@ class MY_OT_character_export_execute(bpy.types.Operator):
         saved_selection = save_selection()
         saved_hide = {}
         new_fcurves = []
-        bpy.context.view_layer.objects.active = job.rig
+        context.view_layer.objects.active = job.rig
         bpy.ops.object.mode_set(mode='OBJECT')
 
         if job.what == 'MESH':
@@ -970,6 +1004,7 @@ class MY_PT_character_export(bpy.types.Panel):
             op.index = job_idx
 
 classes = (
+    MY_OT_deduplicate_materials,
     MY_OT_make_collision,
     MY_OT_scene_export,
     MY_PT_scene_export,
