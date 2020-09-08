@@ -21,7 +21,7 @@ class MESH_OT_sculpt_selection(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
-    def poll(self, cls):
+    def poll(cls, context):
         return context.object and context.mode == 'EDIT_MESH'
 
     def execute(self, context):
