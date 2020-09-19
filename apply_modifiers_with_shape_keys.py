@@ -60,7 +60,6 @@ class OBJECT_OT_apply_modifiers_with_shape_keys(bpy.types.Operator):
             obj.data = obj.data.copy()
 
         # Modifier blacklist. These are applied at the end AFTER shapekeys are recreated
-        modifier_blacklist = ['DATA_TRANSFER']
         disabled_modifiers = []
 
         # Disable mirror merge to avoid issues when shapekeys push vertices past the threshold
@@ -75,7 +74,7 @@ class OBJECT_OT_apply_modifiers_with_shape_keys(bpy.types.Operator):
                 merge_y |= modifier.use_axis[1]
                 merge_z |= modifier.use_axis[2]
                 merge_threshold = max(merge_threshold, modifier.merge_threshold)
-            elif modifier.type in modifier_blacklist:
+            elif modifier.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL' in modifier.data_types_loops:
                 modifier.show_viewport = False
                 disabled_modifiers.append(modifier)
 

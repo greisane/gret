@@ -96,12 +96,16 @@ so the edge boundary is preserved"""
 def apply_modifiers(context, obj, mask_edge_boundary=False):
     """Apply modifiers while preserving shape keys. Handles some modifiers specially."""
 
-    special_modifier_names = {'ARMATURE', 'MASK', 'DATA_TRANSFER', 'NORMAL_EDIT', 'WEIGHTED_NORMAL'}
-    special_modifiers = []
+    def should_disable_modifier(mo):
+        return (mo.type in {'ARMATURE', 'MASK', 'NORMAL_EDIT', 'WEIGHTED_NORMAL'}
+            or mo.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL' in mo.data_types_loops)
+
+    disabled_modifiers = []
     for modifier in obj.modifiers:
-        if modifier.show_viewport and modifier.type in special_modifier_names:
+        if modifier.show_viewport and should_disable_modifier(modifier):
+            print(f"disabling {modifier.name} {modifier.type}")
             modifier.show_viewport = False
-            special_modifiers.append(modifier)
+            disabled_modifiers.append(modifier)
 
     context.view_layer.objects.active = obj
     num_shape_keys = len(obj.data.shape_keys.key_blocks) if obj.data.shape_keys else 0
@@ -109,7 +113,7 @@ def apply_modifiers(context, obj, mask_edge_boundary=False):
         print(f"Applying modifiers on {obj.name} with {num_shape_keys} shape keys")
     bpy.ops.object.apply_modifiers_with_shape_keys()
 
-    for modifier in special_modifiers:
+    for modifier in disabled_modifiers:
         modifier.show_viewport = True
         if modifier.type == 'ARMATURE':
             # Do nothing, just reenable
