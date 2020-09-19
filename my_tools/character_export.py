@@ -1,4 +1,6 @@
 from collections import namedtuple
+from itertools import chain
+import bmesh
 import bpy
 import math
 import os
@@ -112,6 +114,33 @@ def apply_modifiers(context, obj, only_render=True):
         else:
             # Apply post-mirror modifiers
             bpy.ops.object.modifier_apply(modifier=modifier.name)
+
+def merge_freestyle_edges(mesh):
+    """Does 'Remove Doubles' on freestyle marked edges. Returns the number of vertices merged."""
+
+    obj = bpy.context.object
+    saved_mode = bpy.context.mode
+
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bm.edges.ensure_lookup_table()
+    old_num_verts = len(bm.verts)
+
+    # Seems the following would be the proper way, however as of 2.90.0 it returns NotImplemented
+    # fs_layer = bm.edges.layers.freestyle.active
+    # fs_edges = [e for e in bm.edges if bm.edges[idx][fs_layer]]
+    fs_edges = [e for e in bm.edges if mesh.edges[e.index].use_freestyle_mark]
+
+    # Get list of unique verts
+    fs_verts = list(set(chain.from_iterable(e.verts for e in fs_edges)))
+    bmesh.ops.remove_doubles(bm, verts=fs_verts, dist=1e-5)
+    new_num_verts = len(bm.verts)
+
+    # Finish and clean up
+    bm.to_mesh(mesh)
+    bm.free()
+
+    return old_num_verts - new_num_verts
 
 ik_bone_names = [
     "ik_foot_root",
@@ -441,6 +470,10 @@ class MY_OT_character_export(bpy.types.Operator):
                 ctx["selected_objects"] = ctx["selected_editable_objects"] = objs
 
                 bpy.ops.object.join(ctx)
+
+                num_verts_merged = merge_freestyle_edges(merged_obj.data)
+                if num_verts_merged:
+                    print(f"Merged {num_verts_merged} duplicate verts (edges were marked freestyle)")
 
                 # Enable autosmooth for merged object in case there's custom normals
                 merged_obj.data.use_auto_smooth = True
