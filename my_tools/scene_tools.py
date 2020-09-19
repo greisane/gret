@@ -868,10 +868,10 @@ class MY_OT_character_export_execute(bpy.types.Operator):
                 export_path=job.export_path,
                 export_meshes=True,
                 export_animation=False,
-                suffix=job.suffix,
                 apply_modifiers=job.apply_modifiers,
                 mirror_shape_keys=job.mirror_shape_keys,
                 join_meshes=job.join_meshes,
+                preserve_mask_normals=job.preserve_mask_normals,
                 split_masks=job.split_masks,
                 simulate=job.simulate,
             )
@@ -975,11 +975,12 @@ class MY_PT_character_export(bpy.types.Panel):
                         row.prop(coll, "export_render", icon='RESTRICT_RENDER_OFF', text="")
 
                     col = box.column()
-                    col.prop(job, "suffix")
                     col.prop(job, "apply_modifiers")
                     col.prop(job, "mirror_shape_keys")
                     col.prop(job, "join_meshes")
-                    col.prop(job, "split_masks")
+                    col.prop(job, "preserve_mask_normals")
+                    # Don't have an use for Split Masks currently and too many options gets confusing
+                    # col.prop(job, "split_masks")
                     col.prop(job, "simulate")
                 elif job.what == 'ANIMATION':
                     col = box.column(align=True)

@@ -5,9 +5,18 @@ import bpy
 import math
 import os
 import time
-from .helpers import get_children_recursive, get_flipped_name, intercept
-from .helpers import get_export_path, check_invalid_export_path
-from .helpers import is_object_arp, clear_pose
+from .helpers import (
+    check_invalid_export_path,
+    clear_pose,
+    get_children_recursive,
+    get_export_path,
+    get_flipped_name,
+    intercept,
+    is_object_arp,
+    load_selection,
+    save_selection,
+    select_only,
+)
 
 def duplicate_shape_key(obj, name, new_name):
     # Store state
@@ -54,16 +63,15 @@ def apply_mask_modifier(mask_modifier):
 so the edge boundary is preserved"""
 
     obj = bpy.context.object
-
+    saved_mode = bpy.context.mode
     if mask_modifier.vertex_group not in obj.vertex_groups:
         # No such vertex group
         return
-
     mask_vgroup = obj.vertex_groups[mask_modifier.vertex_group]
-    saved_mode = bpy.context.mode
 
     # Need vertex mode to be set then object mode to actually select
-    bpy.ops.object.mode_set(mode='EDIT')
+    if bpy.context.mode != 'EDIT':
+        bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.select_mode(type='FACE')
     bpy.ops.mesh.select_all(action='DESELECT')
     bpy.ops.mesh.select_mode(type='VERT')
@@ -85,14 +93,12 @@ so the edge boundary is preserved"""
     if bpy.context.mode != saved_mode:
         bpy.ops.object.mode_set(mode=saved_mode)
 
-def apply_modifiers(context, obj, mask_edge_boundary=False, only_render=True):
+def apply_modifiers(context, obj, mask_edge_boundary=False):
     """Apply modifiers while preserving shape keys. Handles some modifiers specially."""
 
     special_modifier_names = {'ARMATURE', 'MASK', 'DATA_TRANSFER', 'NORMAL_EDIT', 'WEIGHTED_NORMAL'}
     special_modifiers = []
     for modifier in obj.modifiers:
-        if only_render:
-            modifier.show_viewport = modifier.show_render
         if modifier.show_viewport and modifier.type in special_modifier_names:
             modifier.show_viewport = False
             special_modifiers.append(modifier)
@@ -116,30 +122,51 @@ def apply_modifiers(context, obj, mask_edge_boundary=False, only_render=True):
             # Apply post-mirror modifiers
             bpy.ops.object.modifier_apply(modifier=modifier.name)
 
-def merge_freestyle_edges(mesh):
+def merge_freestyle_edges(obj):
     """Does 'Remove Doubles' on freestyle marked edges. Returns the number of vertices merged."""
+    # Reverted to using bpy.ops because bmesh is failing to merge normals correctly
 
-    obj = bpy.context.object
     saved_mode = bpy.context.mode
 
-    bm = bmesh.new()
-    bm.from_mesh(mesh)
-    bm.edges.ensure_lookup_table()
-    old_num_verts = len(bm.verts)
+    # Need vertex mode to be set then object mode to actually select
+    select_only(bpy.context, obj)
+    if bpy.context.mode != 'EDIT':
+        bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_mode(type='EDGE')
+    bpy.ops.mesh.select_all(action='DESELECT')
+    bpy.ops.object.mode_set(mode='OBJECT')
 
-    # Seems the following would be the proper way, however as of 2.90.0 it returns NotImplemented
-    # fs_layer = bm.edges.layers.freestyle.active
-    # fs_edges = [e for e in bm.edges if bm.edges[idx][fs_layer]]
-    fs_edges = [e for e in bm.edges if mesh.edges[e.index].use_freestyle_mark]
+    for edge in obj.data.edges:
+        edge.select = edge.use_freestyle_mark
 
-    # Get list of unique verts
-    fs_verts = list(set(chain.from_iterable(e.verts for e in fs_edges)))
-    bmesh.ops.remove_doubles(bm, verts=fs_verts, dist=1e-5)
-    new_num_verts = len(bm.verts)
+    bpy.ops.object.mode_set(mode='EDIT')
+    old_num_verts = len(obj.data.vertices)
+    bpy.ops.mesh.remove_doubles(threshold=1e-5, use_unselected=False)
+    new_num_verts = len(obj.data.vertices)
 
-    # Finish and clean up
-    bm.to_mesh(mesh)
-    bm.free()
+    # mesh = obj.data
+    # bm = bmesh.new()
+    # bm.from_mesh(mesh)
+    # bm.edges.ensure_lookup_table()
+    # old_num_verts = len(bm.verts)
+
+    # # Seems the following would be the proper way, however as of 2.90.0 it returns NotImplemented
+    # # fs_layer = bm.edges.layers.freestyle.active
+    # # fs_edges = [e for e in bm.edges if bm.edges[idx][fs_layer]]
+    # fs_edges = [e for e in bm.edges if mesh.edges[e.index].use_freestyle_mark]
+
+    # # Get list of unique verts
+    # fs_verts = list(set(chain.from_iterable(e.verts for e in fs_edges)))
+    # bmesh.ops.remove_doubles(bm, verts=fs_verts, dist=1e-5)
+    # new_num_verts = len(bm.verts)
+
+    # # Finish and clean up
+    # bm.to_mesh(mesh)
+    # bm.free()
+
+    # Clean up
+    if bpy.context.mode != saved_mode:
+        bpy.ops.object.mode_set(mode=saved_mode)
 
     return old_num_verts - new_num_verts
 
@@ -256,6 +283,7 @@ class MY_OT_character_export(bpy.types.Operator):
     bl_idname = "my_tools.character_export"
     bl_label = "Character Export"
     bl_context = "objectmode"
+    bl_options = {'INTERNAL'}
 
     export_path: bpy.props.StringProperty(
         name="Export Path",
@@ -264,11 +292,6 @@ class MY_OT_character_export(bpy.types.Operator):
 {action} = Name of the first action being exported, if exporting actions""",
         default="//export/{basename}.fbx",
         subtype='FILE_PATH',
-    )
-    suffix: bpy.props.StringProperty(
-        name="Mesh Suffix",
-        description="""Exported mesh suffix, will default to underscore if empty""",
-        default="",
     )
     export_meshes: bpy.props.BoolProperty(
         name="Export Meshes",
@@ -293,6 +316,11 @@ class MY_OT_character_export(bpy.types.Operator):
     join_meshes: bpy.props.BoolProperty(
         name="Join Meshes",
         description="Joins meshes before exporting",
+        default=True,
+    )
+    preserve_mask_normals: bpy.props.BoolProperty(
+        name="Preserve Mask Normals",
+        description="Preserves normals of meshes that have mask modifiers",
         default=True,
     )
     split_masks: bpy.props.BoolProperty(
@@ -322,8 +350,7 @@ class MY_OT_character_export(bpy.types.Operator):
 
     def copy_obj(self, obj, copy_data=True):
         new_obj = obj.copy()
-        suffix = self.suffix or "_"
-        new_obj.name = obj.name + suffix
+        new_obj.name = obj.name + "_"
         if copy_data:
             new_data = obj.data.copy()
             if isinstance(new_data, bpy.types.Mesh):
@@ -335,19 +362,22 @@ class MY_OT_character_export(bpy.types.Operator):
 
         # New objects are moved to the scene collection, ensuring they're visible
         bpy.context.scene.collection.objects.link(new_obj)
+        new_obj.hide_set(False)
+        new_obj.hide_viewport = False
+        new_obj.hide_select = False
         return new_obj
 
-    def clone_obj(self, obj):
+    def copy_obj_clone_normals(self, obj):
         new_obj = self.copy_obj(obj, copy_data=True)
-        new_obj.data.use_auto_smooth = True # Enable custom normals
+        new_obj.data.use_auto_smooth = True  # Enable custom normals
         new_obj.data.auto_smooth_angle = math.pi
-        data_transfer = new_obj.modifiers.new("Masked", 'DATA_TRANSFER')
-        data_transfer.object = whole_obj
+        data_transfer = new_obj.modifiers.new("Clone Normals", 'DATA_TRANSFER')
+        data_transfer.object = obj
         data_transfer.use_object_transform = False
         data_transfer.use_loop_data = True
         data_transfer.loop_mapping = 'NEAREST_POLY'
         data_transfer.data_types_loops = {'CUSTOM_NORMAL'}
-        data_transfer.use_max_distance = 1e-5
+        data_transfer.max_distance = 1e-5
         data_transfer.use_max_distance = True
         return new_obj
 
@@ -360,8 +390,12 @@ class MY_OT_character_export(bpy.types.Operator):
         path_fields = {}
         mesh_objs = []
         if self.export_meshes:
-            mesh_objs = [self.copy_obj(obj) for obj in get_children_recursive(rig) if
-                obj.type == 'MESH' and not obj.hide_render and obj.find_armature() is rig]
+            for obj in get_children_recursive(rig):
+                if obj.type == 'MESH' and not obj.hide_render and obj.find_armature() is rig:
+                    if self.preserve_mask_normals and any(mo.type == 'MASK' for mo in obj.modifiers):
+                        mesh_objs.append(self.copy_obj_clone_normals(obj))
+                    else:
+                        mesh_objs.append(self.copy_obj(obj))
 
         ExportGroup = namedtuple("ExportGroup", ["suffix", "objects", "actions"])
         export_groups = []
@@ -389,7 +423,7 @@ class MY_OT_character_export(bpy.types.Operator):
                 # Split masked parts into extra meshes that receive normals from the original
                 for mask in masks:
                     print(f"Splitting {mask.name} from {obj.name}")
-                    new_obj = self.clone_obj(obj)
+                    new_obj = self.copy_obj_clone_normals(obj)
                     new_obj.name = mask.name
 
                     # Remove all masks but this one in the new object
@@ -405,7 +439,7 @@ class MY_OT_character_export(bpy.types.Operator):
                     ))
 
                 # Invert the masks for the part that is left behind
-                base_obj = self.clone_obj(obj)
+                base_obj = self.copy_obj_clone_normals(obj)
                 original_name = obj.name
                 obj.name = original_name + "_whole"
                 base_obj.name = original_name
@@ -443,6 +477,8 @@ class MY_OT_character_export(bpy.types.Operator):
                 if self.mirror_shape_keys:
                     mirror_shape_keys(context, obj)
 
+                for modifier in obj.modifiers:
+                    modifier.show_viewport = modifier.show_render
                 if self.apply_modifiers:
                     apply_modifiers(context, obj, mask_edge_boundary=self.split_masks)
 
@@ -472,7 +508,7 @@ class MY_OT_character_export(bpy.types.Operator):
 
                 bpy.ops.object.join(ctx)
 
-                num_verts_merged = merge_freestyle_edges(merged_obj.data)
+                num_verts_merged = merge_freestyle_edges(merged_obj)
                 if num_verts_merged:
                     print(f"Merged {num_verts_merged} duplicate verts (edges were marked freestyle)")
 
@@ -574,10 +610,11 @@ class MY_OT_character_export(bpy.types.Operator):
             self.report({'ERROR'}, reason)
             return {'CANCELLED'}
 
+        saved_selection = save_selection()
         saved_pose_position = rig.data.pose_position
-        rig.data.pose_position = 'REST'
         saved_use_global_undo = context.preferences.edit.use_global_undo
         context.preferences.edit.use_global_undo = False
+        rig.data.pose_position = 'REST'
         self.new_objs = set()
         self.new_meshes = set()
 
@@ -592,6 +629,12 @@ class MY_OT_character_export(bpy.types.Operator):
                     bpy.data.meshes.remove(self.new_meshes.pop())
             rig.data.pose_position = saved_pose_position
             context.preferences.edit.use_global_undo = saved_use_global_undo
+            load_selection(saved_selection)
+
+        if self.simulate:
+            # Undo will crash if attempted right after a simulate export job
+            # Pushing an undo step here seems to prevent that
+            bpy.ops.ed.undo_push()
 
         return {'FINISHED'}
 

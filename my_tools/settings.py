@@ -152,11 +152,6 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
     collections: bpy.props.CollectionProperty(
         type=MY_PG_export_collection,
     )
-    suffix: bpy.props.StringProperty(
-        name="Suffix",
-        description="""Exported mesh suffix, will default to underscore if empty""",
-        default="",
-    )
     apply_modifiers: bpy.props.BoolProperty(
         name="Apply Modifiers",
         description="Allows exporting of shape keys even if the meshes have modifiers",
@@ -170,6 +165,11 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
     join_meshes: bpy.props.BoolProperty(
         name="Join Meshes",
         description="Joins meshes before exporting",
+        default=True,
+    )
+    preserve_mask_normals: bpy.props.BoolProperty(
+        name="Preserve Mask Normals",
+        description="Preserves normals of meshes that have mask modifiers",
         default=True,
     )
     split_masks: bpy.props.BoolProperty(
