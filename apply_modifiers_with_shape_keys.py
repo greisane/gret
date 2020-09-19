@@ -17,9 +17,11 @@ def mirror_merge(merge_x, merge_y, merge_z, merge_threshold=0.0):
     obj = bpy.context.object
     verts = obj.data.vertices
     half_merge_threshold = merge_threshold * 0.5
+    saved_mode = bpy.context.mode
 
     # Need vertex mode to be set then object mode to actually select
-    bpy.ops.object.mode_set(mode='EDIT')
+    if bpy.context.mode != 'EDIT':
+        bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.select_mode(type='VERT')
     bpy.ops.object.mode_set(mode='OBJECT')
 
@@ -31,7 +33,10 @@ def mirror_merge(merge_x, merge_y, merge_z, merge_threshold=0.0):
 
     bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.remove_doubles(threshold=merge_threshold, use_unselected=False)
-    bpy.ops.object.mode_set(mode='OBJECT')
+
+    # Clean up
+    if bpy.context.mode != saved_mode:
+        bpy.ops.object.mode_set(mode=saved_mode)
 
 class OBJECT_OT_apply_modifiers_with_shape_keys(bpy.types.Operator):
     bl_idname = "object.apply_modifiers_with_shape_keys"
@@ -58,8 +63,7 @@ class OBJECT_OT_apply_modifiers_with_shape_keys(bpy.types.Operator):
         modifier_blacklist = ['DATA_TRANSFER']
         disabled_modifiers = []
 
-        # Disable mirror merging, it messes things up when the shapekeys
-        # push vertices past the threshold. Remove duplicates later
+        # Disable mirror merge to avoid issues when shapekeys push vertices past the threshold
         merge_x = merge_y = merge_z = False
         merge_threshold = 0.0
         for modifier in obj.modifiers:
