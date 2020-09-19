@@ -175,7 +175,12 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
     split_masks: bpy.props.BoolProperty(
         name="Split Masks",
         description="""Splits mask modifiers into extra meshes that are exported separately.
-Normals are preserved across seams, making it ideal for modular characters""",
+Normals are preserved""",
+        default=False,
+    )
+    simulate: bpy.props.BoolProperty(
+        name="Simulate",
+        description="Produces processed meshes but does not export them",
         default=False,
     )
 

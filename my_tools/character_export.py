@@ -270,6 +270,11 @@ class MY_OT_character_export(bpy.types.Operator):
         description="Splits mask modifiers into extra meshes that are exported separately",
         default=False,
     )
+    simulate: bpy.props.BoolProperty(
+        name="Simulate",
+        description="Produces processed meshes but does not export them",
+        default=False,
+    )
     actions: bpy.props.StringProperty(
         name="Action Names",
         description="Comma separated list of actions to export",
@@ -492,17 +497,18 @@ class MY_OT_character_export(bpy.types.Operator):
                 context.scene.frame_current = action.frame_range[0]
                 bpy.context.evaluated_depsgraph_get().update()
 
-            if is_object_arp(rig):
-                print(f"Exporting {filename} via Auto-Rig export")
-                result = export_autorig(context, filepath, export_group.actions)
-            else:
-                print(f"Exporting {filename}")
-                result = export_fbx(context, filepath, export_group.actions)
+            if not self.simulate:
+                if is_object_arp(rig):
+                    print(f"Exporting {filename} via Auto-Rig export")
+                    result = export_autorig(context, filepath, export_group.actions)
+                else:
+                    print(f"Exporting {filename}")
+                    result = export_fbx(context, filepath, export_group.actions)
 
-            if result == {'FINISHED'}:
-                exported_files.append(filepath)
-            else:
-                print("Failed to export!")
+                if result == {'FINISHED'}:
+                    exported_files.append(filepath)
+                else:
+                    print("Failed to export!")
 
         # Finished without errors
         elapsed = time.time() - start_time
@@ -545,10 +551,11 @@ class MY_OT_character_export(bpy.types.Operator):
             self._execute(context, rig)
         finally:
             # Clean up
-            while self.new_objs:
-                bpy.data.objects.remove(self.new_objs.pop())
-            while self.new_meshes:
-                bpy.data.meshes.remove(self.new_meshes.pop())
+            if not self.simulate:
+                while self.new_objs:
+                    bpy.data.objects.remove(self.new_objs.pop())
+                while self.new_meshes:
+                    bpy.data.meshes.remove(self.new_meshes.pop())
             rig.data.pose_position = saved_pose_position
             context.preferences.edit.use_global_undo = saved_use_global_undo
 

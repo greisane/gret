@@ -873,6 +873,7 @@ class MY_OT_character_export_execute(bpy.types.Operator):
                 mirror_shape_keys=job.mirror_shape_keys,
                 join_meshes=job.join_meshes,
                 split_masks=job.split_masks,
+                simulate=job.simulate,
             )
             beep(0)
 
@@ -979,6 +980,7 @@ class MY_PT_character_export(bpy.types.Panel):
                     col.prop(job, "mirror_shape_keys")
                     col.prop(job, "join_meshes")
                     col.prop(job, "split_masks")
+                    col.prop(job, "simulate")
                 elif job.what == 'ANIMATION':
                     col = box.column(align=True)
                     for action in job.actions:
