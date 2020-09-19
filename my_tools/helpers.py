@@ -15,6 +15,7 @@ def select_only(context, objs):
         obj.select_set(False)
     for obj in objs:
         obj.select_set(True)
+    context.view_layer.objects.active = next(iter(objs), None)
 
 def is_valid(data_block):
     """Returns whether a reference to a data-block is valid."""
