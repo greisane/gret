@@ -85,8 +85,9 @@ so the edge boundary is preserved"""
     if bpy.context.mode != saved_mode:
         bpy.ops.object.mode_set(mode=saved_mode)
 
-def apply_modifiers(context, obj, only_render=True):
-    """Apply modifiers while preserving shape keys. Handles some modifiers specially"""
+def apply_modifiers(context, obj, mask_edge_boundary=False, only_render=True):
+    """Apply modifiers while preserving shape keys. Handles some modifiers specially."""
+
     special_modifier_names = {'ARMATURE', 'MASK', 'DATA_TRANSFER', 'NORMAL_EDIT', 'WEIGHTED_NORMAL'}
     special_modifiers = []
     for modifier in obj.modifiers:
@@ -107,7 +108,7 @@ def apply_modifiers(context, obj, only_render=True):
         if modifier.type == 'ARMATURE':
             # Do nothing, just reenable
             pass
-        elif modifier.type == 'MASK':
+        elif modifier.type == 'MASK' and mask_edge_boundary:
             # Try to preserve edge boundaries
             print(f"Applying mask on {obj.name}")
             apply_mask_modifier(modifier)
@@ -443,7 +444,7 @@ class MY_OT_character_export(bpy.types.Operator):
                     mirror_shape_keys(context, obj)
 
                 if self.apply_modifiers:
-                    apply_modifiers(context, obj)
+                    apply_modifiers(context, obj, mask_edge_boundary=self.split_masks)
 
                 context.view_layer.objects.active = obj
                 bpy.ops.object.apply_shape_keys_with_vertex_groups()
