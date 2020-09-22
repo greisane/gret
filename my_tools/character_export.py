@@ -97,13 +97,13 @@ def apply_modifiers(context, obj, mask_edge_boundary=False):
     """Apply modifiers while preserving shape keys. Handles some modifiers specially."""
 
     def should_disable_modifier(mo):
-        return (mo.type in {'ARMATURE', 'MASK', 'NORMAL_EDIT', 'WEIGHTED_NORMAL'}
-            or mo.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL' in mo.data_types_loops)
+        return (mo.type in {'ARMATURE', 'NORMAL_EDIT', 'WEIGHTED_NORMAL'}
+            or mo.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL' in mo.data_types_loops
+            or mo.type == 'MASK' and mask_edge_boundary)
 
     disabled_modifiers = []
     for modifier in obj.modifiers:
         if modifier.show_viewport and should_disable_modifier(modifier):
-            print(f"disabling {modifier.name} {modifier.type}")
             modifier.show_viewport = False
             disabled_modifiers.append(modifier)
 
