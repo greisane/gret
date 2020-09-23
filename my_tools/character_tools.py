@@ -288,11 +288,11 @@ class MY_OT_propagate_bone_inherit_scale(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class MY_PT_character(bpy.types.Panel):
+class MY_PT_character_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "My Tools"
-    bl_label = "Character"
+    bl_label = "Character Tools"
 
     @classmethod
     def poll(cls, context):
@@ -338,13 +338,13 @@ class MY_PT_character(bpy.types.Panel):
         layout.operator("my_tools.set_camera", icon='CAMERA_DATA')
 
 classes = (
-    MY_OT_set_camera,
-    MY_OT_set_insertor_target,
     MY_OT_clear_insertor_target,
+    MY_OT_propagate_bone_inherit_scale,
     MY_OT_property_add,
     MY_OT_property_remove,
-    MY_OT_propagate_bone_inherit_scale,
-    MY_PT_character,
+    MY_OT_set_camera,
+    MY_OT_set_insertor_target,
+    MY_PT_character_tools,
 )
 
 def register():

@@ -14,8 +14,8 @@ if "bpy" in locals():
         importlib.reload(helpers)
     if "settings" in locals():
         importlib.reload(settings)
-    if "character_export" in locals():
-        importlib.reload(character_export)
+    if "export" in locals():
+        importlib.reload(export)
     if "character_tools" in locals():
         importlib.reload(character_tools)
     if "action_tools" in locals():
@@ -25,14 +25,14 @@ if "bpy" in locals():
 
 import bpy
 from . import settings
-from . import character_export
+from . import export
 from . import character_tools
 from . import action_tools
 from . import scene_tools
 
 modules = (
     settings,
-    character_export,
+    export,
     character_tools,
     action_tools,
     scene_tools,
@@ -43,7 +43,7 @@ def register():
         module.register()
 
 def unregister():
-    for module in modules:
+    for module in reversed(modules):
         module.unregister()
 
 if __name__ == "__main__":

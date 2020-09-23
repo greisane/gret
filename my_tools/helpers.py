@@ -337,7 +337,7 @@ def get_export_path(path, **kwargs):
 
     return bpy.path.abspath(path)
 
-def check_invalid_export_path(path, **kwargs):
+def fail_if_invalid_export_path(path, **kwargs):
     """Validates an export path and returns the reason it isn't valid."""
 
     if path.startswith("//") and not bpy.data.filepath:
@@ -361,16 +361,27 @@ def check_invalid_export_path(path, **kwargs):
 
     return ""
 
+def fail_if_no_operator(bl_idname, submodule=bpy.ops.object):
+    """Checks an operator is available and returns the reason if it isn't"""
+
+    try:
+        # Use getattr, hasattr seems to always return True
+        getattr(submodule, bl_idname)
+    except AttributeError:
+        return f"Operator {bl_idname} is required and couldn't be found."
+
+    return ""
+
 def path_split_all(path):
     """Returns a path split into a list of its parts"""
 
     all_parts = []
     while True:
         parts = os.path.split(path)
-        if parts[0] == path: # Sentinel for absolute paths
+        if parts[0] == path:  # Sentinel for absolute paths
             all_parts.insert(0, parts[0])
             break
-        elif parts[1] == path: # Sentinel for relative paths
+        elif parts[1] == path:  # Sentinel for relative paths
             all_parts.insert(0, parts[1])
             break
         else:

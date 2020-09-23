@@ -132,8 +132,9 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
     )
     what: bpy.props.EnumProperty(
         items=[
-            ("MESH", "Mesh", "Whole armature and meshes.", 'ARMATURE_DATA', 0),
-            ("ANIMATION", "Animation", "Animation only. Armature can be partial.", 'ANIM', 1),
+            ("SCENE", "Scene", "Scene objects.", 'SCENE_DATA', 0),
+            ("RIG", "Rig", "Armature and meshes.", 'ARMATURE_DATA', 1),
+            ("ANIMATION", "Animation", "Armature animation only.", 'ANIM', 2),
         ],
         name="Export Type",
         description="What to export",
@@ -142,8 +143,9 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
     export_path: bpy.props.StringProperty(
         name="Export Path",
         description="""Export path relative to the current folder.
-{basename} = Name of the .blend file without extension, if available.
-{action} = Name of the first action being exported, if exporting actions""",
+{basename} = Name of this .blend file without extension.
+{object} = Name of the object being exported.
+{action} = Name of the first action being exported, if exporting animation""",
         default="//export/{basename}.fbx",
         subtype='FILE_PATH',
     )
@@ -152,11 +154,28 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
         description="Collection where to place export products",
         type=bpy.types.Collection,
     )
-
-    # Mesh export options
+    selection_only: bpy.props.BoolProperty(
+        name="Selection Only",
+        description="Exports the current selection",
+        default=True,
+    )
     collections: bpy.props.CollectionProperty(
         type=MY_PG_export_collection,
     )
+    material_name_prefix: bpy.props.StringProperty(
+        name="Material Prefix",
+        description="Ensures that exported material names begin with a prefix",
+        default="MI_",
+    )
+
+    # Scene export options
+    export_collision: bpy.props.BoolProperty(
+        name="Export Collision",
+        description="Exports collision objects that follow the UE4 naming pattern",
+        default=True,
+    )
+
+    # Rig export options
     apply_modifiers: bpy.props.BoolProperty(
         name="Apply Modifiers",
         description="Allows exporting of shape keys even if the meshes have modifiers",
@@ -207,8 +226,7 @@ class MY_PG_settings(bpy.types.PropertyGroup):
     export_path: bpy.props.StringProperty(
         name="Export Path",
         description="""Export path relative to the current folder.
-{basename} = Name of the .blend file without extension, if available.
-{object} = Name of the object being exported.
+{basename} = Name of this .blend file without extension.
 {num} = Increments for every file exported""",
         default="//export/{object}.fbx",
         subtype='FILE_PATH',
@@ -223,21 +241,17 @@ class MY_PG_settings(bpy.types.PropertyGroup):
         description="Skips exporting meshes",
         default=False,
     )
-    material_name_prefix: bpy.props.StringProperty(
-        name="Material Prefix",
-        description="Ensures that exported material names begin with a prefix",
-        default="MI_",
-    )
 
-    # Character export
+
+    # Export
     export_jobs: bpy.props.CollectionProperty(
         type=MY_PG_export_job,
     )
 
 classes = (
-    MY_PG_export_collection,
-    MY_PG_export_action,
     MY_PG_copy_property,
+    MY_PG_export_action,
+    MY_PG_export_collection,
     MY_PG_export_job,
     MY_PG_settings,
 )
