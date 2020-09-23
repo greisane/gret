@@ -855,17 +855,17 @@ class MY_OT_character_export_execute(bpy.types.Operator):
                 if should_export(job_coll, coll):
                     for obj in coll.objects:
                         if should_export(job_coll, obj):
+                            obj.hide_select = False
+                            obj.hide_render = False
                             objs.add(obj)
 
             # Hide all objects that shouldn't be exported
             for obj in get_children_recursive(job.rig):
                 obj.hide_render = obj not in objs
 
-            bpy.ops.my_tools.character_export(
+            bpy.ops.my_tools.rig_export(
                 export_path=job.export_path if not job.to_collection else "",
                 export_collection=job.export_collection.name if job.export_collection else "",
-                export_meshes=True,
-                export_animation=False,
                 apply_modifiers=job.apply_modifiers,
                 mirror_shape_keys=job.mirror_shape_keys,
                 join_meshes=job.join_meshes,
@@ -908,10 +908,8 @@ class MY_OT_character_export_execute(bpy.types.Operator):
                         val = fcurve_src.evaluate(frame_idx)
                         fcurve_dst.keyframe_points.insert(frame_idx, val)
 
-            bpy.ops.my_tools.character_export(
+            bpy.ops.my_tools.animation_export(
                 export_path=job.export_path,
-                export_meshes=False,
-                export_animation=True,
                 actions=",".join(action_names),
             )
             beep(1)

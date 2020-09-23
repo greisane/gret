@@ -18,6 +18,14 @@ from .helpers import (
     select_only,
 )
 
+def get_nice_export_report(files, elapsed):
+    if len(files) > 5:
+        return f"{len(files)} files exported in {elapsed:.2f}s."
+    if files:
+        filenames = [bpy.path.basename(filepath) for filepath in files]
+        return f"Exported {', '.join(filenames)} in {elapsed:.2f}s."
+    return "Nothing exported."
+
 def duplicate_shape_key(obj, name, new_name):
     # Store state
     saved_show_only_shape_key = obj.show_only_shape_key
@@ -189,7 +197,7 @@ def export_autorig(context, filepath, actions):
     scn = context.scene
     rig = context.active_object
     ik_bones_not_found = [s for s in ik_bone_names if
-        s not in rig.pose.bones or "custom_bone" not in rig.pose.bones[s]]
+        s not in rig.pose.bones or 'custom_bone' not in rig.pose.bones[s]]
     if not ik_bones_not_found:
         # All IK bones accounted for
         add_ik_bones = False
@@ -283,10 +291,10 @@ def export_fbx(context, filepath, actions):
         , embed_textures=False
     )
 
-class MY_OT_character_export(bpy.types.Operator):
-    bl_idname = "my_tools.character_export"
-    bl_label = "Character Export"
-    bl_context = "objectmode"
+class MY_OT_rig_export(bpy.types.Operator):
+    bl_idname = 'my_tools.rig_export'
+    bl_label = "Rig Export"
+    bl_context = 'objectmode'
     bl_options = {'INTERNAL'}
 
     export_path: bpy.props.StringProperty(
@@ -301,16 +309,6 @@ class MY_OT_character_export(bpy.types.Operator):
         name="Export Collection",
         description="Collection where to place export products",
         default="",
-    )
-    export_meshes: bpy.props.BoolProperty(
-        name="Export Meshes",
-        description="Whether to export mesh objects",
-        default=True,
-    )
-    export_animation: bpy.props.BoolProperty(
-        name="Export Animation",
-        description="Whether to export animation data",
-        default=True,
     )
     apply_modifiers: bpy.props.BoolProperty(
         name="Apply Modifiers",
@@ -336,13 +334,6 @@ class MY_OT_character_export(bpy.types.Operator):
         name="Split Masks",
         description="Splits mask modifiers into extra meshes that are exported separately",
         default=False,
-    )
-
-    # Animation export options
-    actions: bpy.props.StringProperty(
-        name="Action Names",
-        description="Comma separated list of actions to export",
-        default=""
     )
 
     def check_operator(self, bl_idname):
@@ -389,12 +380,13 @@ class MY_OT_character_export(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.mode == "OBJECT"
+        return context.object and context.object.mode == 'OBJECT'
 
     def _execute(self, context, rig):
         start_time = time.time()
         path_fields = {}
         mesh_objs = []
+        rig.data.pose_position = 'REST'
 
         # Clean the target collection first to free the names
         coll = bpy.data.collections.get(self.export_collection)
@@ -402,18 +394,17 @@ class MY_OT_character_export(bpy.types.Operator):
             for obj in coll.objects:
                 bpy.data.objects.remove(obj, do_unlink=True)
 
-        if self.export_meshes:
-            for obj in get_children_recursive(rig):
-                if obj.type == 'MESH' and not obj.hide_render and obj.find_armature() is rig:
-                    if self.preserve_mask_normals and any(mo.type == 'MASK' for mo in obj.modifiers):
-                        mesh_objs.append(self.copy_obj_clone_normals(obj))
-                    else:
-                        mesh_objs.append(self.copy_obj(obj))
+        for obj in get_children_recursive(rig):
+            if obj.type == 'MESH' and not obj.hide_render and obj.find_armature() is rig:
+                if self.preserve_mask_normals and any(mo.type == 'MASK' for mo in obj.modifiers):
+                    mesh_objs.append(self.copy_obj_clone_normals(obj))
+                else:
+                    mesh_objs.append(self.copy_obj(obj))
 
-        ExportGroup = namedtuple("ExportGroup", ["suffix", "objects", "actions"])
+        ExportGroup = namedtuple('ExportGroup', ['suffix', 'objects'])
         export_groups = []
         if mesh_objs:
-            export_groups.append(ExportGroup(suffix="", objects=mesh_objs[:], actions=[]))
+            export_groups.append(ExportGroup(suffix="", objects=mesh_objs[:]))
 
         if self.split_masks:
             for obj in mesh_objs:
@@ -424,11 +415,7 @@ class MY_OT_character_export(bpy.types.Operator):
                 # As a special case if the only modifier has the same name as the object,
                 # just make a new export group for it
                 if len(masks) == 1 and masks[0].name == obj.name:
-                    export_groups.append(ExportGroup(
-                        suffix="_%s" % masks[0].name,
-                        objects=[obj],
-                        actions=[],
-                    ))
+                    export_groups.append(ExportGroup(suffix="_%s" % masks[0].name, objects=[obj]))
                     export_groups[0].objects.remove(obj)
                     obj.modifiers.remove(masks[0])
                     continue
@@ -445,11 +432,7 @@ class MY_OT_character_export(bpy.types.Operator):
                             new_obj.modifiers.remove(new_mask)
 
                     # New export group for the split off part
-                    export_groups.append(ExportGroup(
-                        suffix="_%s" % mask.name,
-                        objects=[new_obj],
-                        actions=[],
-                    ))
+                    export_groups.append(ExportGroup(suffix="_%s" % mask.name, objects=[new_obj]))
 
                 # Invert the masks for the part that is left behind
                 base_obj = self.copy_obj_clone_normals(obj)
@@ -485,6 +468,7 @@ class MY_OT_character_export(bpy.types.Operator):
                     else:
                         bpy.ops.object.modifier_remove(modifier=modifier.name)
 
+        # Process individual meshes
         for export_group in export_groups:
             for obj in export_group.objects:
                 if self.mirror_shape_keys:
@@ -516,8 +500,8 @@ class MY_OT_character_export(bpy.types.Operator):
                         self.new_objs.discard(obj)
                         self.new_meshes.discard(obj.data)
 
-                ctx["object"] = ctx["active_object"] = merged_obj
-                ctx["selected_objects"] = ctx["selected_editable_objects"] = objs
+                ctx['object'] = ctx['active_object'] = merged_obj
+                ctx['selected_objects'] = ctx['selected_editable_objects'] = objs
 
                 bpy.ops.object.join(ctx)
 
@@ -525,61 +509,30 @@ class MY_OT_character_export(bpy.types.Operator):
                 if num_verts_merged:
                     print(f"Merged {num_verts_merged} duplicate verts (edges were marked freestyle)")
 
-                # Enable autosmooth for merged object in case there's custom normals
+                # Enable autosmooth for merged object to allow custom normals
                 merged_obj.data.use_auto_smooth = True
                 merged_obj.data.auto_smooth_angle = math.pi
 
                 export_group.objects[:] = [merged_obj]
 
-        # Add actions as export groups without meshes
-        if self.export_animation and self.actions:
-            action_names = set(self.actions.split(","))
-            for action_name in action_names:
-                action_name = action_name.strip()
-                if not action_name:
-                    continue
-                if action_name not in bpy.data.actions:
-                    continue
-                export_groups.append(ExportGroup(
-                    suffix="",
-                    objects=[],
-                    actions=[bpy.data.actions[action_name]],
-                ))
-
         # Finally export
         exported_files = []
         if self.export_path:
             for export_group in export_groups:
+                path_fields['suffix'] = export_group.suffix
+                filepath = get_export_path(self.export_path, **path_fields)
+                filename = bpy.path.basename(filepath)
+                if filepath in exported_files:
+                    print(f"Skipping {filename} as it would overwrite a file that was just exported")
+
                 for obj in context.scene.objects:
                     obj.select_set(False)
                 for obj in export_group.objects:
                     obj.select_set(True)
                 rig.select_set(True)
                 context.view_layer.objects.active = rig
-
-                action = None
-                if export_group.actions:
-                    action = export_group.actions[0]
-                    path_fields["action"] = action.name
-                else:
-                    path_fields["action"] = "None"
-
-                path_fields["suffix"] = export_group.suffix
-                filepath = get_export_path(self.export_path, **path_fields)
-                filename = bpy.path.basename(filepath)
-                if filepath in exported_files:
-                    print(f"Skipping {filename} as it would overwrite a file that was just exported")
-
-                # rig.data.pose_position = 'POSE' if action else 'REST'
                 rig.data.pose_position = 'POSE'
                 clear_pose(rig)
-                if action:
-                    rig.animation_data.action = action
-                    context.scene.frame_preview_start = action.frame_range[0]
-                    context.scene.frame_preview_end = action.frame_range[1]
-                    context.scene.use_preview_range = True
-                    context.scene.frame_current = action.frame_range[0]
-                    bpy.context.evaluated_depsgraph_get().update()
 
                 if is_object_arp(rig):
                     print(f"Exporting {filename} via Auto-Rig export")
@@ -593,24 +546,19 @@ class MY_OT_character_export(bpy.types.Operator):
                 else:
                     print("Failed to export!")
 
-        # Keep objects in the target collection
+        # Keep new objects in the target collection
         coll = bpy.data.collections.get(self.export_collection)
         if coll:
-            for obj in export_group.objects:
-                coll.objects.link(obj)
-                context.scene.collection.objects.unlink(obj)
+            for export_group in export_groups:
+                for obj in export_group.objects:
+                    coll.objects.link(obj)
+                    context.scene.collection.objects.unlink(obj)
             self.new_objs.clear()
             self.new_meshes.clear()
 
         # Finished without errors
         elapsed = time.time() - start_time
-        if not exported_files:
-            self.report({"INFO"}, "Nothing exported.")
-        elif len(exported_files) <= 5:
-            filenames = [bpy.path.basename(filepath) for filepath in exported_files]
-            self.report({"INFO"}, f"Exported {', '.join(filenames)} in {elapsed:.2f}s.")
-        else:
-            self.report({'INFO'}, f"{len(exported_files)} files exported in {elapsed:.2f}s.")
+        self.report({'INFO'}, get_nice_export_report(exported_files, elapsed))
 
     def execute(self, context):
         rig = context.object
@@ -620,13 +568,13 @@ class MY_OT_character_export(bpy.types.Operator):
             return {'CANCELLED'}
 
         # Check addon availability
-        if not self.check_operator("apply_shape_keys_with_vertex_groups"):
+        if not self.check_operator('apply_shape_keys_with_vertex_groups'):
             return {'CANCELLED'}
 
-        if self.apply_modifiers and not self.check_operator("apply_modifiers_with_shape_keys"):
+        if self.apply_modifiers and not self.check_operator('apply_modifiers_with_shape_keys'):
             return {'CANCELLED'}
 
-        path_fields = {"action": "None"}
+        path_fields = {}
         reason = check_invalid_export_path(self.export_path, **path_fields)
         if reason:
             self.report({'ERROR'}, reason)
@@ -636,7 +584,6 @@ class MY_OT_character_export(bpy.types.Operator):
         saved_pose_position = rig.data.pose_position
         saved_use_global_undo = context.preferences.edit.use_global_undo
         context.preferences.edit.use_global_undo = False
-        rig.data.pose_position = 'REST'
         self.new_objs = set()
         self.new_meshes = set()
 
@@ -662,8 +609,142 @@ class MY_OT_character_export(bpy.types.Operator):
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
 
+class MY_OT_animation_export(bpy.types.Operator):
+    bl_idname = 'my_tools.animation_export'
+    bl_label = "Animation Export"
+    bl_context = "objectmode"
+    bl_options = {'INTERNAL'}
+
+    export_path: bpy.props.StringProperty(
+        name="Export Path",
+        description="""Export path relative to the current folder.
+{basename} = Name of the .blend file without extension, if available.
+{action} = Name of the first action being exported""",
+        default="//export/{action}.fbx",
+        subtype='FILE_PATH',
+    )
+    actions: bpy.props.StringProperty(
+        name="Action Names",
+        description="Comma separated list of actions to export",
+        default=""
+    )
+
+    def check_operator(self, bl_idname):
+        # hasattr seems to always return True, can't use that
+        try:
+            getattr(bpy.ops.object, bl_idname)
+        except AttributeError:
+            self.report({'ERROR'}, "Operator %s is required and couldn't be found." % bl_idname)
+            return False
+        return True
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.mode == "OBJECT"
+
+    def _execute(self, context, rig):
+        start_time = time.time()
+        path_fields = {}
+
+        ExportGroup = namedtuple('ExportGroup', ['suffix', 'action'])
+        export_groups = []
+
+        # Add actions as export groups without meshes
+        action_names = set(self.actions.split(","))
+        for action_name in action_names:
+            action_name = action_name.strip()
+            if not action_name:
+                continue
+            if action_name not in bpy.data.actions:
+                continue
+            export_groups.append(ExportGroup(
+                suffix="",
+                action=bpy.data.actions[action_name],
+            ))
+
+        # Finally export
+        exported_files = []
+        if self.export_path:
+            for export_group in export_groups:
+                if not export_group.action:
+                    continue
+
+                path_fields["action"] = export_group.action.name
+                path_fields["suffix"] = export_group.suffix
+                filepath = get_export_path(self.export_path, **path_fields)
+                filename = bpy.path.basename(filepath)
+                if filepath in exported_files:
+                    print(f"Skipping {filename} as it would overwrite a file that was just exported")
+
+                rig.select_set(True)
+                context.view_layer.objects.active = rig
+                rig.data.pose_position = 'POSE'
+                clear_pose(rig)
+
+                rig.animation_data.export_group.action = export_group.action
+                context.scene.frame_preview_start = export_group.action.frame_range[0]
+                context.scene.frame_preview_end = export_group.action.frame_range[1]
+                context.scene.use_preview_range = True
+                context.scene.frame_current = export_group.action.frame_range[0]
+                bpy.context.evaluated_depsgraph_get().update()
+
+                if is_object_arp(rig):
+                    print(f"Exporting {filename} via Auto-Rig export")
+                    result = export_autorig(context, filepath, [export_group.action])
+                else:
+                    print(f"Exporting {filename}")
+                    result = export_fbx(context, filepath, [export_group.action])
+
+                if result == {'FINISHED'}:
+                    exported_files.append(filepath)
+                else:
+                    print("Failed to export!")
+
+        # Finished without errors
+        elapsed = time.time() - start_time
+        self.report({'INFO'}, get_nice_export_report(exported_files, elapsed))
+
+    def execute(self, context):
+        rig = context.object
+
+        if not rig or rig.type != 'ARMATURE':
+            self.report({'ERROR'}, "Armature must be the active object.")
+            return {'CANCELLED'}
+
+        path_fields = {'action': "None"}
+        reason = check_invalid_export_path(self.export_path, **path_fields)
+        if reason:
+            self.report({'ERROR'}, reason)
+            return {'CANCELLED'}
+
+        saved_selection = save_selection()
+        saved_pose_position = rig.data.pose_position
+        saved_use_global_undo = context.preferences.edit.use_global_undo
+        context.preferences.edit.use_global_undo = False
+
+        try:
+            self._execute(context, rig)
+        finally:
+            # Clean up
+            rig.data.pose_position = saved_pose_position
+            context.preferences.edit.use_global_undo = saved_use_global_undo
+            load_selection(saved_selection)
+
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+
+classes = (
+    MY_OT_rig_export,
+    MY_OT_animation_export,
+)
+
 def register():
-    bpy.utils.register_class(MY_OT_character_export)
+    for cls in classes:
+        bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(MY_OT_character_export)
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
