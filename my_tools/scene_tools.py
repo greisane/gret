@@ -832,10 +832,14 @@ class MY_OT_character_export_execute(bpy.types.Operator):
             self.report({'ERROR'}, "Currently the rig must be visible to export.")
             return {'CANCELLED'}
 
+        def should_export(job_coll, what):
+            return (job_coll.export_viewport and not what.hide_viewport
+                or job_coll.export_render and not what.hide_render)
+
         saved_action = job.rig.animation_data.action
         saved_mode = context.mode
         saved_selection = save_selection()
-        saved_hide = {}
+        objs = set()
         new_fcurves = []
         context.view_layer.objects.active = job.rig
         bpy.ops.object.mode_set(mode='OBJECT')
@@ -848,21 +852,14 @@ class MY_OT_character_export_execute(bpy.types.Operator):
                 coll = job_coll.collection
                 if not coll:
                     continue
-
-                if (job_coll.export_viewport and not coll.hide_viewport
-                    or job_coll.export_render and not coll.hide_render):
+                if should_export(job_coll, coll):
                     for obj in coll.objects:
-                        if (job_coll.export_viewport and not obj.hide_viewport
-                            or job_coll.export_render and not obj.hide_render):
-                            saved_hide[obj] = (obj.hide_select, obj.hide_viewport, obj.hide_render)
-                            obj.hide_select = False
-                            obj.hide_render = False
+                        if should_export(job_coll, obj):
+                            objs.add(obj)
 
             # Hide all objects that shouldn't be exported
             for obj in get_children_recursive(job.rig):
-                if obj not in saved_hide:
-                    saved_hide[obj] = (obj.hide_select, obj.hide_viewport, obj.hide_render)
-                    obj.hide_render = True
+                obj.hide_render = obj not in objs
 
             bpy.ops.my_tools.character_export(
                 export_path=job.export_path if not job.to_collection else "",
@@ -923,15 +920,10 @@ class MY_OT_character_export_execute(bpy.types.Operator):
         for action, fcurve in new_fcurves:
             action.fcurves.remove(fcurve)
 
-        for obj, hide in saved_hide.items():
-            hide_select, hide_viewport, hide_render = hide
-            obj.hide_select = hide_select
-            obj.hide_viewport = hide_viewport
-            obj.hide_render = hide_render
-
         job.rig.animation_data.action = saved_action
         if context.mode != saved_mode:
             bpy.ops.object.mode_set(mode=saved_mode)
+
         load_selection(saved_selection)
 
         print("Job complete")
