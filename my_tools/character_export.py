@@ -297,6 +297,11 @@ class MY_OT_character_export(bpy.types.Operator):
         default="//export/{basename}.fbx",
         subtype='FILE_PATH',
     )
+    export_collection: bpy.props.StringProperty(
+        name="Export Collection",
+        description="Collection where to place export products",
+        default="",
+    )
     export_meshes: bpy.props.BoolProperty(
         name="Export Meshes",
         description="Whether to export mesh objects",
@@ -332,11 +337,8 @@ class MY_OT_character_export(bpy.types.Operator):
         description="Splits mask modifiers into extra meshes that are exported separately",
         default=False,
     )
-    simulate: bpy.props.BoolProperty(
-        name="Simulate",
-        description="Produces processed meshes but does not export them",
-        default=False,
-    )
+
+    # Animation export options
     actions: bpy.props.StringProperty(
         name="Action Names",
         description="Comma separated list of actions to export",
@@ -393,6 +395,13 @@ class MY_OT_character_export(bpy.types.Operator):
         start_time = time.time()
         path_fields = {}
         mesh_objs = []
+
+        # Clean the target collection first to free the names
+        coll = bpy.data.collections.get(self.export_collection)
+        if coll:
+            for obj in coll.objects:
+                bpy.data.objects.remove(obj, do_unlink=True)
+
         if self.export_meshes:
             for obj in get_children_recursive(rig):
                 if obj.type == 'MESH' and not obj.hide_render and obj.find_armature() is rig:
@@ -539,39 +548,39 @@ class MY_OT_character_export(bpy.types.Operator):
 
         # Finally export
         exported_files = []
-        for export_group in export_groups:
-            for obj in context.scene.objects:
-                obj.select_set(False)
-            for obj in export_group.objects:
-                obj.select_set(True)
-            rig.select_set(True)
-            context.view_layer.objects.active = rig
+        if self.export_path:
+            for export_group in export_groups:
+                for obj in context.scene.objects:
+                    obj.select_set(False)
+                for obj in export_group.objects:
+                    obj.select_set(True)
+                rig.select_set(True)
+                context.view_layer.objects.active = rig
 
-            action = None
-            if export_group.actions:
-                action = export_group.actions[0]
-                path_fields["action"] = action.name
-            else:
-                path_fields["action"] = "None"
+                action = None
+                if export_group.actions:
+                    action = export_group.actions[0]
+                    path_fields["action"] = action.name
+                else:
+                    path_fields["action"] = "None"
 
-            path_fields["suffix"] = export_group.suffix
-            filepath = get_export_path(self.export_path, **path_fields)
-            filename = bpy.path.basename(filepath)
-            if filepath in exported_files:
-                print(f"Skipping {filename} as it would overwrite a file that was just exported")
+                path_fields["suffix"] = export_group.suffix
+                filepath = get_export_path(self.export_path, **path_fields)
+                filename = bpy.path.basename(filepath)
+                if filepath in exported_files:
+                    print(f"Skipping {filename} as it would overwrite a file that was just exported")
 
-            # rig.data.pose_position = 'POSE' if action else 'REST'
-            rig.data.pose_position = 'POSE'
-            clear_pose(rig)
-            if action:
-                rig.animation_data.action = action
-                context.scene.frame_preview_start = action.frame_range[0]
-                context.scene.frame_preview_end = action.frame_range[1]
-                context.scene.use_preview_range = True
-                context.scene.frame_current = action.frame_range[0]
-                bpy.context.evaluated_depsgraph_get().update()
+                # rig.data.pose_position = 'POSE' if action else 'REST'
+                rig.data.pose_position = 'POSE'
+                clear_pose(rig)
+                if action:
+                    rig.animation_data.action = action
+                    context.scene.frame_preview_start = action.frame_range[0]
+                    context.scene.frame_preview_end = action.frame_range[1]
+                    context.scene.use_preview_range = True
+                    context.scene.frame_current = action.frame_range[0]
+                    bpy.context.evaluated_depsgraph_get().update()
 
-            if not self.simulate:
                 if is_object_arp(rig):
                     print(f"Exporting {filename} via Auto-Rig export")
                     result = export_autorig(context, filepath, export_group.actions)
@@ -583,6 +592,15 @@ class MY_OT_character_export(bpy.types.Operator):
                     exported_files.append(filepath)
                 else:
                     print("Failed to export!")
+
+        # Keep objects in the target collection
+        coll = bpy.data.collections.get(self.export_collection)
+        if coll:
+            for obj in export_group.objects:
+                coll.objects.link(obj)
+                context.scene.collection.objects.unlink(obj)
+            self.new_objs.clear()
+            self.new_meshes.clear()
 
         # Finished without errors
         elapsed = time.time() - start_time
@@ -626,17 +644,16 @@ class MY_OT_character_export(bpy.types.Operator):
             self._execute(context, rig)
         finally:
             # Clean up
-            if not self.simulate:
-                while self.new_objs:
-                    bpy.data.objects.remove(self.new_objs.pop())
-                while self.new_meshes:
-                    bpy.data.meshes.remove(self.new_meshes.pop())
+            while self.new_objs:
+                bpy.data.objects.remove(self.new_objs.pop())
+            while self.new_meshes:
+                bpy.data.meshes.remove(self.new_meshes.pop())
             rig.data.pose_position = saved_pose_position
             context.preferences.edit.use_global_undo = saved_use_global_undo
             load_selection(saved_selection)
 
-        if self.simulate:
-            # Undo will crash if attempted right after a simulate export job
+        if self.export_collection:
+            # Crashes if undo is attempted right after a simulate export job
             # Pushing an undo step here seems to prevent that
             bpy.ops.ed.undo_push()
 

@@ -147,6 +147,11 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
         default="//export/{basename}.fbx",
         subtype='FILE_PATH',
     )
+    export_collection: bpy.props.PointerProperty(
+        name="Export Collection",
+        description="Collection where to place export products",
+        type=bpy.types.Collection,
+    )
 
     # Mesh export options
     collections: bpy.props.CollectionProperty(
@@ -178,9 +183,9 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
 Normals are preserved""",
         default=False,
     )
-    simulate: bpy.props.BoolProperty(
-        name="Simulate",
-        description="Produces processed meshes but does not export them",
+    to_collection: bpy.props.BoolProperty(
+        name="To Collection",
+        description="Produced meshes are put in a collection instead of being exported",
         default=False,
     )
 

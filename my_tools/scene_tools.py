@@ -865,7 +865,8 @@ class MY_OT_character_export_execute(bpy.types.Operator):
                     obj.hide_render = True
 
             bpy.ops.my_tools.character_export(
-                export_path=job.export_path,
+                export_path=job.export_path if not job.to_collection else "",
+                export_collection=job.export_collection.name if job.export_collection else "",
                 export_meshes=True,
                 export_animation=False,
                 apply_modifiers=job.apply_modifiers,
@@ -873,7 +874,6 @@ class MY_OT_character_export_execute(bpy.types.Operator):
                 join_meshes=job.join_meshes,
                 preserve_mask_normals=job.preserve_mask_normals,
                 split_masks=job.split_masks,
-                simulate=job.simulate,
             )
             beep(0)
 
@@ -981,7 +981,9 @@ class MY_PT_character_export(bpy.types.Panel):
                     col.prop(job, "preserve_mask_normals")
                     # Don't have an use for Split Masks currently and too many options gets confusing
                     # col.prop(job, "split_masks")
-                    col.prop(job, "simulate")
+                    col = box.column(align=True)
+                    col.prop(job, "to_collection")
+                    col.prop(job, "export_collection" if job.to_collection else "export_path", text="")
                 elif job.what == 'ANIMATION':
                     col = box.column(align=True)
                     for action in job.actions:
@@ -1000,8 +1002,8 @@ class MY_PT_character_export(bpy.types.Panel):
                         row.label(text="", icon='FORWARD')
                         row.prop(copy_property, "destination", text="")
 
-                col = box.column(align=True)
-                col.prop(job, "export_path", text="")
+                    col = box.column(align=True)
+                    col.prop(job, "export_path", text="")
 
             op = col.operator("my_tools.character_export_execute", icon='FORWARD', text="Execute")
             op.index = job_idx
