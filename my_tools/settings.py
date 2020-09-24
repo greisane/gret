@@ -176,14 +176,20 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
     )
 
     # Rig export options
-    apply_modifiers: bpy.props.BoolProperty(
-        name="Apply Modifiers",
-        description="Allows exporting of shape keys even if the meshes have modifiers",
+    merge_basis_shape_keys: bpy.props.BoolProperty(
+        name="Merge Basis Shape Keys",
+        description="Blends 'Key' and 'b_' shapekeys into the basis shape",
         default=True,
     )
     mirror_shape_keys: bpy.props.BoolProperty(
         name="Mirror Shape Keys",
-        description="Creates mirrored versions of shape keys that have side suffixes",
+        description="""Creates mirrored versions of shape keys that have side suffixes.
+Requires a mirror modifier. Vertex groups named _side.l and _side.r will be created""",
+        default=True,
+    )
+    apply_modifiers: bpy.props.BoolProperty(
+        name="Apply Modifiers",
+        description="Allows exporting of shape keys even if the meshes have generative modifiers",
         default=True,
     )
     join_meshes: bpy.props.BoolProperty(

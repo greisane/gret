@@ -30,21 +30,70 @@ def get_nice_export_report(files, elapsed):
     return "Nothing exported."
 
 def duplicate_shape_key(obj, name, new_name):
+    shape_key = obj.data.shape_keys.key_blocks[name]
+
     # Store state
     saved_show_only_shape_key = obj.show_only_shape_key
     saved_active_shape_key_index = obj.active_shape_key_index
+    saved_value = shape_key.value
 
+    # Duplicate by muting all (with show_only_shape_key)
     shape_key_index = obj.data.shape_keys.key_blocks.find(name)
     obj.active_shape_key_index = shape_key_index
-
+    obj.active_shape_key.value = obj.active_shape_key.slider_max
     obj.show_only_shape_key = True
     new_shape_key = obj.shape_key_add(name=new_name, from_mix=True)
+    new_shape_key.slider_max = obj.active_shape_key.slider_max
+    new_shape_key.value = saved_value
 
     # Restore state
     obj.show_only_shape_key = saved_show_only_shape_key
     obj.active_shape_key_index = saved_active_shape_key_index
+    shape_key.value = saved_value
 
     return new_shape_key
+
+def merge_basis_shape_keys(context, obj):
+    shape_key_name_prefixes = ("Key ", "b_")
+
+    if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:
+        # No shape keys
+        return
+
+    # Store state
+    saved_unmuted_shape_keys = [sk for sk in obj.data.shape_keys.key_blocks if not sk.mute]
+
+    # Mute all but the ones to be merged
+    basis_sk = obj.data.shape_keys.key_blocks[0]
+    basis_sk.name = "Basis"
+    for sk in obj.data.shape_keys.key_blocks[:]:
+        if any(sk.name.startswith(s) for s in shape_key_name_prefixes):
+            if sk.mute:
+                # Delete candidate shapekeys that won't be used
+                # This ensures muted shapekeys don't unexpectedly return when objects are merged
+                obj.shape_key_remove(sk)
+        else:
+            sk.mute = True
+
+    # Replace basis with merged
+    new_sk = obj.shape_key_add(name="New Basis", from_mix=True)
+    for vert_idx, vert in enumerate(new_sk.data):
+        basis_sk.data[vert_idx].co[:] = vert.co
+
+    # Remove the merged shapekeys
+    for sk in obj.data.shape_keys.key_blocks[:]:
+        if not sk.mute:
+            obj.shape_key_remove(sk)
+
+    # Other keys deltas need to be recalculated, enter and leave edit mode in Basis
+    obj.active_shape_key_index = 0
+    context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+    # Restore state
+    for sk in saved_unmuted_shape_keys:
+        sk.mute = False
 
 def mirror_shape_keys(context, obj):
     if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:
@@ -57,17 +106,19 @@ def mirror_shape_keys(context, obj):
 
     # Make vertex groups for masking. It doesn't actually matter which side is which,
     # only that the modifier's vertex group mirroring function picks it up
-    vgroup = obj.vertex_groups.get("side_L") or obj.vertex_groups.new(name="side_L")
+    # Even if the vertex group exists, overwrite so the user doesn't have to manually update it
+    vgroup = obj.vertex_groups.get("_side.l") or obj.vertex_groups.new(name="_side.l")
     vgroup.add([vert.index for vert in obj.data.vertices], 1.0, 'REPLACE')
-    vgroup = obj.vertex_groups.get("side_R") or obj.vertex_groups.new(name="side_R")
+    vgroup = obj.vertex_groups.get("_side.r") or obj.vertex_groups.new(name="_side.r")
 
     for shape_key in obj.data.shape_keys.key_blocks:
         flipped_name = get_flipped_name(shape_key.name)
+        # Only mirror it if it doesn't already exist
         if flipped_name and flipped_name not in obj.data.shape_keys.key_blocks:
             print(f"Mirroring shape key {shape_key.name}")
-            shape_key.vertex_group = "side_L"
+            shape_key.vertex_group = "_side.l"
             new_shape_key = duplicate_shape_key(obj, shape_key.name, flipped_name)
-            new_shape_key.vertex_group = "side_R"
+            new_shape_key.vertex_group = "_side.r"
 
 def apply_mask_modifier(mask_modifier):
     """Applies a mask modifier in the active object by removing faces instead of vertices \
@@ -442,14 +493,19 @@ class MY_OT_rig_export(bpy.types.Operator):
         description="Collection where to place export products",
         default="",
     )
-    apply_modifiers: bpy.props.BoolProperty(
-        name="Apply Modifiers",
-        description="Allows exporting of shape keys even if the meshes have modifiers",
+    merge_basis_shape_keys: bpy.props.BoolProperty(
+        name="Merge Basis Shape Keys",
+        description="Blends 'Key' and 'b_' shapekeys into the basis shape",
         default=True,
     )
     mirror_shape_keys: bpy.props.BoolProperty(
         name="Mirror Shape Keys",
         description="Creates mirrored versions of shape keys that have side suffixes",
+        default=True,
+    )
+    apply_modifiers: bpy.props.BoolProperty(
+        name="Apply Modifiers",
+        description="Allows exporting of shape keys even if the meshes have modifiers",
         default=True,
     )
     join_meshes: bpy.props.BoolProperty(
@@ -598,6 +654,9 @@ class MY_OT_rig_export(bpy.types.Operator):
         # Process individual meshes
         for export_group in export_groups:
             for obj in export_group.objects:
+                if self.merge_basis_shape_keys:
+                    merge_basis_shape_keys(context, obj)
+
                 if self.mirror_shape_keys:
                     mirror_shape_keys(context, obj)
 
@@ -1108,8 +1167,9 @@ class MY_PT_export_jobs(bpy.types.Panel):
                     add_collection_layout()
 
                     col = box.column()
-                    col.prop(job, "apply_modifiers")
+                    col.prop(job, "merge_basis_shape_keys")
                     col.prop(job, "mirror_shape_keys")
+                    col.prop(job, "apply_modifiers")
                     col.prop(job, "join_meshes")
                     col.prop(job, "preserve_mask_normals")
                     # Don't have an use for Split Masks currently and too many options gets confusing
