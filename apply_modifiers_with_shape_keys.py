@@ -93,6 +93,8 @@ class OBJECT_OT_apply_modifiers_with_shape_keys(bpy.types.Operator):
         for shape_key_index, shape_key in enumerate(shape_keys):
             # Create a temporary mesh of each shape key with modifiers applied,
             # then save the vertex coordinates (don't need anything else)
+            saved_shape_key_mute = shape_key.mute
+            shape_key.mute = False
             obj.show_only_shape_key = True
             obj.active_shape_key_index = shape_key_index
 
@@ -110,7 +112,7 @@ class OBJECT_OT_apply_modifiers_with_shape_keys(bpy.types.Operator):
             new_shape_keys.append(ShapeKeyInfo(
                 cos=[v.co.copy() for v in temp_mesh.vertices],
                 interpolation=shape_key.interpolation,
-                mute=shape_key.mute,
+                mute=saved_shape_key_mute,
                 name=shape_key.name,
                 slider_max=shape_key.slider_max,
                 slider_min=shape_key.slider_min,
