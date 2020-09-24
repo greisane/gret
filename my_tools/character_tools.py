@@ -276,7 +276,7 @@ class MY_OT_propagate_bone_inherit_scale(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.selected_pose_bones_from_active_object
+        return context.mode == 'POSE' and context.selected_pose_bones_from_active_object
 
     def execute(self, context):
         obj = context.object
@@ -285,6 +285,63 @@ class MY_OT_propagate_bone_inherit_scale(bpy.types.Operator):
             active_bone = obj.data.bones[active_pbone.name]
             for bone in active_bone.children_recursive:
                 bone.inherit_scale = active_bone.inherit_scale
+
+        return {'FINISHED'}
+
+class MY_OT_vertex_group_subdivide(bpy.types.Operator):
+    #tooltip
+    """Subdivide weights along the corresponding armature bone, if it exists"""
+
+    bl_idname = "my_tools.vertex_group_subdivide"
+    bl_label = "Subdivide"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    number_cuts: bpy.props.IntProperty(
+        name="Subdivisions",
+        description="Number of subdivisions",
+        default=2,
+        min=1,
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'PAINT_WEIGHT' and context.object and context.object.vertex_groups.active
+
+    def execute(self, context):
+        obj = context.object
+        vgroups = obj.vertex_groups
+        src_vg = vgroups.active
+
+        armature = obj.find_armature()
+        if not armature:
+            self.report({'ERROR'}, "No armature found.")
+            return {'CANCELLED'}
+
+        bone = armature.data.bones.get(src_vg.name)
+        if not bone:
+            self.report({'ERROR'}, "No bone associated with the vertex group.")
+            return {'CANCELLED'}
+
+        bone_dir = bone.tail - bone.head
+        bone_length = bone_dir.length
+        bone_dir /= bone_length
+        dst_vgs = [vgroups.new(name=f"{src_vg.name}.{n:03d}") for n in range(self.number_cuts)]
+
+        for vert in obj.data.vertices:
+            for vg in vert.groups:
+                if vg.group == src_vg.index:
+                    x = bone_dir.dot(vert.co - bone.head) / bone_length * len(dst_vgs)
+                    for n, dst_vg in enumerate(dst_vgs):
+                        t = 1.0
+                        if n > 0:
+                            t = min(t, x + 0.5 - n)
+                        if n < len(dst_vgs) - 1:
+                            t = min(t, (n + 1.5) - x)
+                        t = max(0.0, min(1.0, t))
+                        dst_vg.add([vert.index], vg.weight * t, 'REPLACE')
+
+        # Remove original
+        vgroups.remove(src_vg)
 
         return {'FINISHED'}
 
@@ -344,6 +401,7 @@ classes = (
     MY_OT_property_remove,
     MY_OT_set_camera,
     MY_OT_set_insertor_target,
+    MY_OT_vertex_group_subdivide,
     MY_PT_character_tools,
 )
 
