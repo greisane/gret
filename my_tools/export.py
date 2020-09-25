@@ -660,8 +660,11 @@ class MY_OT_rig_export(bpy.types.Operator):
                 if self.mirror_shape_keys:
                     mirror_shape_keys(context, obj)
 
-                for modifier in obj.modifiers:
+                # Only use modifiers enabled for render. Delete unused modifiers
+                for modifier in obj.modifiers[:]:
                     modifier.show_viewport = modifier.show_render
+                    if not modifier.show_viewport:
+                        bpy.ops.object.modifier_remove(modifier=modifier.name)
                 if self.apply_modifiers:
                     apply_modifiers(context, obj, mask_edge_boundary=self.split_masks)
 
