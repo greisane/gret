@@ -53,7 +53,7 @@ class MY_OT_set_camera(bpy.types.Operator):
     #tooltip
     """Switches to the camera attached to the character"""
 
-    bl_idname = "my_tools.set_camera"
+    bl_idname = 'my_tools.set_camera'
     bl_label = "Set Camera"
     bl_options = {'UNDO'}
 
@@ -78,7 +78,7 @@ class MY_OT_set_insertor_target(bpy.types.Operator):
     #tooltip
     """Configures an insertor setup"""
 
-    bl_idname = "my_tools.set_insertor_target"
+    bl_idname = 'my_tools.set_insertor_target'
     bl_label = "Set Insertor Target"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -127,7 +127,7 @@ class MY_OT_set_insertor_target(bpy.types.Operator):
                 con.subtarget = insertor_root.name
                 con.head_tail = 1.0
 
-        if "_bones" in path:
+        if '_bones' in path:
             def add_collision(bone, other_bone, head_tail):
                 con = bone.constraints.new(type='LIMIT_DISTANCE')
                 con.show_expanded = False
@@ -150,7 +150,7 @@ class MY_OT_set_insertor_target(bpy.types.Operator):
 
             saved_layers = insertee.data.layers[:]
             insertee.data.layers[:] = [True] * len(saved_layers)
-            patterns = path["_bones"].split(',')
+            patterns = path['_bones'].split(',')
 
             insertee_bones = [b for b in insertee.pose.bones if any(fnmatch(b.name, s) for s in patterns)]
             for bone in insertee_bones:
@@ -169,7 +169,7 @@ class MY_OT_clear_insertor_target(bpy.types.Operator):
     #tooltip
     """Reverts an insertor setup"""
 
-    bl_idname = "my_tools.clear_insertor_target"
+    bl_idname = 'my_tools.clear_insertor_target'
     bl_label = "Clear Insertor Target"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -197,8 +197,8 @@ class MY_OT_clear_insertor_target(bpy.types.Operator):
                     if con.type == 'COPY_TRANSFORMS' and con.target == obj:
                         hook_bone.constraints.remove(con)
 
-        if insertee and insertee.type == 'ARMATURE' and "_bones" in path:
-            insertee_bones = [b for b in insertee.pose.bones if fnmatch(b.name, path["_bones"])]
+        if insertee and insertee.type == 'ARMATURE' and '_bones' in path:
+            insertee_bones = [b for b in insertee.pose.bones if fnmatch(b.name, path['_bones'])]
             for bone in insertee_bones:
                 for con in bone.constraints[:]:
                     if con.type == 'LIMIT_DISTANCE' and con.target in insertor_bones:
@@ -212,7 +212,7 @@ class MY_OT_property_add(bpy.types.Operator):
     #tooltip
     """Add a property to the list"""
 
-    bl_idname = "my_tools.property_add"
+    bl_idname = 'my_tools.property_add'
     bl_label = "Add Property"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -232,10 +232,10 @@ class MY_OT_property_add(bpy.types.Operator):
         if not self.path:
             return {'CANCELLED'}
 
-        properties = list(obj.get("properties", []))
+        properties = list(obj.get('properties', []))
         properties.append(self.path)
         properties.sort(key=lambda prop_path: parse_prop_path(obj, prop_path)[2])
-        obj["properties"] = properties
+        obj['properties'] = properties
 
         return {'FINISHED'}
 
@@ -246,7 +246,7 @@ class MY_OT_property_remove(bpy.types.Operator):
     #tooltip
     """Remove the property from the list"""
 
-    bl_idname = "my_tools.property_remove"
+    bl_idname = 'my_tools.property_remove'
     bl_label = "Remove Property"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -259,10 +259,10 @@ class MY_OT_property_remove(bpy.types.Operator):
     def execute(self, context):
         obj = context.object
 
-        properties = list(obj.get("properties", []))
+        properties = list(obj.get('properties', []))
         if self.index >= 0 and self.index < len(properties):
             del properties[self.index]
-        obj["properties"] = properties
+        obj['properties'] = properties
 
         return {'FINISHED'}
 
@@ -270,7 +270,7 @@ class MY_OT_propagate_bone_inherit_scale(bpy.types.Operator):
     #tooltip
     """Propagates 'Inherit Scale' from the selected bone to children"""
 
-    bl_idname = "my_tools.propagate_bone_inherit_scale"
+    bl_idname = 'my_tools.propagate_bone_inherit_scale'
     bl_label = "Propagate Bone Inherit Scale"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -292,7 +292,7 @@ class MY_OT_vertex_group_subdivide(bpy.types.Operator):
     #tooltip
     """Subdivide weights along the corresponding armature bone, if it exists"""
 
-    bl_idname = "my_tools.vertex_group_subdivide"
+    bl_idname = 'my_tools.vertex_group_subdivide'
     bl_label = "Subdivide"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -363,9 +363,9 @@ class MY_PT_character_tools(bpy.types.Panel):
         box = layout.box()
         row = box.row()
         row.label(text="Properties", icon='PROPERTIES')
-        row.operator("my_tools.property_add", icon='ADD', text="")
+        row.operator('my_tools.property_add', icon='ADD', text="")
 
-        properties = obj.get("properties")
+        properties = obj.get('properties')
         if properties:
             col = box.column(align=True)
 
@@ -379,20 +379,20 @@ class MY_PT_character_tools(bpy.types.Panel):
                     row.alert = True
                     row.label(text=f"Missing: {label}")
 
-                row.operator("my_tools.property_remove", icon='X', text="").index = idx
+                row.operator('my_tools.property_remove', icon='X', text="").index = idx
 
         if obj and obj.type == 'ARMATURE' and obj.mode == 'POSE' and obj.data.bones.active:
             selected_bone = obj.pose.bones[obj.data.bones.active.name]
             spline_ik = next((m for m in selected_bone.constraints if m.type == 'SPLINE_IK'), None)
 
             if spline_ik and spline_ik.target:
-                layout.operator("my_tools.clear_insertor_target",
+                layout.operator('my_tools.clear_insertor_target',
                     text="Clear Insertor Target", icon='CONSTRAINT_BONE')
             elif spline_ik:
-                layout.operator_menu_enum("my_tools.set_insertor_target", 'path',
+                layout.operator_menu_enum('my_tools.set_insertor_target', 'path',
                     text="Set Insertor Target", icon='CONSTRAINT_BONE')
 
-        layout.operator("my_tools.set_camera", icon='CAMERA_DATA')
+        layout.operator('my_tools.set_camera', icon='CAMERA_DATA')
 
 classes = (
     MY_OT_clear_insertor_target,

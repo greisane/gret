@@ -9,7 +9,7 @@ import re
 def select_only(context, objs):
     """Ensures only the given object or objects are selected."""
 
-    if not hasattr(objs, "__iter__"):
+    if not hasattr(objs, '__iter__'):
         objs = [objs]
     for obj in context.scene.objects:
         obj.select_set(False)
@@ -89,7 +89,7 @@ def load_attrs(o, saved):
 
 def is_object_arp(obj):
     """Returns whether the object is an Auto-Rig Pro armature."""
-    return obj and obj.type == 'ARMATURE' and obj.pose.bones.get("c_pos")
+    return obj and obj.type == 'ARMATURE' and obj.pose.bones.get('c_pos')
 
 def clear_pose(obj, clear_armature_properties=True, clear_bone_properties=True):
     """Resets the given armature."""
@@ -102,22 +102,22 @@ def clear_pose(obj, clear_armature_properties=True, clear_bone_properties=True):
     is_arp = is_object_arp(obj)
     if is_arp:
         arp_default_values = {
-            "arp_layer":None, # Internal thing
-            "auto_eyelid":0.1,
-            "auto_stretch":0.0,
-            "autolips":None, # Different values, hard to tweak
-            "bend_all":0.0,
-            "elbow_pin":0.0,
-            "eye_target":1.0,
-            "fingers_grasp":0.0,
-            "fix_roll":0.0,
-            "head_free":0,
-            "ik_fk_switch":0.0,
-            "leg_pin":0.0,
-            "lips_retain":0.0,
-            "lips_stretch":1.0,
-            "pole_parent":1,
-            "stretch_length":1.0,
+            'arp_layer': None,  # Internal thing
+            'auto_eyelid': 0.1,
+            'auto_stretch': 0.0,
+            'autolips': None,  # Different values, hard to tweak
+            'bend_all': 0.0,
+            'elbow_pin': 0.0,
+            'eye_target': 1.0,
+            'fingers_grasp': 0.0,
+            'fix_roll': 0.0,
+            'head_free': 0,
+            'ik_fk_switch': 0.0,
+            'leg_pin': 0.0,
+            'lips_retain': 0.0,
+            'lips_stretch': 1.0,
+            'pole_parent': 1,
+            'stretch_length': 1.0,
         }
 
     if clear_armature_properties:
@@ -201,13 +201,13 @@ def is_object_defaulted(obj, recursive=False):
             continue
 
         try:
-            if getattr(prop, "is_array", False):
+            if getattr(prop, 'is_array', False):
                 # Handle arrays
                 current = [p for p in getattr(obj, prop.identifier)]
                 default = [p for p in prop.default_array]
             else:
                 current = getattr(obj, prop.identifier)
-                default = getattr(prop, "default", type(current)())
+                default = getattr(prop, 'default', type(current)())
 
             if current != default:
                 return False
@@ -327,13 +327,13 @@ def get_export_path(path, **kwargs):
     """Returns an absolute path from an export path."""
 
     kwargs.update({
-        "basename": os.path.splitext(bpy.path.basename(bpy.data.filepath))[0],
+        'basename': os.path.splitext(bpy.path.basename(bpy.data.filepath))[0],
     })
     path = path.format(**kwargs)
 
-    if "suffix" in kwargs:
+    if 'suffix' in kwargs:
         path, ext = os.path.splitext(path)
-        path = path + kwargs["suffix"] + ext
+        path = path + kwargs['suffix'] + ext
 
     return bpy.path.abspath(path)
 

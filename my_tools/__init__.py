@@ -1,26 +1,26 @@
 bl_info = {
-    "name": "My Tools",
-    "author": "greisane",
-    "description": "",
-    "version": (0, 1),
-    "blender": (2, 80, 0),
-    "location": "3D View > Tools > My Tools",
-    "category": "My Tools"
+    'name': "My Tools",
+    'author': "greisane",
+    'description': "",
+    'version': (0, 1),
+    'blender': (2, 80, 0),
+    'location': "3D View > Tools > My Tools",
+    'category': "My Tools"
 }
 
-if "bpy" in locals():
+if 'bpy' in locals():
     import importlib
-    if "helpers" in locals():
+    if 'helpers' in locals():
         importlib.reload(helpers)
-    if "settings" in locals():
+    if 'settings' in locals():
         importlib.reload(settings)
-    if "export" in locals():
+    if 'export' in locals():
         importlib.reload(export)
-    if "character_tools" in locals():
+    if 'character_tools' in locals():
         importlib.reload(character_tools)
-    if "action_tools" in locals():
+    if 'action_tools' in locals():
         importlib.reload(action_tools)
-    if "scene_tools" in locals():
+    if 'scene_tools' in locals():
         importlib.reload(scene_tools)
 
 import bpy
@@ -46,5 +46,5 @@ def unregister():
     for module in reversed(modules):
         module.unregister()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     register()

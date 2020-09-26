@@ -26,7 +26,7 @@ class MY_OT_deduplicate_materials(bpy.types.Operator):
     #tooltip
     """Deletes duplicate materials and fixes meshes that reference them"""
 
-    bl_idname = "my_tools.deduplicate_materials"
+    bl_idname = 'my_tools.deduplicate_materials'
     bl_label = "Deduplicate Materials"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -53,7 +53,7 @@ class MY_OT_deduplicate_materials(bpy.types.Operator):
         for mat in redirects.keys():
             bpy.data.materials.remove(mat, do_unlink=True)
 
-        self.report({"INFO"}, f"Deleted {len(redirects)} duplicate materials.")
+        self.report({'INFO'}, f"Deleted {len(redirects)} duplicate materials.")
         return {'FINISHED'}
 
 def is_box(bm, sq_threshold=0.001):
@@ -72,7 +72,7 @@ class MY_OT_make_collision(bpy.types.Operator):
     #tooltip
     """Generate collision for the selected objects"""
 
-    bl_idname = "my_tools.make_collision"
+    bl_idname = 'my_tools.make_collision'
     bl_label = "Make Collision"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -311,7 +311,7 @@ class MY_OT_make_collision(bpy.types.Operator):
         v = Vector((self.box_depth, self.box_width, self.box_height)) * 0.5
 
         bm = bmesh.new()
-        verts = bmesh.ops.create_cube(bm, calc_uvs=False)["verts"]
+        verts = bmesh.ops.create_cube(bm, calc_uvs=False)['verts']
         verts[0].co = self.box_center.x - v.x, self.box_center.y - v.y, self.box_center.z - v.z
         verts[1].co = self.box_center.x - v.x, self.box_center.y - v.y, self.box_center.z + v.z
         verts[2].co = self.box_center.x - v.x, self.box_center.y + v.y, self.box_center.z - v.z
@@ -526,41 +526,41 @@ class MY_OT_make_collision(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         col = layout.column()
-        col.prop(self, "shape")
-        col.prop(self, "wire")
+        col.prop(self, 'shape')
+        col.prop(self, 'wire')
         if self.shape in {'BOX', 'CYLINDER'}:
-            col.prop(self, "hollow")
+            col.prop(self, 'hollow')
             if self.hollow:
-                col.prop(self, "thickness")
-                col.prop(self, "offset")
+                col.prop(self, 'thickness')
+                col.prop(self, 'offset')
         col.separator()
 
         if self.shape == 'BOX':
-            col.prop(self, "box_width")
-            col.prop(self, "box_height")
-            col.prop(self, "box_depth")
+            col.prop(self, 'box_width')
+            col.prop(self, 'box_height')
+            col.prop(self, 'box_depth')
         elif self.shape == 'CYLINDER':
-            col.prop(self, "cyl_sides")
-            col.prop(self, "cyl_diameter1")
-            col.prop(self, "cyl_diameter2")
-            col.prop(self, "cyl_height")
+            col.prop(self, 'cyl_sides')
+            col.prop(self, 'cyl_diameter1')
+            col.prop(self, 'cyl_diameter2')
+            col.prop(self, 'cyl_height')
         elif self.shape == 'CAPSULE':
-            col.prop(self, "cap_diameter")
-            col.prop(self, "cap_depth")
+            col.prop(self, 'cap_diameter')
+            col.prop(self, 'cap_depth')
         elif self.shape == 'SPHERE':
-            col.prop(self, "sph_diameter")
+            col.prop(self, 'sph_diameter')
         elif self.shape == 'CONVEX':
-            col.prop(self, "planar_angle")
-            col.prop(self, "decimate_ratio")
-            col.label(text="Symmetrize")
+            col.prop(self, 'planar_angle')
+            col.prop(self, 'decimate_ratio')
+            col.label(text='Symmetrize')
             row = col.row(align=True)
-            row.prop(self, "x_symmetry", text="X", toggle=1)
-            row.prop(self, "y_symmetry", text="Y", toggle=1)
-            row.prop(self, "z_symmetry", text="Z", toggle=1)
+            row.prop(self, 'x_symmetry', text="X", toggle=1)
+            row.prop(self, 'y_symmetry', text="Y", toggle=1)
+            row.prop(self, 'z_symmetry', text="Z", toggle=1)
         elif self.shape == 'WALL':
-            col.prop(self, "thickness")
-            col.prop(self, "offset")
-            col.prop(self, "wall_fill_holes")
+            col.prop(self, 'thickness')
+            col.prop(self, 'offset')
+            col.prop(self, 'wall_fill_holes')
 
 def values_to_vcol(mesh, src_values, dst_vcol, dst_channel_idx):
     for loop_idx, loop in enumerate(mesh.loops):
@@ -591,9 +591,9 @@ def update_vcol_from_src(obj, src, dst_vcol, dst_channel_idx):
 
 class MY_OT_vcols_from_src(bpy.types.Operator):
     #tooltip
-    """Deletes duplicate materials and fixes meshes that reference them"""
+    """Refreshes vertex colors from source mappings"""
 
-    bl_idname = "my_tools.vcols_from_src"
+    bl_idname = 'my_tools.vcols_from_src'
     bl_label = "Vertex Colors From Source Mappings"
     bl_options = {'REGISTER', 'UNDO'}
 

@@ -858,8 +858,8 @@ class MY_OT_animation_export(bpy.types.Operator):
                 if not export_group.action:
                     continue
 
-                path_fields["action"] = export_group.action.name
-                path_fields["suffix"] = export_group.suffix
+                path_fields['action'] = export_group.action.name
+                path_fields['suffix'] = export_group.suffix
                 filepath = get_export_path(self.export_path, **path_fields)
                 filename = bpy.path.basename(filepath)
                 if filepath in self.exported_files:
@@ -931,7 +931,7 @@ class MY_OT_export_job_add(bpy.types.Operator):
     #tooltip
     """Add a new export job"""
 
-    bl_idname = "my_tools.export_job_add"
+    bl_idname = 'my_tools.export_job_add'
     bl_label = "Add Export Job"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -953,7 +953,7 @@ class MY_OT_export_job_remove(bpy.types.Operator):
     #tooltip
     """Removes an export job"""
 
-    bl_idname = "my_tools.export_job_remove"
+    bl_idname = 'my_tools.export_job_remove'
     bl_label = "Remove Export Job"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -978,7 +978,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
     #tooltip
     """Execute export job"""
 
-    bl_idname = "my_tools.export_job_run"
+    bl_idname = 'my_tools.export_job_run'
     bl_label = "Execute Export Job"
 
     index: bpy.props.IntProperty(options={'HIDDEN'})
@@ -1015,7 +1015,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 self.report({'ERROR'}, "Nothing to export.")
                 return {'CANCELLED'}
 
-            print(f'Beginning scene export job "{job.name}"')
+            print(f"Beginning scene export job '{job.name}'")
 
             bpy.ops.my_tools.scene_export(
                 export_path=job.export_path,
@@ -1031,7 +1031,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
             context.view_layer.objects.active = job.rig
             bpy.ops.object.mode_set(mode='OBJECT')
 
-            print(f'Beginning rig export job "{job.name}"')
+            print(f"Beginning rig export job '{job.name}'")
 
             # Mark the objects that should be exported as render so they will be picked up
             objs = set()
@@ -1069,7 +1069,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
             context.view_layer.objects.active = job.rig
             bpy.ops.object.mode_set(mode='OBJECT')
 
-            print(f'Beginning animation export job "{job.name}"')
+            print(f"Beginning animation export job '{job.name}'")
 
             action_names = set()
             for job_action in job.actions:
@@ -1138,10 +1138,10 @@ class MY_PT_export_jobs(bpy.types.Panel):
             box = col_job.box()
             row = box.row()
             icon = 'DISCLOSURE_TRI_DOWN' if job.show_expanded else 'DISCLOSURE_TRI_RIGHT'
-            row.prop(job, "show_expanded", icon=icon, text="", emboss=False)
-            row.prop(job, "what", text="", expand=True)
-            row.prop(job, "name", text="")
-            op = row.operator("my_tools.export_job_remove", icon='X', text="", emboss=False)
+            row.prop(job, 'show_expanded', icon=icon, text="", emboss=False)
+            row.prop(job, 'what', text="", expand=True)
+            row.prop(job, 'name', text="")
+            op = row.operator('my_tools.export_job_remove', icon='X', text="", emboss=False)
             op.index = job_idx
             box = col_job.box()
             col = box
@@ -1152,64 +1152,64 @@ class MY_PT_export_jobs(bpy.types.Panel):
                     col = box.column(align=True)
                     for coll in job.collections:
                         row = col.row(align=True)
-                        row.prop(coll, "collection", text="")
-                        row.prop(coll, "export_viewport", icon='RESTRICT_VIEW_OFF', text="")
-                        row.prop(coll, "export_render", icon='RESTRICT_RENDER_OFF', text="")
+                        row.prop(coll, 'collection', text="")
+                        row.prop(coll, 'export_viewport', icon='RESTRICT_VIEW_OFF', text="")
+                        row.prop(coll, 'export_render', icon='RESTRICT_RENDER_OFF', text="")
                     return col
 
                 if job.what == 'SCENE':
-                    col.prop(job, "selection_only")
+                    col.prop(job, 'selection_only')
                     add_collection_layout().enabled = not job.selection_only
 
                     col = box.column()
-                    col.prop(job, "export_collision")
-                    col.prop(job, "material_name_prefix", text="M. Prefix")
+                    col.prop(job, 'export_collision')
+                    col.prop(job, 'material_name_prefix', text="M. Prefix")
 
                     col = box.column(align=True)
-                    col.prop(job, "export_path", text="")
+                    col.prop(job, 'export_path', text="")
 
                 elif job.what == 'RIG' or job.what == 'MESH':  # 'MESH' for backwards compat
-                    box.prop(job, "rig")
+                    box.prop(job, 'rig')
                     add_collection_layout()
 
                     col = box.column()
-                    col.prop(job, "merge_basis_shape_keys")
-                    col.prop(job, "mirror_shape_keys")
-                    col.prop(job, "apply_modifiers")
-                    col.prop(job, "join_meshes")
-                    col.prop(job, "preserve_mask_normals")
+                    col.prop(job, 'merge_basis_shape_keys')
+                    col.prop(job, 'mirror_shape_keys')
+                    col.prop(job, 'apply_modifiers')
+                    col.prop(job, 'join_meshes')
+                    col.prop(job, 'preserve_mask_normals')
                     # Don't have an use for Split Masks currently and too many options gets confusing
-                    # col.prop(job, "split_masks")
-                    col.prop(job, "material_name_prefix", text="M. Prefix")
-                    col.prop(job, "vcol_r_source")
+                    # col.prop(job, 'split_masks')
+                    col.prop(job, 'material_name_prefix', text="M. Prefix")
+                    col.prop(job, 'vcol_r_source')
                     col = box.column(align=True)
-                    col.prop(job, "to_collection")
-                    col.prop(job, "export_collection" if job.to_collection else "export_path", text="")
+                    col.prop(job, 'to_collection')
+                    col.prop(job, 'export_collection' if job.to_collection else "export_path", text="")
 
                 elif job.what == 'ANIMATION':
-                    box.prop(job, "rig")
+                    box.prop(job, 'rig')
 
                     col = box.column(align=True)
                     for action in job.actions:
                         row = col.row(align=True)
                         if not action.use_pattern:
-                            row.prop_search(action, "action", bpy.data, "actions", text="")
+                            row.prop_search(action, 'action', bpy.data, "actions", text="")
                         else:
-                            row.prop(action, "action", text="")
-                        row.prop(action, "use_pattern", icon='SELECT_SET', text="")
+                            row.prop(action, 'action', text="")
+                        row.prop(action, 'use_pattern', icon='SELECT_SET', text="")
 
                     col = box.column(align=True)
                     col.label(text="Bake Properties:")
                     for copy_property in job.copy_properties:
                         row = col.row(align=True)
-                        row.prop(copy_property, "source", text="")
+                        row.prop(copy_property, 'source', text="")
                         row.label(text="", icon='FORWARD')
-                        row.prop(copy_property, "destination", text="")
+                        row.prop(copy_property, 'destination', text="")
 
                     col = box.column(align=True)
-                    col.prop(job, "export_path", text="")
+                    col.prop(job, 'export_path', text="")
 
-            op = col.operator("my_tools.export_job_run", icon='FORWARD', text="Execute")
+            op = col.operator('my_tools.export_job_run', icon='FORWARD', text="Execute")
             op.index = job_idx
 
 classes = (

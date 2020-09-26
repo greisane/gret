@@ -6,7 +6,7 @@ class MY_OT_action_set(bpy.types.Operator):
     #tooltip
     """Edit this action. Ctrl-click to rename"""
 
-    bl_idname = "my_tools.action_set"
+    bl_idname = 'my_tools.action_set'
     bl_label = "Set Action"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -66,7 +66,7 @@ class MY_OT_action_add(bpy.types.Operator):
     #tooltip
     """Add a new action"""
 
-    bl_idname = "my_tools.action_add"
+    bl_idname = 'my_tools.action_add'
     bl_label = "Add Action"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -100,7 +100,7 @@ class MY_OT_action_remove(bpy.types.Operator):
     #tooltip
     """Delete the action"""
 
-    bl_idname = "my_tools.action_remove"
+    bl_idname = 'my_tools.action_remove'
     bl_label = "Remove Action"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -138,7 +138,7 @@ class MY_PT_actions(bpy.types.Panel):
             box = layout.box()
             row = box.row()
             row.label(text="Available Actions", icon='ACTION')
-            row.operator("my_tools.action_add", icon='ADD', text="")
+            row.operator('my_tools.action_add', icon='ADD', text="")
 
             if bpy.data.actions:
                 col = box.column(align=True)
@@ -148,19 +148,19 @@ class MY_PT_actions(bpy.types.Panel):
 
                     selected = obj and obj.animation_data and obj.animation_data.action == action
                     if selected and context.screen.is_animation_playing:
-                        op = row.operator("screen.animation_cancel", icon='PAUSE', text="", emboss=False)
+                        op = row.operator('screen.animation_cancel', icon='PAUSE', text="", emboss=False)
                         op.restore_frame = False
                     else:
                         icon = 'PLAY' if selected else 'TRIA_RIGHT'
-                        op = row.operator("my_tools.action_set", icon=icon, text="", emboss=False)
+                        op = row.operator('my_tools.action_set', icon=icon, text="", emboss=False)
                         op.name = action.name
                         op.play = True
 
-                    op = row.operator("my_tools.action_set", text=action.name, emboss=True)
+                    op = row.operator('my_tools.action_set', text=action.name, emboss=True)
                     op.name = action.name
                     op.play = False
 
-                    row.operator("my_tools.action_remove", icon='X', text="").name = action.name
+                    row.operator('my_tools.action_remove', icon='X', text="").name = action.name
 
 classes = (
     MY_OT_action_set,
