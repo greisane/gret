@@ -248,7 +248,6 @@ class MY_PG_settings(bpy.types.PropertyGroup):
         default=False,
     )
 
-
     # Export
     export_jobs: bpy.props.CollectionProperty(
         type=MY_PG_export_job,

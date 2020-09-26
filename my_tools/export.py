@@ -677,7 +677,10 @@ class MY_OT_rig_export(bpy.types.Operator):
                             mat.name = self.material_name_prefix + mat.name
 
                 context.view_layer.objects.active = obj
+                # Remove vertex group filtering from shapekeys
                 bpy.ops.object.apply_shape_keys_with_vertex_groups()
+                # Refresh vertex color mappings
+                bpy.ops.my_tools.vcols_from_src()
 
         if self.join_meshes:
             for export_group in export_groups:
@@ -1178,6 +1181,7 @@ class MY_PT_export_jobs(bpy.types.Panel):
                     # Don't have an use for Split Masks currently and too many options gets confusing
                     # col.prop(job, "split_masks")
                     col.prop(job, "material_name_prefix", text="M. Prefix")
+                    col.prop(job, "vcol_r_source")
                     col = box.column(align=True)
                     col.prop(job, "to_collection")
                     col.prop(job, "export_collection" if job.to_collection else "export_path", text="")
