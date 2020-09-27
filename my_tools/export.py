@@ -1181,11 +1181,9 @@ class MY_PT_export_jobs(bpy.types.Panel):
                     col.prop(job, 'mirror_shape_keys')
                     col.prop(job, 'apply_modifiers')
                     col.prop(job, 'join_meshes')
-                    col.prop(job, 'preserve_mask_normals')
                     # Don't have an use for Split Masks currently and too many options gets confusing
                     # col.prop(job, 'split_masks')
                     col.prop(job, 'material_name_prefix', text="M. Prefix")
-                    col.prop(job, 'vcol_r_source')
                     col = box.column(align=True)
                     col.prop(job, 'to_collection')
                     col.prop(job, 'export_collection' if job.to_collection else "export_path", text="")
