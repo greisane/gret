@@ -32,9 +32,10 @@ SelectionState = namedtuple('SelectionState', [
     'selected',
     'active',
     'layers',
+    'objects',
 ])
 
-def save_selection():
+def save_selection(all_objects=False):
     """Returns a SelectionState storing the current selection state."""
 
     return SelectionState(
@@ -43,6 +44,7 @@ def save_selection():
             bpy.context.view_layer.objects.active,
         layers=bpy.context.scene.layers[:] if not _280() else
             [(c, c.hide_select, c.hide_viewport, c.hide_render) for c in bpy.data.collections],
+        objects=[(o, o.hide_select, o.hide_viewport, o.hide_render) for o in bpy.data.objects],
     )
 
 def load_selection(state):
@@ -56,6 +58,11 @@ def load_selection(state):
                 collection.hide_select = hide_select
                 collection.hide_viewport = hide_viewport
                 collection.hide_render = hide_render
+        for obj, hide_select, hide_viewport, hide_render in state.objects:
+            if is_valid(obj):
+                obj.hide_select = hide_select
+                obj.hide_viewport = hide_viewport
+                obj.hide_render = hide_render
 
     select_only(bpy.context, (obj for obj in state.selected if is_valid(obj)))
 

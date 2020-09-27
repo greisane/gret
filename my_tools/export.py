@@ -1055,9 +1055,10 @@ class MY_OT_export_job_run(bpy.types.Operator):
             bpy.ops.my_tools.rig_export(
                 export_path=job.export_path if not job.to_collection else "",
                 export_collection=job.export_collection.name if job.export_collection else "",
+                merge_basis_shape_keys=job.merge_basis_shape_keys,
+                mirror_shape_keys=job.mirror_shape_keys,
                 apply_modifiers=job.apply_modifiers,
                 join_meshes=job.join_meshes,
-                mirror_shape_keys=job.mirror_shape_keys,
                 split_masks=job.split_masks,
                 material_name_prefix=job.material_name_prefix,
             )
@@ -1112,7 +1113,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
         print("Job complete")
 
     def execute(self, context):
-        saved_selection = save_selection()
+        saved_selection = save_selection(all_objects=True)
         self.new_fcurves = []
 
         try:
