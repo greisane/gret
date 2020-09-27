@@ -1021,6 +1021,8 @@ class MY_OT_export_job_run(bpy.types.Operator):
 
             bpy.ops.my_tools.scene_export(
                 export_path=job.export_path,
+                export_collision=job.export_collision,
+                material_name_prefix=job.material_name_prefix,
             )
 
         elif job.what == 'RIG':
@@ -1054,9 +1056,10 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 export_path=job.export_path if not job.to_collection else "",
                 export_collection=job.export_collection.name if job.export_collection else "",
                 apply_modifiers=job.apply_modifiers,
-                mirror_shape_keys=job.mirror_shape_keys,
                 join_meshes=job.join_meshes,
+                mirror_shape_keys=job.mirror_shape_keys,
                 split_masks=job.split_masks,
+                material_name_prefix=job.material_name_prefix,
             )
             beep(0)
 
