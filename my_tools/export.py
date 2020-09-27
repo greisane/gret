@@ -132,8 +132,7 @@ so the edge boundary is preserved"""
     mask_vgroup = obj.vertex_groups[mask_modifier.vertex_group]
 
     # Need vertex mode to be set then object mode to actually select
-    if bpy.context.mode != 'EDIT':
-        bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.select_mode(type='FACE')
     bpy.ops.mesh.select_all(action='DESELECT')
     bpy.ops.mesh.select_mode(type='VERT')
@@ -152,8 +151,7 @@ so the edge boundary is preserved"""
     obj.modifiers.remove(mask_modifier)
 
     # Clean up
-    if bpy.context.mode != saved_mode:
-        bpy.ops.object.mode_set(mode=saved_mode)
+    bpy.ops.object.mode_set(mode=saved_mode)
 
 def apply_modifiers(context, obj, mask_edge_boundary=False):
     """Apply modifiers while preserving shape keys. Handles some modifiers specially."""
@@ -196,8 +194,7 @@ def merge_freestyle_edges(obj):
 
     # Need vertex mode to be set then object mode to actually select
     select_only(bpy.context, obj)
-    if bpy.context.mode != 'EDIT':
-        bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.select_mode(type='EDGE')
     bpy.ops.mesh.select_all(action='DESELECT')
     bpy.ops.object.mode_set(mode='OBJECT')
@@ -208,7 +205,6 @@ def merge_freestyle_edges(obj):
     bpy.ops.object.mode_set(mode='EDIT')
     old_num_verts = len(obj.data.vertices)
     bpy.ops.mesh.remove_doubles(threshold=1e-5, use_unselected=False)
-    new_num_verts = len(obj.data.vertices)
 
     # mesh = obj.data
     # bm = bmesh.new()
@@ -231,8 +227,9 @@ def merge_freestyle_edges(obj):
     # bm.free()
 
     # Clean up
-    if bpy.context.mode != saved_mode:
-        bpy.ops.object.mode_set(mode=saved_mode)
+    bpy.ops.object.mode_set(mode=saved_mode)
+    obj.data.update()
+    new_num_verts = len(obj.data.vertices)
 
     return old_num_verts - new_num_verts
 
@@ -706,8 +703,8 @@ class MY_OT_rig_export(bpy.types.Operator):
                 bpy.ops.object.join(ctx)
 
                 num_verts_merged = merge_freestyle_edges(merged_obj)
-                if num_verts_merged:
-                    print(f"Merged {num_verts_merged} duplicate verts (edges were marked freestyle)")
+                if num_verts_merged > 0:
+                    print(f"Welded {num_verts_merged} verts (edges were marked freestyle)")
 
                 # Enable autosmooth for merged object to allow custom normals
                 merged_obj.data.use_auto_smooth = True
