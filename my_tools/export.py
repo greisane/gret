@@ -157,7 +157,7 @@ def apply_modifiers(context, obj, mask_edge_boundary=False):
     """Apply modifiers while preserving shape keys. Handles some modifiers specially."""
 
     def should_disable_modifier(mo):
-        return (mo.type in {'ARMATURE', 'NORMAL_EDIT', 'WEIGHTED_NORMAL'}
+        return (mo.type in {'ARMATURE', 'NORMAL_EDIT'}
             or mo.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL' in mo.data_types_loops
             or mo.type == 'MASK' and mask_edge_boundary)
 
@@ -510,11 +510,6 @@ class MY_OT_rig_export(bpy.types.Operator):
         description="Joins meshes before exporting",
         default=True,
     )
-    preserve_mask_normals: bpy.props.BoolProperty(
-        name="Preserve Mask Normals",
-        description="Preserves normals of meshes that have mask modifiers",
-        default=True,
-    )
     split_masks: bpy.props.BoolProperty(
         name="Split Masks",
         description="Splits mask modifiers into extra meshes that are exported separately",
@@ -575,8 +570,15 @@ class MY_OT_rig_export(bpy.types.Operator):
                 bpy.data.objects.remove(obj, do_unlink=True)
 
         for obj in get_children_recursive(rig):
+            # Enable all render modifiers in the originals, except masks
+            for modifier in obj.modifiers:
+                if modifier.type != 'MASK' and modifier.show_render and not modifier.show_viewport:
+                    modifier.show_viewport = True
+                    self.saved_disabled_modifiers.add(modifier)
             if obj.type == 'MESH' and not obj.hide_render and obj.find_armature() is rig:
-                if self.preserve_mask_normals and any(mo.type == 'MASK' for mo in obj.modifiers):
+                # Meshes that aren't already doing it will transfer normals from the originals
+                if not any(mo.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL' in mo.data_types_loops
+                    for mo in obj.modifiers):
                     mesh_objs.append(self.copy_obj_clone_normals(obj))
                 else:
                     mesh_objs.append(self.copy_obj(obj))
@@ -775,6 +777,7 @@ class MY_OT_rig_export(bpy.types.Operator):
         self.exported_files = []
         self.new_objs = set()
         self.new_meshes = set()
+        self.saved_disabled_modifiers = set()
         self.saved_material_names = {}
 
         try:
@@ -789,6 +792,8 @@ class MY_OT_rig_export(bpy.types.Operator):
                 bpy.data.objects.remove(self.new_objs.pop())
             while self.new_meshes:
                 bpy.data.meshes.remove(self.new_meshes.pop())
+            while self.saved_disabled_modifiers:
+                self.saved_disabled_modifiers.pop().show_viewport = False
             for mat, name in self.saved_material_names.items():
                 mat.name = name
             rig.data.pose_position = saved_pose_position
@@ -1051,7 +1056,6 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 apply_modifiers=job.apply_modifiers,
                 mirror_shape_keys=job.mirror_shape_keys,
                 join_meshes=job.join_meshes,
-                preserve_mask_normals=job.preserve_mask_normals,
                 split_masks=job.split_masks,
             )
             beep(0)

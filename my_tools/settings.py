@@ -197,11 +197,6 @@ Requires a mirror modifier. Vertex groups named _side.l and _side.r will be crea
         description="Joins meshes before exporting",
         default=True,
     )
-    preserve_mask_normals: bpy.props.BoolProperty(
-        name="Preserve Mask Normals",
-        description="Preserves normals of meshes that have mask modifiers",
-        default=True,
-    )
     split_masks: bpy.props.BoolProperty(
         name="Split Masks",
         description="""Splits mask modifiers into extra meshes that are exported separately.
