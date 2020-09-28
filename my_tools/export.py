@@ -65,7 +65,7 @@ def merge_basis_shape_keys(context, obj):
 
     # Mute all but the ones to be merged
     basis_sk = obj.data.shape_keys.key_blocks[0]
-    basis_sk.name = "Basis"
+    basis_sk.name = "Basis"  # Rename to make sure it won't be picked up
     for sk in obj.data.shape_keys.key_blocks[:]:
         if any(sk.name.startswith(s) for s in shape_key_name_prefixes):
             if sk.mute:
@@ -77,23 +77,21 @@ def merge_basis_shape_keys(context, obj):
 
     # Replace basis with merged
     new_sk = obj.shape_key_add(name="New Basis", from_mix=True)
-    for vert_idx, vert in enumerate(new_sk.data):
-        basis_sk.data[vert_idx].co[:] = vert.co
+    for vert, new_vert in zip(obj.data.vertices, new_sk.data):
+        vert.co[:] = new_vert.co
+    obj.data.update()
 
     # Remove the merged shapekeys
     for sk in obj.data.shape_keys.key_blocks[:]:
         if not sk.mute:
             obj.shape_key_remove(sk)
 
-    # Other keys deltas need to be recalculated, enter and leave edit mode in Basis
-    obj.active_shape_key_index = 0
-    context.view_layer.objects.active = obj
-    bpy.ops.object.mode_set(mode='EDIT')
-    bpy.ops.object.mode_set(mode='OBJECT')
-
     # Restore state
     for sk in saved_unmuted_shape_keys:
         sk.mute = False
+
+    obj.active_shape_key_index = 0
+    context.view_layer.objects.active = obj
 
 def mirror_shape_keys(context, obj):
     if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:

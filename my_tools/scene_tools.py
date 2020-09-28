@@ -586,7 +586,6 @@ def update_vcol_from_src(obj, src, dst_vcol, dst_channel_idx):
                     if vg.group == vgroup_idx:
                         values[vert_idx] = vg.weight
                         break
-        print(vgroup_name)
         values_to_vcol(mesh, values, dst_vcol, dst_channel_idx)
 
 class MY_OT_vcols_from_src(bpy.types.Operator):
