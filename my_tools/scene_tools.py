@@ -612,6 +612,7 @@ class MY_OT_vcols_from_src(bpy.types.Operator):
         update_vcol_from_src(obj, obj.vcolr_src, vcol, 0)
         update_vcol_from_src(obj, obj.vcolg_src, vcol, 1)
         update_vcol_from_src(obj, obj.vcolb_src, vcol, 2)
+        update_vcol_from_src(obj, obj.vcola_src, vcol, 3)
         mesh.update()
 
         return {'FINISHED'}
@@ -639,6 +640,7 @@ class MY_PT_scene_tools(bpy.types.Panel):
             col.prop(obj, 'vcolr_src', text="R")
             col.prop(obj, 'vcolg_src', text="G")
             col.prop(obj, 'vcolb_src', text="B")
+            col.prop(obj, 'vcola_src', text="A")
 
 classes = (
     MY_OT_deduplicate_materials,
@@ -687,6 +689,12 @@ def register():
         items=vcol_src_items,
         update=vcol_src_update,
     )
+    bpy.types.Object.vcola_src = bpy.props.EnumProperty(
+        name="Vertex Color A Source",
+        description="Source mapping to vertex color channel alpha",
+        items=vcol_src_items,
+        update=vcol_src_update,
+    )
 
 def unregister():
     for cls in reversed(classes):
@@ -695,3 +703,4 @@ def unregister():
     del bpy.types.Object.vgroup_to_vcolr
     del bpy.types.Object.vgroup_to_vcolg
     del bpy.types.Object.vgroup_to_vcolb
+    del bpy.types.Object.vgroup_to_vcola
