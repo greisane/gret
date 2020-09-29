@@ -64,8 +64,7 @@ def merge_basis_shape_keys(context, obj):
     saved_unmuted_shape_keys = [sk for sk in obj.data.shape_keys.key_blocks if not sk.mute]
 
     # Mute all but the ones to be merged
-    basis_sk = obj.data.shape_keys.key_blocks[0]
-    basis_sk.name = "Basis"  # Rename to make sure it won't be picked up
+    obj.data.shape_keys.key_blocks[0].name = "Basis"  # Rename to make sure it won't be picked up
     for sk in obj.data.shape_keys.key_blocks[:]:
         if any(sk.name.startswith(s) for s in shape_key_name_prefixes):
             if sk.mute:
@@ -77,9 +76,13 @@ def merge_basis_shape_keys(context, obj):
 
     # Replace basis with merged
     new_sk = obj.shape_key_add(name="New Basis", from_mix=True)
-    for vert, new_vert in zip(obj.data.vertices, new_sk.data):
-        vert.co[:] = new_vert.co
-    obj.data.update()
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    new_basis_layer = bm.verts.layers.shape["New Basis"]
+    for vert in bm.verts:
+        vert.co[:] = vert[new_basis_layer]
+    bm.to_mesh(obj.data)
+    bm.free()
 
     # Remove the merged shapekeys
     for sk in obj.data.shape_keys.key_blocks[:]:
@@ -89,9 +92,6 @@ def merge_basis_shape_keys(context, obj):
     # Restore state
     for sk in saved_unmuted_shape_keys:
         sk.mute = False
-
-    obj.active_shape_key_index = 0
-    context.view_layer.objects.active = obj
 
 def mirror_shape_keys(context, obj):
     if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:
@@ -131,6 +131,7 @@ so the edge boundary is preserved"""
 
     # Need vertex mode to be set then object mode to actually select
     bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.reveal()
     bpy.ops.mesh.select_mode(type='FACE')
     bpy.ops.mesh.select_all(action='DESELECT')
     bpy.ops.mesh.select_mode(type='VERT')
