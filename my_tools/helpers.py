@@ -109,7 +109,6 @@ def clear_pose(obj, clear_armature_properties=True, clear_bone_properties=True):
     is_arp = is_object_arp(obj)
     if is_arp:
         arp_default_values = {
-            'arp_layer': None,  # Internal thing
             'auto_eyelid': 0.1,
             'auto_stretch': 0.0,
             'autolips': None,  # Different values, hard to tweak
@@ -125,6 +124,9 @@ def clear_pose(obj, clear_armature_properties=True, clear_bone_properties=True):
             'lips_stretch': 1.0,
             'pole_parent': 1,
             'stretch_length': 1.0,
+            'stretch_mode': 1,  # Bone original
+            'volume_variation': 0.0,
+            'y_scale': 2,  # Bone original
         }
 
     if clear_armature_properties:
