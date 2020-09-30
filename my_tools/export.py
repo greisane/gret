@@ -78,7 +78,7 @@ def merge_basis_shape_keys(context, obj):
     new_sk = obj.shape_key_add(name="New Basis", from_mix=True)
     bm = bmesh.new()
     bm.from_mesh(obj.data)
-    new_basis_layer = bm.verts.layers.shape["New Basis"]
+    new_basis_layer = bm.verts.layers.shape[new_basis.name]
     for vert in bm.verts:
         vert.co[:] = vert[new_basis_layer]
     bm.to_mesh(obj.data)
