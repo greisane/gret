@@ -26,27 +26,27 @@ class OBJECT_OT_normalize_shape_key_range(bpy.types.Operator):
 
     def execute(self, context):
         obj = context.object
-        sk = obj.active_shape_key
+        this_sk = obj.active_shape_key
 
         # Store state
         saved_show_only_shape_key = obj.show_only_shape_key
         saved_active_shape_key_index = obj.active_shape_key_index
         saved_unmuted_shape_keys = [sk for sk in obj.data.shape_keys.key_blocks if not sk.mute]
-        new_value = (sk.value - sk.slider_min) / (sk.slider_max - sk.slider_min)
+        new_value = (this_sk.value - this_sk.slider_min) / (this_sk.slider_max - this_sk.slider_min)
 
         # Create a new shape key from the maximum range of motion by muting all except current
         # Can't use show_only_shape_key for this because it ignores the value slider
         for sk_idx, sk in enumerate(obj.data.shape_keys.key_blocks):
             sk.mute = sk_idx != obj.active_shape_key_index
-        sk.slider_max = sk.slider_max - sk.slider_min
-        sk.value = sk.slider_max
+        this_sk.slider_max = this_sk.slider_max - this_sk.slider_min
+        this_sk.value = this_sk.slider_max
         obj.show_only_shape_key = False
         new_sk = obj.shape_key_add(name="New", from_mix=True)
 
         new_basis = None
-        if sk.slider_min < 0.0:
+        if this_sk.slider_min < 0.0:
             # Need to create new basis
-            sk.value = sk.slider_min
+            this_sk.value = this_sk.slider_min
             new_basis = obj.shape_key_add(name="New Basis", from_mix=True)
             bm = bmesh.new()
             bm.from_mesh(obj.data)
@@ -57,10 +57,10 @@ class OBJECT_OT_normalize_shape_key_range(bpy.types.Operator):
             bm.free()
 
         # Replace current with new
-        sk.slider_min = 0.0
-        sk.slider_max = 1.0
-        sk.value = new_value
-        for vert, new_vert in zip(sk.data, new_sk.data):
+        this_sk.slider_min = 0.0
+        this_sk.slider_max = 1.0
+        this_sk.value = new_value
+        for vert, new_vert in zip(this_sk.data, new_sk.data):
             vert.co[:] = new_vert.co
         obj.data.update()
 
