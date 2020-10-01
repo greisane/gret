@@ -75,7 +75,7 @@ def merge_basis_shape_keys(context, obj):
             sk.mute = True
 
     # Replace basis with merged
-    new_sk = obj.shape_key_add(name="New Basis", from_mix=True)
+    new_basis = obj.shape_key_add(name="New Basis", from_mix=True)
     bm = bmesh.new()
     bm.from_mesh(obj.data)
     new_basis_layer = bm.verts.layers.shape[new_basis.name]
