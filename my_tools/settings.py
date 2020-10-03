@@ -184,8 +184,13 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
     mirror_shape_keys: bpy.props.BoolProperty(
         name="Mirror Shape Keys",
         description="""Creates mirrored versions of shape keys that have side suffixes.
-Requires a mirror modifier. Vertex groups named _side.l and _side.r will be created""",
+Requires a mirror modifier""",
         default=True,
+    )
+    side_vgroup_name: bpy.props.StringProperty(
+        name="Side Vertex Group Name",
+        description="Name of the vertex groups that will be created on mirroring shape keys",
+        default="_side.l",
     )
     apply_modifiers: bpy.props.BoolProperty(
         name="Apply Modifiers",

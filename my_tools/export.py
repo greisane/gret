@@ -93,7 +93,7 @@ def merge_basis_shape_keys(context, obj):
     for sk in saved_unmuted_shape_keys:
         sk.mute = False
 
-def mirror_shape_keys(context, obj):
+def mirror_shape_keys(context, obj, side_vgroup_name):
     if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:
         # No shape keys
         return
@@ -105,18 +105,21 @@ def mirror_shape_keys(context, obj):
     # Make vertex groups for masking. It doesn't actually matter which side is which,
     # only that the modifier's vertex group mirroring function picks it up
     # Even if the vertex group exists, overwrite so the user doesn't have to manually update it
-    vgroup = obj.vertex_groups.get("_side.l") or obj.vertex_groups.new(name="_side.l")
+    other_vgroup_name = get_flipped_name(side_vgroup_name)
+    if not other_vgroup_name:
+        return
+    vgroup = obj.vertex_groups.get(side_vgroup_name) or obj.vertex_groups.new(name=side_vgroup_name)
     vgroup.add([vert.index for vert in obj.data.vertices], 1.0, 'REPLACE')
-    vgroup = obj.vertex_groups.get("_side.r") or obj.vertex_groups.new(name="_side.r")
+    vgroup = obj.vertex_groups.get(other_vgroup_name) or obj.vertex_groups.new(name=other_vgroup_name)
 
     for shape_key in obj.data.shape_keys.key_blocks:
         flipped_name = get_flipped_name(shape_key.name)
         # Only mirror it if it doesn't already exist
         if flipped_name and flipped_name not in obj.data.shape_keys.key_blocks:
             print(f"Mirroring shape key {shape_key.name}")
-            shape_key.vertex_group = "_side.l"
+            shape_key.vertex_group = side_vgroup_name
             new_shape_key = duplicate_shape_key(obj, shape_key.name, flipped_name)
-            new_shape_key.vertex_group = "_side.r"
+            new_shape_key.vertex_group = other_vgroup_name
 
 def apply_mask_modifier(mask_modifier):
     """Applies a mask modifier in the active object by removing faces instead of vertices \
@@ -182,8 +185,11 @@ def apply_modifiers(context, obj, mask_edge_boundary=False):
             print(f"Applying mask on {obj.name}")
             apply_mask_modifier(modifier)
         else:
-            # Apply post-mirror modifiers
-            bpy.ops.object.modifier_apply(modifier=modifier.name)
+            try:
+                # Apply post-mirror modifiers
+                bpy.ops.object.modifier_apply(modifier=modifier.name)
+            except RuntimeError:
+                print(f"Couldn't apply {modifier.type} modifier '{modifier.name}' in '{obj.name}'")
 
 def merge_freestyle_edges(obj):
     """Does 'Remove Doubles' on freestyle marked edges. Returns the number of vertices merged."""
@@ -499,6 +505,11 @@ class MY_OT_rig_export(bpy.types.Operator):
         description="Creates mirrored versions of shape keys that have side suffixes",
         default=True,
     )
+    side_vgroup_name: bpy.props.StringProperty(
+        name="Side Vertex Group Name",
+        description="Name of the vertex groups that will be created on mirroring shape keys",
+        default="_side.l",
+    )
     apply_modifiers: bpy.props.BoolProperty(
         name="Apply Modifiers",
         description="Allows exporting of shape keys even if the meshes have modifiers",
@@ -656,7 +667,7 @@ class MY_OT_rig_export(bpy.types.Operator):
                     merge_basis_shape_keys(context, obj)
 
                 if self.mirror_shape_keys:
-                    mirror_shape_keys(context, obj)
+                    mirror_shape_keys(context, obj, self.side_vgroup_name)
 
                 # Only use modifiers enabled for render. Delete unused modifiers
                 for modifier in obj.modifiers[:]:
@@ -1051,11 +1062,13 @@ class MY_OT_export_job_run(bpy.types.Operator):
             for obj in get_children_recursive(job.rig):
                 obj.hide_render = obj not in objs
 
+            export_coll = job.export_collection
             bpy.ops.my_tools.rig_export(
                 export_path=job.export_path if not job.to_collection else "",
-                export_collection=job.export_collection.name if job.export_collection else "",
+                export_collection=export_coll.name if job.to_collection and export_coll else "",
                 merge_basis_shape_keys=job.merge_basis_shape_keys,
                 mirror_shape_keys=job.mirror_shape_keys,
+                side_vgroup_name=job.side_vgroup_name,
                 apply_modifiers=job.apply_modifiers,
                 join_meshes=job.join_meshes,
                 split_masks=job.split_masks,
@@ -1151,7 +1164,6 @@ class MY_PT_export_jobs(bpy.types.Panel):
             col = box
 
             if job.show_expanded:
-
                 def add_collection_layout():
                     col = box.column(align=True)
                     for coll in job.collections:
@@ -1178,7 +1190,9 @@ class MY_PT_export_jobs(bpy.types.Panel):
 
                     col = box.column()
                     col.prop(job, 'merge_basis_shape_keys')
-                    col.prop(job, 'mirror_shape_keys')
+                    row = col.row(align=True)
+                    row.prop(job, 'mirror_shape_keys')
+                    row.prop(job, 'side_vgroup_name', text="")
                     col.prop(job, 'apply_modifiers')
                     col.prop(job, 'join_meshes')
                     # Don't have an use for Split Masks currently and too many options gets confusing
