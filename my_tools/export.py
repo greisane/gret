@@ -89,6 +89,10 @@ def merge_basis_shape_keys(context, obj):
         if not sk.mute:
             obj.shape_key_remove(sk)
 
+    # Only basis left? Remove it so applying modifiers has less issues
+    if len(obj.data.shape_keys.key_blocks) == 1:
+        obj.shape_key_clear()
+
     # Restore state
     for sk in saved_unmuted_shape_keys:
         sk.mute = False
