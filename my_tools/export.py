@@ -962,6 +962,8 @@ class MY_OT_export_job_add(bpy.types.Operator):
         action.job_index = job_index
         copy_property = job.copy_properties.add()
         copy_property.job_index = job_index
+        remap_material = job.remap_materials.add()
+        remap_material.job_index = job_index
 
         return {'FINISHED'}
 
@@ -987,6 +989,8 @@ class MY_OT_export_job_remove(bpy.types.Operator):
                 action.job_index = job_idx
             for copy_property in job.copy_properties:
                 copy_property.job_index = job_idx
+            for remap_material in job.remap_materials:
+                remap_material.job_index = job_idx
 
         return {'FINISHED'}
 
@@ -1020,7 +1024,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                     coll = job_coll.collection
                     if should_export(job_coll, coll):
                         for obj in coll.objects:
-                            if should_export(job_coll, obj):
+                            if obj not in objs and should_export(job_coll, obj):
                                 obj.hide_select = False
                                 obj.hide_viewport = False
                                 obj.hide_render = False
@@ -1057,7 +1061,23 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 coll = job_coll.collection
                 if should_export(job_coll, coll):
                     for obj in coll.objects:
-                        if should_export(job_coll, obj):
+                        if obj not in objs and should_export(job_coll, obj):
+                            saved_materials = []
+                            for mat_idx, mat in enumerate(obj.data.materials):
+                                for remap_material in job.remap_materials:
+                                    if mat and mat is remap_material.source:
+                                        saved_materials.append((obj, mat_idx, mat))
+                                        obj.data.materials[mat_idx] = remap_material.destination
+                                        break
+
+                            if all(not mat for mat in obj.data.materials):
+                                print(f"Not exporting '{obj.name}' because it has no materials")
+                                # Undo any remaps
+                                for obj, material_idx, material in saved_materials:
+                                    obj.data.materials[material_idx] = material
+                                continue
+
+                            self.saved_materials.extend(saved_materials)
                             obj.hide_select = False
                             obj.hide_render = False
                             objs.add(obj)
@@ -1112,7 +1132,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                     except StopIteration:
                         continue
 
-                    print(f"Baking {cp.source} -> {cp.destination} in {action_name}")
+                    print(f"Baking {cp.source} -> {cp.destination} in '{action_name}'")
 
                     fcurve_dst = action.fcurves.new(cp.destination)
                     self.new_fcurves.append((action, fcurve_dst))
@@ -1130,7 +1150,8 @@ class MY_OT_export_job_run(bpy.types.Operator):
 
     def execute(self, context):
         saved_selection = save_selection(all_objects=True)
-        self.new_fcurves = []
+        self.new_fcurves = []  # List of (action, fcurve)
+        self.saved_materials = []  # List of (obj, material_idx, material)
 
         try:
             self._execute(context)
@@ -1138,6 +1159,8 @@ class MY_OT_export_job_run(bpy.types.Operator):
             # Clean up
             for action, fcurve in self.new_fcurves:
                 action.fcurves.remove(fcurve)
+            for obj, material_idx, material in self.saved_materials:
+                obj.data.materials[material_idx] = material
             load_selection(saved_selection)
 
         return {'FINISHED'}
@@ -1202,6 +1225,15 @@ class MY_PT_export_jobs(bpy.types.Panel):
                     # Don't have an use for Split Masks currently and too many options gets confusing
                     # col.prop(job, 'split_masks')
                     col.prop(job, 'material_name_prefix', text="M. Prefix")
+
+                    col = box.column(align=True)
+                    col.label(text="Remap Materials:")
+                    for remap_material in job.remap_materials:
+                        row = col.row(align=True)
+                        row.prop(remap_material, 'source', text="")
+                        row.label(text="", icon='FORWARD')
+                        row.prop(remap_material, 'destination', text="")
+
                     col = box.column(align=True)
                     col.prop(job, 'to_collection')
                     col.prop(job, 'export_collection' if job.to_collection else "export_path", text="")

@@ -98,6 +98,36 @@ e.g.: ["eye_target"]""",
         update=on_copy_property_updated,
     )
 
+def on_remap_material_updated(self, context):
+    scn = context.scene
+    job = scn.my_tools.export_jobs[self.job_index]
+    index = job.remap_materials.values().index(self)
+
+    empty = not self.source and not self.destination
+
+    if empty and index < len(job.remap_materials) - 1:
+        # Remove it unless it's the last item
+        job.remap_materials.remove(index)
+    elif not empty and index == len(job.remap_materials) - 1:
+        # Make sure there's always an empty item at the end
+        remap_material = job.remap_materials.add()
+        remap_material.job_index = self.job_index
+
+class MY_PG_remap_material(bpy.types.PropertyGroup):
+    job_index: bpy.props.IntProperty()
+    source: bpy.props.PointerProperty(
+        name="Source",
+        description="Source material",
+        type=bpy.types.Material,
+        update=on_remap_material_updated,
+    )
+    destination: bpy.props.PointerProperty(
+        name="Destination",
+        description="Destination material",
+        type=bpy.types.Material,
+        update=on_remap_material_updated,
+    )
+
 def on_what_updated(self, context):
     # Ensure collections are valid
     if not self.collections:
@@ -112,6 +142,10 @@ def on_what_updated(self, context):
         job_index = context.scene.my_tools.export_jobs.values().index(self)
         copy_property = self.copy_properties.add()
         copy_property.job_index = job_index
+    if not self.remap_materials:
+        job_index = context.scene.my_tools.export_jobs.values().index(self)
+        remap_material = self.remap_materials.add()
+        remap_material.job_index = job_index
 
 class MY_PG_export_job(bpy.types.PropertyGroup):
     show_expanded: bpy.props.BoolProperty(
@@ -208,6 +242,9 @@ Requires a mirror modifier""",
 Normals are preserved""",
         default=False,
     )
+    remap_materials: bpy.props.CollectionProperty(
+        type=MY_PG_remap_material,
+    )
     to_collection: bpy.props.BoolProperty(
         name="To Collection",
         description="Produced meshes are put in a collection instead of being exported",
@@ -255,6 +292,7 @@ class MY_PG_settings(bpy.types.PropertyGroup):
 
 classes = (
     MY_PG_copy_property,
+    MY_PG_remap_material,
     MY_PG_export_action,
     MY_PG_export_collection,
     MY_PG_export_job,
