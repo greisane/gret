@@ -697,10 +697,10 @@ def register():
     )
 
 def unregister():
+    del bpy.types.Object.vcolr_src
+    del bpy.types.Object.vcolg_src
+    del bpy.types.Object.vcolb_src
+    del bpy.types.Object.vcola_src
+
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
-
-    del bpy.types.Object.vgroup_to_vcolr
-    del bpy.types.Object.vgroup_to_vcolg
-    del bpy.types.Object.vgroup_to_vcolb
-    del bpy.types.Object.vgroup_to_vcola

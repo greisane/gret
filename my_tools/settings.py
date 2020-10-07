@@ -307,5 +307,7 @@ def register():
     bpy.types.Scene.my_tools = bpy.props.PointerProperty(type=MY_PG_settings)
 
 def unregister():
+    del bpy.types.Scene.my_tools
+
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
