@@ -1062,22 +1062,21 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 if should_export(job_coll, coll):
                     for obj in coll.objects:
                         if obj not in objs and should_export(job_coll, obj):
-                            saved_materials = []
-                            for mat_idx, mat in enumerate(obj.data.materials):
-                                for remap_material in job.remap_materials:
-                                    if mat and mat is remap_material.source:
-                                        saved_materials.append((obj, mat_idx, mat))
-                                        obj.data.materials[mat_idx] = remap_material.destination
-                                        break
-
-                            if all(not mat for mat in obj.data.materials):
-                                print(f"Not exporting '{obj.name}' because it has no materials")
-                                # Undo any remaps
-                                for obj, material_idx, material in saved_materials:
-                                    obj.data.materials[material_idx] = material
-                                continue
-
-                            self.saved_materials.extend(saved_materials)
+                            if obj.type == 'MESH':
+                                saved_materials = []
+                                for mat_idx, mat in enumerate(obj.data.materials):
+                                    for remap_material in job.remap_materials:
+                                        if mat and mat is remap_material.source:
+                                            saved_materials.append((obj, mat_idx, mat))
+                                            obj.data.materials[mat_idx] = remap_material.destination
+                                            break
+                                if all(not mat for mat in obj.data.materials):
+                                    print(f"Not exporting '{obj.name}' because it has no materials")
+                                    # Undo any remaps
+                                    for obj, material_idx, material in saved_materials:
+                                        obj.data.materials[material_idx] = material
+                                    continue
+                                self.saved_materials.extend(saved_materials)
                             obj.hide_select = False
                             obj.hide_render = False
                             objs.add(obj)
