@@ -562,7 +562,7 @@ class MY_OT_rig_export(bpy.types.Operator):
         data_transfer.object = obj
         data_transfer.use_object_transform = False
         data_transfer.use_loop_data = True
-        data_transfer.loop_mapping = 'NEAREST_POLY'
+        data_transfer.loop_mapping = 'NEAREST_POLYNOR'  # 'NEAREST_POLY' fails on sharp edges
         data_transfer.data_types_loops = {'CUSTOM_NORMAL'}
         data_transfer.max_distance = 1e-5
         data_transfer.use_max_distance = True
