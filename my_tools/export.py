@@ -674,6 +674,7 @@ class MY_OT_rig_export(bpy.types.Operator):
                     mirror_shape_keys(context, obj, self.side_vgroup_name)
 
                 # Only use modifiers enabled for render. Delete unused modifiers
+                context.view_layer.objects.active = obj
                 for modifier in obj.modifiers[:]:
                     modifier.show_viewport = modifier.show_render
                     if not modifier.show_viewport:
