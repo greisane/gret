@@ -502,12 +502,12 @@ class PoseBlender:
                 pose_bone.location = transform.location
                 pose_bone.scale = transform.scale
 
-    def on_update(self, scene):
+    def on_update(self, *args):
         if self.ensure_armature_valid():
             self.update_armature()
             self.armature_name = self.armature.name
 
-    def on_undo(self, scene):
+    def on_undo(self, *args):
         if self.ensure_armature_valid():
             self.ensure_properties_exist()
             self.update_armature()
