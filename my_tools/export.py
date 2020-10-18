@@ -162,24 +162,27 @@ so the edge boundary is preserved"""
 def apply_modifiers(context, obj, mask_edge_boundary=False):
     """Apply modifiers while preserving shape keys. Handles some modifiers specially."""
 
-    def should_disable_modifier(mo):
-        return (mo.type in {'ARMATURE', 'NORMAL_EDIT'}
-            or mo.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL' in mo.data_types_loops
-            or mo.type == 'MASK' and mask_edge_boundary)
-
-    disabled_modifiers = []
-    for modifier in obj.modifiers:
-        if modifier.show_viewport and should_disable_modifier(modifier):
-            modifier.show_viewport = False
-            disabled_modifiers.append(modifier)
-
+    modifiers = []
     context.view_layer.objects.active = obj
     num_shape_keys = len(obj.data.shape_keys.key_blocks) if obj.data.shape_keys else 0
     if num_shape_keys:
-        print(f"Applying modifiers on {obj.name} with {num_shape_keys} shape keys")
-    bpy.ops.object.apply_modifiers_with_shape_keys()
+        def should_disable_modifier(mo):
+            return (mo.type in {'ARMATURE', 'NORMAL_EDIT'}
+                or mo.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL' in mo.data_types_loops
+                or mo.type == 'MASK' and mask_edge_boundary)
 
-    for modifier in disabled_modifiers:
+        for modifier in obj.modifiers:
+            # Disable modifiers to be applied after mirror
+            if modifier.show_viewport and should_disable_modifier(modifier):
+                modifier.show_viewport = False
+                modifiers.append(modifier)
+
+        print(f"Applying modifiers on {obj.name} with {num_shape_keys} shape keys")
+        bpy.ops.object.apply_modifiers_with_shape_keys()
+    else:
+        modifiers = [mo for mo in obj.modifiers if modifier.show_viewport]
+
+    for modifier in modifiers:
         modifier.show_viewport = True
         if modifier.type == 'ARMATURE':
             # Do nothing, just reenable
@@ -190,7 +193,6 @@ def apply_modifiers(context, obj, mask_edge_boundary=False):
             apply_mask_modifier(modifier)
         else:
             try:
-                # Apply post-mirror modifiers
                 bpy.ops.object.modifier_apply(modifier=modifier.name)
             except RuntimeError:
                 print(f"Couldn't apply {modifier.type} modifier '{modifier.name}' in '{obj.name}'")
