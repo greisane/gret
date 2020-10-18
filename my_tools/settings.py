@@ -231,6 +231,12 @@ Requires a mirror modifier""",
         description="Allows exporting of shape keys even if the meshes have generative modifiers",
         default=True,
     )
+    modifier_tags: bpy.props.StringProperty(
+        name="Modifier Tags",
+        description="""Tagged modifiers are only applied if the tag is found in this list.
+Separate tags with commas. Tag modifiers with 'g:tag'""",
+        default="",
+    )
     join_meshes: bpy.props.BoolProperty(
         name="Join Meshes",
         description="Joins meshes before exporting",

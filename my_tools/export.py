@@ -5,6 +5,7 @@ import bmesh
 import bpy
 import math
 import os
+import re
 import time
 from .helpers import (
     beep,
@@ -180,7 +181,7 @@ def apply_modifiers(context, obj, mask_edge_boundary=False):
         print(f"Applying modifiers on {obj.name} with {num_shape_keys} shape keys")
         bpy.ops.object.apply_modifiers_with_shape_keys()
     else:
-        modifiers = [mo for mo in obj.modifiers if modifier.show_viewport]
+        modifiers = [mo for mo in obj.modifiers if mo.show_viewport]
 
     for modifier in modifiers:
         modifier.show_viewport = True
@@ -521,6 +522,12 @@ class MY_OT_rig_export(bpy.types.Operator):
         description="Allows exporting of shape keys even if the meshes have modifiers",
         default=True,
     )
+    modifier_tags: bpy.props.StringProperty(
+        name="Modifier Tags",
+        description="""Tagged modifiers are only applied if the tag is found in this list.
+Separate tags with commas. Tag modifiers with 'g:tag'""",
+        default="",
+    )
     join_meshes: bpy.props.BoolProperty(
         name="Join Meshes",
         description="Joins meshes before exporting",
@@ -666,6 +673,11 @@ class MY_OT_rig_export(bpy.types.Operator):
                     else:
                         bpy.ops.object.modifier_remove(modifier=modifier.name)
 
+        any_modifier_tags = set(self.modifier_tags.split(','))
+        def should_enable_modifier(mo):
+            tags = set(re.findall(r"g:(\S+)", mo.name))
+            return mo.show_render and (not tags or any(s in tags for s in any_modifier_tags))
+
         # Process individual meshes
         for export_group in export_groups:
             for obj in export_group.objects:
@@ -678,7 +690,7 @@ class MY_OT_rig_export(bpy.types.Operator):
                 # Only use modifiers enabled for render. Delete unused modifiers
                 context.view_layer.objects.active = obj
                 for modifier in obj.modifiers[:]:
-                    modifier.show_viewport = modifier.show_render
+                    modifier.show_viewport = should_enable_modifier(modifier)
                     if not modifier.show_viewport:
                         bpy.ops.object.modifier_remove(modifier=modifier.name)
                 if self.apply_modifiers:
@@ -1096,6 +1108,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 mirror_shape_keys=job.mirror_shape_keys,
                 side_vgroup_name=job.side_vgroup_name,
                 apply_modifiers=job.apply_modifiers,
+                modifier_tags=job.modifier_tags,
                 join_meshes=job.join_meshes,
                 split_masks=job.split_masks,
                 material_name_prefix=job.material_name_prefix,
@@ -1219,10 +1232,19 @@ class MY_PT_export_jobs(bpy.types.Panel):
 
                     col = box.column()
                     col.prop(job, 'merge_basis_shape_keys')
+
                     row = col.row(align=True)
                     row.prop(job, 'mirror_shape_keys')
-                    row.prop(job, 'side_vgroup_name', text="")
-                    col.prop(job, 'apply_modifiers')
+                    split = row.split(align=True)
+                    split.prop(job, 'side_vgroup_name', text="")
+                    split.enabled = job.mirror_shape_keys
+
+                    row = col.row(align=True)
+                    row.prop(job, 'apply_modifiers')
+                    split = row.split(align=True)
+                    split.prop(job, 'modifier_tags', text="")
+                    split.enabled = job.apply_modifiers
+
                     col.prop(job, 'join_meshes')
                     # Don't have an use for Split Masks currently and too many options gets confusing
                     # col.prop(job, 'split_masks')
