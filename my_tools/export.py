@@ -901,7 +901,7 @@ class MY_OT_animation_export(bpy.types.Operator):
                 rig.data.pose_position = 'POSE'
                 clear_pose(rig)
 
-                rig.animation_data.export_group.action = export_group.action
+                rig.animation_data.action = export_group.action
                 context.scene.frame_preview_start = export_group.action.frame_range[0]
                 context.scene.frame_preview_end = export_group.action.frame_range[1]
                 context.scene.use_preview_range = True
