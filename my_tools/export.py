@@ -567,11 +567,22 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
         new_obj = self.copy_obj(obj, copy_data=True)
         new_obj.data.use_auto_smooth = True  # Enable custom normals
         new_obj.data.auto_smooth_angle = math.pi
+
+        # I don't see a way to check if topology mapping is working or not, so clone normals twice
         data_transfer = new_obj.modifiers.new("Clone Normals", 'DATA_TRANSFER')
         data_transfer.object = obj
         data_transfer.use_object_transform = False
         data_transfer.use_loop_data = True
         data_transfer.loop_mapping = 'NEAREST_POLYNOR'  # 'NEAREST_POLY' fails on sharp edges
+        data_transfer.data_types_loops = {'CUSTOM_NORMAL'}
+        data_transfer.max_distance = 1e-5
+        data_transfer.use_max_distance = True
+
+        data_transfer = new_obj.modifiers.new("Clone Normals Topology", 'DATA_TRANSFER')
+        data_transfer.object = obj
+        data_transfer.use_object_transform = False
+        data_transfer.use_loop_data = True
+        data_transfer.loop_mapping = 'TOPOLOGY'
         data_transfer.data_types_loops = {'CUSTOM_NORMAL'}
         data_transfer.max_distance = 1e-5
         data_transfer.use_max_distance = True
