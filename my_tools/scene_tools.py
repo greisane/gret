@@ -604,7 +604,7 @@ class MY_OT_vcols_from_src(bpy.types.Operator):
         obj = context.object
         mesh = context.object.data
 
-        if all(src == 'NONE' for src in (obj.vcolr_src, obj.vcolg_src, obj.vcolb_src)):
+        if all(src == 'NONE' for src in (obj.vcolr_src, obj.vcolg_src, obj.vcolb_src, obj.vcola_src)):
             # Avoid creating a vertex group if nothing would be done anyway
             return {'FINISHED'}
 
