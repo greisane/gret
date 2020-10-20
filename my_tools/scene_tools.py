@@ -568,10 +568,10 @@ def values_to_vcol(mesh, src_values, dst_vcol, dst_channel_idx):
 
 def update_vcol_from_src(obj, src, dst_vcol, dst_channel_idx):
     mesh = obj.data
-    if src == 'zero':
+    if src == 'ZERO':
         values = [0.0] * len(mesh.vertices)
         values_to_vcol(mesh, values, dst_vcol, dst_channel_idx)
-    elif src == 'one':
+    elif src == 'ONE':
         values = [1.0] * len(mesh.vertices)
         values_to_vcol(mesh, values, dst_vcol, dst_channel_idx)
     elif src.startswith('vg_'):
@@ -604,7 +604,7 @@ class MY_OT_vcols_from_src(bpy.types.Operator):
         obj = context.object
         mesh = context.object.data
 
-        if all(src == 'none' for src in (obj.vcolr_src, obj.vcolg_src, obj.vcolb_src)):
+        if all(src == 'NONE' for src in (obj.vcolr_src, obj.vcolg_src, obj.vcolb_src)):
             # Avoid creating a vertex group if nothing would be done anyway
             return {'FINISHED'}
 
@@ -654,9 +654,9 @@ def vcol_src_items(self, context):
     items = []
     if obj and obj.type == 'MESH':
         items.extend([
-            ('none', '', "Leave the channel unchanged"),
-            ('zero', 'Zero', "Fill the channel with the minimum value"),
-            ('one', 'One', "Fill the channel with the maximum value"),
+            ('NONE', "", "Leave the channel unchanged"),
+            ('ZERO', "Zero", "Fill the channel with the minimum value"),
+            ('ONE', "One", "Fill the channel with the maximum value"),
         ])
         if obj.vertex_groups:
             items.extend([(f'vg_{vg.name}', vg.name, "Vertex group") for vg in obj.vertex_groups])

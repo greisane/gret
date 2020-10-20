@@ -718,8 +718,9 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 context.view_layer.objects.active = obj
                 # Remove vertex group filtering from shapekeys
                 bpy.ops.object.apply_shape_keys_with_vertex_groups()
-                # Refresh vertex color mappings
+                # Refresh vertex color and clear the mappings to avoid issues when meshes are merged
                 bpy.ops.my_tools.vcols_from_src()
+                obj.vcolr_src = obj.vcolg_src = obj.vcolb_src = obj.vcola_src = 'NONE'
 
         if self.join_meshes:
             for export_group in export_groups:
