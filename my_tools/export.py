@@ -718,6 +718,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 context.view_layer.objects.active = obj
                 # Remove vertex group filtering from shapekeys
                 bpy.ops.object.apply_shape_keys_with_vertex_groups()
+
                 # Refresh vertex color and clear the mappings to avoid issues when meshes are merged
                 if not obj.data.vertex_colors and all(src == 'NONE' for src in (
                     obj.vcolr_src, obj.vcolg_src, obj.vcolb_src, obj.vcola_src)):
@@ -725,6 +726,10 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                     obj.vcolr_src = obj.vcolg_src = obj.vcolb_src = obj.vcola_src = 'ZERO'
                 bpy.ops.my_tools.vcols_from_src()
                 obj.vcolr_src = obj.vcolg_src = obj.vcolb_src = obj.vcola_src = 'NONE'
+
+                # Ensure basis is selected
+                obj.active_shape_key_index = 0
+                obj.show_only_shape_key = False
 
         if self.join_meshes:
             for export_group in export_groups:
@@ -756,6 +761,10 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 # Enable autosmooth for merged object to allow custom normals
                 merged_obj.data.use_auto_smooth = True
                 merged_obj.data.auto_smooth_angle = math.pi
+
+                # Ensure basis is selected
+                merged_obj.active_shape_key_index = 0
+                merged_obj.show_only_shape_key = False
 
                 export_group.objects[:] = [merged_obj]
 
