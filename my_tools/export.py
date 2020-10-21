@@ -890,6 +890,11 @@ class MY_OT_animation_export(bpy.types.Operator):
         description="Comma separated list of actions to export",
         default=""
     )
+    disable_auto_eyelid: bpy.props.BoolProperty(
+        name="Disable Auto-Eyelid",
+        description="Disables Auto-Eyelid (ARP only)",
+        default=True,
+    )
 
     @classmethod
     def poll(cls, context):
@@ -941,6 +946,13 @@ class MY_OT_animation_export(bpy.types.Operator):
                 bpy.context.evaluated_depsgraph_get().update()
 
                 if is_object_arp(rig):
+                    if self.disable_auto_eyelid:
+                        for bone_name in ('c_eyelid_base.l', 'c_eyelid_base.r'):
+                            pb = rig.pose.bones.get('c_eyelid_base.l')
+                            if pb:
+                                for constraint in (con for con in pb.constraints if not con.mute):
+                                    constraint.mute = True
+                                    self.saved_unmuted_constraints.append(constraint)
                     print(f"Exporting {filename} via Auto-Rig export")
                     result = export_autorig(context, filepath, [export_group.action])
                 else:
@@ -971,6 +983,7 @@ class MY_OT_animation_export(bpy.types.Operator):
         saved_use_global_undo = context.preferences.edit.use_global_undo
         context.preferences.edit.use_global_undo = False
         self.exported_files = []
+        self.saved_unmuted_constraints = []
 
         try:
             start_time = time.time()
@@ -980,6 +993,8 @@ class MY_OT_animation_export(bpy.types.Operator):
             self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
         finally:
             # Clean up
+            for modifier in self.saved_unmuted_constraints:
+                modifier.mute = False
             rig.data.pose_position = saved_pose_position
             rig.animation_data.action = saved_action
             context.preferences.edit.use_global_undo = saved_use_global_undo
@@ -1322,6 +1337,9 @@ class MY_PT_export_jobs(bpy.types.Panel):
                         else:
                             row.prop(action, 'action', text="")
                         row.prop(action, 'use_pattern', icon='SELECT_SET', text="")
+
+                    col = box.column()
+                    col.prop(job, 'disable_auto_eyelid')
 
                     col = box.column(align=True)
                     col.label(text="Bake Properties:")

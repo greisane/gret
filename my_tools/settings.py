@@ -261,6 +261,11 @@ Normals are preserved""",
     actions: bpy.props.CollectionProperty(
         type=MY_PG_export_action,
     )
+    disable_auto_eyelid: bpy.props.BoolProperty(
+        name="Disable Auto-Eyelid",
+        description="Disables Auto-Eyelid (ARP only)",
+        default=True,
+    )
     copy_properties: bpy.props.CollectionProperty(
         type=MY_PG_copy_property,
     )
