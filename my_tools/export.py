@@ -22,6 +22,13 @@ from .helpers import (
     select_only,
 )
 
+class ConstantCurve:
+    """Mimics FCurve and always returns the same value on evaluation"""
+    def __init__(self, value):
+        self.value = value
+    def evaluate(self, frame_index):
+        return self.value
+
 def get_nice_export_report(files, elapsed):
     if len(files) > 5:
         return f"{len(files)} files exported in {elapsed:.2f}s."
@@ -1170,12 +1177,29 @@ class MY_OT_export_job_run(bpy.types.Operator):
                     try:
                         fcurve_src = next(fc for fc in action.fcurves if fc.data_path == cp.source)
                     except StopIteration:
-                        continue
+                        try:
+                            value = float(cp.source)
+                            fcurve_src = ConstantCurve(value)
+                        except ValueError:
+                            self.report({'ERROR'}, f"Couldn't bake {cp.source} -> {cp.destination} " \
+                                f"in '{action_name}', source doesn't exist")
+                            return {'CANCELLED'}
+
+                    try:
+                        fcurve_dst = next(fc for fc in action.fcurves if fc.data_path == cp.destination)
+                        if fcurve_dst:
+                            # Currently baking to existing curves is not allowed
+                            # Would need to duplicate strips, although ARP already does that
+                            print(f"Couldn't bake {cp.source} -> {cp.destination}, " \
+                                "destination already exists")
+                            self.report({'ERROR'}, f"Couldn't bake {cp.source} -> {cp.destination} " \
+                                f"in '{action_name}', destination already exists")
+                            return {'CANCELLED'}
+                    except StopIteration:
+                        fcurve_dst = action.fcurves.new(cp.destination)
+                        self.new_fcurves.append((action, fcurve_dst))
 
                     print(f"Baking {cp.source} -> {cp.destination} in '{action_name}'")
-
-                    fcurve_dst = action.fcurves.new(cp.destination)
-                    self.new_fcurves.append((action, fcurve_dst))
                     for frame_idx in range(0, int(action.frame_range[1]) + 1):
                         val = fcurve_src.evaluate(frame_idx)
                         fcurve_dst.keyframe_points.insert(frame_idx, val)
