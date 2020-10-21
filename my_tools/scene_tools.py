@@ -56,6 +56,87 @@ class MY_OT_deduplicate_materials(bpy.types.Operator):
         self.report({'INFO'}, f"Deleted {len(redirects)} duplicate materials.")
         return {'FINISHED'}
 
+class MY_OT_replace_references(bpy.types.Operator):
+    #tooltip
+    """Replaces references to an object with a different object. Use with care"""
+
+    bl_idname = 'my_tools.replace_references'
+    bl_label = "Replace References"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def get_obj_items(self, context):
+        return [(o.name, o.name, "") for o in bpy.data.objects if not o.library]
+
+    dry_run: bpy.props.BoolProperty(
+        name="Dry Run",
+        description="List the names of the properties that would be affected without making changes",
+        default=True,
+    )
+    src_obj_name: bpy.props.EnumProperty(
+        items=get_obj_items,
+        name="Source Object",
+        description="Object to be replaced",
+    )
+    dst_obj_name: bpy.props.EnumProperty(
+        items=get_obj_items,
+        name="Target Object",
+        description="Object to be used in its place",
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'OBJECT'
+
+    def execute(self, context):
+        src_obj = bpy.data.objects.get(self.src_obj_name)
+        if not src_obj:
+            self.report({'ERROR'}, f"Source object does not exist.")
+            return {'CANCELLED'}
+        dst_obj = bpy.data.objects.get(self.dst_obj_name)
+        if not dst_obj:
+            self.report({'ERROR'}, f"Target object does not exist.")
+            return {'CANCELLED'}
+        if src_obj == dst_obj:
+            self.report({'ERROR'}, f"Source and destination objects are the same.")
+            return {'CANCELLED'}
+
+        num_found = 0
+        num_replaced = 0
+        def replace_pointer_properties(obj, path=""):
+            nonlocal num_found, num_replaced
+            for prop in obj.bl_rna.properties:
+                if prop.type != 'POINTER':
+                    continue
+                if obj.is_property_readonly(prop.identifier):
+                    continue
+                if getattr(obj, prop.identifier) == src_obj:
+                    path = " -> ".join(s for s in [path, obj.name, prop.identifier] if s)
+                    verb = "would be" if self.dry_run else "was"
+                    if not self.dry_run:
+                        try:
+                            setattr(obj, prop.identifier, dst_obj)
+                            num_replaced += 1
+                        except:
+                            verb = "failed to be"
+                    print(f"{path} {verb} replaced")
+                    num_found += 1
+
+        print(f"Searching for '{src_obj.name}' to replace with '{dst_obj.name}'")
+        for obj in bpy.data.objects:
+            replace_pointer_properties(obj)
+            for mo in obj.modifiers:
+                replace_pointer_properties(mo, path=obj.name)
+
+        if self.dry_run:
+            self.report({'INFO'}, f"{num_found} references found, see the console for details.")
+        else:
+            self.report({'INFO'}, f"{num_found} references found, {num_replaced} replaced.")
+
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
 def is_box(bm, sq_threshold=0.001):
     """Check if the shape can be represented by a box by checking if there's a vertex opposite
 across the center for each vertex, within some threshold"""
@@ -645,6 +726,7 @@ class MY_PT_scene_tools(bpy.types.Panel):
 classes = (
     MY_OT_deduplicate_materials,
     MY_OT_make_collision,
+    MY_OT_replace_references,
     MY_OT_vcols_from_src,
     MY_PT_scene_tools,
 )
