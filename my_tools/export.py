@@ -1184,6 +1184,9 @@ class MY_OT_export_job_run(bpy.types.Operator):
                             if fnmatch(action.name, job_action.action))
 
             for cp in job.copy_properties:
+                if not cp.source and not cp.destination:
+                    # Empty row
+                    continue
                 for action_name in action_names:
                     action = bpy.data.actions.get(action_name)
                     if not action:
