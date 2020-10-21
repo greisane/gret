@@ -58,14 +58,15 @@ class MY_OT_deduplicate_materials(bpy.types.Operator):
 
 class MY_OT_replace_references(bpy.types.Operator):
     #tooltip
-    """Replaces references to an object with a different object. Use with care"""
+    """Replaces references to an object with a different object. Use with care.
+Currently only handles objects and modifiers, and no nested properties"""
 
     bl_idname = 'my_tools.replace_references'
     bl_label = "Replace References"
     bl_options = {'REGISTER', 'UNDO'}
 
-    def get_obj_items(self, context):
-        return [(o.name, o.name, "") for o in bpy.data.objects if not o.library]
+    def get_obj_name_items(self, context):
+        return [(o.name, o.name, "") for o in bpy.data.objects]
 
     dry_run: bpy.props.BoolProperty(
         name="Dry Run",
@@ -73,12 +74,12 @@ class MY_OT_replace_references(bpy.types.Operator):
         default=True,
     )
     src_obj_name: bpy.props.EnumProperty(
-        items=get_obj_items,
+        items=get_obj_name_items,
         name="Source Object",
         description="Object to be replaced",
     )
     dst_obj_name: bpy.props.EnumProperty(
-        items=get_obj_items,
+        items=get_obj_name_items,
         name="Target Object",
         description="Object to be used in its place",
     )
@@ -123,6 +124,9 @@ class MY_OT_replace_references(bpy.types.Operator):
 
         print(f"Searching for '{src_obj.name}' to replace with '{dst_obj.name}'")
         for obj in bpy.data.objects:
+            if obj.library:
+                # Linked objects are not handled currently, though it might just work
+                continue
             replace_pointer_properties(obj)
             for mo in obj.modifiers:
                 replace_pointer_properties(mo, path=obj.name)
