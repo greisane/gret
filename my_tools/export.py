@@ -315,7 +315,7 @@ def export_autorig(context, filepath, actions):
     scn.arp_global_scale = 1.0
     scn.arp_mesh_smooth_type = 'EDGE'
     scn.arp_use_tspace = False
-    scn.arp_fix_fbx_rot = False
+    scn.arp_fix_fbx_rot = True
     scn.arp_fix_fbx_matrix = True
     scn.arp_init_fbx_rot = False
     scn.arp_bone_axis_primary_export = 'Y'
