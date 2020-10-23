@@ -713,7 +713,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 context.view_layer.objects.active = obj
                 for modifier in obj.modifiers[:]:
                     modifier.show_viewport = should_enable_modifier(modifier)
-                    if not modifier.show_viewport:
+                    if not modifier.show_viewport and "!keep" not in modifier.name:
                         bpy.ops.object.modifier_remove(modifier=modifier.name)
                 if self.apply_modifiers:
                     apply_modifiers(context, obj, mask_edge_boundary=self.split_masks)
