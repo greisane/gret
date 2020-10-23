@@ -26,14 +26,15 @@ class Logger:
             self.log_file.close()
             self.log_file = None
 
-    def log(self, message):
+    def log(self, *args, sep=' '):
         assert hasattr(self, 'logs'), "start_logging must be called first"
+        message = sep.join(str(arg) for arg in args)
         self.logs.append((time.time(), message))
         if not self.log_defer_print:
             self._print_log(*self.logs[-1])
 
     def _print_log(self, timestamp, message):
-        line = f"{timestamp - self.log_start_time:5.2f}s | {message}"
+        line = f"{timestamp - self.log_start_time:6.2f}s | {message}"
         print(line)
         if self.log_file:
             print(line, file=self.log_file)

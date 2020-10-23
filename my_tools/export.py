@@ -24,8 +24,7 @@ from .helpers import (
 )
 
 logger = Logger()
-def log(message):
-    logger.log(message)
+log = logger.log
 
 class ConstantCurve:
     """Mimics FCurve and always returns the same value on evaluation"""
@@ -1134,6 +1133,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
             for obj in all_objs:
                 if obj.type == 'MESH':
                     saved_materials = []
+                    log(obj.name)
                     for mat_idx, mat in enumerate(obj.data.materials):
                         for remap_material in job.remap_materials:
                             if mat and mat is remap_material.source:
