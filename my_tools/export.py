@@ -636,13 +636,17 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 if modifier.type != 'MASK' and modifier.show_render and not modifier.show_viewport:
                     modifier.show_viewport = True
                     self.saved_disabled_modifiers.add(modifier)
-            if obj.type == 'MESH' and not obj.hide_render and obj.find_armature() is rig:
-                # Meshes that aren't already doing it will transfer normals from the originals
-                if not any(mo.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL' in mo.data_types_loops
-                    for mo in obj.modifiers):
-                    mesh_objs.append(self.copy_obj_clone_normals(obj))
-                else:
-                    mesh_objs.append(self.copy_obj(obj))
+            if obj.type == 'MESH':
+                self.saved_auto_smooth[obj] = (obj.data.use_auto_smooth, obj.data.auto_smooth_angle)
+                obj.data.use_auto_smooth = True
+                obj.data.auto_smooth_angle = math.pi
+                if not obj.hide_render and obj.find_armature() is rig:
+                    # Meshes that aren't already doing it will transfer normals from the originals
+                    if not any(mo.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL' in mo.data_types_loops
+                        for mo in obj.modifiers):
+                        mesh_objs.append(self.copy_obj_clone_normals(obj))
+                    else:
+                        mesh_objs.append(self.copy_obj(obj))
 
         ExportGroup = namedtuple('ExportGroup', ['suffix', 'objects'])
         export_groups = []
@@ -871,6 +875,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
         self.new_meshes = set()
         self.saved_disabled_modifiers = set()
         self.saved_material_names = {}
+        self.saved_auto_smooth = {}
 
         try:
             start_time = time.time()
@@ -888,7 +893,11 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 self.saved_disabled_modifiers.pop().show_viewport = False
             for mat, name in self.saved_material_names.items():
                 mat.name = name
+            for obj, (value, angle) in self.saved_auto_smooth.items():
+                obj.data.use_auto_smooth = value
+                obj.data.auto_smooth_angle = angle
             del self.saved_material_names
+            del self.saved_auto_smooth
             rig.data.pose_position = saved_pose_position
             context.preferences.edit.use_global_undo = saved_use_global_undo
             load_selection(saved_selection)
