@@ -256,6 +256,22 @@ def merge_freestyle_edges(obj):
 
     return old_num_verts - new_num_verts
 
+def delete_faces_with_no_material(context, obj):
+    if not any(not mat for mat in obj.data.materials):
+        # All material slots are filled, nothing to do
+        return
+
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+
+    delete_geom = [f for f in bm.faces if not obj.data.materials[f.material_index]]
+    bmesh.ops.delete(bm, geom=delete_geom, context='FACES')
+    log(f"Deleted {len(delete_geom)} faces with no material in {obj.name}")
+
+    # Finish and clean up
+    bm.to_mesh(obj.data)
+    bm.free()
+
 ik_bone_names = [
     "ik_foot_root",
     "ik_foot.l",
@@ -703,6 +719,8 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
         # Process individual meshes
         for export_group in export_groups:
             for obj in export_group.objects:
+                delete_faces_with_no_material(context, obj)
+
                 if self.merge_basis_shape_keys:
                     merge_basis_shape_keys(context, obj)
 
@@ -861,6 +879,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 self.saved_disabled_modifiers.pop().show_viewport = False
             for mat, name in self.saved_material_names.items():
                 mat.name = name
+            del self.saved_material_names
             rig.data.pose_position = saved_pose_position
             context.preferences.edit.use_global_undo = saved_use_global_undo
             load_selection(saved_selection)
@@ -999,6 +1018,7 @@ class MY_OT_animation_export(bpy.types.Operator):
             # Clean up
             for modifier in self.saved_unmuted_constraints:
                 modifier.mute = False
+            del self.saved_unmuted_constraints
             rig.data.pose_position = saved_pose_position
             rig.animation_data.action = saved_action
             context.preferences.edit.use_global_undo = saved_use_global_undo
@@ -1284,6 +1304,8 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 action.fcurves.remove(fcurve)
             for obj, material_idx, material in self.saved_materials:
                 obj.data.materials[material_idx] = material
+            del self.new_fcurves
+            del self.saved_materials
             load_selection(saved_selection)
             logger.end_logging()
 
