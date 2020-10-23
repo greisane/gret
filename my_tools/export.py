@@ -718,7 +718,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 if self.material_name_prefix:
                     for mat_slot in obj.material_slots:
                         mat = mat_slot.material
-                        if not mat.name.startswith(self.material_name_prefix):
+                        if mat and not mat.name.startswith(self.material_name_prefix):
                             self.saved_material_names[mat] = mat.name
                             mat.name = self.material_name_prefix + mat.name
 
@@ -1117,31 +1117,34 @@ class MY_OT_export_job_run(bpy.types.Operator):
 
             print(f"Beginning rig export job '{job.name}'")
 
-            # Mark the objects that should be exported as render so they will be picked up
-            objs = set()
+            # Find all unique objects that should be considered for export
+            all_objs = set()
             for job_coll in job.collections:
                 coll = job_coll.collection
                 if should_export(job_coll, coll):
-                    for obj in coll.objects:
-                        if obj not in objs and should_export(job_coll, obj):
-                            if obj.type == 'MESH':
-                                saved_materials = []
-                                for mat_idx, mat in enumerate(obj.data.materials):
-                                    for remap_material in job.remap_materials:
-                                        if mat and mat is remap_material.source:
-                                            saved_materials.append((obj, mat_idx, mat))
-                                            obj.data.materials[mat_idx] = remap_material.destination
-                                            break
-                                if all(not mat for mat in obj.data.materials):
-                                    print(f"Not exporting '{obj.name}' because it has no materials")
-                                    # Undo any remaps
-                                    for obj, material_idx, material in saved_materials:
-                                        obj.data.materials[material_idx] = material
-                                    continue
-                                self.saved_materials.extend(saved_materials)
-                            obj.hide_select = False
-                            obj.hide_render = False
-                            objs.add(obj)
+                    all_objs.update(obj for obj in coll.objects if should_export(job_coll, obj))
+
+            # Mark the objects that should be exported as render so they will be picked up
+            objs = set()
+            for obj in all_objs:
+                if obj.type == 'MESH':
+                    saved_materials = []
+                    for mat_idx, mat in enumerate(obj.data.materials):
+                        for remap_material in job.remap_materials:
+                            if mat and mat is remap_material.source:
+                                saved_materials.append((obj, mat_idx, mat))
+                                obj.data.materials[mat_idx] = remap_material.destination
+                                break
+                    if all(not mat for mat in obj.data.materials):
+                        print(f"Not exporting '{obj.name}' because it has no materials")
+                        # Undo any remaps
+                        for obj, material_idx, material in saved_materials:
+                            obj.data.materials[material_idx] = material
+                        continue
+                    self.saved_materials.extend(saved_materials)
+                obj.hide_select = False
+                obj.hide_render = False
+                objs.add(obj)
 
             # Hide all objects that shouldn't be exported
             for obj in get_children_recursive(job.rig):
