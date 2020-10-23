@@ -1033,6 +1033,18 @@ class MY_OT_export_job_add(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def refresh_job_list(context):
+    """Call after changing the job list, keeps job indices up to date"""
+    for job_idx, job in enumerate(context.scene.my_tools.export_jobs):
+        for coll in job.collections:
+            coll.job_index = job_idx
+        for action in job.actions:
+            action.job_index = job_idx
+        for copy_property in job.copy_properties:
+            copy_property.job_index = job_idx
+        for remap_material in job.remap_materials:
+            remap_material.job_index = job_idx
+
 class MY_OT_export_job_remove(bpy.types.Operator):
     #tooltip
     """Removes an export job"""
@@ -1044,19 +1056,40 @@ class MY_OT_export_job_remove(bpy.types.Operator):
     index: bpy.props.IntProperty(options={'HIDDEN'})
 
     def execute(self, context):
-        scn = context.scene
-        scn.my_tools.export_jobs.remove(self.index)
+        context.scene.my_tools.export_jobs.remove(self.index)
+        refresh_job_list(context)
 
-        # Job list changed, keep indices updated
-        for job_idx, job in enumerate(scn.my_tools.export_jobs):
-            for coll in job.collections:
-                coll.job_index = job_idx
-            for action in job.actions:
-                action.job_index = job_idx
-            for copy_property in job.copy_properties:
-                copy_property.job_index = job_idx
-            for remap_material in job.remap_materials:
-                remap_material.job_index = job_idx
+        return {'FINISHED'}
+
+class MY_OT_export_job_move_up(bpy.types.Operator):
+    #tooltip
+    """Moves the export job up"""
+
+    bl_idname = 'my_tools.export_job_move_up'
+    bl_label = "Move Export Job Up"
+    bl_options = {'INTERNAL', 'UNDO'}
+
+    index: bpy.props.IntProperty(options={'HIDDEN'})
+
+    def execute(self, context):
+        context.scene.my_tools.export_jobs.move(self.index, self.index - 1)
+        refresh_job_list(context)
+
+        return {'FINISHED'}
+
+class MY_OT_export_job_move_down(bpy.types.Operator):
+    #tooltip
+    """Moves the export job down"""
+
+    bl_idname = 'my_tools.export_job_move_down'
+    bl_label = "Move Export Job Down"
+    bl_options = {'INTERNAL', 'UNDO'}
+
+    index: bpy.props.IntProperty(options={'HIDDEN'})
+
+    def execute(self, context):
+        context.scene.my_tools.export_jobs.move(self.index, self.index + 1)
+        refresh_job_list(context)
 
         return {'FINISHED'}
 
@@ -1133,7 +1166,6 @@ class MY_OT_export_job_run(bpy.types.Operator):
             for obj in all_objs:
                 if obj.type == 'MESH':
                     saved_materials = []
-                    log(obj.name)
                     for mat_idx, mat in enumerate(obj.data.materials):
                         for remap_material in job.remap_materials:
                             if mat and mat is remap_material.source:
@@ -1277,6 +1309,15 @@ class MY_PT_export_jobs(bpy.types.Panel):
             row.prop(job, 'show_expanded', icon=icon, text="", emboss=False)
             row.prop(job, 'what', text="", expand=True)
             row.prop(job, 'name', text="")
+            row = row.row(align=True)
+            split = row.split()
+            op = split.operator('my_tools.export_job_move_up', icon='TRIA_UP', text="", emboss=False)
+            op.index = job_idx
+            split.enabled = job_idx > 0
+            split = row.split()
+            op = split.operator('my_tools.export_job_move_down', icon='TRIA_DOWN', text="", emboss=False)
+            op.index = job_idx
+            split.enabled = job_idx < len(scn.my_tools.export_jobs) - 1
             op = row.operator('my_tools.export_job_remove', icon='X', text="", emboss=False)
             op.index = job_idx
             box = col_job.box()
@@ -1371,6 +1412,8 @@ class MY_PT_export_jobs(bpy.types.Panel):
 classes = (
     MY_OT_animation_export,
     MY_OT_export_job_add,
+    MY_OT_export_job_move_down,
+    MY_OT_export_job_move_up,
     MY_OT_export_job_remove,
     MY_OT_export_job_run,
     MY_OT_rig_export,
