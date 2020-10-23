@@ -86,24 +86,24 @@ def merge_basis_shape_keys(context, obj):
         else:
             sk.mute = True
 
-    # Replace basis with merged
-    new_basis = obj.shape_key_add(name="New Basis", from_mix=True)
-    bm = bmesh.new()
-    bm.from_mesh(obj.data)
-    new_basis_layer = bm.verts.layers.shape[new_basis.name]
-    for vert in bm.verts:
-        vert.co[:] = vert[new_basis_layer]
-    bm.to_mesh(obj.data)
-    bm.free()
+    num_shape_keys = len([sk for sk in obj.data.shape_keys.key_blocks if not sk.mute])
+    if num_shape_keys:
+        log(f"Merging {num_shape_keys} basis shape keys")
 
-    # Remove the merged shapekeys
-    for sk in obj.data.shape_keys.key_blocks[:]:
-        if not sk.mute:
-            obj.shape_key_remove(sk)
+        # Replace basis with merged
+        new_basis = obj.shape_key_add(name="New Basis", from_mix=True)
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+        new_basis_layer = bm.verts.layers.shape[new_basis.name]
+        for vert in bm.verts:
+            vert.co[:] = vert[new_basis_layer]
+        bm.to_mesh(obj.data)
+        bm.free()
 
-    # Only basis left? Remove it so applying modifiers has less issues
-    if len(obj.data.shape_keys.key_blocks) == 1:
-        obj.shape_key_clear()
+        # Remove the merged shapekeys
+        for sk in obj.data.shape_keys.key_blocks[:]:
+            if not sk.mute:
+                obj.shape_key_remove(sk)
 
     # Restore state
     for sk in saved_unmuted_shape_keys:
@@ -189,7 +189,7 @@ def apply_modifiers(context, obj, mask_edge_boundary=False):
                 modifier.show_viewport = False
                 modifiers.append(modifier)
 
-        log(f"Applying modifiers on {obj.name} with {num_shape_keys} shape keys")
+        log(f"Applying modifiers with {num_shape_keys} shape keys")
         bpy.ops.object.apply_modifiers_with_shape_keys()
     else:
         modifiers = [mo for mo in obj.modifiers if mo.show_viewport]
@@ -201,13 +201,13 @@ def apply_modifiers(context, obj, mask_edge_boundary=False):
             pass
         elif modifier.type == 'MASK' and mask_edge_boundary:
             # Try to preserve edge boundaries
-            log(f"Applying mask on {obj.name}")
+            log(f"Applying mask '{modifier.name}' while preserving boundaries")
             apply_mask_modifier(modifier)
         else:
             try:
                 bpy.ops.object.modifier_apply(modifier=modifier.name)
             except RuntimeError:
-                log(f"Couldn't apply {modifier.type} modifier '{modifier.name}' in '{obj.name}'")
+                log(f"Couldn't apply {modifier.type} modifier '{modifier.name}'")
 
 def merge_freestyle_edges(obj):
     """Does 'Remove Doubles' on freestyle marked edges. Returns the number of vertices merged."""
@@ -266,7 +266,7 @@ def delete_faces_with_no_material(context, obj):
 
     delete_geom = [f for f in bm.faces if not obj.data.materials[f.material_index]]
     bmesh.ops.delete(bm, geom=delete_geom, context='FACES')
-    log(f"Deleted {len(delete_geom)} faces with no material in {obj.name}")
+    log(f"Deleted {len(delete_geom)} faces with no material")
 
     # Finish and clean up
     bm.to_mesh(obj.data)
@@ -719,10 +719,17 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
         # Process individual meshes
         for export_group in export_groups:
             for obj in export_group.objects:
+                log(f"Processing {obj.name}")
+                logger.log_prefix = "  "
+
                 delete_faces_with_no_material(context, obj)
 
                 if self.merge_basis_shape_keys:
                     merge_basis_shape_keys(context, obj)
+
+                # Only basis left? Remove it so applying modifiers has less issues
+                if obj.data.shape_keys and len(obj.data.shape_keys.key_blocks) == 1:
+                    obj.shape_key_clear()
 
                 if self.mirror_shape_keys:
                     mirror_shape_keys(context, obj, self.side_vgroup_name)
@@ -759,6 +766,8 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 # Ensure basis is selected
                 obj.active_shape_key_index = 0
                 obj.show_only_shape_key = False
+
+                logger.log_prefix = ""
 
         if self.join_meshes:
             for export_group in export_groups:
