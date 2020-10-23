@@ -253,7 +253,8 @@ Normals are preserved""",
     )
     to_collection: bpy.props.BoolProperty(
         name="To Collection",
-        description="Produced meshes are put in a collection instead of being exported",
+        description="""Produced meshes are put in a collection instead of being exported.
+Tag modifiers with '!keep' to preserve them in the new meshes""",
         default=False,
     )
 

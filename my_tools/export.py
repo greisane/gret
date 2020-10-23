@@ -17,8 +17,10 @@ from .helpers import (
     get_flipped_name,
     intercept,
     is_object_arp,
+    load_properties,
     load_selection,
     Logger,
+    save_properties,
     save_selection,
     select_only,
 )
@@ -716,6 +718,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                         bpy.ops.object.modifier_remove(modifier=modifier.name)
 
         any_modifier_tags = set(self.modifier_tags.split(','))
+        kept_modifiers = []  # List of (object name, modifier index, modifier properties)
         def should_enable_modifier(mo):
             tags = set(re.findall(r"g:(\S+)", mo.name))
             return mo.show_render and (not tags or any(s in tags for s in any_modifier_tags))
@@ -740,9 +743,13 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
 
                 # Only use modifiers enabled for render. Delete unused modifiers
                 context.view_layer.objects.active = obj
-                for modifier in obj.modifiers[:]:
-                    modifier.show_viewport = should_enable_modifier(modifier)
-                    if not modifier.show_viewport and "!keep" not in modifier.name:
+                for modifier_idx, modifier in enumerate(obj.modifiers[:]):
+                    if should_enable_modifier(modifier):
+                        modifier.show_viewport = True
+                    else:
+                        if '!keep' in modifier.name:
+                            # Store the modifier to recreate it later
+                            kept_modifiers.append((obj.name, modifier_idx, save_properties(modifier)))
                         bpy.ops.object.modifier_remove(modifier=modifier.name)
                 if self.apply_modifiers:
                     apply_modifiers(context, obj, mask_edge_boundary=self.split_masks)
@@ -773,6 +780,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
 
                 logger.log_indent -= 1
 
+        merges = {}
         if self.join_meshes:
             for export_group in export_groups:
                 objs = export_group.objects
@@ -780,9 +788,8 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                     continue
 
                 # Pick the densest object to receive all the others
-                ctx = {}
                 merged_obj = max(objs, key=lambda ob: len(ob.data.vertices))
-
+                merges.update({obj.name: merged_obj for obj in objs})
                 log(f"Merging {', '.join(obj.name for obj in objs if obj is not merged_obj)} " \
                     f"into {merged_obj.name}")
 
@@ -791,6 +798,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                         self.new_objs.discard(obj)
                         self.new_meshes.discard(obj.data)
 
+                ctx = {}
                 ctx['object'] = ctx['active_object'] = merged_obj
                 ctx['selected_objects'] = ctx['selected_editable_objects'] = objs
 
@@ -847,6 +855,19 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 for obj in export_group.objects:
                     coll.objects.link(obj)
                     context.scene.collection.objects.unlink(obj)
+            if kept_modifiers:
+                # Recreate modifiers that were stored
+                log(f"Restoring {len(kept_modifiers)} modifiers")
+                for obj_name, index, properties in kept_modifiers:
+                    obj = bpy.data.objects.get(obj_name) or merges.get(obj_name)
+                    if obj:
+                        mod = obj.modifiers.new(name=properties['name'], type=properties['type'])
+                        load_properties(mod, properties)
+
+                        new_index = min(index, len(obj.modifiers) - 1)
+                        ctx = {'object': obj}
+                        bpy.ops.object.modifier_move_to_index(ctx, modifier=mod.name, index=new_index)
+            # Don't delete the new stuff
             self.new_objs.clear()
             self.new_meshes.clear()
 

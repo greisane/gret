@@ -87,7 +87,7 @@ def save_selection(all_objects=False):
     )
 
 def load_selection(state):
-    """Restores selection state from a SelectionState as returned by save_selection()."""
+    """Restores selection state from a SelectionState returned by save_selection()"""
 
     if not _280():
         bpy.context.scene.layers[:] = state.layers
@@ -108,28 +108,27 @@ def load_selection(state):
     if is_valid(state.active):
         bpy.context.view_layer.objects.active = state.active
 
-def save_attrs(o):
-    """Returns a dictionary storing simple attributes found in the object.
-Doesn't rely on __dict__ so it can be used on Blender objects."""
+def save_properties(obj):
+    """Returns a dictionary storing the properties of a Blender object."""
 
     saved = {}
-    for k in dir(o):
-        if k.startswith("__"):
-            continue
+    for prop in obj.bl_rna.properties:
         try:
-            val = getattr(o, k)
+            if getattr(prop, 'is_array', False):
+                saved[prop.identifier] = getattr(obj, prop.identifier)[:]
+            else:
+                saved[prop.identifier] = getattr(obj, prop.identifier)
         except:
             continue
-        if type(val) in {int, float, str}:
-            saved[k] = val
     return saved
 
-def load_attrs(o, saved):
-    """Restores attributes from a dictionary returned by save_attrs()."""
+def load_properties(obj, saved):
+    """Restores properties from a dictionary returned by save_properties()"""
 
-    for k, v in saved.items():
+    for identifier, value in saved.items():
         try:
-            setattr(o, k, v)
+            if not obj.is_property_readonly(identifier):
+                setattr(obj, identifier, value)
         except:
             continue
 
