@@ -724,7 +724,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
         for export_group in export_groups:
             for obj in export_group.objects:
                 log(f"Processing {obj.name}")
-                logger.log_prefix = "  "
+                logger.log_indent += 1
 
                 delete_faces_with_no_material(context, obj)
 
@@ -771,7 +771,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 obj.active_shape_key_index = 0
                 obj.show_only_shape_key = False
 
-                logger.log_prefix = ""
+                logger.log_indent -= 1
 
         if self.join_meshes:
             for export_group in export_groups:

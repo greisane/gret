@@ -16,6 +16,7 @@ class Logger:
         self.log_file = open(filepath, 'w') if filepath else None
         self.log_defer_print = defer_print
         self.log_prefix = ""
+        self.log_indent = 0
 
     def end_logging(self):
         assert hasattr(self, 'logs'), "start_logging must be called first"
@@ -32,6 +33,8 @@ class Logger:
         message = sep.join(str(arg) for arg in args)
         if self.log_prefix:
             message = f"{str(self.log_prefix)} {message}"
+        if self.log_indent > 0:
+            message = "  " * self.log_indent + message
         self.logs.append((time.time(), message))
         if not self.log_defer_print:
             self._print_log(*self.logs[-1])
