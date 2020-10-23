@@ -18,9 +18,14 @@ from .helpers import (
     intercept,
     is_object_arp,
     load_selection,
+    Logger,
     save_selection,
     select_only,
 )
+
+logger = Logger()
+def log(message):
+    logger.log(message)
 
 class ConstantCurve:
     """Mimics FCurve and always returns the same value on evaluation"""
@@ -128,7 +133,7 @@ def mirror_shape_keys(context, obj, side_vgroup_name):
         flipped_name = get_flipped_name(shape_key.name)
         # Only mirror it if it doesn't already exist
         if flipped_name and flipped_name not in obj.data.shape_keys.key_blocks:
-            print(f"Mirroring shape key {shape_key.name}")
+            log(f"Mirroring shape key {shape_key.name}")
             shape_key.vertex_group = side_vgroup_name
             new_shape_key = duplicate_shape_key(obj, shape_key.name, flipped_name)
             new_shape_key.vertex_group = other_vgroup_name
@@ -185,7 +190,7 @@ def apply_modifiers(context, obj, mask_edge_boundary=False):
                 modifier.show_viewport = False
                 modifiers.append(modifier)
 
-        print(f"Applying modifiers on {obj.name} with {num_shape_keys} shape keys")
+        log(f"Applying modifiers on {obj.name} with {num_shape_keys} shape keys")
         bpy.ops.object.apply_modifiers_with_shape_keys()
     else:
         modifiers = [mo for mo in obj.modifiers if mo.show_viewport]
@@ -197,13 +202,13 @@ def apply_modifiers(context, obj, mask_edge_boundary=False):
             pass
         elif modifier.type == 'MASK' and mask_edge_boundary:
             # Try to preserve edge boundaries
-            print(f"Applying mask on {obj.name}")
+            log(f"Applying mask on {obj.name}")
             apply_mask_modifier(modifier)
         else:
             try:
                 bpy.ops.object.modifier_apply(modifier=modifier.name)
             except RuntimeError:
-                print(f"Couldn't apply {modifier.type} modifier '{modifier.name}' in '{obj.name}'")
+                log(f"Couldn't apply {modifier.type} modifier '{modifier.name}' in '{obj.name}'")
 
 def merge_freestyle_edges(obj):
     """Does 'Remove Doubles' on freestyle marked edges. Returns the number of vertices merged."""
@@ -450,7 +455,7 @@ class MY_OT_scene_export(bpy.types.Operator):
 
             result = self.export_fbx(context, filepath)
             if result == {'FINISHED'}:
-                print(f"Exported {filepath}")
+                log(f"Exported {filepath}")
                 self.exported_files.append(filename)
 
     def execute(self, context):
@@ -559,7 +564,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
             if isinstance(new_data, bpy.types.Mesh):
                 self.new_meshes.add(new_data)
             else:
-                print(f"Copied data of object {obj.name} won't be released!")
+                log(f"Copied data of object {obj.name} won't be released!")
             new_obj.data = new_data
         self.new_objs.add(new_obj)
 
@@ -645,7 +650,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
 
                 # Split masked parts into extra meshes that receive normals from the original
                 for mask in masks:
-                    print(f"Splitting {mask.name} from {obj.name}")
+                    log(f"Splitting {mask.name} from {obj.name}")
                     new_obj = self.copy_obj_clone_normals(obj)
                     new_obj.name = mask.name
 
@@ -748,7 +753,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 ctx = {}
                 merged_obj = max(objs, key=lambda ob: len(ob.data.vertices))
 
-                print(f"Merging {', '.join(obj.name for obj in objs if obj is not merged_obj)} " \
+                log(f"Merging {', '.join(obj.name for obj in objs if obj is not merged_obj)} " \
                     f"into {merged_obj.name}")
 
                 for obj in objs:
@@ -763,7 +768,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
 
                 num_verts_merged = merge_freestyle_edges(merged_obj)
                 if num_verts_merged > 0:
-                    print(f"Welded {num_verts_merged} verts (edges were marked freestyle)")
+                    log(f"Welded {num_verts_merged} verts (edges were marked freestyle)")
 
                 # Enable autosmooth for merged object to allow custom normals
                 merged_obj.data.use_auto_smooth = True
@@ -782,7 +787,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 filepath = get_export_path(self.export_path, **path_fields)
                 filename = bpy.path.basename(filepath)
                 if filepath in self.exported_files:
-                    print(f"Skipping {filename} as it would overwrite a file that was just exported")
+                    log(f"Skipping {filename} as it would overwrite a file that was just exported")
 
                 for obj in context.scene.objects:
                     obj.select_set(False)
@@ -794,16 +799,16 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 clear_pose(rig)
 
                 if is_object_arp(rig):
-                    print(f"Exporting {filename} via Auto-Rig export")
+                    log(f"Exporting {filename} via Auto-Rig export")
                     result = export_autorig(context, filepath, [])
                 else:
-                    print(f"Exporting {filename}")
+                    log(f"Exporting {filename}")
                     result = export_fbx(context, filepath, [])
 
                 if result == {'FINISHED'}:
                     self.exported_files.append(filepath)
                 else:
-                    print("Failed to export!")
+                    log("Failed to export!")
 
         # Keep new objects in the target collection
         coll = bpy.data.collections.get(self.export_collection)
@@ -931,7 +936,7 @@ class MY_OT_animation_export(bpy.types.Operator):
                 filepath = get_export_path(self.export_path, **path_fields)
                 filename = bpy.path.basename(filepath)
                 if filepath in self.exported_files:
-                    print(f"Skipping {filename} as it would overwrite a file that was just exported")
+                    log(f"Skipping {filename} as it would overwrite a file that was just exported")
 
                 rig.select_set(True)
                 context.view_layer.objects.active = rig
@@ -953,16 +958,16 @@ class MY_OT_animation_export(bpy.types.Operator):
                                 for constraint in (con for con in pb.constraints if not con.mute):
                                     constraint.mute = True
                                     self.saved_unmuted_constraints.append(constraint)
-                    print(f"Exporting {filename} via Auto-Rig export")
+                    log(f"Exporting {filename} via Auto-Rig export")
                     result = export_autorig(context, filepath, [export_group.action])
                 else:
-                    print(f"Exporting {filename}")
+                    log(f"Exporting {filename}")
                     result = export_fbx(context, filepath, [export_group.action])
 
                 if result == {'FINISHED'}:
                     self.exported_files.append(filepath)
                 else:
-                    print("Failed to export!")
+                    log("Failed to export!")
 
     def execute(self, context):
         rig = context.object
@@ -1097,7 +1102,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 self.report({'ERROR'}, "Nothing to export.")
                 return {'CANCELLED'}
 
-            print(f"Beginning scene export job '{job.name}'")
+            log(f"Beginning scene export job '{job.name}'")
 
             bpy.ops.my_tools.scene_export(
                 export_path=job.export_path,
@@ -1115,7 +1120,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
             context.view_layer.objects.active = job.rig
             bpy.ops.object.mode_set(mode='OBJECT')
 
-            print(f"Beginning rig export job '{job.name}'")
+            log(f"Beginning rig export job '{job.name}'")
 
             # Find all unique objects that should be considered for export
             all_objs = set()
@@ -1136,7 +1141,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                                 obj.data.materials[mat_idx] = remap_material.destination
                                 break
                     if all(not mat for mat in obj.data.materials):
-                        print(f"Not exporting '{obj.name}' because it has no materials")
+                        log(f"Not exporting '{obj.name}' because it has no materials")
                         # Undo any remaps
                         for obj, material_idx, material in saved_materials:
                             obj.data.materials[material_idx] = material
@@ -1175,7 +1180,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
             context.view_layer.objects.active = job.rig
             bpy.ops.object.mode_set(mode='OBJECT')
 
-            print(f"Beginning animation export job '{job.name}'")
+            log(f"Beginning animation export job '{job.name}'")
 
             action_names = set()
             for job_action in job.actions:
@@ -1211,7 +1216,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                         if fcurve_dst:
                             # Currently baking to existing curves is not allowed
                             # Would need to duplicate strips, although ARP already does that
-                            print(f"Couldn't bake {cp.source} -> {cp.destination}, " \
+                            log(f"Couldn't bake {cp.source} -> {cp.destination}, " \
                                 "destination already exists")
                             self.report({'ERROR'}, f"Couldn't bake {cp.source} -> {cp.destination} " \
                                 f"in '{action_name}', destination already exists")
@@ -1220,7 +1225,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                         fcurve_dst = action.fcurves.new(cp.destination)
                         self.new_fcurves.append((action, fcurve_dst))
 
-                    print(f"Baking {cp.source} -> {cp.destination} in '{action_name}'")
+                    log(f"Baking {cp.source} -> {cp.destination} in '{action_name}'")
                     for frame_idx in range(0, int(action.frame_range[1]) + 1):
                         val = fcurve_src.evaluate(frame_idx)
                         fcurve_dst.keyframe_points.insert(frame_idx, val)
@@ -1231,12 +1236,13 @@ class MY_OT_export_job_run(bpy.types.Operator):
             )
             beep(1)
 
-        print("Job complete")
+        log("Job complete")
 
     def execute(self, context):
         saved_selection = save_selection(all_objects=True)
         self.new_fcurves = []  # List of (action, fcurve)
         self.saved_materials = []  # List of (obj, material_idx, material)
+        logger.start_logging()
 
         try:
             self._execute(context)
@@ -1247,6 +1253,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
             for obj, material_idx, material in self.saved_materials:
                 obj.data.materials[material_idx] = material
             load_selection(saved_selection)
+            logger.end_logging()
 
         return {'FINISHED'}
 

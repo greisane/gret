@@ -5,6 +5,38 @@ import bpy
 import io
 import os
 import re
+import time
+
+class Logger:
+    """Simple logger for operators that take a long time to complete. Can be used as a mixin."""
+    def start_logging(self, filepath=None, defer_print=True):
+        assert not hasattr(self, 'logs'), "start_logging was already called"
+        self.logs = []
+        self.log_start_time = time.time()
+        self.log_file = open(filepath, 'w') if filepath else None
+        self.log_defer_print = defer_print
+
+    def end_logging(self):
+        assert hasattr(self, 'logs'), "start_logging must be called first"
+        if self.log_defer_print:
+            for log in self.logs:
+                self._print_log(*log)
+        del self.logs
+        if self.log_file:
+            self.log_file.close()
+            self.log_file = None
+
+    def log(self, message):
+        assert hasattr(self, 'logs'), "start_logging must be called first"
+        self.logs.append((time.time(), message))
+        if not self.log_defer_print:
+            self._print_log(*self.logs[-1])
+
+    def _print_log(self, timestamp, message):
+        line = f"{timestamp - self.log_start_time:5.2f}s | {message}"
+        print(line)
+        if self.log_file:
+            print(line, file=self.log_file)
 
 def select_only(context, objs):
     """Ensures only the given object or objects are selected."""
