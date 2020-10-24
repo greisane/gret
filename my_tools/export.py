@@ -626,12 +626,6 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
         mesh_objs = []
         rig.data.pose_position = 'REST'
 
-        # Clean the target collection first to free the names
-        coll = bpy.data.collections.get(self.export_collection)
-        if coll:
-            for obj in coll.objects:
-                bpy.data.objects.remove(obj, do_unlink=True)
-
         for obj in get_children_recursive(rig):
             # Enable all render modifiers in the originals, except masks
             for modifier in obj.modifiers:
@@ -1208,6 +1202,9 @@ class MY_OT_export_job_run(bpy.types.Operator):
             if not job.rig.visible_get():
                 self.report({'ERROR'}, "Currently the rig must be visible to export.")
                 return {'CANCELLED'}
+            if job.to_collection and not job.export_collection:
+                self.report({'ERROR'}, "No collection selected to export to.")
+                return {'CANCELLED'}
             context.view_layer.objects.active = job.rig
             bpy.ops.object.mode_set(mode='OBJECT')
 
@@ -1247,6 +1244,13 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 obj.hide_render = obj not in objs
 
             export_coll = job.export_collection
+            if job.to_collection and job.clean_collection:
+                # Clean the target collection first
+                # Currently not checking whether the rig is in here, it will probably explode
+                log(f"Cleaning target collection")
+                for obj in export_coll.objects:
+                    bpy.data.objects.remove(obj, do_unlink=True)
+
             bpy.ops.my_tools.rig_export(
                 export_path=job.export_path if not job.to_collection else "",
                 export_collection=export_coll.name if job.to_collection and export_coll else "",
@@ -1439,7 +1443,12 @@ class MY_PT_export_jobs(bpy.types.Panel):
 
                     col = box.column(align=True)
                     col.prop(job, 'to_collection')
-                    col.prop(job, 'export_collection' if job.to_collection else "export_path", text="")
+                    if job.to_collection:
+                        row = col.row(align=True)
+                        row.prop(job, 'export_collection', text="")
+                        row.prop(job, 'clean_collection', icon='TRASH', text="")
+                    else:
+                        col.prop(job, 'export_path', text="")
 
                 elif job.what == 'ANIMATION':
                     box.prop(job, 'rig')

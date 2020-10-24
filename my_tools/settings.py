@@ -257,6 +257,11 @@ Normals are preserved""",
 Tag modifiers with '!keep' to preserve them in the new meshes""",
         default=False,
     )
+    clean_collection: bpy.props.BoolProperty(
+        name="Clean Collection",
+        description="Clean the target collection",
+        default=False,
+    )
 
     # Animation export options
     actions: bpy.props.CollectionProperty(
