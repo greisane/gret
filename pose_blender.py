@@ -1,11 +1,11 @@
-import re
-import json
-import itertools
-from numbers import Number
-from collections import namedtuple
-import bpy
 from bpy.app.handlers import persistent
+from collections import namedtuple
 from mathutils import Vector, Euler, Quaternion
+from numbers import Number
+import bpy
+import itertools
+import json
+import re
 
 bl_info = {
     "name": "Pose Blender",
@@ -32,18 +32,18 @@ def get_flipped_name(name):
         else:
             return s.replace("r", "l").replace("R", "L")
 
-    match = re.match(r'(.+)([_\.][LlRr])$', name) # Suffix
+    match = re.match(r"(.+)([_\.][LlRr])$", name) # Suffix
     if match:
         return match[1] + flip_LR(match[2])
 
-    match = re.match(r'^([LlRr][_\.])(.+)', name) # Prefix
+    match = re.match(r"^([LlRr][_\.])(.+)", name) # Prefix
     if match:
         return flip_LR(match[1]) + match[2]
 
     return None
 
 class Transform:
-    __slots__ = ["location", "rotation", "scale"]
+    __slots__ = ['location', 'rotation', 'scale']
 
     def __init__(self, location=None, rotation=None, scale=None):
         self.location = location or Vector()
@@ -197,7 +197,7 @@ and accumulates that into a destination transform."""
             +self.scale)
 
 class Pose:
-    __slots__ = ["owner", "name", "transforms"]
+    __slots__ = ['owner', 'name', 'transforms']
 
     def get_weight(self):
         return self.owner.armature[self.name]
@@ -224,11 +224,11 @@ class PoseBlender:
     def __init__(self, armature):
         self.armature = armature
         self.armature_name = armature.name
-        self.pose_lib = getattr(armature, "pose_library")
+        self.pose_lib = getattr(armature, 'pose_library')
         self.poses = []
         self.pose_rows = []
-        self.pose_names = {} # Pose name to pose map
-        self.additive = True # Need to expose this
+        self.pose_names = {}  # Pose name to pose map
+        self.additive = True  # Need to expose this
 
         if self.pose_lib:
             self.cache_poses()
@@ -241,16 +241,16 @@ class PoseBlender:
         if not self.pose_lib or not self.pose_lib.pose_markers:
             return
 
-        if "_RNA_UI" not in self.armature:
-            self.armature["_RNA_UI"] = {}
+        if '_RNA_UI' not in self.armature:
+            self.armature['_RNA_UI'] = {}
 
         for marker in self.pose_lib.pose_markers:
             pose_name = marker.name
             if pose_name not in self.armature:
                 self.armature[pose_name] = 0.0
-            if pose_name not in self.armature["_RNA_UI"]:
-                self.armature["_RNA_UI"][pose_name] = {"min": 0.0, "max": 1.0, "default": 0.0,
-                    "soft_min": 0.0, "soft_max": 1.0, "description": "Pose weight"}
+            if pose_name not in self.armature['_RNA_UI']:
+                self.armature['_RNA_UI'][pose_name] = {'min': 0.0, 'max': 1.0, 'default': 0.0,
+                    'soft_min': 0.0, 'soft_max': 1.0, 'description': "Pose weight"}
 
     def key_pose_lib(self):
         """Keys the pose library for later exporting"""
@@ -302,8 +302,8 @@ class PoseBlender:
         return True
 
     def cache_poses(self):
-        default_transform = Transform() # Ref pose used to determine if a transform is significant
-        pose_transforms = [] # List of bonename->transform maps
+        default_transform = Transform()  # Ref pose used to determine if a transform is significant
+        pose_transforms = []  # List of bonename->transform maps
 
         for marker in self.pose_lib.pose_markers:
             transforms = {}
@@ -324,17 +324,17 @@ class PoseBlender:
                     if not transform:
                         transforms[bone_name] = transform = default_transform.copy()
 
-                    if data_elem == "location":
+                    if data_elem == 'location':
                         transform.location[data_idx] = data_value
-                    elif data_elem == "rotation_euler":
+                    elif data_elem == 'rotation_euler':
                         # Need the whole rotation to convert, so save it for later
                         euler_rotations[bone_name] = euler_rotations.get(bone_name, Euler())
                         euler_rotations[bone_name][data_idx] = data_value
-                    elif data_elem == "rotation_axis_angle":
-                        pass # Not implemented
-                    elif data_elem == "rotation_quaternion":
+                    elif data_elem == 'rotation_axis_angle':
+                        pass  # Not implemented
+                    elif data_elem == 'rotation_quaternion':
                         transform.rotation[data_idx] = data_value
-                    elif data_elem == "scale":
+                    elif data_elem == 'scale':
                         transform.scale[data_idx] = data_value
                 else:
                     pass
@@ -545,7 +545,7 @@ class PB_OT_add(bpy.types.Operator):
     #tooltip
     """Adds pose blending to the active object"""
 
-    bl_idname = "pose_blender.add"
+    bl_idname = 'pose_blender.add'
     bl_label = "Add Pose Blender"
 
     @classmethod
@@ -572,7 +572,7 @@ class PB_OT_remove(bpy.types.Operator):
     #tooltip
     """Removes pose blending from the active object"""
 
-    bl_idname = "pose_blender.remove"
+    bl_idname = 'pose_blender.remove'
     bl_label = "Remove Pose Blender"
 
     @classmethod
@@ -594,7 +594,7 @@ class PB_OT_clear(bpy.types.Operator):
     #tooltip
     """Clear weights for all poses"""
 
-    bl_idname = "pose_blender.clear"
+    bl_idname = 'pose_blender.clear'
     bl_label = "Clear Poses"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -638,7 +638,7 @@ class PB_OT_copy(bpy.types.Operator):
     #tooltip
     """Copies pose weights to clipboard"""
 
-    bl_idname = "pose_blender.copy"
+    bl_idname = 'pose_blender.copy'
     bl_label = "Copy Poses"
 
     @classmethod
@@ -662,7 +662,7 @@ class PB_OT_paste(bpy.types.Operator):
     #tooltip
     """Pastes pose weights from clipboard"""
 
-    bl_idname = "pose_blender.paste"
+    bl_idname = 'pose_blender.paste'
     bl_label = "Paste Poses"
     bl_options = {'UNDO'}
 
@@ -698,7 +698,7 @@ class PB_OT_key(bpy.types.Operator):
     #tooltip
     """Keyframes the current pose"""
 
-    bl_idname = "pose_blender.key"
+    bl_idname = 'pose_blender.key'
     bl_label = "Keyframe Poses"
     bl_options = {'UNDO'}
 
@@ -741,8 +741,8 @@ class PB_PT_pose_blender(bpy.types.Panel):
         layout = self.layout
 
         row = layout.row(align=True)
-        row.operator("pose_blender.add", icon='MOD_ARMATURE')
-        row.operator("pose_blender.remove", icon='X', text="")
+        row.operator('pose_blender.add', icon='MOD_ARMATURE')
+        row.operator('pose_blender.remove', icon='X', text="")
 
         pose_blender = cls.pose_blenders.get(obj.name)
         if pose_blender:
@@ -753,11 +753,11 @@ class PB_PT_pose_blender(bpy.types.Panel):
                     row.prop(obj, '["%s"]' % pose_name, slider=True)
 
             row = layout.row(align=True)
-            row.operator("pose_blender.clear", icon='X', text="")
-            row.operator("pose_blender.flip", icon='ARROW_LEFTRIGHT', text="")
-            row.operator("pose_blender.copy", icon='COPYDOWN', text="")
-            row.operator("pose_blender.paste", icon='PASTEDOWN', text="")
-            row.operator("pose_blender.key", icon='KEYINGSET', text="")
+            row.operator('pose_blender.clear', icon='X', text="")
+            row.operator('pose_blender.flip', icon='ARROW_LEFTRIGHT', text="")
+            row.operator('pose_blender.copy', icon='COPYDOWN', text="")
+            row.operator('pose_blender.paste', icon='PASTEDOWN', text="")
+            row.operator('pose_blender.key', icon='KEYINGSET', text="")
 
 classes = (
     PB_OT_add,
