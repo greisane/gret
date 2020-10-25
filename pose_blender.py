@@ -231,6 +231,7 @@ class PoseBlender:
         self.additive = True  # Need to expose this
 
         if self.pose_lib:
+            self.sort_poses()
             self.cache_poses()
             self.key_pose_lib()
             self.ensure_properties_exist()
@@ -284,14 +285,12 @@ class PoseBlender:
         if self.armature and not self.is_armature_valid():
             # Armature reference breaks after undo, try finding it by name
             # This may be incorrect if it was renamed, however not handling undo is more inconvenient
-            self.armature = bpy.context.scene.objects[self.armature_name]
-
+            self.armature = bpy.context.scene.objects.get(self.armature_name)
             if not self.armature:
                 # Couldn't recover, clean up invalid pose blender
                 self.armature = None
                 self.unregister()
                 del PB_PT_pose_blender.pose_blenders[self.armature_name]
-
         return self.armature is not None
 
     def is_armature_valid(self):
@@ -300,6 +299,16 @@ class PoseBlender:
         except (ReferenceError, KeyError):
             return False
         return True
+
+    def sort_poses(self):
+        """Ensures pose frames match the order that is displayed in the Pose Library panel"""
+        fixed_pose_names = []
+        for marker_idx, marker in enumerate(self.pose_lib.pose_markers):
+            if marker.frame != marker_idx:
+                marker.frame = marker_idx
+                fixed_pose_names.append(marker.name)
+        if fixed_pose_names:
+            print(f"Fixed frame index for poses {', '.join(fixed_pose_names)}")
 
     def cache_poses(self):
         default_transform = Transform()  # Ref pose used to determine if a transform is significant
