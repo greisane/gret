@@ -20,13 +20,11 @@ class MY_OT_action_set(bpy.types.Operator):
 
     def execute(self, context):
         obj = context.object
-
         if not self.name:
             obj.animation_data.action = None
             return {'FINISHED'}
 
         action = bpy.data.actions.get(self.name, None)
-
         if action:
             # Always save it, just in case
             action.use_fake_user = True
@@ -119,6 +117,85 @@ class MY_OT_action_remove(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class MY_OT_pose_set(bpy.types.Operator):
+    #tooltip
+    """Go to the frame for this pose. Ctrl-click to rename"""
+
+    bl_idname = 'my_tools.pose_set'
+    bl_label = "Set Pose"
+    bl_options = {'INTERNAL', 'UNDO'}
+
+    name: bpy.props.StringProperty(options={'HIDDEN'})
+    new_name: bpy.props.StringProperty(name="New name", default="")
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.object
+        return obj and obj.animation_data and obj.animation_data.action
+
+    def execute(self, context):
+        obj = context.object
+        if not self.name:
+            return {'FINISHED'}
+
+        action = obj.animation_data.action
+        marker = action.pose_markers.get(self.name, None)
+        if marker:
+            if self.new_name:
+                # Rename
+                if self.new_name in action.pose_markers:
+                    # Blender allows it, but don't permit conflicting pose names
+                    return {'CANCELLED'}
+                marker.name = self.new_name
+            else:
+                context.scene.frame_set(frame=marker.frame)
+
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        if event.ctrl:
+            # Rename
+            self.new_name = self.name
+            return context.window_manager.invoke_props_dialog(self)
+        else:
+            self.new_name = ""
+            return self.execute(context)
+
+class MY_OT_pose_make(bpy.types.Operator):
+    #tooltip
+    """Creates a pose marker for every frame in the action"""
+
+    bl_idname = 'my_tools.pose_make'
+    bl_label = "Make Poses"
+    bl_options = {'INTERNAL', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.object
+        return obj and obj.animation_data and obj.animation_data.action
+
+    def execute(self, context):
+        obj = context.object
+
+        action = obj.animation_data.action
+        unused_markers = action.pose_markers[:]
+        first_frame, last_frame = int(action.frame_range[0]), int(action.frame_range[1] + 1)
+        for frame in range(first_frame, last_frame):
+            marker = next((m for m in action.pose_markers if m.frame == frame), None)
+            if marker:
+                # There is a marker for this frame, don't remove it
+                unused_markers.remove(marker)
+            else:
+                # Create a marker for this frame
+                new_marker = action.pose_markers.new(name=f"Pose {frame:03d}")
+                # Docs read that new() takes a frame kwarg, this doesn't seem to be the case
+                new_marker.frame = frame
+        for marker in unused_markers:
+            print(f"Removed unused pose marker '{marker.name}'")
+            action.pose_markers.remove(marker)
+
+        return {'FINISHED'}
+
 def get_actions_for_rig(rig):
     for action in bpy.data.actions:
         if action.library:
@@ -148,13 +225,14 @@ class MY_PT_actions(bpy.types.Panel):
             row.operator('my_tools.action_add', icon='ADD', text="")
 
             rig_actions = list(get_actions_for_rig(obj))
+            active_action = obj.animation_data.action if obj.animation_data else None
             if rig_actions:
                 col = box.column(align=True)
 
                 for action in rig_actions:
                     row = col.row(align=True)
 
-                    selected = obj.animation_data and obj.animation_data.action == action
+                    selected = action == active_action
                     if selected and context.screen.is_animation_playing:
                         op = row.operator('screen.animation_cancel', icon='PAUSE', text="", emboss=False)
                         op.restore_frame = False
@@ -170,10 +248,24 @@ class MY_PT_actions(bpy.types.Panel):
 
                     row.operator('my_tools.action_remove', icon='X', text="").name = action.name
 
+            if active_action:
+                box = layout.box()
+                row = box.row()
+                row.label(text="Pose Markers", icon='BOOKMARKS')
+                row.operator('my_tools.pose_make', icon='ADD', text="")
+
+                if active_action.pose_markers:
+                    col = box.column(align=True)
+                    for marker in active_action.pose_markers:
+                        op = col.operator('my_tools.pose_set', icon='FORWARD', text=marker.name)
+                        op.name = marker.name
+
 classes = (
-    MY_OT_action_set,
     MY_OT_action_add,
     MY_OT_action_remove,
+    MY_OT_action_set,
+    MY_OT_pose_make,
+    MY_OT_pose_set,
     MY_PT_actions,
 )
 
