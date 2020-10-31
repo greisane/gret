@@ -217,10 +217,11 @@ class MY_PT_actions(bpy.types.Panel):
     def draw(self, context):
         obj = context.object
         layout = self.layout
+        settings = context.scene.my_tools
 
         if obj and obj.type == 'ARMATURE':
             box = layout.box()
-            row = box.row()
+            row = box.row(align=True)
             row.label(text="Available Actions", icon='ACTION')
             row.operator('my_tools.action_add', icon='ADD', text="")
 
@@ -246,13 +247,18 @@ class MY_PT_actions(bpy.types.Panel):
 
             if active_action:
                 box = layout.box()
-                row = box.row()
+                row = box.row(align=True)
                 row.label(text="Pose Markers", icon='BOOKMARKS')
+                row.prop(settings, 'poses_sorted', icon='SORTALPHA', text="")
                 row.operator('my_tools.pose_make', icon='ADD', text="")
 
                 if active_action.pose_markers:
                     col = box.column(align=True)
-                    for marker in active_action.pose_markers:
+                    if settings.poses_sorted:
+                        markers = sorted(active_action.pose_markers, key=lambda p: p.name)
+                    else:
+                        markers = active_action.pose_markers
+                    for marker in markers:
                         selected = marker.frame == context.scene.frame_current
                         row = col.row(align=True)
                         row.label(text="", icon='PMARKER_ACT' if selected else 'PMARKER_SEL')

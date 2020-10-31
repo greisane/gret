@@ -302,7 +302,11 @@ def poll_insertee(self, obj):
         and obj.find_armature())
 
 class MY_PG_settings(bpy.types.PropertyGroup):
-    # Export
+    poses_sorted: bpy.props.BoolProperty(
+        name="Sort Poses",
+        description="Displays pose markers sorted alphabetically",
+        default=False,
+    )
     export_jobs: bpy.props.CollectionProperty(
         type=MY_PG_export_job,
     )
