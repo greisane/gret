@@ -302,26 +302,6 @@ def poll_insertee(self, obj):
         and obj.find_armature())
 
 class MY_PG_settings(bpy.types.PropertyGroup):
-    # Simple export
-    export_path: bpy.props.StringProperty(
-        name="Export Path",
-        description="""Export path relative to the current folder.
-{basename} = Name of this .blend file without extension.
-{num} = Increments for every file exported""",
-        default="//export/{object}.fbx",
-        subtype='FILE_PATH',
-    )
-    export_collision: bpy.props.BoolProperty(
-        name="Export Collision",
-        description="Exports collision objects that follow the UE4 naming pattern",
-        default=True,
-    )
-    export_animation_only: bpy.props.BoolProperty(
-        name="Animation Only",
-        description="Skips exporting meshes",
-        default=False,
-    )
-
     # Export
     export_jobs: bpy.props.CollectionProperty(
         type=MY_PG_export_job,
