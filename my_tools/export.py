@@ -284,7 +284,7 @@ ik_bone_names = [
     "ik_hand.r"
 ]
 
-@intercept(error_result={'CANCELLED'})
+# @intercept(error_result={'CANCELLED'})
 def export_autorig(context, filepath, actions):
     scn = context.scene
     rig = context.active_object
@@ -325,10 +325,8 @@ def export_autorig(context, filepath, actions):
     # Animation
     if not actions:
         scn.arp_bake_actions = False
-        scn.arp_export_h_actions = False
     else:
         scn.arp_bake_actions = True
-        scn.arp_export_h_actions = False
         scn.arp_export_name_actions = True
         scn.arp_export_name_string = ",".join(action.name for action in actions)
         scn.arp_simplify_fac = 0.0
@@ -963,6 +961,14 @@ class MY_OT_animation_export(bpy.types.Operator):
         ExportGroup = namedtuple('ExportGroup', ['suffix', 'action'])
         export_groups = []
 
+        if self.disable_auto_eyelid:
+            for bone_name in ('c_eyelid_base.l', 'c_eyelid_base.r'):
+                pb = rig.pose.bones.get('c_eyelid_base.l')
+                if pb:
+                    for constraint in (con for con in pb.constraints if not con.mute):
+                        constraint.mute = True
+                        self.saved_unmuted_constraints.append(constraint)
+
         # Add actions as export groups without meshes
         action_names = set(self.actions.split(","))
         for action_name in action_names:
@@ -1016,13 +1022,6 @@ class MY_OT_animation_export(bpy.types.Operator):
                             print(csv_separator.join(str(field) for field in fields), file=fout)
 
                 if is_object_arp(rig):
-                    if self.disable_auto_eyelid:
-                        for bone_name in ('c_eyelid_base.l', 'c_eyelid_base.r'):
-                            pb = rig.pose.bones.get('c_eyelid_base.l')
-                            if pb:
-                                for constraint in (con for con in pb.constraints if not con.mute):
-                                    constraint.mute = True
-                                    self.saved_unmuted_constraints.append(constraint)
                     log(f"Exporting {filename} via Auto-Rig export")
                     result = export_autorig(context, filepath, [export_group.action])
                 else:
