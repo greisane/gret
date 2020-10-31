@@ -1357,7 +1357,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                         fcurve_dst.keyframe_points.insert(frame_idx, val)
 
             bpy.ops.my_tools.animation_export(
-                export_path=job.export_path,
+                export_path=job.animation_export_path,
                 markers_export_path=job.markers_export_path if job.export_markers else "",
                 actions=",".join(action_names),
                 disable_auto_eyelid=job.disable_auto_eyelid,
@@ -1513,7 +1513,7 @@ class MY_PT_export_jobs(bpy.types.Panel):
                         row.prop(copy_property, 'destination', text="")
 
                     col = box.column(align=True)
-                    col.prop(job, 'export_path', text="")
+                    col.prop(job, 'animation_export_path', text="")
 
             op = col.operator('my_tools.export_job_run', icon='FORWARD', text="Execute")
             op.index = job_idx
