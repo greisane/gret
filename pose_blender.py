@@ -729,7 +729,8 @@ class PB_OT_key(bpy.types.Operator):
 
 class PB_OT_sanitize(bpy.types.Operator):
     #tooltip
-    """Ensures the pose library only contains bone animation for the currently selected bones"""
+    """Ensures the pose library only contains bone animation for the currently selected bones.
+This improves performance and unlocks bones to be posed manually"""
 
     bl_idname = 'pose_blender.sanitize'
     bl_label = "Sanitize Poses"
@@ -738,7 +739,11 @@ class PB_OT_sanitize(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         obj = context.object
-        return obj and obj.type == 'ARMATURE' and obj.pose_library and context.mode == 'POSE'
+        return (context.mode == 'POSE'
+            and obj
+            and obj.type == 'ARMATURE'
+            and obj.pose_library
+            and not obj.pose_library.library)
 
     def execute(self, context):
         obj = context.object
@@ -790,7 +795,8 @@ class PB_PT_pose_blender(bpy.types.Panel):
         obj = context.object
         layout = self.layout
 
-        row = layout.row(align=True)
+        col = layout.column(align=True)
+        row = col.row(align=True)
         row.operator('pose_blender.add', icon='MOD_ARMATURE')
         row.operator('pose_blender.remove', icon='X', text="")
 
@@ -809,7 +815,7 @@ class PB_PT_pose_blender(bpy.types.Panel):
             row.operator('pose_blender.paste', icon='PASTEDOWN', text="")
             row.operator('pose_blender.key', icon='KEYINGSET', text="")
         else:
-            layout.operator('pose_blender.sanitize', icon='HELP')
+            col.operator('pose_blender.sanitize', icon='HELP')
 
 classes = (
     PB_OT_add,
