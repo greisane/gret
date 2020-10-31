@@ -935,8 +935,17 @@ class MY_OT_animation_export(bpy.types.Operator):
         name="Export Path",
         description="""Export path relative to the current folder.
 {basename} = Name of this .blend file without extension.
-{action} = Name of the first action being exported""",
+{action} = Name of the action being exported""",
         default="//export/{action}.fbx",
+        subtype='FILE_PATH',
+    )
+    markers_export_path: bpy.props.StringProperty(
+        name="Markers Export Path",
+        description="""Export path for markers relative to the current folder.
+If available, markers names and frame times are written as a list of comma-separated values.
+{basename} = Name of this .blend file without extension.
+{action} = Name of the action being exported""",
+        default="//export/{action}.csv",
         subtype='FILE_PATH',
     )
     actions: bpy.props.StringProperty(
@@ -994,6 +1003,7 @@ class MY_OT_animation_export(bpy.types.Operator):
                 filename = bpy.path.basename(filepath)
                 if filepath in self.exported_files:
                     log(f"Skipping {filename} as it would overwrite a file that was just exported")
+                    continue
 
                 rig.select_set(True)
                 context.view_layer.objects.active = rig
@@ -1008,18 +1018,23 @@ class MY_OT_animation_export(bpy.types.Operator):
                 bpy.context.evaluated_depsgraph_get().update()
 
                 markers = export_group.action.pose_markers
-                if markers:
+                if markers and self.markers_export_path:
                     # Export action markers as a comma separated list
-                    filepath_no_ext, ext = os.path.splitext(filepath)
-                    csv_filepath = filepath_no_ext + ".csv"
+                    csv_filepath = get_export_path(self.markers_export_path, **path_fields)
                     csv_filename = bpy.path.basename(csv_filepath)
                     csv_separator = ','
                     fps = float(context.scene.render.fps)
-                    log(f"Writing markers to {csv_filename}")
-                    with open(csv_filepath, 'w') as fout:
-                        for marker in markers:
-                            fields = [marker.name, marker.frame, marker.frame / fps]
-                            print(csv_separator.join(str(field) for field in fields), file=fout)
+                    if csv_filepath not in self.exported_files:
+                        log(f"Writing markers to {csv_filename}")
+                        with open(csv_filepath, 'w') as fout:
+                            field_headers = ["Name", "Frame", "Frame Time"]
+                            print(csv_separator.join(field_headers), file=fout)
+                            for marker in markers:
+                                fields = [marker.name, marker.frame, marker.frame / fps]
+                                print(csv_separator.join(str(field) for field in fields), file=fout)
+                    else:
+                        log(f"Skipping {csv_filename} as it would overwrite a file that was " \
+                            "just exported")
 
                 if is_object_arp(rig):
                     log(f"Exporting {filename} via Auto-Rig export")
@@ -1343,7 +1358,9 @@ class MY_OT_export_job_run(bpy.types.Operator):
 
             bpy.ops.my_tools.animation_export(
                 export_path=job.export_path,
+                markers_export_path=job.markers_export_path if job.export_markers else "",
                 actions=",".join(action_names),
+                disable_auto_eyelid=job.disable_auto_eyelid,
             )
             beep(1)
 
@@ -1480,6 +1497,12 @@ class MY_PT_export_jobs(bpy.types.Panel):
 
                     col = box.column()
                     col.prop(job, 'disable_auto_eyelid')
+
+                    row = col.row(align=True)
+                    row.prop(job, 'export_markers')
+                    split = row.split(align=True)
+                    split.prop(job, 'markers_export_path', text="")
+                    split.enabled = job.export_markers
 
                     col = box.column(align=True)
                     col.label(text="Bake Properties:")

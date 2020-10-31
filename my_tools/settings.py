@@ -179,7 +179,7 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
         description="""Export path relative to the current folder.
 {basename} = Name of this .blend file without extension.
 {object} = Name of the object being exported.
-{action} = Name of the first action being exported, if exporting animation""",
+{action} = Name of the action being exported, if exporting animation""",
         default="//export/{basename}.fbx",
         subtype='FILE_PATH',
     )
@@ -271,6 +271,19 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
         name="Disable Auto-Eyelid",
         description="Disables Auto-Eyelid (ARP only)",
         default=True,
+    )
+    export_markers: bpy.props.BoolProperty(
+        name="Export Markers",
+        description="Export markers names and frame times as a list of comma-separated values",
+        default=False,
+    )
+    markers_export_path: bpy.props.StringProperty(
+        name="Markers Export Path",
+        description="""Export path for markers relative to the current folder.
+{basename} = Name of this .blend file without extension.
+{action} = Name of the action being exported""",
+        default="//export/{action}.csv",
+        subtype='FILE_PATH',
     )
     copy_properties: bpy.props.CollectionProperty(
         type=MY_PG_copy_property,
