@@ -1001,6 +1001,20 @@ class MY_OT_animation_export(bpy.types.Operator):
                 context.scene.frame_current = export_group.action.frame_range[0]
                 bpy.context.evaluated_depsgraph_get().update()
 
+                markers = export_group.action.pose_markers
+                if markers:
+                    # Export action markers as a comma separated list
+                    filepath_no_ext, ext = os.path.splitext(filepath)
+                    csv_filepath = filepath_no_ext + ".csv"
+                    csv_filename = bpy.path.basename(csv_filepath)
+                    csv_separator = ','
+                    fps = float(context.scene.render.fps)
+                    log(f"Writing markers to {csv_filename}")
+                    with open(csv_filepath, 'w') as fout:
+                        for marker in markers:
+                            fields = [marker.name, marker.frame, marker.frame / fps]
+                            print(csv_separator.join(str(field) for field in fields), file=fout)
+
                 if is_object_arp(rig):
                     if self.disable_auto_eyelid:
                         for bone_name in ('c_eyelid_base.l', 'c_eyelid_base.r'):
