@@ -119,6 +119,13 @@ class MY_OT_action_remove(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def get_actions_for_rig(rig):
+    for action in bpy.data.actions:
+        if action.library:
+            # Never show linked actions
+            continue
+        yield action
+
 class MY_PT_actions(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -140,13 +147,14 @@ class MY_PT_actions(bpy.types.Panel):
             row.label(text="Available Actions", icon='ACTION')
             row.operator('my_tools.action_add', icon='ADD', text="")
 
-            if bpy.data.actions:
+            rig_actions = list(get_actions_for_rig(obj))
+            if rig_actions:
                 col = box.column(align=True)
 
-                for action in bpy.data.actions:
+                for action in rig_actions:
                     row = col.row(align=True)
 
-                    selected = obj and obj.animation_data and obj.animation_data.action == action
+                    selected = obj.animation_data and obj.animation_data.action == action
                     if selected and context.screen.is_animation_playing:
                         op = row.operator('screen.animation_cancel', icon='PAUSE', text="", emboss=False)
                         op.restore_frame = False

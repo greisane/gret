@@ -1284,7 +1284,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                         action_names.add(job_action.action)
                     else:
                         action_names.update(action.name for action in bpy.data.actions
-                            if fnmatch(action.name, job_action.action))
+                            if not action.library and fnmatch(action.name, job_action.action))
 
             for cp in job.copy_properties:
                 if not cp.source and not cp.destination:
@@ -1293,6 +1293,9 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 for action_name in action_names:
                     action = bpy.data.actions.get(action_name)
                     if not action:
+                        continue
+                    if action.library:
+                        # Never export linked actions
                         continue
 
                     try:
