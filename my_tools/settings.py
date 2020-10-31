@@ -179,7 +179,7 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
         description="""Export path relative to the current folder.
 {basename} = Name of this .blend file without extension.
 {object} = Name of the object being exported.""",
-        default="//export/{basename}.fbx",
+        default="//export/SK_{basename}.fbx",
         subtype='FILE_PATH',
     )
     export_collection: bpy.props.PointerProperty(
@@ -276,7 +276,7 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
         description="""Export path relative to the current folder.
 {basename} = Name of this .blend file without extension.
 {action} = Name of the action being exported, if exporting animation""",
-        default="//export/{basename}.fbx",
+        default="//export/A_{basename}_{action}.fbx",
         subtype='FILE_PATH',
     )
     export_markers: bpy.props.BoolProperty(
@@ -289,7 +289,7 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
         description="""Export path for markers relative to the current folder.
 {basename} = Name of this .blend file without extension.
 {action} = Name of the action being exported""",
-        default="//export/{action}.csv",
+        default="//export/DT_{basename}_{action}.csv",
         subtype='FILE_PATH',
     )
     copy_properties: bpy.props.CollectionProperty(
