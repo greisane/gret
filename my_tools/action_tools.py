@@ -228,11 +228,9 @@ class MY_PT_actions(bpy.types.Panel):
             active_action = obj.animation_data.action if obj.animation_data else None
             if rig_actions:
                 col = box.column(align=True)
-
                 for action in rig_actions:
-                    row = col.row(align=True)
-
                     selected = action == active_action
+                    row = col.row(align=True)
                     if selected and context.screen.is_animation_playing:
                         op = row.operator('screen.animation_cancel', icon='PAUSE', text="", emboss=False)
                         op.restore_frame = False
@@ -241,11 +239,9 @@ class MY_PT_actions(bpy.types.Panel):
                         op = row.operator('my_tools.action_set', icon=icon, text="", emboss=False)
                         op.name = action.name
                         op.play = True
-
-                    op = row.operator('my_tools.action_set', text=action.name, emboss=True)
+                    op = row.operator('my_tools.action_set', text=action.name)
                     op.name = action.name
                     op.play = False
-
                     row.operator('my_tools.action_remove', icon='X', text="").name = action.name
 
             if active_action:
@@ -257,7 +253,10 @@ class MY_PT_actions(bpy.types.Panel):
                 if active_action.pose_markers:
                     col = box.column(align=True)
                     for marker in active_action.pose_markers:
-                        op = col.operator('my_tools.pose_set', icon='FORWARD', text=marker.name)
+                        selected = marker.frame == context.scene.frame_current
+                        row = col.row(align=True)
+                        row.label(text="", icon='PMARKER_ACT' if selected else 'PMARKER_SEL')
+                        op = row.operator('my_tools.pose_set', text=marker.name)
                         op.name = marker.name
 
 classes = (
