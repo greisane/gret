@@ -1,5 +1,5 @@
 from bpy.app.handlers import persistent
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 from mathutils import Vector, Euler, Quaternion
 from numbers import Number
 import bpy
@@ -11,7 +11,7 @@ bl_info = {
     "name": "Pose Blender",
     "author": "greisane",
     "description": "Allows blending between poses similarly to the UE4 AnimGraph node",
-    "version": (0, 1),
+    "version": (0, 3),
     "blender": (2, 80, 0),
     "location": "View 3D > Sidebar > Tool Tab",
     "category": "Animation"
@@ -559,9 +559,11 @@ class PB_OT_add(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return (context.object and context.object.type == 'ARMATURE'
-            and context.object.pose_library
-            and context.object.name not in PB_PT_pose_blender.pose_blenders)
+        obj = context.object
+        return (obj
+            and obj.type == 'ARMATURE'
+            and obj.pose_library
+            and obj.name not in PB_PT_pose_blender.pose_blenders)
 
     def execute(self, context):
         cls = PB_PT_pose_blender
@@ -725,6 +727,45 @@ class PB_OT_key(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class PB_OT_sanitize(bpy.types.Operator):
+    #tooltip
+    """Ensures the pose library only contains bone animation for the currently selected bones"""
+
+    bl_idname = 'pose_blender.sanitize'
+    bl_label = "Sanitize Poses"
+    bl_options = {'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.object
+        return obj and obj.type == 'ARMATURE' and obj.pose_library and context.mode == 'POSE'
+
+    def execute(self, context):
+        obj = context.object
+
+        action = obj.pose_library
+        selected_bone_names = set(pb.name for pb in context.selected_pose_bones_from_active_object)
+        num_removed_per_bone = defaultdict(int)
+        num_removed = 0
+        for fcurve in action.fcurves[:]:
+            match = re.match(r'pose\.bones\["([^"]+)"\]', fcurve.data_path)
+            if match:
+                bone_name = match.group(1)
+                if bone_name not in selected_bone_names:
+                    action.fcurves.remove(fcurve)
+                    num_removed += 1
+                    num_removed_per_bone[bone_name] += 1
+
+        for bone_name, num in num_removed_per_bone.items():
+            print(f"Removed {num} fcurves for bone '{bone_name}' not in selection")
+
+        if num_removed:
+            self.report({'INFO'}, f"Removed {num_removed} curves, see console for details.")
+        else:
+            self.report({'INFO'}, f"No curves were removed.")
+
+        return {'FINISHED'}
+
 class PB_PT_pose_blender(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -767,15 +808,18 @@ class PB_PT_pose_blender(bpy.types.Panel):
             row.operator('pose_blender.copy', icon='COPYDOWN', text="")
             row.operator('pose_blender.paste', icon='PASTEDOWN', text="")
             row.operator('pose_blender.key', icon='KEYINGSET', text="")
+        else:
+            layout.operator('pose_blender.sanitize', icon='HELP')
 
 classes = (
     PB_OT_add,
-    PB_OT_remove,
     PB_OT_clear,
-    PB_OT_flip,
     PB_OT_copy,
-    PB_OT_paste,
+    PB_OT_flip,
     PB_OT_key,
+    PB_OT_paste,
+    PB_OT_remove,
+    PB_OT_sanitize,
     PB_PT_pose_blender,
 )
 
