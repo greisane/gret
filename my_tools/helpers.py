@@ -302,16 +302,19 @@ def intercept(_func=None, error_result=None):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Redirect output
-            stdout = io.StringIO()
-            try:
-                from contextlib import redirect_stdout
-                with redirect_stdout(stdout):
-                    result = func(*args, **kwargs)
-            except Exception as err:
-                # import traceback
-                # traceback.print_exc()
-                result = error_result
+            if kwargs.pop('no_intercept', False):
+                result = func(*args, **kwargs)
+            else:
+                # Redirect output
+                stdout = io.StringIO()
+                try:
+                    from contextlib import redirect_stdout
+                    with redirect_stdout(stdout):
+                        result = func(*args, **kwargs)
+                except Exception as err:
+                    # import traceback
+                    # traceback.print_exc()
+                    result = error_result
             return result
         return wrapper
 

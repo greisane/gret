@@ -284,7 +284,7 @@ ik_bone_names = [
     "ik_hand.r"
 ]
 
-# @intercept(error_result={'CANCELLED'})
+@intercept(error_result={'CANCELLED'})
 def export_autorig(context, filepath, actions):
     scn = context.scene
     rig = context.active_object
@@ -409,6 +409,11 @@ class MY_OT_scene_export(bpy.types.Operator):
         description="Ensures that exported material names begin with a prefix",
         default="MI_",
     )
+    debug: bpy.props.BoolProperty(
+        name="Debug",
+        description="Debug mode with verbose output. Exceptions are caught but not handled",
+        default=False,
+    )
 
     def _execute(self, context):
         collision_prefixes = ("UCX", "UBX", "UCP", "USP")
@@ -468,7 +473,7 @@ class MY_OT_scene_export(bpy.types.Operator):
             filepath = get_export_path(self.export_path, **path_fields)
             filename = bpy.path.basename(filepath)
 
-            result = self.export_fbx(context, filepath)
+            result = self.export_fbx(context, filepath, [], no_intercept=self.debug)
             if result == {'FINISHED'}:
                 log(f"Exported {filepath}")
                 self.exported_files.append(filename)
@@ -569,6 +574,11 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
         name="Material Prefix",
         description="Ensures that exported material names begin with a prefix",
         default="MI_",
+    )
+    debug: bpy.props.BoolProperty(
+        name="Debug",
+        description="Debug mode with verbose output. Exceptions are caught but not handled",
+        default=False,
     )
 
     def copy_obj(self, obj, copy_data=True):
@@ -830,10 +840,10 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
 
                 if is_object_arp(rig):
                     log(f"Exporting {filename} via Auto-Rig export")
-                    result = export_autorig(context, filepath, [])
+                    result = export_autorig(context, filepath, [], no_intercept=self.debug)
                 else:
                     log(f"Exporting {filename}")
-                    result = export_fbx(context, filepath, [])
+                    result = export_fbx(context, filepath, [], no_intercept=self.debug)
 
                 if result == {'FINISHED'}:
                     self.exported_files.append(filepath)
@@ -958,6 +968,11 @@ If available, markers names and frame times are written as a list of comma-separ
         description="Disables Auto-Eyelid (ARP only)",
         default=True,
     )
+    debug: bpy.props.BoolProperty(
+        name="Debug",
+        description="Debug mode with verbose output. Exceptions are caught but not handled",
+        default=False,
+    )
 
     @classmethod
     def poll(cls, context):
@@ -1036,12 +1051,13 @@ If available, markers names and frame times are written as a list of comma-separ
                         log(f"Skipping {csv_filename} as it would overwrite a file that was " \
                             "just exported")
 
+                actions = [export_group.action]
                 if is_object_arp(rig):
                     log(f"Exporting {filename} via Auto-Rig export")
-                    result = export_autorig(context, filepath, [export_group.action])
+                    result = export_autorig(context, filepath, actions, no_intercept=self.debug)
                 else:
                     log(f"Exporting {filename}")
-                    result = export_fbx(context, filepath, [export_group.action])
+                    result = export_fbx(context, filepath, actions, no_intercept=self.debug)
 
                 if result == {'FINISHED'}:
                     self.exported_files.append(filepath)
@@ -1182,6 +1198,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
     bl_label = "Execute Export Job"
 
     index: bpy.props.IntProperty(options={'HIDDEN'})
+    debug: bpy.props.BoolProperty(options={'HIDDEN'})
 
     @classmethod
     def poll(cls, context):
@@ -1221,6 +1238,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 export_path=job.export_path,
                 export_collision=job.export_collision,
                 material_name_prefix=job.material_name_prefix,
+                debug=self.debug,
             )
 
         elif job.what == 'RIG':
@@ -1290,6 +1308,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 join_meshes=job.join_meshes,
                 split_masks=job.split_masks,
                 material_name_prefix=job.material_name_prefix,
+                debug=self.debug,
             )
             beep(0)
 
@@ -1361,6 +1380,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 markers_export_path=job.markers_export_path if job.export_markers else "",
                 actions=",".join(action_names),
                 disable_auto_eyelid=job.disable_auto_eyelid,
+                debug=self.debug,
             )
             beep(1)
 
@@ -1515,8 +1535,13 @@ class MY_PT_export_jobs(bpy.types.Panel):
                     col = box.column(align=True)
                     col.prop(job, 'animation_export_path', text="")
 
-            op = col.operator('my_tools.export_job_run', icon='FORWARD', text="Execute")
+            row = col.row(align=True)
+            op = row.operator('my_tools.export_job_run', icon='INDIRECT_ONLY_ON', text="Execute")
             op.index = job_idx
+            op.debug = False
+            op = row.operator('my_tools.export_job_run', icon='INDIRECT_ONLY_OFF', text="")
+            op.index = job_idx
+            op.debug = True
 
 classes = (
     MY_OT_animation_export,
