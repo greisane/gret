@@ -480,9 +480,7 @@ class MY_OT_scene_export(bpy.types.Operator):
 
     def execute(self, context):
         # Check export path
-        path_fields = {
-            'object': "None",
-        }
+        path_fields = {'object': "None"}
         fail_reason = fail_if_invalid_export_path(self.export_path, **path_fields)
         if fail_reason:
             self.report({'ERROR'}, fail_reason)
@@ -525,7 +523,8 @@ class MY_OT_rig_export(bpy.types.Operator):
     export_path: bpy.props.StringProperty(
         name="Export Path",
         description="""Export path relative to the current folder.
-{basename} = Name of this .blend file without extension""",
+{basename} = Name of this .blend file without extension.
+{rigbasename} = Name of the .blend file the rig is linked from, without extension""",
         default="//export/{basename}.fbx",
         subtype='FILE_PATH',
     )
@@ -824,6 +823,10 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
         if self.export_path:
             for export_group in export_groups:
                 path_fields['suffix'] = export_group.suffix
+                rig_filepath = (rig.proxy.library.filepath if rig.proxy and rig.proxy.library
+                    else bpy.data.filepath)
+                path_fields['rigbasename'] = os.path.splitext(bpy.path.basename(rig_filepath))[0]
+
                 filepath = get_export_path(self.export_path, **path_fields)
                 filename = bpy.path.basename(filepath)
                 if filepath in self.exported_files:
@@ -881,7 +884,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
             return {'CANCELLED'}
 
         # Check addon availability and export path
-        path_fields = {}
+        path_fields = {'rigbasename': "None"}
         fail_reason = (fail_if_no_operator('apply_shape_keys_with_vertex_groups')
             or fail_if_no_operator('apply_modifiers_with_shape_keys')
             or fail_if_invalid_export_path(self.export_path, **path_fields))
@@ -945,6 +948,7 @@ class MY_OT_animation_export(bpy.types.Operator):
         name="Export Path",
         description="""Export path relative to the current folder.
 {basename} = Name of this .blend file without extension.
+{rigbasename} = Name of the .blend file the rig is linked from, without extension.
 {action} = Name of the action being exported""",
         default="//export/{action}.fbx",
         subtype='FILE_PATH',
@@ -954,6 +958,7 @@ class MY_OT_animation_export(bpy.types.Operator):
         description="""Export path for markers relative to the current folder.
 If available, markers names and frame times are written as a list of comma-separated values.
 {basename} = Name of this .blend file without extension.
+{rigbasename} = Name of the .blend file the rig is linked from, without extension.
 {action} = Name of the action being exported""",
         default="//export/{action}.csv",
         subtype='FILE_PATH',
@@ -1014,6 +1019,10 @@ If available, markers names and frame times are written as a list of comma-separ
 
                 path_fields['action'] = export_group.action.name
                 path_fields['suffix'] = export_group.suffix
+                rig_filepath = (rig.proxy.library.filepath if rig.proxy and rig.proxy.library
+                    else bpy.data.filepath)
+                path_fields['rigbasename'] = os.path.splitext(bpy.path.basename(rig_filepath))[0]
+
                 filepath = get_export_path(self.export_path, **path_fields)
                 filename = bpy.path.basename(filepath)
                 if filepath in self.exported_files:
@@ -1042,7 +1051,7 @@ If available, markers names and frame times are written as a list of comma-separ
                     if csv_filepath not in self.exported_files:
                         log(f"Writing markers to {csv_filename}")
                         with open(csv_filepath, 'w') as fout:
-                            field_headers = ["Name", "Frame", "Frame Time"]
+                            field_headers = ["Name", "Frame", "Time"]
                             print(csv_separator.join(field_headers), file=fout)
                             for marker in markers:
                                 fields = [marker.name, marker.frame, marker.frame / fps]
@@ -1071,7 +1080,7 @@ If available, markers names and frame times are written as a list of comma-separ
             self.report({'ERROR'}, "Armature must be the active object.")
             return {'CANCELLED'}
 
-        path_fields = {'action': "None"}
+        path_fields = {'action': "None", 'rigbasename': "None"}
         fail_reason = fail_if_invalid_export_path(self.export_path, **path_fields)
         if fail_reason:
             self.report({'ERROR'}, fail_reason)
@@ -1235,7 +1244,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
             log(f"Beginning scene export job '{job.name}'")
 
             bpy.ops.my_tools.scene_export(
-                export_path=job.export_path,
+                export_path=job.scene_export_path,
                 export_collision=job.export_collision,
                 material_name_prefix=job.material_name_prefix,
                 debug=self.debug,
@@ -1298,7 +1307,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                     bpy.data.objects.remove(obj, do_unlink=True)
 
             bpy.ops.my_tools.rig_export(
-                export_path=job.export_path if not job.to_collection else "",
+                export_path=job.rig_export_path if not job.to_collection else "",
                 export_collection=export_coll.name if job.to_collection and export_coll else "",
                 merge_basis_shape_keys=job.merge_basis_shape_keys,
                 mirror_shape_keys=job.mirror_shape_keys,
@@ -1460,7 +1469,7 @@ class MY_PT_export_jobs(bpy.types.Panel):
                     col.prop(job, 'material_name_prefix', text="M. Prefix")
 
                     col = box.column(align=True)
-                    col.prop(job, 'export_path', text="")
+                    col.prop(job, 'scene_export_path', text="")
 
                 elif job.what == 'RIG' or job.what == 'MESH':  # 'MESH' for backwards compat
                     box.prop(job, 'rig')
@@ -1501,7 +1510,7 @@ class MY_PT_export_jobs(bpy.types.Panel):
                         row.prop(job, 'export_collection', text="")
                         row.prop(job, 'clean_collection', icon='TRASH', text="")
                     else:
-                        col.prop(job, 'export_path', text="")
+                        col.prop(job, 'rig_export_path', text="")
 
                 elif job.what == 'ANIMATION':
                     box.prop(job, 'rig')

@@ -174,14 +174,6 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
         description="What to export",
         update=on_what_updated,
     )
-    export_path: bpy.props.StringProperty(
-        name="Export Path",
-        description="""Export path relative to the current folder.
-{basename} = Name of this .blend file without extension.
-{object} = Name of the object being exported.""",
-        default="//export/SK_{basename}.fbx",
-        subtype='FILE_PATH',
-    )
     export_collection: bpy.props.PointerProperty(
         name="Export Collection",
         description="Collection where to place export products",
@@ -206,6 +198,14 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
         name="Export Collision",
         description="Exports collision objects that follow the UE4 naming pattern",
         default=True,
+    )
+    scene_export_path: bpy.props.StringProperty(
+        name="Export Path",
+        description="""Export path relative to the current folder.
+{basename} = Name of this .blend file without extension.
+{object} = Name of the object being exported.""",
+        default="//export/S_{object}.fbx",
+        subtype='FILE_PATH',
     )
 
     # Rig export options
@@ -261,6 +261,14 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
         description="Clean the target collection",
         default=False,
     )
+    rig_export_path: bpy.props.StringProperty(
+        name="Export Path",
+        description="""Export path relative to the current folder.
+{basename} = Name of this .blend file without extension.
+{rigbasename} = Name of the .blend file the rig is linked from, without extension""",
+        default="//export/SK_{rigbasename}.fbx",
+        subtype='FILE_PATH',
+    )
 
     # Animation export options
     actions: bpy.props.CollectionProperty(
@@ -271,14 +279,6 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
         description="Disables Auto-Eyelid (ARP only)",
         default=True,
     )
-    animation_export_path: bpy.props.StringProperty(
-        name="Export Path",
-        description="""Export path relative to the current folder.
-{basename} = Name of this .blend file without extension.
-{action} = Name of the action being exported, if exporting animation""",
-        default="//export/A_{basename}_{action}.fbx",
-        subtype='FILE_PATH',
-    )
     export_markers: bpy.props.BoolProperty(
         name="Export Markers",
         description="Export markers names and frame times as a list of comma-separated values",
@@ -288,12 +288,22 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
         name="Markers Export Path",
         description="""Export path for markers relative to the current folder.
 {basename} = Name of this .blend file without extension.
+{rigbasename} = Name of the .blend file the rig is linked from, without extension.
 {action} = Name of the action being exported""",
-        default="//export/DT_{basename}_{action}.csv",
+        default="//export/DT_{rigbasename}_{action}.csv",
         subtype='FILE_PATH',
     )
     copy_properties: bpy.props.CollectionProperty(
         type=MY_PG_copy_property,
+    )
+    animation_export_path: bpy.props.StringProperty(
+        name="Export Path",
+        description="""Export path relative to the current folder.
+{basename} = Name of this .blend file without extension.
+{rigbasename} = Name of the .blend file the rig is linked from, without extension.
+{action} = Name of the action being exported, if exporting animation""",
+        default="//export/A_{rigbasename}_{action}.fbx",
+        subtype='FILE_PATH',
     )
 
 def poll_insertee(self, obj):
