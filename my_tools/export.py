@@ -1251,7 +1251,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 material_name_prefix=job.material_name_prefix,
                 debug=self.debug,
             )
-            beep(2)
+            beep(pitch=2, num=1)
 
         elif job.what == 'RIG':
             if not job.rig:
@@ -1322,7 +1322,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 material_name_prefix=job.material_name_prefix,
                 debug=self.debug,
             )
-            beep(0)
+            beep(pitch=0)
 
         elif job.what == 'ANIMATION':
             if not job.rig:
@@ -1394,7 +1394,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 disable_auto_eyelid=job.disable_auto_eyelid,
                 debug=self.debug,
             )
-            beep(1)
+            beep(pitch=1)
 
         log("Job complete")
 

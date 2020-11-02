@@ -279,22 +279,22 @@ def get_flipped_name(name):
         else:
             return s.replace("r", "l").replace("R", "L")
 
-    match = re.match(r'(.+)([_\.][LlRr])$', name) # Suffix
+    match = re.match(r'(.+)([_\.][LlRr])$', name)  # Suffix
     if match:
         return match[1] + flip_LR(match[2])
 
-    match = re.match(r'^([LlRr][_\.])(.+)', name) # Prefix
+    match = re.match(r'^([LlRr][_\.])(.+)', name)  # Prefix
     if match:
         return flip_LR(match[1]) + match[2]
 
     return None
 
-def beep(pitch=0):
+def beep(pitch=0, num=2):
     try:
         import winsound
         freq = 800 + 100 * pitch
-        winsound.Beep(freq, 50)
-        winsound.Beep(freq, 50)
+        for _ in range(num):
+            winsound.Beep(freq, 50)
     except:
         pass
 
@@ -407,7 +407,7 @@ def fail_if_invalid_export_path(path, **kwargs):
     except PermissionError:
         return "Invalid export path."
     except OSError:
-        pass # Directory already exists
+        pass  # Directory already exists
 
     return ""
 
