@@ -206,6 +206,8 @@ def apply_modifiers(context, obj, mask_edge_boundary=False):
             log(f"Applying mask '{modifier.name}' while preserving boundaries")
             apply_mask_modifier(modifier)
         else:
+            if modifier.name == "_Clone Normals":
+                log(f"Cloning normals from original")
             try:
                 bpy.ops.object.modifier_apply(modifier=modifier.name)
             except RuntimeError:
@@ -328,7 +330,7 @@ def export_autorig(context, filepath, actions):
     else:
         scn.arp_bake_actions = True
         scn.arp_export_name_actions = True
-        scn.arp_export_name_string = ",".join(action.name for action in actions)
+        scn.arp_export_name_string = ','.join(action.name for action in actions)
         scn.arp_simplify_fac = 0.0
 
     # Misc
@@ -605,7 +607,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
         new_obj.data.auto_smooth_angle = math.pi
 
         # I don't see a way to check if topology mapping is working or not, so clone normals twice
-        data_transfer = new_obj.modifiers.new("Clone Normals", 'DATA_TRANSFER')
+        data_transfer = new_obj.modifiers.new("_Clone Normals", 'DATA_TRANSFER')
         data_transfer.object = obj
         data_transfer.use_object_transform = False
         data_transfer.use_loop_data = True
@@ -614,7 +616,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
         data_transfer.max_distance = 1e-5
         data_transfer.use_max_distance = True
 
-        data_transfer = new_obj.modifiers.new("Clone Normals Topology", 'DATA_TRANSFER')
+        data_transfer = new_obj.modifiers.new("_Clone Normals Topology", 'DATA_TRANSFER')
         data_transfer.object = obj
         data_transfer.use_object_transform = False
         data_transfer.use_loop_data = True
@@ -999,7 +1001,7 @@ If available, markers names and frame times are written as a list of comma-separ
                         self.saved_unmuted_constraints.append(constraint)
 
         # Add actions as export groups without meshes
-        action_names = set(self.actions.split(","))
+        action_names = set(self.actions.split(','))
         for action_name in action_names:
             action_name = action_name.strip()
             if not action_name:
@@ -1387,7 +1389,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
             bpy.ops.my_tools.animation_export(
                 export_path=job.animation_export_path,
                 markers_export_path=job.markers_export_path if job.export_markers else "",
-                actions=",".join(action_names),
+                actions=','.join(action_names),
                 disable_auto_eyelid=job.disable_auto_eyelid,
                 debug=self.debug,
             )
