@@ -471,11 +471,11 @@ class MY_OT_scene_export(bpy.types.Operator):
                         self.saved_material_names[mat] = mat.name
                         mat.name = self.material_name_prefix + mat.name
 
-            path_fields['object'] = obj.name
+            path_fields = {'object': obj.name}
             filepath = get_export_path(self.export_path, **path_fields)
             filename = bpy.path.basename(filepath)
 
-            result = self.export_fbx(context, filepath, [], no_intercept=self.debug)
+            result = export_fbx(context, filepath, [], no_intercept=self.debug)
             if result == {'FINISHED'}:
                 log(f"Exported {filepath}")
                 self.exported_files.append(filename)
@@ -1251,6 +1251,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 material_name_prefix=job.material_name_prefix,
                 debug=self.debug,
             )
+            beep(2)
 
         elif job.what == 'RIG':
             if not job.rig:
