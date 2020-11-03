@@ -750,7 +750,8 @@ def vcol_src_items(self, context):
 
 def vcol_src_update(self, context):
     obj = context.active_object
-    if obj and obj.type == 'MESH':
+    if obj and obj.type == 'MESH' and obj.data.vertex_colors:
+        # Automatically refresh mappings only if it wouldn't create a vcol layer
         bpy.ops.my_tools.vcols_from_src()
 
 def register():
