@@ -770,12 +770,11 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 bpy.ops.object.apply_shape_keys_with_vertex_groups()
 
                 # Refresh vertex color and clear the mappings to avoid issues when meshes are merged
-                if not obj.data.vertex_colors and all(src == 'NONE' for src in (
-                    obj.vcolr_src, obj.vcolg_src, obj.vcolb_src, obj.vcola_src)):
-                    # Default to black
-                    obj.vcolr_src = obj.vcolg_src = obj.vcolb_src = obj.vcola_src = 'ZERO'
-                bpy.ops.my_tools.vcols_from_src()
-                obj.vcolr_src = obj.vcolg_src = obj.vcolb_src = obj.vcola_src = 'NONE'
+                if not obj.data.vertex_colors and not obj.vertex_color_mapping:
+                    # Default to black for meshes that don't have any vertex colors
+                    bpy.ops.mesh.vertex_color_mapping_add(r='ZERO', g='ZERO', b='ZERO', a='ZERO')
+                bpy.ops.mesh.vertex_color_mapping_refresh()
+                bpy.ops.mesh.vertex_color_mapping_clear()
 
                 # Ensure basis is selected
                 obj.active_shape_key_index = 0
@@ -889,6 +888,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
         path_fields = {'rigbasename': "None"}
         fail_reason = (fail_if_no_operator('apply_shape_keys_with_vertex_groups')
             or fail_if_no_operator('apply_modifiers_with_shape_keys')
+            or fail_if_no_operator('vertex_color_mapping_refresh', submodule=bpy.ops.mesh)
             or fail_if_invalid_export_path(self.export_path, **path_fields))
         if fail_reason:
             self.report({'ERROR'}, fail_reason)
