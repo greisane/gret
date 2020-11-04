@@ -715,18 +715,6 @@ class MY_PT_scene_tools(bpy.types.Panel):
 
         layout.operator('my_tools.make_collision', icon='MESH_CUBE', text="Make Collision")
 
-        if obj and obj.type == 'MESH':
-            box = layout.box()
-            row = box.row()
-            row.label(text="Vertex Color Map", icon='GROUP_VCOL')
-            row.operator("my_tools.vcols_from_src", icon='FILE_REFRESH', text="")
-
-            col = box.column(align=True)
-            col.prop(obj, 'vcolr_src', text="R")
-            col.prop(obj, 'vcolg_src', text="G")
-            col.prop(obj, 'vcolb_src', text="B")
-            col.prop(obj, 'vcola_src', text="A")
-
 classes = (
     MY_OT_deduplicate_materials,
     MY_OT_make_collision,
@@ -753,6 +741,19 @@ def vcol_src_update(self, context):
     if obj and obj.type == 'MESH' and obj.data.vertex_colors:
         # Automatically refresh mappings only if it wouldn't create a vcol layer
         bpy.ops.my_tools.vcols_from_src()
+
+def vcol_panel_draw(self, context):
+    layout = self.layout
+    box = layout.box()
+    row = box.row()
+    row.label(text="Vertex Color Map", icon='GROUP_VCOL')
+    row.operator("my_tools.vcols_from_src", icon='FILE_REFRESH', text="")
+
+    col = box.column(align=True)
+    col.prop(obj, 'vcolr_src', text="R")
+    col.prop(obj, 'vcolg_src', text="G")
+    col.prop(obj, 'vcolb_src', text="B")
+    col.prop(obj, 'vcola_src', text="A")
 
 def register():
     for cls in classes:
@@ -783,7 +784,11 @@ def register():
         update=vcol_src_update,
     )
 
+    bpy.types.DATA_PT_vertex_colors.append(vcol_panel_draw)
+
 def unregister():
+    bpy.types.DATA_PT_vertex_colors.remove(vcol_panel_draw)
+
     del bpy.types.Object.vcolr_src
     del bpy.types.Object.vcolg_src
     del bpy.types.Object.vcolb_src
