@@ -79,18 +79,10 @@ class MY_OT_action_add(bpy.types.Operator):
 
         if not obj.animation_data:
             obj.animation_data_create()
-
         new_action = bpy.data.actions.new(self.name)
         new_action.use_fake_user = True
         clear_pose(obj)
         obj.animation_data.action = new_action
-
-        # Key the rig properties at the start frame
-        # try_key('pose.bones["c_hand_ik_l"]["ik_fk_switch"]')
-        # try_key('pose.bones["c_hand_ik_r"]["ik_fk_switch"]')
-        # try_key('pose.bones["c_foot_ik_l"]["ik_fk_switch"]')
-        # try_key('pose.bones["c_foot_ik_r"]["ik_fk_switch"]')
-        # try_key('pose.bones["c_head"]["inherit_rotation"]')
 
         return {'FINISHED'}
 
@@ -111,10 +103,34 @@ class MY_OT_action_remove(bpy.types.Operator):
     def execute(self, context):
         obj = context.object
         action = bpy.data.actions.get(self.name, None)
+        if not action:
+            return {'CANCELLED'}
 
-        if action:
-            bpy.data.actions.remove(action)
+        bpy.data.actions.remove(action)
 
+        return {'FINISHED'}
+
+class MY_OT_action_duplicate(bpy.types.Operator):
+    #tooltip
+    """Add a new action"""
+
+    bl_idname = 'my_tools.action_duplicate'
+    bl_label = "Add Action"
+    bl_options = {'INTERNAL', 'UNDO'}
+
+    name: bpy.props.StringProperty()
+
+    @classmethod
+    def poll(cls, context):
+        return context.object is not None
+
+    def execute(self, context):
+        obj = context.object
+        action = bpy.data.actions.get(self.name, None)
+        if not action:
+            return {'CANCELLED'}
+
+        action.copy()
         return {'FINISHED'}
 
 class MY_OT_pose_set(bpy.types.Operator):
@@ -136,7 +152,7 @@ class MY_OT_pose_set(bpy.types.Operator):
     def execute(self, context):
         obj = context.object
         if not self.name:
-            return {'FINISHED'}
+            return {'CANCELLED'}
 
         action = obj.animation_data.action
         marker = action.pose_markers.get(self.name, None)
@@ -243,6 +259,7 @@ class MY_PT_actions(bpy.types.Panel):
                     op = row.operator('my_tools.action_set', text=action.name)
                     op.name = action.name
                     op.play = False
+                    row.operator('my_tools.action_duplicate', icon='DUPLICATE', text="").name = action.name
                     row.operator('my_tools.action_remove', icon='X', text="").name = action.name
 
             if active_action:
@@ -267,6 +284,7 @@ class MY_PT_actions(bpy.types.Panel):
 
 classes = (
     MY_OT_action_add,
+    MY_OT_action_duplicate,
     MY_OT_action_remove,
     MY_OT_action_set,
     MY_OT_pose_make,
