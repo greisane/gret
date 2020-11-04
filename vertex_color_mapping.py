@@ -36,35 +36,6 @@ def update_vcol_from_src(obj, src, dst_vcol, dst_channel_idx):
                         break
         values_to_vcol(mesh, values, dst_vcol, dst_channel_idx)
 
-class MESH_OT_vertex_color_from_mappings(bpy.types.Operator):
-    #tooltip
-    """Refreshes vertex colors from source mappings"""
-
-    bl_idname = 'mesh.vertex_color_from_mappings'
-    bl_label = "Vertex Colors From Source Mappings"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        return context.object and context.object.type == 'MESH'
-
-    def execute(self, context):
-        obj = context.object
-        mesh = context.object.data
-
-        if all(src == 'NONE' for src in (obj.vcolr_src, obj.vcolg_src, obj.vcolb_src, obj.vcola_src)):
-            # Avoid creating a vertex group if nothing would be done anyway
-            return {'FINISHED'}
-
-        vcol = mesh.vertex_colors.active if mesh.vertex_colors else mesh.vertex_colors.new()
-        update_vcol_from_src(obj, obj.vcolr_src, vcol, 0)
-        update_vcol_from_src(obj, obj.vcolg_src, vcol, 1)
-        update_vcol_from_src(obj, obj.vcolb_src, vcol, 2)
-        update_vcol_from_src(obj, obj.vcola_src, vcol, 3)
-        mesh.update()
-
-        return {'FINISHED'}
-
 def vcol_src_items(self, context):
     obj = context.active_object
     items = []
@@ -82,65 +53,170 @@ def vcol_src_update(self, context):
     obj = context.active_object
     if obj and obj.type == 'MESH' and obj.data.vertex_colors:
         # Automatically refresh mappings only if it wouldn't create a vcol layer
-        bpy.ops.mesh.vertex_color_from_mappings()
+        bpy.ops.mesh.vertex_color_mapping_refresh()
 
-def vcol_panel_draw(self, context):
-    layout = self.layout
-    obj = context.object
+class MESH_OT_vertex_color_mapping_refresh(bpy.types.Operator):
+    #tooltip
+    """Creates or refreshes the active vertex color layer from source mappings"""
 
-    box = layout.box()
-    row = box.row()
-    row.label(text="Vertex Color Map", icon='GROUP_VCOL')
-    row.operator("mesh.vertex_color_from_mappings", icon='FILE_REFRESH', text="")
+    bl_idname = 'mesh.vertex_color_mapping_refresh'
+    bl_label = "Refresh Vertex Color Mapping"
+    bl_options = {'REGISTER', 'UNDO'}
 
-    col = box.column(align=True)
-    col.prop(obj, 'vcolr_src', text="R")
-    col.prop(obj, 'vcolg_src', text="G")
-    col.prop(obj, 'vcolb_src', text="B")
-    col.prop(obj, 'vcola_src', text="A")
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type == 'MESH' and context.object.vertex_color_mapping
 
-classes = (
-    MESH_OT_vertex_color_from_mappings,
-)
+    def execute(self, context):
+        obj = context.object
+        mesh = context.object.data
+        mapping = obj.vertex_color_mapping[0] if obj.vertex_color_mapping else None
+        if not mapping:
+            # No mapping, do nothing. Maybe it would be more correct to error instead
+            return {'CANCELLED'}
 
-def register():
-    for cls in classes:
-        bpy.utils.register_class(cls)
+        if all(src == 'NONE' for src in (mapping.r, mapping.g, mapping.b, mapping.a)):
+            # Avoid creating a vertex group if nothing would be done anyway
+            return {'CANCELLED'}
 
-    bpy.types.Object.vcolr_src = bpy.props.EnumProperty(
+        vcol = mesh.vertex_colors.active if mesh.vertex_colors else mesh.vertex_colors.new()
+        update_vcol_from_src(obj, mapping.r, vcol, 0)
+        update_vcol_from_src(obj, mapping.g, vcol, 1)
+        update_vcol_from_src(obj, mapping.b, vcol, 2)
+        update_vcol_from_src(obj, mapping.a, vcol, 3)
+        mesh.update()
+
+        return {'FINISHED'}
+
+class MESH_OT_vertex_color_mapping_add(bpy.types.Operator):
+    #tooltip
+    """Add vertex color mapping"""
+
+    bl_idname = 'mesh.vertex_color_mapping_add'
+    bl_label = "Add Vertex Color Mapping"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    r: bpy.props.EnumProperty(
         name="Vertex Color R Source",
         description="Source mapping to vertex color channel red",
         items=vcol_src_items,
         update=vcol_src_update,
     )
-    bpy.types.Object.vcolg_src = bpy.props.EnumProperty(
+    g: bpy.props.EnumProperty(
         name="Vertex Color G Source",
         description="Source mapping to vertex color channel green",
         items=vcol_src_items,
         update=vcol_src_update,
     )
-    bpy.types.Object.vcolb_src = bpy.props.EnumProperty(
+    b: bpy.props.EnumProperty(
         name="Vertex Color B Source",
         description="Source mapping to vertex color channel blue",
         items=vcol_src_items,
         update=vcol_src_update,
     )
-    bpy.types.Object.vcola_src = bpy.props.EnumProperty(
+    a: bpy.props.EnumProperty(
         name="Vertex Color A Source",
         description="Source mapping to vertex color channel alpha",
         items=vcol_src_items,
         update=vcol_src_update,
     )
 
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type == 'MESH'
+
+    def execute(self, context):
+        if context.object.vertex_color_mapping:
+            # Currently only allow only one mapping
+            return {'CANCELLED'}
+
+        mapping = context.object.vertex_color_mapping.add()
+        mapping.r = self.r
+        mapping.g = self.g
+        mapping.b = self.b
+        mapping.a = self.a
+
+        return {'FINISHED'}
+
+class MESH_OT_vertex_color_mapping_clear(bpy.types.Operator):
+    #tooltip
+    """Clear vertex color mapping"""
+
+    bl_idname = 'mesh.vertex_color_mapping_clear'
+    bl_label = "Clear Vertex Color Mapping"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type == 'MESH'
+
+    def execute(self, context):
+        context.object.vertex_color_mapping.clear()
+
+        return {'FINISHED'}
+
+class MESH_PG_vertex_color_mapping(bpy.types.PropertyGroup):
+    r: bpy.props.EnumProperty(
+        name="Vertex Color R Source",
+        description="Source mapping to vertex color channel red",
+        items=vcol_src_items,
+        update=vcol_src_update,
+    )
+    g: bpy.props.EnumProperty(
+        name="Vertex Color G Source",
+        description="Source mapping to vertex color channel green",
+        items=vcol_src_items,
+        update=vcol_src_update,
+    )
+    b: bpy.props.EnumProperty(
+        name="Vertex Color B Source",
+        description="Source mapping to vertex color channel blue",
+        items=vcol_src_items,
+        update=vcol_src_update,
+    )
+    a: bpy.props.EnumProperty(
+        name="Vertex Color A Source",
+        description="Source mapping to vertex color channel alpha",
+        items=vcol_src_items,
+        update=vcol_src_update,
+    )
+
+def vcol_panel_draw(self, context):
+    layout = self.layout
+    obj = context.active_object
+    mapping = obj.vertex_color_mapping[0] if obj.vertex_color_mapping else None
+
+    if not mapping:
+        layout.operator('mesh.vertex_color_mapping_add', icon='ADD')
+    else:
+        col = layout.column(align=True)
+        col.operator('mesh.vertex_color_mapping_clear', icon='X')
+        row = col.row(align=True)
+        row.prop(mapping, 'r', icon='COLOR_RED', text="")
+        row.prop(mapping, 'g', icon='COLOR_GREEN', text="")
+        row.prop(mapping, 'b', icon='COLOR_BLUE', text="")
+        row.prop(mapping, 'a', icon='OUTLINER_DATA_FONT', text="")
+        row.operator('mesh.vertex_color_mapping_refresh', icon='FILE_REFRESH', text="")
+
+classes = (
+    MESH_OT_vertex_color_mapping_add,
+    MESH_OT_vertex_color_mapping_clear,
+    MESH_OT_vertex_color_mapping_refresh,
+    MESH_PG_vertex_color_mapping,
+)
+
+def register():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+    bpy.types.Object.vertex_color_mapping = bpy.props.CollectionProperty(
+        type=MESH_PG_vertex_color_mapping,
+    )
     bpy.types.DATA_PT_vertex_colors.append(vcol_panel_draw)
 
 def unregister():
     bpy.types.DATA_PT_vertex_colors.remove(vcol_panel_draw)
-
-    del bpy.types.Object.vcolr_src
-    del bpy.types.Object.vcolg_src
-    del bpy.types.Object.vcolb_src
-    del bpy.types.Object.vcola_src
+    del bpy.types.Object.vertex_color_mapping
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
