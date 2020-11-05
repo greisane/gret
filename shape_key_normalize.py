@@ -2,8 +2,8 @@ import bpy
 import bmesh
 
 bl_info = {
-    "name": "Normalize Shape Key Range",
-    "description": "Resets min/max of shape keys while keeping the range of motion",
+    "name": "Shape Key Normalize",
+    "description": "Resets Min/Max of shape keys while keeping the range of motion",
     "author": "greisane",
     "version": (0, 2, 0),
     "blender": (2, 90, 1),
@@ -11,10 +11,13 @@ bl_info = {
     "category": "Mesh"
 }
 
-class OBJECT_OT_normalize_shape_key_range(bpy.types.Operator):
-    bl_idname = "object.normalize_shape_key_range"
-    bl_label = "Normalize Shape Key Range"
-    bl_context = "objectmode"
+class OBJECT_OT_normalize_shape_key(bpy.types.Operator):
+    #tooltip
+    """Resets Min/Max of shape keys while keeping the range of motion"""
+
+    bl_idname = 'object.shape_key_normalize'
+    bl_label = "Normalize Shape Key"
+    bl_context = 'objectmode'
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -76,16 +79,16 @@ class OBJECT_OT_normalize_shape_key_range(bpy.types.Operator):
         return {'FINISHED'}
 
 def shape_key_specials_draw(self, context):
-    self.layout.operator(OBJECT_OT_normalize_shape_key_range.bl_idname)
+    self.layout.operator(OBJECT_OT_normalize_shape_key.bl_idname)
 
 def register():
-    bpy.utils.register_class(OBJECT_OT_normalize_shape_key_range)
+    bpy.utils.register_class(OBJECT_OT_normalize_shape_key)
     shape_key_menu = (bpy.types.MESH_MT_shape_key_specials if bpy.app.version < (2, 80) else
         bpy.types.MESH_MT_shape_key_context_menu)
     shape_key_menu.append(shape_key_specials_draw)
 
 def unregister():
-    bpy.utils.unregister_class(OBJECT_OT_normalize_shape_key_range)
+    bpy.utils.unregister_class(OBJECT_OT_normalize_shape_key)
     shape_key_menu = (bpy.types.MESH_MT_shape_key_specials if bpy.app.version < (2, 80) else
         bpy.types.MESH_MT_shape_key_context_menu)
     shape_key_menu.remove(shape_key_specials_draw)
