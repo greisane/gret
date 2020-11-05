@@ -435,7 +435,7 @@ class MY_PT_character_tools(bpy.types.Panel):
             while selection_sets:
                 name, sel_set = selection_sets.popitem()
                 other_name = get_flipped_name(name)
-                other_sel_set = selection_sets.pop(other_name)
+                other_sel_set = selection_sets.pop(other_name, None)
 
                 row = col.row(align=True)
                 if other_sel_set:
