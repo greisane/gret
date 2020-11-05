@@ -9,6 +9,7 @@ import time
 
 class Logger:
     """Simple logger for operators that take a long time to complete. Can be used as a mixin."""
+
     def start_logging(self, filepath=None, defer_print=True):
         assert not hasattr(self, 'logs'), "start_logging was already called"
         self.logs = []
@@ -29,7 +30,10 @@ class Logger:
             self.log_file = None
 
     def log(self, *args, sep=' '):
-        assert hasattr(self, 'logs'), "start_logging must be called first"
+        if not hasattr(self, 'logs'):
+            # start_logging wasn't called, so just print
+            print(*args, sep=sep)
+            return
         message = sep.join(str(arg) for arg in args)
         if self.log_prefix:
             message = f"{str(self.log_prefix)} {message}"
