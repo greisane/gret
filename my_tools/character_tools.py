@@ -1,8 +1,12 @@
+from collections import OrderedDict
+from fnmatch import fnmatch
+import bpy
 import os
 import re
-import bpy
-from fnmatch import fnmatch
-from .helpers import clear_pose, levenshtein_distance
+from .helpers import (
+    clear_pose,
+    get_flipped_name,
+)
 from .stringcase import titlecase
 
 custom_prop_re = re.compile(r'(.+)?\["([^"]+)"\]$')
@@ -345,6 +349,47 @@ class MY_OT_vertex_group_subdivide(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class MY_OT_selection_set_toggle(bpy.types.Operator):
+    #tooltip
+    """Toggle this bone selection set. Ctrl-click to extend selection"""
+
+    bl_idname = 'my_tools.selection_set_toggle'
+    bl_label = "Toggle Bone Selection Set"
+    bl_options = {'INTERNAL', 'UNDO'}
+
+    name: bpy.props.StringProperty(options={'HIDDEN'})
+    extend: bpy.props.BoolProperty(options={'HIDDEN'}, default=False)
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.mode == 'POSE'
+
+    def execute(self, context):
+        obj = context.object
+        sel_set = obj.selection_sets.get(self.name, None)
+        sel_set_index = obj.selection_sets.find(self.name)
+        if not sel_set:
+            return {'CANCELLED'}
+
+        sel_set.is_selected = not sel_set.is_selected
+        for pbone in context.visible_pose_bones:
+            bone = pbone.bone
+            if not self.extend:
+                bone.select = False
+            if pbone.name in sel_set.bone_ids:
+                bone.select = sel_set.is_selected
+
+        if not self.extend:
+            for idx, sel_set in enumerate(obj.selection_sets):
+                if idx != sel_set_index:
+                    sel_set.is_selected = False
+
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        self.extend = event.ctrl
+        return self.execute(context)
+
 class MY_PT_character_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -381,6 +426,24 @@ class MY_PT_character_tools(bpy.types.Panel):
 
                 row.operator('my_tools.property_remove', icon='X', text="").index = idx
 
+        selection_sets = OrderedDict(reversed(getattr(obj, 'selection_sets', {}).items()))
+        if selection_sets:
+            box = layout.box()
+            box.label(text="Bone Selection Sets", icon='GROUP_BONE')
+
+            col = box.column(align=True)
+            while selection_sets:
+                name, sel_set = selection_sets.popitem()
+                other_name = get_flipped_name(name)
+                other_sel_set = selection_sets.pop(other_name)
+
+                row = col.row(align=True)
+                if other_sel_set:
+                    row.operator('my_tools.selection_set_toggle', text=other_name,
+                        depress=other_sel_set.is_selected).name = other_name
+                row.operator('my_tools.selection_set_toggle', text=name,
+                    depress=sel_set.is_selected).name = name
+
         if obj and obj.type == 'ARMATURE' and obj.mode == 'POSE' and obj.data.bones.active:
             selected_bone = obj.pose.bones[obj.data.bones.active.name]
             spline_ik = next((m for m in selected_bone.constraints if m.type == 'SPLINE_IK'), None)
@@ -399,6 +462,7 @@ classes = (
     MY_OT_propagate_bone_inherit_scale,
     MY_OT_property_add,
     MY_OT_property_remove,
+    MY_OT_selection_set_toggle,
     MY_OT_set_camera,
     MY_OT_set_insertor_target,
     MY_OT_vertex_group_subdivide,
