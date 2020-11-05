@@ -494,17 +494,17 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 log(f"Processing {obj.name}")
                 logger.log_indent += 1
 
-                delete_faces_with_no_material(context, obj)
+                delete_faces_with_no_material(obj)
 
                 if self.merge_basis_shape_keys:
-                    merge_basis_shape_keys(context, obj)
+                    merge_basis_shape_keys(obj)
 
                 # Only basis left? Remove it so applying modifiers has less issues
                 if obj.data.shape_keys and len(obj.data.shape_keys.key_blocks) == 1:
                     obj.shape_key_clear()
 
                 if self.mirror_shape_keys:
-                    mirror_shape_keys(context, obj, self.side_vgroup_name)
+                    mirror_shape_keys(obj, self.side_vgroup_name)
 
                 # Only use modifiers enabled for render. Delete unused modifiers
                 context.view_layer.objects.active = obj
@@ -517,7 +517,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                             kept_modifiers.append((obj.name, modifier_idx, save_properties(modifier)))
                         bpy.ops.object.modifier_remove(modifier=modifier.name)
                 if self.apply_modifiers:
-                    apply_modifiers(context, obj, mask_edge_boundary=self.split_masks)
+                    apply_modifiers(obj, mask_edge_boundary=self.split_masks)
 
                 # If set, add a prefix to the exported materials
                 if self.material_name_prefix:

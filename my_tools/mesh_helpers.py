@@ -32,7 +32,7 @@ def duplicate_shape_key(obj, name, new_name):
 
     return new_shape_key
 
-def merge_basis_shape_keys(context, obj):
+def merge_basis_shape_keys(obj):
     shape_key_name_prefixes = ("Key ", "b_")
 
     if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:
@@ -76,7 +76,7 @@ def merge_basis_shape_keys(context, obj):
     for sk in saved_unmuted_shape_keys:
         sk.mute = False
 
-def mirror_shape_keys(context, obj, side_vgroup_name):
+def mirror_shape_keys(obj, side_vgroup_name):
     if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:
         # No shape keys
         return
@@ -104,12 +104,10 @@ def mirror_shape_keys(context, obj, side_vgroup_name):
             new_shape_key = duplicate_shape_key(obj, shape_key.name, flipped_name)
             new_shape_key.vertex_group = other_vgroup_name
 
-def apply_mask_modifier(mask_modifier):
+def apply_mask_modifier(obj, mask_modifier):
     """Applies a mask modifier in the active object by removing faces instead of vertices \
 so the edge boundary is preserved"""
 
-    obj = bpy.context.object
-    saved_mode = bpy.context.mode
     if mask_modifier.vertex_group not in obj.vertex_groups:
         # No such vertex group
         return
@@ -135,14 +133,10 @@ so the edge boundary is preserved"""
 
     obj.modifiers.remove(mask_modifier)
 
-    # Clean up
-    bpy.ops.object.mode_set(mode=saved_mode)
-
-def apply_modifiers(context, obj, mask_edge_boundary=False):
+def apply_modifiers(obj, mask_edge_boundary=False):
     """Apply modifiers while preserving shape keys. Handles some modifiers specially."""
 
     modifiers = []
-    context.view_layer.objects.active = obj
     num_shape_keys = len(obj.data.shape_keys.key_blocks) if obj.data.shape_keys else 0
     if num_shape_keys:
         def should_disable_modifier(mo):
@@ -157,7 +151,7 @@ def apply_modifiers(context, obj, mask_edge_boundary=False):
                 modifiers.append(modifier)
 
         log(f"Applying modifiers with {num_shape_keys} shape keys")
-        bpy.ops.object.apply_modifiers_with_shape_keys()
+        bpy.ops.object.apply_modifiers_with_shape_keys({'object': obj})
     else:
         modifiers = [mo for mo in obj.modifiers if mo.show_viewport]
 
@@ -169,7 +163,7 @@ def apply_modifiers(context, obj, mask_edge_boundary=False):
         elif modifier.type == 'MASK' and mask_edge_boundary:
             # Try to preserve edge boundaries
             log(f"Applying mask '{modifier.name}' while preserving boundaries")
-            apply_mask_modifier(modifier)
+            apply_mask_modifier(obj, modifier)
         else:
             if modifier.name == "_Clone Normals":
                 log(f"Cloning normals from original")
@@ -225,7 +219,7 @@ def merge_freestyle_edges(obj):
 
     return old_num_verts - new_num_verts
 
-def delete_faces_with_no_material(context, obj):
+def delete_faces_with_no_material(obj):
     if not any(not mat for mat in obj.data.materials):
         # All material slots are filled, nothing to do
         return
