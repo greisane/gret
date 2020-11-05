@@ -24,6 +24,7 @@ from .helpers import (
 )
 from .mesh_helpers import (
     apply_modifiers,
+    apply_shape_keys_with_vertex_groups,
     delete_faces_with_no_material,
     merge_basis_shape_keys,
     merge_freestyle_edges,
@@ -534,9 +535,8 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                             self.saved_material_names[mat] = mat.name
                             mat.name = self.material_name_prefix + mat.name
 
-                context.view_layer.objects.active = obj
                 # Remove vertex group filtering from shapekeys
-                bpy.ops.object.apply_shape_keys_with_vertex_groups()
+                apply_shape_keys_with_vertex_groups(obj)
 
                 # Refresh vertex color and clear the mappings to avoid issues when meshes are merged
                 if not obj.data.vertex_colors and not obj.vertex_color_mapping:
@@ -655,8 +655,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
 
         # Check addon availability and export path
         path_fields = {'rigbasename': "None"}
-        fail_reason = (fail_if_no_operator('apply_shape_keys_with_vertex_groups')
-            or fail_if_no_operator('apply_modifiers_with_shape_keys')
+        fail_reason = (fail_if_no_operator('apply_modifiers_with_shape_keys')
             or fail_if_no_operator('vertex_color_mapping_refresh', submodule=bpy.ops.mesh)
             or fail_if_invalid_export_path(self.export_path, **path_fields))
         if fail_reason:
