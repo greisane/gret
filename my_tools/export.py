@@ -19,14 +19,12 @@ from .helpers import (
     is_object_arp,
     load_properties,
     load_selection,
-    Logger,
+    log,
+    logger,
     save_properties,
     save_selection,
     select_only,
 )
-
-logger = Logger()
-log = logger.log
 
 class ConstantCurve:
     """Mimics FCurve and always returns the same value on evaluation"""

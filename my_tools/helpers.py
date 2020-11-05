@@ -49,6 +49,9 @@ class Logger:
         if self.log_file:
             print(line, file=self.log_file)
 
+logger = Logger()
+log = logger.log
+
 def select_only(context, objs):
     """Ensures only the given object or objects are selected."""
 
