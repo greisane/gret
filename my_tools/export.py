@@ -22,6 +22,13 @@ from .helpers import (
     save_selection,
     select_only,
 )
+from .mesh_helpers import (
+    apply_modifiers,
+    delete_faces_with_no_material,
+    merge_basis_shape_keys,
+    merge_freestyle_edges,
+    mirror_shape_keys,
+)
 
 class ConstantCurve:
     """Mimics FCurve and always returns the same value on evaluation"""
