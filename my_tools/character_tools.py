@@ -351,7 +351,7 @@ class MY_OT_vertex_group_subdivide(bpy.types.Operator):
 
 class MY_OT_selection_set_toggle(bpy.types.Operator):
     #tooltip
-    """Toggle this bone selection set. Ctrl-click to extend selection"""
+    """Toggle this bone selection set. Shift-click to extend selection"""
 
     bl_idname = 'my_tools.selection_set_toggle'
     bl_label = "Toggle Bone Selection Set"
@@ -387,7 +387,7 @@ class MY_OT_selection_set_toggle(bpy.types.Operator):
         return {'FINISHED'}
 
     def invoke(self, context, event):
-        self.extend = event.ctrl
+        self.extend = event.shift
         return self.execute(context)
 
 class MY_PT_character_tools(bpy.types.Panel):
