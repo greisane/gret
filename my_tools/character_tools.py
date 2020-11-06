@@ -23,6 +23,8 @@ def parse_prop_path(obj, prop_path):
             if prop_match[1]:
                 obj = obj.path_resolve(prop_match[1])
             prop_path = f'["{prop_match[2]}"]'
+            # Fetch value to make sure the property exists
+            value = obj.path_resolve(prop_path)
             # Don't attach the object name to text, custom property name should be descriptive enough
             text = titlecase(prop_match[2])
             return obj, prop_path, text
@@ -31,6 +33,8 @@ def parse_prop_path(obj, prop_path):
         if prop_match:
             obj = obj.path_resolve(prop_match[1])
             prop_path = prop_match[2]
+            # Fetch value to make sure the property exists
+            value = obj.path_resolve(prop_path)
             text = f"{obj.name} {titlecase(prop_match[2])}"
             return obj, prop_path, text
     except ValueError:
