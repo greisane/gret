@@ -549,6 +549,12 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 obj.active_shape_key_index = 0
                 obj.show_only_shape_key = False
 
+                # Delete drivers made invalid by deleted modifiers and so on
+                if obj.animation_data:
+                    for driver in obj.animation_data.drivers[:]:
+                        if not driver.is_valid:
+                            obj.animation_data.drivers.remove(driver)
+
                 logger.log_indent -= 1
 
         merges = {}
