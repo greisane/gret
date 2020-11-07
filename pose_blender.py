@@ -478,7 +478,7 @@ class PoseBlender:
             frame = bpy.context.scene.frame_current
             self.ensure_properties_exist()
             for pose in self.poses:
-                self.armature.keyframe_insert('["%s"]' % pose.name, frame=frame)
+                self.armature.keyframe_insert(f'["{pose.name}"]', frame=frame, group="pose_blender")
 
     def update_armature(self):
         if not self.is_armature_valid():
