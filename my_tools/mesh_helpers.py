@@ -189,9 +189,9 @@ def apply_shape_keys_with_vertex_groups(obj):
         for vert_idx, vert in enumerate(shape_key.data):
             v0 = shape_key.relative_key.data[vert_idx].co
             try:
-                v.co[:] = v0.lerp(v.co, vertex_group.weight(vert_idx))
+                vert.co[:] = v0.lerp(vert.co, vertex_group.weight(vert_idx))
             except RuntimeError:
-                v.co[:] = v0
+                vert.co[:] = v0
 
 def merge_freestyle_edges(obj):
     """Does 'Remove Doubles' on freestyle marked edges. Returns the number of vertices merged."""
