@@ -130,7 +130,9 @@ class MY_OT_action_duplicate(bpy.types.Operator):
         if not action:
             return {'CANCELLED'}
 
-        action.copy()
+        new_action = action.copy()
+        new_action.use_fake_user = True
+
         return {'FINISHED'}
 
 class MY_OT_pose_set(bpy.types.Operator):
