@@ -174,24 +174,19 @@ def apply_modifiers(obj, mask_edge_boundary=False):
                 log(f"Couldn't apply {modifier.type} modifier '{modifier.name}'")
 
 def apply_shape_keys_with_vertex_groups(obj):
-    # Save the current state of the shape keys before they're deleted and
-    # store the vertices of the resulting flattened meshes
-    ShapeKeyInfo = namedtuple('ShapeKeyInfo', ['cos', 'interpolation', 'mute',
-        'name', 'slider_max', 'slider_min', 'value', 'vertex_group'])
-    shape_keys = obj.data.shape_keys.key_blocks[:] if obj.data.shape_keys else []
+    if not obj.data.shape_keys:
+        return
+    for sk in obj.data.shape_keys.key_blocks:
+        if sk.vertex_group:
+            vgroup = obj.vertex_groups[sk.vertex_group]
+            sk.vertex_group = ''
 
-    for shape_key_index, shape_key in enumerate(shape_keys):
-        if not shape_key.vertex_group:
-            continue
-        vertex_group = obj.vertex_groups[shape_key.vertex_group]
-        shape_key.vertex_group = ''
-
-        for vert_idx, vert in enumerate(shape_key.data):
-            v0 = shape_key.relative_key.data[vert_idx].co
-            try:
-                vert.co[:] = v0.lerp(vert.co, vertex_group.weight(vert_idx))
-            except RuntimeError:
-                vert.co[:] = v0
+            for vert_idx, vert in enumerate(sk.data):
+                v0 = sk.relative_key.data[vert_idx].co
+                try:
+                    vert.co[:] = v0.lerp(vert.co, vgroup.weight(vert_idx))
+                except RuntimeError:
+                    vert.co[:] = v0
 
 def merge_freestyle_edges(obj):
     """Does 'Remove Doubles' on freestyle marked edges. Returns the number of vertices merged."""
