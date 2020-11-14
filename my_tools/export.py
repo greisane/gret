@@ -866,6 +866,7 @@ If available, markers names and frame times are written as a list of comma-separ
         saved_pose_position = rig.data.pose_position
         saved_action = rig.animation_data.action
         saved_use_global_undo = context.preferences.edit.use_global_undo
+        saved_scene_object_names = [o.name for o in context.scene.objects]
         context.preferences.edit.use_global_undo = False
         self.exported_files = []
         self.saved_unmuted_constraints = []
@@ -877,6 +878,11 @@ If available, markers names and frame times are written as a list of comma-separ
             elapsed = time.time() - start_time
             self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
         finally:
+            # ARP has started leaving behind objects and it breaks subsequent exports
+            for obj in context.scene.objects[:]:
+                if obj.name not in saved_scene_object_names:
+                    log(f"Removing object '{obj.name}' that was left behind")
+                    bpy.data.objects.remove(obj, do_unlink=True)
             # Clean up
             for modifier in self.saved_unmuted_constraints:
                 modifier.mute = False
