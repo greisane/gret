@@ -383,14 +383,14 @@ def set_collection_viewport_visibility(context, collection_name, visibility=True
 def get_export_path(path, fields):
     """Returns an absolute path from an export path."""
 
-    kwargs.update({
-        'basename': os.path.splitext(bpy.path.basename(bpy.data.filepath))[0],
+    fields.update({
+        'file': os.path.splitext(bpy.path.basename(bpy.data.filepath))[0],
     })
-    path = path.format(**kwargs)
+    path = path.format(**fields)
 
-    if 'suffix' in kwargs:
+    if 'suffix' in fields:
         path, ext = os.path.splitext(path)
-        path = path + kwargs['suffix'] + ext
+        path = path + fields['suffix'] + ext
 
     return bpy.path.abspath(path)
 
