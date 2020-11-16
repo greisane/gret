@@ -622,8 +622,12 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                     log(f"Exporting {filename} via Auto-Rig export")
                     result = export_autorig(context, filepath, [], no_intercept=self.debug)
                 else:
+                    # Temporarily rename the armature as it's the root bone itself
+                    saved_rig_name = rig.name
+                    rig.name = "root"
                     log(f"Exporting {filename}")
                     result = export_fbx(context, filepath, [], no_intercept=self.debug)
+                    rig.name = saved_rig_name
 
                 if result == {'FINISHED'}:
                     self.exported_files.append(filepath)
