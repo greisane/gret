@@ -265,7 +265,8 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
         name="Export Path",
         description="""Export path relative to the current folder.
 {file} = Name of this .blend file without extension.
-{rigfile} = Name of the .blend file the rig is linked from, without extension""",
+{rigfile} = Name of the .blend file the rig is linked from, without extension.
+{rig} = Name of the rig being exported""",
         default="//export/SK_{rigfile}.fbx",
         subtype='FILE_PATH',
     )
@@ -289,6 +290,7 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
         description="""Export path for markers relative to the current folder.
 {file} = Name of this .blend file without extension.
 {rigfile} = Name of the .blend file the rig is linked from, without extension.
+{rig} = Name of the rig being exported.
 {action} = Name of the action being exported""",
         default="//export/DT_{rigfile}_{action}.csv",
         subtype='FILE_PATH',
@@ -301,6 +303,7 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
         description="""Export path relative to the current folder.
 {file} = Name of this .blend file without extension.
 {rigfile} = Name of the .blend file the rig is linked from, without extension.
+{rig} = Name of the rig being exported.
 {action} = Name of the action being exported, if exporting animation""",
         default="//export/A_{rigfile}_{action}.fbx",
         subtype='FILE_PATH',

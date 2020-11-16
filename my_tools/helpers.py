@@ -380,7 +380,7 @@ def set_collection_viewport_visibility(context, collection_name, visibility=True
 
     return collection
 
-def get_export_path(path, **kwargs):
+def get_export_path(path, fields):
     """Returns an absolute path from an export path."""
 
     kwargs.update({
@@ -394,7 +394,7 @@ def get_export_path(path, **kwargs):
 
     return bpy.path.abspath(path)
 
-def fail_if_invalid_export_path(path, **kwargs):
+def fail_if_invalid_export_path(path, field_names):
     """Validates an export path and returns the reason it isn't valid."""
 
     if path.startswith("//") and not bpy.data.filepath:
@@ -405,7 +405,8 @@ def fail_if_invalid_export_path(path, **kwargs):
 
     # Check that the export path is valid
     try:
-        dirpath = os.path.dirname(get_export_path(path, **kwargs))
+        fields = {s: "" for s in field_names}
+        dirpath = os.path.dirname(get_export_path(path, fields))
     except Exception as err:
         return "Invalid export path: %s" % err
 

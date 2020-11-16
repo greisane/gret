@@ -242,7 +242,7 @@ class MY_OT_scene_export(bpy.types.Operator):
                         mat.name = self.material_name_prefix + mat.name
 
             path_fields = {'object': obj.name}
-            filepath = get_export_path(self.export_path, **path_fields)
+            filepath = get_export_path(self.export_path, path_fields)
             filename = bpy.path.basename(filepath)
 
             result = export_fbx(context, filepath, [], no_intercept=self.debug)
@@ -252,8 +252,7 @@ class MY_OT_scene_export(bpy.types.Operator):
 
     def execute(self, context):
         # Check export path
-        path_fields = {'object': "None"}
-        fail_reason = fail_if_invalid_export_path(self.export_path, **path_fields)
+        fail_reason = fail_if_invalid_export_path(self.export_path, ['object'])
         if fail_reason:
             self.report({'ERROR'}, fail_reason)
             return {'CANCELLED'}
@@ -296,7 +295,8 @@ class MY_OT_rig_export(bpy.types.Operator):
         name="Export Path",
         description="""Export path relative to the current folder.
 {file} = Name of this .blend file without extension.
-{rigfile} = Name of the .blend file the rig is linked from, without extension""",
+{rigfile} = Name of the .blend file the rig is linked from, without extension.
+{rig} = Name of the rig being exported""",
         default="//export/{file}.fbx",
         subtype='FILE_PATH',
     )
@@ -401,7 +401,12 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
         return context.object and context.object.mode == 'OBJECT'
 
     def _execute(self, context, rig):
-        path_fields = {}
+        rig_filepath = (rig.proxy.library.filepath if rig.proxy and rig.proxy.library
+            else bpy.data.filepath)
+        path_fields = {
+            'rigfile': os.path.splitext(bpy.path.basename(rig_filepath))[0],
+            'rig': rig.name,
+        }
         mesh_objs = []
         rig.data.pose_position = 'REST'
 
@@ -599,11 +604,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
         if self.export_path:
             for export_group in export_groups:
                 path_fields['suffix'] = export_group.suffix
-                rig_filepath = (rig.proxy.library.filepath if rig.proxy and rig.proxy.library
-                    else bpy.data.filepath)
-                path_fields['rigfile'] = os.path.splitext(bpy.path.basename(rig_filepath))[0]
-
-                filepath = get_export_path(self.export_path, **path_fields)
+                filepath = get_export_path(self.export_path, path_fields)
                 filename = bpy.path.basename(filepath)
                 if filepath in self.exported_files:
                     log(f"Skipping {filename} as it would overwrite a file that was just exported")
@@ -660,10 +661,9 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
             return {'CANCELLED'}
 
         # Check addon availability and export path
-        path_fields = {'rigfile': "None"}
         fail_reason = (fail_if_no_operator('apply_modifiers_with_shape_keys')
             or fail_if_no_operator('vertex_color_mapping_refresh', submodule=bpy.ops.mesh)
-            or fail_if_invalid_export_path(self.export_path, **path_fields))
+            or fail_if_invalid_export_path(self.export_path, ['rigfile', 'rig']))
         if fail_reason:
             self.report({'ERROR'}, fail_reason)
             return {'CANCELLED'}
@@ -761,7 +761,12 @@ If available, markers names and frame times are written as a list of comma-separ
 
     def _execute(self, context, rig):
         start_time = time.time()
-        path_fields = {}
+        rig_filepath = (rig.proxy.library.filepath if rig.proxy and rig.proxy.library
+            else bpy.data.filepath)
+        path_fields = {
+            'rigfile': os.path.splitext(bpy.path.basename(rig_filepath))[0],
+            'rig': rig.name,
+        }
 
         ExportGroup = namedtuple('ExportGroup', ['suffix', 'action'])
         export_groups = []
@@ -795,11 +800,7 @@ If available, markers names and frame times are written as a list of comma-separ
 
                 path_fields['action'] = export_group.action.name
                 path_fields['suffix'] = export_group.suffix
-                rig_filepath = (rig.proxy.library.filepath if rig.proxy and rig.proxy.library
-                    else bpy.data.filepath)
-                path_fields['rigfile'] = os.path.splitext(bpy.path.basename(rig_filepath))[0]
-
-                filepath = get_export_path(self.export_path, **path_fields)
+                filepath = get_export_path(self.export_path, path_fields)
                 filename = bpy.path.basename(filepath)
                 if filepath in self.exported_files:
                     log(f"Skipping {filename} as it would overwrite a file that was just exported")
@@ -820,7 +821,7 @@ If available, markers names and frame times are written as a list of comma-separ
                 markers = export_group.action.pose_markers
                 if markers and self.markers_export_path:
                     # Export action markers as a comma separated list
-                    csv_filepath = get_export_path(self.markers_export_path, **path_fields)
+                    csv_filepath = get_export_path(self.markers_export_path, path_fields)
                     csv_filename = bpy.path.basename(csv_filepath)
                     csv_separator = ','
                     fps = float(context.scene.render.fps)
@@ -856,8 +857,7 @@ If available, markers names and frame times are written as a list of comma-separ
             self.report({'ERROR'}, "Armature must be the active object.")
             return {'CANCELLED'}
 
-        path_fields = {'action': "None", 'rigfile': "None"}
-        fail_reason = fail_if_invalid_export_path(self.export_path, **path_fields)
+        fail_reason = fail_if_invalid_export_path(self.export_path, ['action', 'rigfile', 'rig'])
         if fail_reason:
             self.report({'ERROR'}, fail_reason)
             return {'CANCELLED'}
