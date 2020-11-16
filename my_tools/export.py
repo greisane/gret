@@ -166,7 +166,7 @@ class MY_OT_scene_export(bpy.types.Operator):
     export_path: bpy.props.StringProperty(
         name="Export Path",
         description="""Export path relative to the current folder.
-{basename} = Name of this .blend file without extension.
+{file} = Name of this .blend file without extension.
 {object} = Name of the object being exported""",
         default="//export/{object}.fbx",
         subtype='FILE_PATH',
@@ -295,9 +295,9 @@ class MY_OT_rig_export(bpy.types.Operator):
     export_path: bpy.props.StringProperty(
         name="Export Path",
         description="""Export path relative to the current folder.
-{basename} = Name of this .blend file without extension.
-{rigbasename} = Name of the .blend file the rig is linked from, without extension""",
-        default="//export/{basename}.fbx",
+{file} = Name of this .blend file without extension.
+{rigfile} = Name of the .blend file the rig is linked from, without extension""",
+        default="//export/{file}.fbx",
         subtype='FILE_PATH',
     )
     export_collection: bpy.props.StringProperty(
@@ -601,7 +601,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 path_fields['suffix'] = export_group.suffix
                 rig_filepath = (rig.proxy.library.filepath if rig.proxy and rig.proxy.library
                     else bpy.data.filepath)
-                path_fields['rigbasename'] = os.path.splitext(bpy.path.basename(rig_filepath))[0]
+                path_fields['rigfile'] = os.path.splitext(bpy.path.basename(rig_filepath))[0]
 
                 filepath = get_export_path(self.export_path, **path_fields)
                 filename = bpy.path.basename(filepath)
@@ -660,7 +660,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
             return {'CANCELLED'}
 
         # Check addon availability and export path
-        path_fields = {'rigbasename': "None"}
+        path_fields = {'rigfile': "None"}
         fail_reason = (fail_if_no_operator('apply_modifiers_with_shape_keys')
             or fail_if_no_operator('vertex_color_mapping_refresh', submodule=bpy.ops.mesh)
             or fail_if_invalid_export_path(self.export_path, **path_fields))
@@ -723,8 +723,8 @@ class MY_OT_animation_export(bpy.types.Operator):
     export_path: bpy.props.StringProperty(
         name="Export Path",
         description="""Export path relative to the current folder.
-{basename} = Name of this .blend file without extension.
-{rigbasename} = Name of the .blend file the rig is linked from, without extension.
+{file} = Name of this .blend file without extension.
+{rigfile} = Name of the .blend file the rig is linked from, without extension.
 {action} = Name of the action being exported""",
         default="//export/{action}.fbx",
         subtype='FILE_PATH',
@@ -733,8 +733,8 @@ class MY_OT_animation_export(bpy.types.Operator):
         name="Markers Export Path",
         description="""Export path for markers relative to the current folder.
 If available, markers names and frame times are written as a list of comma-separated values.
-{basename} = Name of this .blend file without extension.
-{rigbasename} = Name of the .blend file the rig is linked from, without extension.
+{file} = Name of this .blend file without extension.
+{rigfile} = Name of the .blend file the rig is linked from, without extension.
 {action} = Name of the action being exported""",
         default="//export/{action}.csv",
         subtype='FILE_PATH',
@@ -797,7 +797,7 @@ If available, markers names and frame times are written as a list of comma-separ
                 path_fields['suffix'] = export_group.suffix
                 rig_filepath = (rig.proxy.library.filepath if rig.proxy and rig.proxy.library
                     else bpy.data.filepath)
-                path_fields['rigbasename'] = os.path.splitext(bpy.path.basename(rig_filepath))[0]
+                path_fields['rigfile'] = os.path.splitext(bpy.path.basename(rig_filepath))[0]
 
                 filepath = get_export_path(self.export_path, **path_fields)
                 filename = bpy.path.basename(filepath)
@@ -856,7 +856,7 @@ If available, markers names and frame times are written as a list of comma-separ
             self.report({'ERROR'}, "Armature must be the active object.")
             return {'CANCELLED'}
 
-        path_fields = {'action': "None", 'rigbasename': "None"}
+        path_fields = {'action': "None", 'rigfile': "None"}
         fail_reason = fail_if_invalid_export_path(self.export_path, **path_fields)
         if fail_reason:
             self.report({'ERROR'}, fail_reason)

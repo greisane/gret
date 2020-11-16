@@ -202,7 +202,7 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
     scene_export_path: bpy.props.StringProperty(
         name="Export Path",
         description="""Export path relative to the current folder.
-{basename} = Name of this .blend file without extension.
+{file} = Name of this .blend file without extension.
 {object} = Name of the object being exported.""",
         default="//export/S_{object}.fbx",
         subtype='FILE_PATH',
@@ -264,9 +264,9 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
     rig_export_path: bpy.props.StringProperty(
         name="Export Path",
         description="""Export path relative to the current folder.
-{basename} = Name of this .blend file without extension.
-{rigbasename} = Name of the .blend file the rig is linked from, without extension""",
-        default="//export/SK_{rigbasename}.fbx",
+{file} = Name of this .blend file without extension.
+{rigfile} = Name of the .blend file the rig is linked from, without extension""",
+        default="//export/SK_{rigfile}.fbx",
         subtype='FILE_PATH',
     )
 
@@ -287,10 +287,10 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
     markers_export_path: bpy.props.StringProperty(
         name="Markers Export Path",
         description="""Export path for markers relative to the current folder.
-{basename} = Name of this .blend file without extension.
-{rigbasename} = Name of the .blend file the rig is linked from, without extension.
+{file} = Name of this .blend file without extension.
+{rigfile} = Name of the .blend file the rig is linked from, without extension.
 {action} = Name of the action being exported""",
-        default="//export/DT_{rigbasename}_{action}.csv",
+        default="//export/DT_{rigfile}_{action}.csv",
         subtype='FILE_PATH',
     )
     copy_properties: bpy.props.CollectionProperty(
@@ -299,10 +299,10 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
     animation_export_path: bpy.props.StringProperty(
         name="Export Path",
         description="""Export path relative to the current folder.
-{basename} = Name of this .blend file without extension.
-{rigbasename} = Name of the .blend file the rig is linked from, without extension.
+{file} = Name of this .blend file without extension.
+{rigfile} = Name of the .blend file the rig is linked from, without extension.
 {action} = Name of the action being exported, if exporting animation""",
-        default="//export/A_{rigbasename}_{action}.fbx",
+        default="//export/A_{rigfile}_{action}.fbx",
         subtype='FILE_PATH',
     )
 
