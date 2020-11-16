@@ -1015,6 +1015,9 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 objs = set()
                 for job_coll in job.collections:
                     coll = job_coll.collection
+                    if not coll and all(not jc.collection for jc in job.collections):
+                        # When no collections are set use the scene collection
+                        coll = scn.collection
                     if should_export(job_coll, coll):
                         for obj in coll.objects:
                             if obj not in objs and should_export(job_coll, obj):
@@ -1023,8 +1026,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                                 obj.hide_render = False
                                 objs.add(obj)
                 select_only(context, objs)
-
-            if not context.selected_objects:
+            elif not context.selected_objects:
                 self.report({'ERROR'}, "Nothing to export.")
                 return {'CANCELLED'}
 
