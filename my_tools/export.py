@@ -1056,6 +1056,9 @@ class MY_OT_export_job_run(bpy.types.Operator):
             all_objs = set()
             for job_coll in job.collections:
                 coll = job_coll.collection
+                if not coll and all(not jc.collection for jc in job.collections):
+                    # When no collections are set use the scene collection
+                    coll = scn.collection
                 if should_export(job_coll, coll):
                     all_objs.update(obj for obj in coll.objects if should_export(job_coll, obj))
 
