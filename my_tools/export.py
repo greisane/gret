@@ -223,6 +223,18 @@ class MY_OT_scene_export(bpy.types.Operator):
                         self.saved_material_names[mat] = mat.name
                         mat.name = self.material_name_prefix + mat.name
 
+            # Refresh vertex color
+            if not obj.data.vertex_colors and not obj.vertex_color_mapping:
+                # Default to black for meshes that don't have any vertex colors
+                self.saved_no_vcols.append(obj)
+                bpy.ops.mesh.vertex_color_mapping_add(r='ZERO', g='ZERO', b='ZERO', a='ZERO')
+                bpy.ops.mesh.vertex_color_mapping_refresh()
+                bpy.ops.mesh.vertex_color_mapping_clear()
+            elif obj.vertex_color_mapping:
+                if not obj.data.vertex_colors:
+                    self.saved_no_vcols.append(obj)
+                bpy.ops.mesh.vertex_color_mapping_refresh()
+
             path_fields = {'object': obj.name}
             filepath = get_export_path(self.export_path, path_fields)
             filename = bpy.path.basename(filepath)
@@ -233,8 +245,9 @@ class MY_OT_scene_export(bpy.types.Operator):
                 self.exported_files.append(filename)
 
     def execute(self, context):
-        # Check export path
-        fail_reason = fail_if_invalid_export_path(self.export_path, ['object'])
+        # Check addon availability and export path
+        fail_reason = (fail_if_no_operator('vertex_color_mapping_refresh', submodule=bpy.ops.mesh)
+            or fail_if_invalid_export_path(self.export_path, ['object']))
         if fail_reason:
             self.report({'ERROR'}, fail_reason)
             return {'CANCELLED'}
@@ -245,6 +258,7 @@ class MY_OT_scene_export(bpy.types.Operator):
         self.exported_files = []
         self.saved_material_names = {}
         self.saved_transforms = {}
+        self.saved_no_vcols = []
 
         try:
             start_time = time.time()
@@ -254,10 +268,15 @@ class MY_OT_scene_export(bpy.types.Operator):
             self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
         finally:
             # Clean up
+            for obj in self.saved_no_vcols:
+                obj.data.vertex_colors.remove(obj.data.vertex_colors.active)
             for obj, matrix_world in self.saved_transforms.items():
                 obj.matrix_world = matrix_world
             for mat, name in self.saved_material_names.items():
                 mat.name = name
+            del self.saved_no_vcols
+            del self.saved_transforms
+            del self.saved_material_names
 
             load_selection(saved_selection)
             context.preferences.edit.use_global_undo = saved_use_global_undo
