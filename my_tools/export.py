@@ -228,12 +228,12 @@ class MY_OT_scene_export(bpy.types.Operator):
                 # Default to black for meshes that don't have any vertex colors
                 self.saved_no_vcols.append(obj)
                 bpy.ops.mesh.vertex_color_mapping_add(r='ZERO', g='ZERO', b='ZERO', a='ZERO')
-                bpy.ops.mesh.vertex_color_mapping_refresh()
+                bpy.ops.mesh.vertex_color_mapping_refresh(invert=True)
                 bpy.ops.mesh.vertex_color_mapping_clear()
             elif obj.vertex_color_mapping:
                 if not obj.data.vertex_colors:
                     self.saved_no_vcols.append(obj)
-                bpy.ops.mesh.vertex_color_mapping_refresh()
+                bpy.ops.mesh.vertex_color_mapping_refresh(invert=True)
 
             path_fields = {'object': obj.name}
             filepath = get_export_path(self.export_path, path_fields)
