@@ -17,6 +17,7 @@ from .helpers import (
 )
 
 # make_collision TODO:
+# - When creating collision from vertices, sometimes the result is offset
 # - Multiple objects. Should take away the shape properties and leave only the type
 # - Non-AABB boxes
 # - Symmetrize for convex isn't good
@@ -141,6 +142,38 @@ Currently only handles objects and modifiers, and no nested properties"""
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
 
+def find_free_col_name(prefix, name):
+    n = 0
+    while True:
+        col_name = f"{prefix}_{name}_{n}"
+        n += 1
+        if col_name not in bpy.context.scene.objects:
+            break
+    return col_name
+
+class MY_OT_assign_collision(bpy.types.Operator):
+    #tooltip
+    """Assigns (renames) the selected collision meshes to the active object"""
+
+    bl_idname = 'my_tools.assign_collision'
+    bl_label = "Assign Collision"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.mode == 'OBJECT'
+
+    def execute(self, context):
+        collision_prefixes = ("UCX", "UBX", "UCP", "USP")
+        for obj in context.selected_objects[:]:
+            if obj == context.active_object:
+                continue
+            prefix = obj.name[:3]
+            if prefix in collision_prefixes:
+                obj.name = find_free_col_name(prefix, context.active_object.name)
+
+        return {'FINISHED'}
+
 def is_box(bm, sq_threshold=0.001):
     """Check if the shape can be represented by a box by checking if there's a vertex opposite
 across the center for each vertex, within some threshold"""
@@ -155,7 +188,7 @@ across the center for each vertex, within some threshold"""
 
 class MY_OT_make_collision(bpy.types.Operator):
     #tooltip
-    """Generate collision for the selected objects"""
+    """Generate collision for the selected geometry"""
 
     bl_idname = 'my_tools.make_collision'
     bl_label = "Make Collision"
@@ -330,13 +363,7 @@ class MY_OT_make_collision(bpy.types.Operator):
             # Autodetect (should detect sphere too)
             prefix = "UBX" if is_box(bm) else "UCX"
 
-        n = 0
-        while True:
-            name = f'{prefix}_{obj.name}_{n}'
-            n += 1
-            if name not in context.scene.objects:
-                break
-
+        name = find_free_col_name(prefix, obj.name)
         data = bpy.data.meshes.new(name)
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
         bm.to_mesh(data)
@@ -658,9 +685,12 @@ class MY_PT_scene_tools(bpy.types.Panel):
         obj = context.active_object
         layout = self.layout
 
-        layout.operator('my_tools.make_collision', icon='MESH_CUBE', text="Make Collision")
+        col = layout.column(align=True)
+        col.operator('my_tools.make_collision', icon='MESH_CUBE')
+        col.operator('my_tools.assign_collision')
 
 classes = (
+    MY_OT_assign_collision,
     MY_OT_deduplicate_materials,
     MY_OT_make_collision,
     MY_OT_replace_references,

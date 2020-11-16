@@ -241,7 +241,7 @@ class MY_OT_scene_export(bpy.types.Operator):
 
             result = export_fbx(context, filepath, [], no_intercept=self.debug)
             if result == {'FINISHED'}:
-                log(f"Exported {filepath}")
+                log(f"Exported {filename} with {len(collision_objs)} collision objects")
                 self.exported_files.append(filename)
 
     def execute(self, context):
