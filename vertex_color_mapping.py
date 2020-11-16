@@ -10,18 +10,21 @@ bl_info = {
     "category": "Mesh"
 }
 
-def values_to_vcol(mesh, src_values, dst_vcol, dst_channel_idx):
+def values_to_vcol(mesh, src_values, dst_vcol, dst_channel_idx, invert=False):
     for loop_idx, loop in enumerate(mesh.loops):
-        dst_vcol.data[loop_idx].color[dst_channel_idx] = src_values[loop.vertex_index]
+        value = src_values[loop.vertex_index]
+        if invert:
+            value = 1.0 - value
+        dst_vcol.data[loop_idx].color[dst_channel_idx] = value
 
-def update_vcol_from_src(obj, src, dst_vcol, dst_channel_idx):
+def update_vcol_from_src(obj, src, dst_vcol, dst_channel_idx, invert=False):
     mesh = obj.data
     if src == 'ZERO':
         values = [0.0] * len(mesh.vertices)
-        values_to_vcol(mesh, values, dst_vcol, dst_channel_idx)
+        values_to_vcol(mesh, values, dst_vcol, dst_channel_idx, invert=invert)
     elif src == 'ONE':
         values = [1.0] * len(mesh.vertices)
-        values_to_vcol(mesh, values, dst_vcol, dst_channel_idx)
+        values_to_vcol(mesh, values, dst_vcol, dst_channel_idx, invert=invert)
     elif src.startswith('vg_'):
         # Get values from vertex group
         values = [0.0] * len(mesh.vertices)
@@ -34,7 +37,7 @@ def update_vcol_from_src(obj, src, dst_vcol, dst_channel_idx):
                     if vg.group == vgroup_idx:
                         values[vert_idx] = vg.weight
                         break
-        values_to_vcol(mesh, values, dst_vcol, dst_channel_idx)
+        values_to_vcol(mesh, values, dst_vcol, dst_channel_idx, invert=invert)
 
 def vcol_src_items(self, context):
     obj = context.active_object
@@ -63,6 +66,12 @@ class MESH_OT_vertex_color_mapping_refresh(bpy.types.Operator):
     bl_label = "Refresh Vertex Color Mapping"
     bl_options = {'REGISTER', 'UNDO'}
 
+    invert: bpy.props.BoolProperty(
+        name="Invert",
+        description="Invert the result",
+        default=False,
+    )
+
     @classmethod
     def poll(cls, context):
         return context.object and context.object.type == 'MESH' and context.object.vertex_color_mapping
@@ -80,10 +89,10 @@ class MESH_OT_vertex_color_mapping_refresh(bpy.types.Operator):
             return {'CANCELLED'}
 
         vcol = mesh.vertex_colors.active if mesh.vertex_colors else mesh.vertex_colors.new()
-        update_vcol_from_src(obj, mapping.r, vcol, 0)
-        update_vcol_from_src(obj, mapping.g, vcol, 1)
-        update_vcol_from_src(obj, mapping.b, vcol, 2)
-        update_vcol_from_src(obj, mapping.a, vcol, 3)
+        update_vcol_from_src(obj, mapping.r, vcol, 0, invert=self.invert)
+        update_vcol_from_src(obj, mapping.g, vcol, 1, invert=self.invert)
+        update_vcol_from_src(obj, mapping.b, vcol, 2, invert=self.invert)
+        update_vcol_from_src(obj, mapping.a, vcol, 3, invert=self.invert)
         mesh.update()
 
         return {'FINISHED'}
