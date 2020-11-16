@@ -189,36 +189,18 @@ class MY_OT_scene_export(bpy.types.Operator):
 
     def _execute(self, context):
         collision_prefixes = ("UCX", "UBX", "UCP", "USP")
-        exported_armatures = []
 
         for obj in context.selected_objects[:]:
+            if obj.type != 'MESH':
+                # Only meshes
+                continue
             if any(obj.name.startswith(s) for s in collision_prefixes):
                 # Never export collision objects by themselves
                 continue
 
             select_only(context, obj)
-
-            if obj.type == 'ARMATURE':
-                armature = obj
-            elif obj.parent and obj.parent.type == 'ARMATURE':
-                armature = obj.parent
-            else:
-                armature = None
-
-            if armature:
-                if armature in exported_armatures:
-                    # Already exported
-                    continue
-                # Dealing with an armature, make it the main object and redo selection
-                obj.select_set(False)
-                armature.select_set(True)
-                for child in armature.children:
-                    child.select_set(True)
-                exported_armatures.append(armature)
-                obj = armature
-
             collision_objs = []
-            if not armature and self.export_collision:
+            if self.export_collision:
                 # Extend selection with pertaining collision objects
                 pattern = r"^(?:%s)_%s_\d+$" % ('|'.join(collision_prefixes), obj.name)
                 for col in context.scene.objects:
@@ -233,8 +215,8 @@ class MY_OT_scene_export(bpy.types.Operator):
             self.saved_transforms[obj] = obj.matrix_world.copy()
             obj.matrix_world.identity()
 
-            # If set, add a prefix to the exported materials
-            if self.material_name_prefix and obj.type == 'MESH':
+            # If set, ensure prefix for any exported materials
+            if self.material_name_prefix:
                 for mat_slot in obj.material_slots:
                     mat = mat_slot.material
                     if not mat.name.startswith(self.material_name_prefix):
@@ -532,7 +514,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 if self.apply_modifiers:
                     apply_modifiers(obj, mask_edge_boundary=self.split_masks)
 
-                # If set, add a prefix to the exported materials
+                # If set, ensure prefix for any exported materials
                 if self.material_name_prefix:
                     for mat_slot in obj.material_slots:
                         mat = mat_slot.material
