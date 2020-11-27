@@ -158,10 +158,10 @@ def export_fbx(context, filepath, actions):
     )
 
 class MY_OT_scene_export(bpy.types.Operator):
-    bl_idname = 'my_tools.scene_export'
+    bl_idname = 'export_scene.my_fbx'
     bl_label = "Scene Export"
     bl_context = 'objectmode'
-    bl_options = {'INTERNAL'}
+    bl_options = {'REGISTER'}
 
     export_path: bpy.props.StringProperty(
         name="Export Path",
@@ -291,6 +291,7 @@ class MY_OT_scene_export(bpy.types.Operator):
             # Finished without errors
             elapsed = time.time() - start_time
             self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
+            beep(pitch=2, num=1)
         finally:
             # Clean up
             while self.new_objs:
@@ -312,8 +313,8 @@ class MY_OT_scene_export(bpy.types.Operator):
 
         return {'FINISHED'}
 
-    def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self)
+    # def invoke(self, context, event):
+        # return context.window_manager.invoke_props_dialog(self)
 
 class MY_OT_rig_export(bpy.types.Operator):
     bl_idname = 'my_tools.rig_export'
@@ -719,6 +720,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
             # Finished without errors
             elapsed = time.time() - start_time
             self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
+            beep(pitch=0)
         finally:
             # Clean up
             while self.new_objs:
@@ -911,6 +913,7 @@ If available, markers names and frame times are written as a list of comma-separ
             # Finished without errors
             elapsed = time.time() - start_time
             self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
+            beep(pitch=1)
         finally:
             # ARP has started leaving behind objects and it breaks subsequent exports
             for obj in context.scene.objects[:]:
@@ -1024,6 +1027,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
 
     index: bpy.props.IntProperty(options={'HIDDEN'})
     debug: bpy.props.BoolProperty(options={'HIDDEN'})
+    bl_options = {'INTERNAL'}
 
     @classmethod
     def poll(cls, context):
@@ -1061,13 +1065,12 @@ class MY_OT_export_job_run(bpy.types.Operator):
 
             log(f"Beginning scene export job '{job.name}'")
 
-            bpy.ops.my_tools.scene_export(
+            bpy.ops.export_scene.my_fbx(
                 export_path=job.scene_export_path,
                 export_collision=job.export_collision,
                 material_name_prefix=job.material_name_prefix,
                 debug=self.debug,
             )
-            beep(pitch=2, num=1)
 
         elif job.what == 'RIG':
             if not job.rig:
@@ -1141,7 +1144,6 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 material_name_prefix=job.material_name_prefix,
                 debug=self.debug,
             )
-            beep(pitch=0)
 
         elif job.what == 'ANIMATION':
             if not job.rig:
@@ -1213,7 +1215,6 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 disable_auto_eyelid=job.disable_auto_eyelid,
                 debug=self.debug,
             )
-            beep(pitch=1)
 
         log("Job complete")
 
