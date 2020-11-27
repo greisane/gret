@@ -187,6 +187,27 @@ class MY_OT_scene_export(bpy.types.Operator):
         default=False,
     )
 
+    def copy_obj(self, obj, copy_data=True):
+        new_obj = obj.copy()
+        self.saved_object_names[obj] = original_name = obj.name
+        obj.name = original_name + "_"
+        new_obj.name = original_name
+        if copy_data:
+            new_data = obj.data.copy()
+            if isinstance(new_data, bpy.types.Mesh):
+                self.new_meshes.add(new_data)
+            else:
+                log(f"Copied data of object {obj.name} won't be released!")
+            new_obj.data = new_data
+        self.new_objs.add(new_obj)
+
+        # New objects are moved to the scene collection, ensuring they're visible
+        bpy.context.scene.collection.objects.link(new_obj)
+        new_obj.hide_set(False)
+        new_obj.hide_viewport = False
+        new_obj.hide_select = False
+        return new_obj
+
     def _execute(self, context):
         collision_prefixes = ("UCX", "UBX", "UCP", "USP")
 
@@ -198,7 +219,13 @@ class MY_OT_scene_export(bpy.types.Operator):
                 # Never export collision objects by themselves
                 continue
 
+            obj = self.copy_obj(obj)
             select_only(context, obj)
+
+            for modifier in obj.modifiers:
+                if modifier.show_viewport:
+                    bpy.ops.object.modifier_apply(modifier=modifier.name)
+
             collision_objs = []
             if self.export_collision:
                 # Extend selection with pertaining collision objects
@@ -212,7 +239,6 @@ class MY_OT_scene_export(bpy.types.Operator):
             for col in collision_objs:
                 self.saved_transforms[col] = col.matrix_world.copy()
                 col.matrix_world = obj.matrix_world.inverted() @ col.matrix_world
-            self.saved_transforms[obj] = obj.matrix_world.copy()
             obj.matrix_world.identity()
 
             # If set, ensure prefix for any exported materials
@@ -226,13 +252,10 @@ class MY_OT_scene_export(bpy.types.Operator):
             # Refresh vertex color
             if not obj.data.vertex_colors and not obj.vertex_color_mapping:
                 # Default to black for meshes that don't have any vertex colors
-                self.saved_no_vcols.append(obj)
                 bpy.ops.mesh.vertex_color_mapping_add(r='ZERO', g='ZERO', b='ZERO', a='ZERO')
                 bpy.ops.mesh.vertex_color_mapping_refresh(invert=True)
                 bpy.ops.mesh.vertex_color_mapping_clear()
             elif obj.vertex_color_mapping:
-                if not obj.data.vertex_colors:
-                    self.saved_no_vcols.append(obj)
                 bpy.ops.mesh.vertex_color_mapping_refresh(invert=True)
 
             path_fields = {'object': obj.name}
@@ -256,9 +279,11 @@ class MY_OT_scene_export(bpy.types.Operator):
         saved_use_global_undo = context.preferences.edit.use_global_undo
         context.preferences.edit.use_global_undo = False
         self.exported_files = []
+        self.new_objs = set()
+        self.new_meshes = set()
+        self.saved_object_names = {}
         self.saved_material_names = {}
         self.saved_transforms = {}
-        self.saved_no_vcols = []
 
         try:
             start_time = time.time()
@@ -268,14 +293,18 @@ class MY_OT_scene_export(bpy.types.Operator):
             self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
         finally:
             # Clean up
-            for obj in self.saved_no_vcols:
-                obj.data.vertex_colors.remove(obj.data.vertex_colors.active)
+            while self.new_objs:
+                bpy.data.objects.remove(self.new_objs.pop())
+            while self.new_meshes:
+                bpy.data.meshes.remove(self.new_meshes.pop())
             for obj, matrix_world in self.saved_transforms.items():
                 obj.matrix_world = matrix_world
+            for obj, name in self.saved_object_names.items():
+                obj.name = name
             for mat, name in self.saved_material_names.items():
                 mat.name = name
-            del self.saved_no_vcols
             del self.saved_transforms
+            del self.saved_object_names
             del self.saved_material_names
 
             load_selection(saved_selection)
