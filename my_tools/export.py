@@ -168,7 +168,7 @@ class MY_OT_scene_export(bpy.types.Operator):
         description="""Export path relative to the current folder.
 {file} = Name of this .blend file without extension.
 {object} = Name of the object being exported""",
-        default="//export/{object}.fbx",
+        default="//export/S_{object}.fbx",
         subtype='FILE_PATH',
     )
     export_collision: bpy.props.BoolProperty(
