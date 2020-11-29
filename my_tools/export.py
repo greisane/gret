@@ -225,6 +225,8 @@ class MY_OT_scene_export(bpy.types.Operator):
             obj = self.copy_obj(obj)
             select_only(context, obj)
 
+            merge_basis_shape_keys(obj)
+
             for modifier in obj.modifiers[:]:
                 if modifier.show_viewport:
                     try:
