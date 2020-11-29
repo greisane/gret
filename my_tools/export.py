@@ -219,12 +219,18 @@ class MY_OT_scene_export(bpy.types.Operator):
                 # Never export collision objects by themselves
                 continue
 
+            log(f"Processing {obj.name}")
+            logger.log_indent += 1
+
             obj = self.copy_obj(obj)
             select_only(context, obj)
 
-            for modifier in obj.modifiers:
+            for modifier in obj.modifiers[:]:
                 if modifier.show_viewport:
-                    bpy.ops.object.modifier_apply(modifier=modifier.name)
+                    try:
+                        bpy.ops.object.modifier_apply(modifier=modifier.name)
+                    except RuntimeError:
+                        log(f"Couldn't apply {modifier.type} modifier '{modifier.name}'")
 
             collision_objs = []
             if self.export_collision:
@@ -266,6 +272,10 @@ class MY_OT_scene_export(bpy.types.Operator):
             if result == {'FINISHED'}:
                 log(f"Exported {filename} with {len(collision_objs)} collision objects")
                 self.exported_files.append(filename)
+            else:
+                log(f"Failed to export")
+
+            logger.log_indent -= 1
 
     def execute(self, context):
         # Check addon availability and export path
@@ -284,6 +294,7 @@ class MY_OT_scene_export(bpy.types.Operator):
         self.saved_object_names = {}
         self.saved_material_names = {}
         self.saved_transforms = {}
+        logger.start_logging()
 
         try:
             start_time = time.time()
@@ -310,6 +321,7 @@ class MY_OT_scene_export(bpy.types.Operator):
 
             load_selection(saved_selection)
             context.preferences.edit.use_global_undo = saved_use_global_undo
+            logger.end_logging()
 
         return {'FINISHED'}
 
@@ -713,6 +725,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
         self.saved_disabled_modifiers = set()
         self.saved_material_names = {}
         self.saved_auto_smooth = {}
+        logger.start_logging()
 
         try:
             start_time = time.time()
@@ -739,6 +752,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
             rig.data.pose_position = saved_pose_position
             context.preferences.edit.use_global_undo = saved_use_global_undo
             load_selection(saved_selection)
+            logger.end_logging()
 
         if self.export_collection:
             # Crashes if undo is attempted right after a simulate export job
@@ -906,6 +920,7 @@ If available, markers names and frame times are written as a list of comma-separ
         context.preferences.edit.use_global_undo = False
         self.exported_files = []
         self.saved_unmuted_constraints = []
+        logger.start_logging()
 
         try:
             start_time = time.time()
@@ -928,6 +943,7 @@ If available, markers names and frame times are written as a list of comma-separ
             rig.animation_data.action = saved_action
             context.preferences.edit.use_global_undo = saved_use_global_undo
             load_selection(saved_selection)
+            logger.end_logging()
 
         return {'FINISHED'}
 

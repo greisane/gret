@@ -11,16 +11,21 @@ class Logger:
     """Simple logger for operators that take a long time to complete. Can be used as a mixin."""
 
     def start_logging(self, filepath=None, defer_print=True):
-        assert not hasattr(self, 'logs'), "start_logging was already called"
-        self.logs = []
-        self.log_start_time = time.time()
-        self.log_file = open(filepath, 'w') if filepath else None
-        self.log_defer_print = defer_print
-        self.log_prefix = ""
-        self.log_indent = 0
+        if not self.is_logging():
+            self.logs = []
+            self.log_start_time = time.time()
+            self.log_file = open(filepath, 'w') if filepath else None
+            self.log_defer_print = defer_print
+            self.log_prefix = ""
+            self.log_indent = 0
+            self.log_started = 0
+        self.log_started += 1
 
     def end_logging(self):
-        assert hasattr(self, 'logs'), "start_logging must be called first"
+        assert self.is_logging(), "start_logging must be called first"
+        self.log_started -= 1
+        if self.log_started > 0:
+            return
         if self.log_defer_print:
             for log in self.logs:
                 self._print_log(*log)
@@ -29,8 +34,11 @@ class Logger:
             self.log_file.close()
             self.log_file = None
 
+    def is_logging(self):
+        return hasattr(self, 'logs')
+
     def log(self, *args, sep=' '):
-        if not hasattr(self, 'logs'):
+        if not self.is_logging():
             # start_logging wasn't called, so just print
             print(*args, sep=sep)
             return
