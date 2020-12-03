@@ -195,10 +195,11 @@ class MY_OT_scene_export(bpy.types.Operator):
 
     def copy_obj(self, obj, copy_data=True):
         new_obj = obj.copy()
-        new_obj.name = obj.name + "_"
-        # self.saved_object_names[obj] = original_name = obj.name
-        # obj.name = original_name + "_"
-        # new_obj.name = original_name
+        # New object takes the original name as a temporary measure to export collision
+        # new_obj.name = obj.name + "_"
+        self.saved_object_names[obj] = original_name = obj.name
+        obj.name = original_name + "_"
+        new_obj.name = original_name
         if copy_data:
             new_data = obj.data.copy()
             if isinstance(new_data, bpy.types.Mesh):
@@ -245,7 +246,7 @@ class MY_OT_scene_export(bpy.types.Operator):
             col_objs = []
             if self.export_collision:
                 # Extend selection with pertaining collision objects
-                pattern = r"^(?:%s)_%s_\d+$" % ('|'.join(collision_prefixes), orig_obj.name)
+                pattern = r"^(?:%s)_%s_\d+$" % ('|'.join(collision_prefixes), obj.name)
                 col_objs = [o for o in context.scene.objects if re.match(pattern, o.name)]
             if col_objs:
                 log(f"Collected {len(col_objs)} collision primitives")
@@ -275,7 +276,7 @@ class MY_OT_scene_export(bpy.types.Operator):
                 bpy.ops.mesh.vertex_color_mapping_refresh(invert=True)
 
             path_fields = {
-                'object': orig_obj.name,
+                'object': obj.name,
                 'collection': orig_obj.users_collection[0].name,
             }
             filepath = get_export_path(self.export_path, path_fields)
