@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from fnmatch import fnmatch
 import bpy
 import math
@@ -167,7 +167,8 @@ class MY_OT_scene_export(bpy.types.Operator):
         name="Export Path",
         description="""Export path relative to the current folder.
 {file} = Name of this .blend file without extension.
-{object} = Name of the object being exported""",
+{object} = Name of the object being exported.
+{collection} = Name of the first collection the object belongs to""",
         default="//export/S_{object}.fbx",
         subtype='FILE_PATH',
     )
@@ -175,6 +176,11 @@ class MY_OT_scene_export(bpy.types.Operator):
         name="Export Collision",
         description="Exports collision objects that follow the UE4 naming pattern",
         default=True,
+    )
+    keep_transforms: bpy.props.BoolProperty(
+        name="Keep Transforms",
+        description="Keep the position and rotation of objects relative to world center",
+        default=False,
     )
     material_name_prefix: bpy.props.StringProperty(
         name="Material Prefix",
@@ -189,9 +195,10 @@ class MY_OT_scene_export(bpy.types.Operator):
 
     def copy_obj(self, obj, copy_data=True):
         new_obj = obj.copy()
-        self.saved_object_names[obj] = original_name = obj.name
-        obj.name = original_name + "_"
-        new_obj.name = original_name
+        new_obj.name = obj.name + "_"
+        # self.saved_object_names[obj] = original_name = obj.name
+        # obj.name = original_name + "_"
+        # new_obj.name = original_name
         if copy_data:
             new_data = obj.data.copy()
             if isinstance(new_data, bpy.types.Mesh):
@@ -211,6 +218,7 @@ class MY_OT_scene_export(bpy.types.Operator):
     def _execute(self, context):
         collision_prefixes = ("UCX", "UBX", "UCP", "USP")
 
+        export_groups = defaultdict(list)  # Filepath to object list
         for obj in context.selected_objects[:]:
             if obj.type != 'MESH':
                 # Only meshes
@@ -222,8 +230,8 @@ class MY_OT_scene_export(bpy.types.Operator):
             log(f"Processing {obj.name}")
             logger.log_indent += 1
 
-            obj = self.copy_obj(obj)
-            select_only(context, obj)
+            orig_obj, obj = obj, self.copy_obj(obj)
+            context.view_layer.objects.active = obj
 
             merge_basis_shape_keys(obj)
 
@@ -234,20 +242,20 @@ class MY_OT_scene_export(bpy.types.Operator):
                     except RuntimeError:
                         log(f"Couldn't apply {modifier.type} modifier '{modifier.name}'")
 
-            collision_objs = []
+            col_objs = []
             if self.export_collision:
                 # Extend selection with pertaining collision objects
-                pattern = r"^(?:%s)_%s_\d+$" % ('|'.join(collision_prefixes), obj.name)
-                for col in context.scene.objects:
-                    if re.match(pattern, col.name):
-                        col.select_set(True)
-                        collision_objs.append(col)
+                pattern = r"^(?:%s)_%s_\d+$" % ('|'.join(collision_prefixes), orig_obj.name)
+                col_objs = [o for o in context.scene.objects if re.match(pattern, o.name)]
+            if col_objs:
+                log(f"Collected {len(col_objs)} collision primitives")
 
-            # Move main object to world center while keeping collision relative transforms
-            for col in collision_objs:
-                self.saved_transforms[col] = col.matrix_world.copy()
-                col.matrix_world = obj.matrix_world.inverted() @ col.matrix_world
-            obj.matrix_world.identity()
+            if not self.keep_transforms:
+                # Move main object to world center while keeping collision relative transforms
+                for col in col_objs:
+                    self.saved_transforms[col] = col.matrix_world.copy()
+                    col.matrix_world = obj.matrix_world.inverted() @ col.matrix_world
+                obj.matrix_world.identity()
 
             # If set, ensure prefix for any exported materials
             if self.material_name_prefix:
@@ -266,23 +274,32 @@ class MY_OT_scene_export(bpy.types.Operator):
             elif obj.vertex_color_mapping:
                 bpy.ops.mesh.vertex_color_mapping_refresh(invert=True)
 
-            path_fields = {'object': obj.name}
+            path_fields = {
+                'object': orig_obj.name,
+                'collection': orig_obj.users_collection[0].name,
+            }
             filepath = get_export_path(self.export_path, path_fields)
-            filename = bpy.path.basename(filepath)
-
-            result = export_fbx(context, filepath, [], no_intercept=self.debug)
-            if result == {'FINISHED'}:
-                log(f"Exported {filename} with {len(collision_objs)} collision objects")
-                self.exported_files.append(filename)
-            else:
-                log(f"Failed to export")
+            export_groups[filepath].append(obj)
+            export_groups[filepath].extend(col_objs)
 
             logger.log_indent -= 1
+
+        # Export each file
+        for filepath, objs in export_groups.items():
+            select_only(context, objs)
+
+            filename = bpy.path.basename(filepath)
+            result = export_fbx(context, filepath, [], no_intercept=self.debug)
+            if result == {'FINISHED'}:
+                log(f"Exported {filename} with {len(objs)} objects")
+                self.exported_files.append(filename)
+            else:
+                log(f"Failed to export {filename}")
 
     def execute(self, context):
         # Check addon availability and export path
         fail_reason = (fail_if_no_operator('vertex_color_mapping_refresh', submodule=bpy.ops.mesh)
-            or fail_if_invalid_export_path(self.export_path, ['object']))
+            or fail_if_invalid_export_path(self.export_path, ['object', 'collection']))
         if fail_reason:
             self.report({'ERROR'}, fail_reason)
             return {'CANCELLED'}
@@ -1086,6 +1103,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
             bpy.ops.export_scene.my_fbx(
                 export_path=job.scene_export_path,
                 export_collision=job.export_collision,
+                keep_transforms=job.keep_transforms,
                 material_name_prefix=job.material_name_prefix,
                 debug=self.debug,
             )
@@ -1307,6 +1325,7 @@ class MY_PT_export_jobs(bpy.types.Panel):
 
                     col = box.column()
                     col.prop(job, 'export_collision')
+                    col.prop(job, 'keep_transforms')
                     col.prop(job, 'material_name_prefix', text="M. Prefix")
 
                     col = box.column(align=True)

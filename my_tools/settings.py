@@ -199,11 +199,17 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
         description="Exports collision objects that follow the UE4 naming pattern",
         default=True,
     )
+    keep_transforms: bpy.props.BoolProperty(
+        name="Keep Transforms",
+        description="Keep the position and rotation of objects relative to world center",
+        default=False,
+    )
     scene_export_path: bpy.props.StringProperty(
         name="Export Path",
         description="""Export path relative to the current folder.
 {file} = Name of this .blend file without extension.
-{object} = Name of the object being exported.""",
+{object} = Name of the object being exported.
+{collection} = Name of the first collection the object belongs to""",
         default="//export/S_{object}.fbx",
         subtype='FILE_PATH',
     )
