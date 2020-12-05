@@ -384,6 +384,8 @@ class MY_OT_make_collision(bpy.types.Operator):
         else:
             collection = bpy.data.collections.new(self.collection)
             context.scene.collection.children.link(collection)
+        if bpy.app.version >= (2, 91):
+            bool_collection.color_tag = 'COLOR_04'
         collection.objects.link(col_obj)
         return col_obj
 
@@ -674,6 +676,105 @@ class MY_OT_make_collision(bpy.types.Operator):
             col.prop(self, 'offset')
             col.prop(self, 'wall_fill_holes')
 
+class MY_OT_setup_wall(bpy.types.Operator):
+    #tooltip
+    """Sets up wall modifiers for boolean openings. Use on flat meshes"""
+
+    bl_idname = 'my_tools.setup_wall'
+    bl_label = "Setup Wall"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    thickness: bpy.props.FloatProperty(
+        name="Thickness",
+        description="Wall thickness",
+        default=0.2,
+        min=0.001,
+    )
+    bool_collection_name: bpy.props.StringProperty(
+        name="Boolean Collection",
+        description="Name of the collection containing the boolean objects",
+        default="_cut",
+    )
+    back_vgroup_name: bpy.props.StringProperty(
+        name="Backside Vertex Group",
+        description="Name of the vertex group receiving the back side of the wall",
+        default="black",
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return context.selected_objects and context.mode == 'OBJECT'
+
+    def execute(self, context):
+        # Ensure collection exists
+        if self.bool_collection_name in bpy.data.collections:
+            bool_collection = bpy.data.collections[self.bool_collection_name]
+        else:
+            bool_collection = bpy.data.collections.new(self.bool_collection_name)
+            context.scene.collection.children.link(bool_collection)
+        if bpy.app.version >= (2, 91):
+            bool_collection.color_tag = 'COLOR_08'
+
+        for obj in context.selected_objects:
+            if obj.type != 'MESH':
+                continue
+
+            # Ensure vertex group exists
+            if self.back_vgroup_name not in obj.vertex_groups:
+                obj.vertex_groups.new(name=self.back_vgroup_name)
+
+            obj.modifiers.clear()
+
+            # Solidify is necessary for boolean to work on planes
+            mo = obj.modifiers.new(type='SOLIDIFY', name="pre cut")
+            mo.show_expanded = False
+            mo.thickness = 0.0001
+            mo.offset = 0.0
+            mo.use_rim = False
+            mo.shell_vertex_group = self.back_vgroup_name
+            mo.rim_vertex_group = self.back_vgroup_name
+
+            # Boolean cuts out the openings
+            mo = obj.modifiers.new(type='BOOLEAN', name="cut")
+            mo.show_expanded = True  # Don't hide, user may want to change FAST for EXACT
+            mo.operation = 'DIFFERENCE'
+            mo.operand_type = 'COLLECTION'
+            mo.collection = bool_collection
+            mo.solver = 'FAST'
+
+            # Undo the previous solidify
+            mo = obj.modifiers.new(type='MASK', name="post cut mask")
+            mo.show_expanded = False
+            mo.vertex_group = self.back_vgroup_name
+            mo.invert_vertex_group = True
+            mo = obj.modifiers.new(type='WELD', name="post cut weld")
+            mo.merge_threshold = 0.1
+
+            # Clear the target vertex group
+            mo = obj.modifiers.new(type='VERTEX_WEIGHT_EDIT', name="clear vg")
+            mo.show_expanded = False
+            mo.vertex_group = self.back_vgroup_name
+            mo.use_remove = True
+            mo.remove_threshold = 1.0
+
+            # Finally make the backside
+            mo = obj.modifiers.new(type='SOLIDIFY', name="solid")
+            mo.show_expanded = False
+            mo.thickness = self.thickness
+            mo.offset = -1.0
+            mo.use_even_offset = False  # Even thickness may cause degenerate faces to explode
+            mo.use_rim = False
+            mo.shell_vertex_group = self.back_vgroup_name
+
+            # Collapse UVs for the backside
+            mo = obj.modifiers.new(type='UV_WARP', name="no back uv")
+            mo.show_expanded = False
+            mo.vertex_group = self.back_vgroup_name
+            mo.scale[0] = 0.0
+            mo.scale[1] = 0.0
+
+        return {'FINISHED'}
+
 class MY_PT_scene_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -685,6 +786,8 @@ class MY_PT_scene_tools(bpy.types.Panel):
         obj = context.active_object
         layout = self.layout
 
+        layout.operator('my_tools.setup_wall')
+
         col = layout.column(align=True)
         col.operator('my_tools.make_collision', icon='MESH_CUBE')
         col.operator('my_tools.assign_collision')
@@ -694,6 +797,7 @@ classes = (
     MY_OT_deduplicate_materials,
     MY_OT_make_collision,
     MY_OT_replace_references,
+    MY_OT_setup_wall,
     MY_PT_scene_tools,
 )
 
