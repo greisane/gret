@@ -88,11 +88,12 @@ class MESH_OT_vertex_color_mapping_refresh(bpy.types.Operator):
             # Avoid creating a vertex group if nothing would be done anyway
             return {'CANCELLED'}
 
+        invert = self.invert != mapping.invert
         vcol = mesh.vertex_colors.active if mesh.vertex_colors else mesh.vertex_colors.new()
-        update_vcol_from_src(obj, mapping.r, vcol, 0, invert=self.invert)
-        update_vcol_from_src(obj, mapping.g, vcol, 1, invert=self.invert)
-        update_vcol_from_src(obj, mapping.b, vcol, 2, invert=self.invert)
-        update_vcol_from_src(obj, mapping.a, vcol, 3, invert=self.invert)
+        update_vcol_from_src(obj, mapping.r, vcol, 0, invert=invert)
+        update_vcol_from_src(obj, mapping.g, vcol, 1, invert=invert)
+        update_vcol_from_src(obj, mapping.b, vcol, 2, invert=invert)
+        update_vcol_from_src(obj, mapping.a, vcol, 3, invert=invert)
         mesh.update()
 
         return {'FINISHED'}
@@ -189,6 +190,11 @@ class MESH_PG_vertex_color_mapping(bpy.types.PropertyGroup):
         items=vcol_src_items,
         update=vcol_src_update,
     )
+    invert: bpy.props.BoolProperty(
+        name="Invert Values",
+        description="Make the result 1-value for each vertex color channel",
+        default=False,
+    )
 
 def vcol_panel_draw(self, context):
     layout = self.layout
@@ -205,6 +211,7 @@ def vcol_panel_draw(self, context):
         row.prop(mapping, 'g', icon='COLOR_GREEN', text="")
         row.prop(mapping, 'b', icon='COLOR_BLUE', text="")
         row.prop(mapping, 'a', icon='OUTLINER_DATA_FONT', text="")
+        row.prop(mapping, 'invert', icon='REMOVE', text="")
         row.operator('mesh.vertex_color_mapping_refresh', icon='FILE_REFRESH', text="")
 
 classes = (
