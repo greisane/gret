@@ -266,14 +266,13 @@ class MY_OT_scene_export(bpy.types.Operator):
                         self.saved_material_names[mat] = mat.name
                         mat.name = self.material_name_prefix + mat.name
 
-            # Refresh vertex color
+            # Refresh vertex color and clear the mappings to avoid issues when meshes are merged
+            # While in Blender it's more intuitive to author masks starting from black, however
+            # UE4 defaults to white. Materials should then use OneMinus to get the original value
             if not obj.data.vertex_colors and not obj.vertex_color_mapping:
-                # Default to black for meshes that don't have any vertex colors
                 bpy.ops.mesh.vertex_color_mapping_add(r='ZERO', g='ZERO', b='ZERO', a='ZERO')
-                bpy.ops.mesh.vertex_color_mapping_refresh(invert=True)
-                bpy.ops.mesh.vertex_color_mapping_clear()
-            elif obj.vertex_color_mapping:
-                bpy.ops.mesh.vertex_color_mapping_refresh(invert=True)
+            bpy.ops.mesh.vertex_color_mapping_refresh(invert=True)
+            bpy.ops.mesh.vertex_color_mapping_clear()
 
             path_fields = {
                 'object': obj.name,
@@ -607,10 +606,11 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 apply_shape_keys_with_vertex_groups(obj)
 
                 # Refresh vertex color and clear the mappings to avoid issues when meshes are merged
+                # While in Blender it's more intuitive to author masks starting from black, however
+                # UE4 defaults to white. Materials should then use OneMinus to get the original value
                 if not obj.data.vertex_colors and not obj.vertex_color_mapping:
-                    # Default to black for meshes that don't have any vertex colors
                     bpy.ops.mesh.vertex_color_mapping_add(r='ZERO', g='ZERO', b='ZERO', a='ZERO')
-                bpy.ops.mesh.vertex_color_mapping_refresh()
+                bpy.ops.mesh.vertex_color_mapping_refresh(invert=True)
                 bpy.ops.mesh.vertex_color_mapping_clear()
 
                 # Ensure basis is selected
