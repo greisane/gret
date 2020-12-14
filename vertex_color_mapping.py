@@ -74,7 +74,7 @@ class MESH_OT_vertex_color_mapping_refresh(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type == 'MESH' and context.object.vertex_color_mapping
+        return context.object and context.object.type == 'MESH'
 
     def execute(self, context):
         obj = context.object
