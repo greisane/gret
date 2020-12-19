@@ -77,6 +77,10 @@ def merge_basis_shape_keys(obj):
     for sk in saved_unmuted_shape_keys:
         sk.mute = False
 
+    # Only basis left? Remove it so applying modifiers has less issues
+    if obj.data.shape_keys and len(obj.data.shape_keys.key_blocks) == 1:
+        obj.shape_key_clear()
+
 def mirror_shape_keys(obj, side_vgroup_name):
     if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:
         # No shape keys

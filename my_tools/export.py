@@ -574,10 +574,6 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 if self.merge_basis_shape_keys:
                     merge_basis_shape_keys(obj)
 
-                # Only basis left? Remove it so applying modifiers has less issues
-                if obj.data.shape_keys and len(obj.data.shape_keys.key_blocks) == 1:
-                    obj.shape_key_clear()
-
                 if self.mirror_shape_keys:
                     mirror_shape_keys(obj, self.side_vgroup_name)
 
