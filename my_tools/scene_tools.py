@@ -385,7 +385,7 @@ class MY_OT_make_collision(bpy.types.Operator):
             collection = bpy.data.collections.new(self.collection)
             context.scene.collection.children.link(collection)
         if bpy.app.version >= (2, 91):
-            bool_collection.color_tag = 'COLOR_04'
+            collection.color_tag = 'COLOR_04'
         collection.objects.link(col_obj)
         return col_obj
 
