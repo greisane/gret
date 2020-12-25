@@ -702,7 +702,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                     coll.objects.link(obj)
                     context.scene.collection.objects.unlink(obj)
                     # Disable auto-smooth on output meshes for performance
-                    obj.use_auto_smooth = False
+                    obj.data.use_auto_smooth = False
             if kept_modifiers:
                 # Recreate modifiers that were stored
                 log(f"Restoring {len(kept_modifiers)} modifiers")

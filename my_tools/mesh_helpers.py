@@ -2,6 +2,7 @@ from collections import namedtuple
 from itertools import chain
 import bmesh
 import bpy
+import re
 from .helpers import (
     get_flipped_name,
     log,
@@ -100,14 +101,43 @@ def mirror_shape_keys(obj, side_vgroup_name):
     vgroup.add([vert.index for vert in obj.data.vertices], 1.0, 'REPLACE')
     vgroup = obj.vertex_groups.get(other_vgroup_name) or obj.vertex_groups.new(name=other_vgroup_name)
 
-    for shape_key in obj.data.shape_keys.key_blocks:
-        flipped_name = get_flipped_name(shape_key.name)
+    for sk in obj.data.shape_keys.key_blocks:
+        flipped_name = get_flipped_name(sk.name)
         # Only mirror it if it doesn't already exist
         if flipped_name and flipped_name not in obj.data.shape_keys.key_blocks:
-            log(f"Mirroring shape key {shape_key.name}")
-            shape_key.vertex_group = side_vgroup_name
-            new_shape_key = duplicate_shape_key(obj, shape_key.name, flipped_name)
-            new_shape_key.vertex_group = other_vgroup_name
+            log(f"Mirroring shape key {sk.name}")
+            logger.log_indent += 1
+            sk.vertex_group = side_vgroup_name
+            new_sk = duplicate_shape_key(obj, sk.name, flipped_name)
+            new_sk.vertex_group = other_vgroup_name
+
+            try:
+                flip_data_path = lambda match: f'["{get_flipped_name(match.group(1)) or match.group(1)}"]'
+                sk_data_path = f'key_blocks["{sk.name}"]'
+                new_sk_data_path = f'key_blocks["{new_sk.name}"]'
+                if obj.data.shape_keys.animation_data:
+                    for fc in obj.data.shape_keys.animation_data.drivers:
+                        if fc.data_path.startswith(sk_data_path):
+                            new_data_path = new_sk_data_path + fc.data_path[len(sk_data_path):]
+                            new_fc = obj.data.shape_keys.driver_add(new_data_path)
+                            new_fc.driver.expression = fc.driver.expression
+                            new_fc.driver.type = fc.driver.type
+                            new_fc.driver.use_self = fc.driver.use_self
+                            for var in fc.driver.variables:
+                                new_var = new_fc.driver.variables.new()
+                                new_var.name = var.name
+                                new_var.type = var.type
+                                for t, new_t in zip(var.targets, new_var.targets):
+                                    new_t.bone_target = get_flipped_name(t.bone_target) or t.bone_target
+                                    new_t.data_path = re.sub(r'\["([^"]*)"\]', flip_data_path, t.data_path)
+                                    new_t.id = t.id
+                                    new_t.rotation_mode = t.rotation_mode
+                                    new_t.transform_space = t.transform_space
+                                    new_t.transform_type = t.transform_type
+            except Exception as e:
+                log(f"Couldn't mirror driver: {e}")
+
+            logger.log_indent -= 1
 
 def apply_mask_modifier(obj, mask_modifier):
     """Applies a mask modifier in the active object by removing faces instead of vertices \
