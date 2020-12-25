@@ -407,25 +407,23 @@ def fail_if_invalid_export_path(path, field_names):
 
     if path.startswith("//") and not bpy.data.filepath:
         # While not technically wrong the file will likely end up at blender working directory
-        return "Can't use a relative export path before the file is saved."
+        raise Exception("Can't use a relative export path before the file is saved.")
     if os.path.isdir(path):
-        return "Export path must be a file path."
+        raise Exception("Export path must be a file path.")
 
     # Check that the export path is valid
     try:
         fields = {s: "" for s in field_names}
         dirpath = os.path.dirname(get_export_path(path, fields))
-    except Exception as err:
-        return "Invalid export path: %s" % err
+    except Exception as e:
+        raise Exception(f"Invalid export path: {e}")
 
     try:
         os.makedirs(dirpath)
     except PermissionError:
-        return "Invalid export path."
+        raise Exception("Invalid export path.")
     except OSError:
         pass  # Directory already exists
-
-    return ""
 
 def fail_if_no_operator(bl_idname, submodule=bpy.ops.object):
     """Checks an operator is available and returns the reason if it isn't"""
@@ -434,9 +432,7 @@ def fail_if_no_operator(bl_idname, submodule=bpy.ops.object):
         # Use getattr, hasattr seems to always return True
         getattr(submodule, bl_idname)
     except AttributeError:
-        return f"Operator {bl_idname} is required and couldn't be found."
-
-    return ""
+        raise Exception(f"Operator {bl_idname} is required and couldn't be found.")
 
 def path_split_all(path):
     """Returns a path split into a list of its parts"""

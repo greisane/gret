@@ -298,10 +298,11 @@ class MY_OT_scene_export(bpy.types.Operator):
 
     def execute(self, context):
         # Check addon availability and export path
-        fail_reason = (fail_if_no_operator('vertex_color_mapping_refresh', submodule=bpy.ops.mesh)
-            or fail_if_invalid_export_path(self.export_path, ['object', 'collection']))
-        if fail_reason:
-            self.report({'ERROR'}, fail_reason)
+        try:
+            fail_if_no_operator('vertex_color_mapping_refresh', submodule=bpy.ops.mesh)
+            fail_if_invalid_export_path(self.export_path, ['object', 'collection'])
+        except Exception as e:
+            self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
 
         saved_selection = save_selection()
@@ -724,11 +725,12 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
             return {'CANCELLED'}
 
         # Check addon availability and export path
-        fail_reason = (fail_if_no_operator('apply_modifiers_with_shape_keys')
-            or fail_if_no_operator('vertex_color_mapping_refresh', submodule=bpy.ops.mesh)
-            or fail_if_invalid_export_path(self.export_path, ['rigfile', 'rig']))
-        if fail_reason:
-            self.report({'ERROR'}, fail_reason)
+        try:
+            fail_if_no_operator('apply_modifiers_with_shape_keys')
+            fail_if_no_operator('vertex_color_mapping_refresh', submodule=bpy.ops.mesh)
+            fail_if_invalid_export_path(self.export_path, ['rigfile', 'rig'])
+        except Exception as e:
+            self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
 
         saved_selection = save_selection()
@@ -923,11 +925,12 @@ If available, markers names and frame times are written as a list of comma-separ
             self.report({'ERROR'}, "Armature must be the active object.")
             return {'CANCELLED'}
 
-        fail_reason = (fail_if_invalid_export_path(self.export_path, ['action', 'rigfile', 'rig'])
-            or (self.markers_export_path
-                and fail_if_invalid_export_path(self.markers_export_path, ['action', 'rigfile', 'rig'])))
-        if fail_reason:
-            self.report({'ERROR'}, fail_reason)
+        try:
+            fail_if_invalid_export_path(self.export_path, ['action', 'rigfile', 'rig'])
+            if self.markers_export_path:
+                fail_if_invalid_export_path(self.markers_export_path, ['action', 'rigfile', 'rig'])
+        except Exception as e:
+            self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
 
         saved_selection = save_selection()
