@@ -112,10 +112,10 @@ class MY_OT_action_remove(bpy.types.Operator):
 
 class MY_OT_action_duplicate(bpy.types.Operator):
     #tooltip
-    """Add a new action"""
+    """Duplicate this action"""
 
     bl_idname = 'my_tools.action_duplicate'
-    bl_label = "Add Action"
+    bl_label = "Duplicate Action"
     bl_options = {'INTERNAL', 'UNDO'}
 
     name: bpy.props.StringProperty()
