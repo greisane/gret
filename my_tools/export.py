@@ -923,7 +923,9 @@ If available, markers names and frame times are written as a list of comma-separ
             self.report({'ERROR'}, "Armature must be the active object.")
             return {'CANCELLED'}
 
-        fail_reason = fail_if_invalid_export_path(self.export_path, ['action', 'rigfile', 'rig'])
+        fail_reason = (fail_if_invalid_export_path(self.export_path, ['action', 'rigfile', 'rig'])
+            or (self.markers_export_path
+                and fail_if_invalid_export_path(self.markers_export_path, ['action', 'rigfile', 'rig'])))
         if fail_reason:
             self.report({'ERROR'}, fail_reason)
             return {'CANCELLED'}
