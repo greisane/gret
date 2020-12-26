@@ -462,18 +462,24 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
 
     def sanitize_mesh(self, obj):
         # Enable autosmooth to allow custom normals
-        merged_obj.data.use_auto_smooth = True
-        merged_obj.data.auto_smooth_angle = math.pi
+        obj.data.use_auto_smooth = True
+        obj.data.auto_smooth_angle = math.pi
 
         # Ensure basis is selected
         obj.active_shape_key_index = 0
         obj.show_only_shape_key = False
 
+        # After messing with shapekeys basis may be left in an undesirable state
+        # Not sure why, and data.update() doesn't seem to fix it
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.object.mode_set(mode='OBJECT')
+
         # Delete drivers made invalid by deleted modifiers and so on
         if obj.animation_data:
-            for driver in obj.animation_data.drivers[:]:
-                if not driver.is_valid:
-                    obj.animation_data.drivers.remove(driver)
+            for fc in obj.animation_data.drivers[:]:
+                if not fc.driver.is_valid:
+                    obj.animation_data.drivers.remove(fc)
 
     @classmethod
     def poll(cls, context):
@@ -634,7 +640,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 bpy.ops.mesh.vertex_color_mapping_clear()
 
                 # Ensure proper mesh state
-                sanitize_mesh(obj)
+                self.sanitize_mesh(obj)
 
                 logger.log_indent -= 1
 
@@ -670,7 +676,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 objs[:] = [merged_obj]
 
                 # Ensure proper mesh state
-                sanitize_mesh(obj)
+                self.sanitize_mesh(merged_obj)
 
                 num_verts_merged = merge_freestyle_edges(merged_obj)
                 if num_verts_merged > 0:
