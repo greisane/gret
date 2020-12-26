@@ -460,6 +460,21 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
         data_transfer.use_max_distance = True
         return new_obj
 
+    def sanitize_mesh(self, obj):
+        # Enable autosmooth to allow custom normals
+        merged_obj.data.use_auto_smooth = True
+        merged_obj.data.auto_smooth_angle = math.pi
+
+        # Ensure basis is selected
+        obj.active_shape_key_index = 0
+        obj.show_only_shape_key = False
+
+        # Delete drivers made invalid by deleted modifiers and so on
+        if obj.animation_data:
+            for driver in obj.animation_data.drivers[:]:
+                if not driver.is_valid:
+                    obj.animation_data.drivers.remove(driver)
+
     @classmethod
     def poll(cls, context):
         return context.object and context.object.mode == 'OBJECT'
@@ -618,15 +633,8 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 bpy.ops.mesh.vertex_color_mapping_refresh(invert=True)
                 bpy.ops.mesh.vertex_color_mapping_clear()
 
-                # Ensure basis is selected
-                obj.active_shape_key_index = 0
-                obj.show_only_shape_key = False
-
-                # Delete drivers made invalid by deleted modifiers and so on
-                if obj.animation_data:
-                    for driver in obj.animation_data.drivers[:]:
-                        if not driver.is_valid:
-                            obj.animation_data.drivers.remove(driver)
+                # Ensure proper mesh state
+                sanitize_mesh(obj)
 
                 logger.log_indent -= 1
 
@@ -661,17 +669,12 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 bpy.ops.object.join(ctx)
                 objs[:] = [merged_obj]
 
+                # Ensure proper mesh state
+                sanitize_mesh(obj)
+
                 num_verts_merged = merge_freestyle_edges(merged_obj)
                 if num_verts_merged > 0:
                     log(f"Welded {num_verts_merged} verts (edges were marked freestyle)")
-
-                # Enable autosmooth for merged object to allow custom normals
-                merged_obj.data.use_auto_smooth = True
-                merged_obj.data.auto_smooth_angle = math.pi
-
-                # Ensure basis is selected
-                merged_obj.active_shape_key_index = 0
-                merged_obj.show_only_shape_key = False
 
                 if subsurf_levels:
                     subdivide_verts_with_bevel_weight(merged_obj, levels=subsurf_levels)
@@ -720,8 +723,11 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 for obj in export_group.objects:
                     coll.objects.link(obj)
                     context.scene.collection.objects.unlink(obj)
-                    # Disable auto-smooth on output meshes for performance
+                    # Disable features on output meshes for performance
                     obj.data.use_auto_smooth = False
+                    obj.data.use_customdata_vertex_bevel = False
+                    obj.data.use_customdata_edge_bevel = False
+                    obj.data.use_customdata_edge_crease = False
             if kept_modifiers:
                 # Recreate modifiers that were stored
                 log(f"Restoring {len(kept_modifiers)} modifiers")
