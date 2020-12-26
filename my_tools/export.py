@@ -29,6 +29,7 @@ from .mesh_helpers import (
     merge_basis_shape_keys,
     merge_freestyle_edges,
     mirror_shape_keys,
+    subdivide_verts_with_bevel_weight,
 )
 
 class ConstantCurve:
@@ -560,6 +561,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
 
         any_modifier_tags = set(self.modifier_tags.split(','))
         kept_modifiers = []  # List of (object name, modifier index, modifier properties)
+        wants_subsurf = {}  # Object name to subsurf level
         def should_enable_modifier(mo):
             tags = set(re.findall(r"g:(\S+)", mo.name))
             return mo.show_render and (not tags or any(s in tags for s in any_modifier_tags))
@@ -582,7 +584,13 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 context.view_layer.objects.active = obj
                 for modifier_idx, modifier in enumerate(obj.modifiers[:]):
                     if should_enable_modifier(modifier):
-                        modifier.show_viewport = True
+                        if (modifier.type == 'SUBSURF' and modifier.levels > 0
+                            and self.join_meshes and len(export_group.objects) > 1):
+                            # Subsurf will be applied after merge, otherwise boundaries won't match up
+                            wants_subsurf[obj.name] = modifier.levels
+                            bpy.ops.object.modifier_remove(modifier=modifier.name)
+                        else:
+                            modifier.show_viewport = True
                     else:
                         if '!keep' in modifier.name:
                             # Store the modifier to recreate it later
@@ -634,8 +642,15 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 merges.update({obj.name: merged_obj for obj in objs})
                 log(f"Merging {', '.join(obj.name for obj in objs if obj is not merged_obj)} " \
                     f"into {merged_obj.name}")
+                logger.log_indent += 1
 
+                subsurf_levels = max(wants_subsurf.get(obj.name, 0) for obj in objs)
                 for obj in objs:
+                    if subsurf_levels:
+                        # Mark vertices that belong to a subsurf mesh
+                        obj.data.use_customdata_vertex_bevel = True
+                        for vert in obj.data.vertices:
+                            vert.bevel_weight = obj.name in wants_subsurf
                     if obj is not merged_obj:
                         self.new_objs.discard(obj)
                         self.new_meshes.discard(obj.data)
@@ -643,8 +658,8 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 ctx = {}
                 ctx['object'] = ctx['active_object'] = merged_obj
                 ctx['selected_objects'] = ctx['selected_editable_objects'] = objs
-
                 bpy.ops.object.join(ctx)
+                objs[:] = [merged_obj]
 
                 num_verts_merged = merge_freestyle_edges(merged_obj)
                 if num_verts_merged > 0:
@@ -658,7 +673,11 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 merged_obj.active_shape_key_index = 0
                 merged_obj.show_only_shape_key = False
 
-                export_group.objects[:] = [merged_obj]
+                if subsurf_levels:
+                    subdivide_verts_with_bevel_weight(merged_obj, levels=subsurf_levels)
+                    merged_obj.data.use_customdata_vertex_bevel = False
+
+                logger.log_indent -= 1
 
         # Finally export
         if self.export_path:
@@ -1357,7 +1376,6 @@ class MY_PT_export_jobs(bpy.types.Panel):
                     col.prop(job, 'join_meshes')
                     # Don't have an use for Split Masks currently and too many options gets confusing
                     # col.prop(job, 'split_masks')
-                    col.prop(job, 'material_name_prefix', text="M. Prefix")
 
                     col = box.column(align=True)
                     col.label(text="Remap Materials:")
@@ -1366,6 +1384,7 @@ class MY_PT_export_jobs(bpy.types.Panel):
                         row.prop(remap_material, 'source', text="")
                         row.label(text="", icon='FORWARD')
                         row.prop(remap_material, 'destination', text="")
+                    col.prop(job, 'material_name_prefix', text="M. Prefix")
 
                     col = box.column(align=True)
                     col.prop(job, 'to_collection')

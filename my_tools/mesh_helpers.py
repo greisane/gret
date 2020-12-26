@@ -10,6 +10,35 @@ from .helpers import (
     select_only,
 )
 
+def edit_mesh_elements(obj, type='VERT', func=lambda v: True):
+    """Enters edit mode and selects elements of a mesh to be operated on. Returns the number selected."""
+
+    select_only(bpy.context, obj)
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.reveal()
+    bpy.ops.mesh.select_mode(type='FACE')
+    bpy.ops.mesh.select_all(action='DESELECT')
+    bpy.ops.mesh.select_mode(type=type)
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+    num_selected = 0
+    if type == 'VERT':
+        for vert in obj.data.vertices:
+            vert.select = bool(func(vert))
+            num_selected += vert.select
+    elif type == 'EDGE':
+        for edge in obj.data.edges:
+            edge.select = bool(func(edge))
+            num_selected += edge.select
+    elif type == 'FACE':
+        for face in obj.data.polygons:
+            face.select = bool(func(face))
+            num_selected += face.select
+
+    bpy.ops.object.mode_set(mode='EDIT')
+
+    return num_selected
+
 def duplicate_shape_key(obj, name, new_name):
     shape_key = obj.data.shape_keys.key_blocks[name]
 
@@ -141,26 +170,14 @@ def mirror_shape_keys(obj, side_vgroup_name):
 
 def apply_mask_modifier(obj, mask_modifier):
     """Applies a mask modifier in the active object by removing faces instead of vertices \
-so the edge boundary is preserved"""
+so the edge boundary is preserved."""
 
     if mask_modifier.vertex_group not in obj.vertex_groups:
         # No such vertex group
         return
     mask_vgroup = obj.vertex_groups[mask_modifier.vertex_group]
 
-    # Need vertex mode to be set then object mode to actually select
-    bpy.ops.object.mode_set(mode='EDIT')
-    bpy.ops.mesh.reveal()
-    bpy.ops.mesh.select_mode(type='FACE')
-    bpy.ops.mesh.select_all(action='DESELECT')
-    bpy.ops.mesh.select_mode(type='VERT')
-    bpy.ops.object.mode_set(mode='OBJECT')
-
-    for vert in obj.data.vertices:
-        vert.select = any(vgroup.group == mask_vgroup.index for vgroup in vert.groups)
-
-    # I'm sure there's a nice clean way to do this with bmesh but I can't be bothered
-    bpy.ops.object.mode_set(mode='EDIT')
+    edit_mesh_elements(obj, 'VERT', lambda v: any(vg.group == mask_vgroup.index for vg in v.groups))
     bpy.ops.mesh.select_mode(type='FACE')
     if not mask_modifier.invert_vertex_group:
         bpy.ops.mesh.select_all(action='INVERT')
@@ -228,17 +245,7 @@ def merge_freestyle_edges(obj):
 
     saved_mode = bpy.context.mode
 
-    # Need vertex mode to be set then object mode to actually select
-    select_only(bpy.context, obj)
-    bpy.ops.object.mode_set(mode='EDIT')
-    bpy.ops.mesh.select_mode(type='EDGE')
-    bpy.ops.mesh.select_all(action='DESELECT')
-    bpy.ops.object.mode_set(mode='OBJECT')
-
-    for edge in obj.data.edges:
-        edge.select = edge.use_freestyle_mark
-
-    bpy.ops.object.mode_set(mode='EDIT')
+    edit_mesh_elements(obj, 'EDGE', lambda e: e.use_freestyle_mark)
     old_num_verts = len(obj.data.vertices)
     bpy.ops.mesh.remove_doubles(threshold=1e-5, use_unselected=False)
 
@@ -250,7 +257,7 @@ def merge_freestyle_edges(obj):
 
     # # Seems the following would be the proper way, however as of 2.90.0 it returns NotImplemented
     # # fs_layer = bm.edges.layers.freestyle.active
-    # # fs_edges = [e for e in bm.edges if bm.edges[idx][fs_layer]]
+    # # fs_edges = [e for e in bm.edges if e[fs_layer]]
     # fs_edges = [e for e in bm.edges if mesh.edges[e.index].use_freestyle_mark]
 
     # # Get list of unique verts
@@ -277,6 +284,7 @@ def delete_faces_with_no_material(obj):
     bm = bmesh.new()
     bm.from_mesh(obj.data)
 
+    bm.faces.ensure_lookup_table()
     delete_geom = [f for f in bm.faces if not obj.data.materials[f.material_index]]
     bmesh.ops.delete(bm, geom=delete_geom, context='FACES')
     log(f"Deleted {len(delete_geom)} faces with no material")
@@ -284,3 +292,22 @@ def delete_faces_with_no_material(obj):
     # Finish and clean up
     bm.to_mesh(obj.data)
     bm.free()
+
+def subdivide_verts_with_bevel_weight(obj, levels):
+    saved_mode = bpy.context.mode
+
+    if edit_mesh_elements(obj, 'VERT', lambda v: v.bevel_weight):
+        bpy.ops.mesh.separate(type='SELECTED')
+
+        bpy.ops.object.mode_set(mode='OBJECT')
+        new_obj = bpy.context.selected_objects[-1]
+        new_obj.modifiers.clear()
+        modifier = new_obj.modifiers.new(name='Subdivision', type='SUBSURF')
+        modifier.levels = levels
+        modifier.use_custom_normals = True
+        log(f"Subdivision level {levels} for {len(new_obj.data.polygons)} faces")
+        apply_modifiers(new_obj)
+
+        bpy.ops.object.join()
+
+    bpy.ops.object.mode_set(mode=saved_mode)
