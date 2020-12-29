@@ -539,6 +539,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
             'rig': rig.name,
         }
         mesh_objs = []
+        original_objs = []
         rig.data.pose_position = 'REST'
 
         for obj in get_children_recursive(rig):
@@ -552,6 +553,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 obj.data.use_auto_smooth = True
                 obj.data.auto_smooth_angle = math.pi
                 if not obj.hide_render and obj.find_armature() is rig:
+                    original_objs.append(obj)
                     # Meshes that aren't already doing it will transfer normals from the originals
                     if not any(mo.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL' in mo.data_types_loops
                         for mo in obj.modifiers):
@@ -720,6 +722,14 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 ctx['selected_objects'] = ctx['selected_editable_objects'] = objs
                 bpy.ops.object.join(ctx)
                 objs[:] = [merged_obj]
+
+                # Joining objects won't copy drivers, so do that now
+                for original_obj in original_objs:
+                    if original_obj.data.shape_keys and original_obj.data.shape_keys.animation_data:
+                        for fc in original_obj.data.shape_keys.animation_data.drivers:
+                            if merged_obj.data.shape_keys.animation_data is None:
+                                merged_obj.data.shape_keys.animation_data_create()
+                            merged_obj.data.shape_keys.animation_data.drivers.from_existing(src_driver=fc)
 
                 # Ensure proper mesh state
                 self.sanitize_mesh(merged_obj)
