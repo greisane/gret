@@ -151,6 +151,35 @@ def is_object_arp(obj):
     """Returns whether the object is an Auto-Rig Pro armature."""
     return obj and obj.type == 'ARMATURE' and obj.pose.bones.get('c_pos')
 
+def is_object_arp_humanoid(obj):
+    """Returns whether the object is an Auto-Rig Pro humanoid armature."""
+    # This is check_humanoid_limbs() from auto_rig_ge.py but less spaghetti
+    if not is_object_arp(obj):
+        return False
+    non_humanoid_bone_names = [
+        'thigh_b_ref.l',
+        'thigh_b_ref.r',
+    ]
+    humanoid_bone_names = [
+        'c_root_master.x',
+    ]
+    limb_bone_names = [
+        ('shoulder_ref.', 2),
+        ('thigh_ref.', 2),
+        ('neck_ref.', 1),
+        ('ear_01_ref.', 2),
+    ]
+    if any(bname in obj.data.bones for bname in non_humanoid_bone_names):
+        return False
+    if not all(bname in obj.data.bones for bname in humanoid_bone_names):
+        return False
+    for limb_bone_name, max_bones in limb_bone_names:
+        if sum(b.name.startswith(limb_bone_name) for b in obj.data.bones) > max_bones:
+            return False
+    if obj.rig_spine_count < 3:
+        return False
+    return True
+
 def clear_pose(obj, clear_armature_properties=True, clear_bone_properties=True):
     """Resets the given armature."""
 

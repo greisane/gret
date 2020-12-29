@@ -14,6 +14,7 @@ from .helpers import (
     get_export_path,
     intercept,
     is_object_arp,
+    is_object_arp_humanoid,
     load_properties,
     load_selection,
     log,
@@ -113,6 +114,51 @@ def export_autorig(context, filepath, actions):
     scn.arp_init_fbx_rot = False
     scn.arp_bone_axis_primary_export = 'Y'
     scn.arp_bone_axis_secondary_export = 'X'
+    scn.arp_export_rig_name = 'root'
+
+    return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
+
+@intercept(error_result={'CANCELLED'})
+def export_autorig_universal(context, filepath, actions):
+    scn = context.scene
+    rig = context.active_object
+
+    # Configure Auto-Rig and then finally export
+    scn.arp_engine_type = 'unreal'
+    scn.arp_export_rig_type = 'mped'
+    scn.arp_ge_sel_only = True
+
+    # Rig Definition
+    scn.arp_keep_bend_bones = False
+    scn.arp_push_bend = False
+    scn.arp_export_twist = True
+    scn.arp_export_noparent = False
+
+    # Units
+    scn.arp_units_x100 = True
+
+    # Unreal Options
+    scn.arp_ue_root_motion = True
+
+    # Animation
+    if not actions:
+        scn.arp_bake_actions = False
+    else:
+        scn.arp_bake_actions = True
+        scn.arp_export_name_actions = True
+        scn.arp_export_name_string = ','.join(action.name for action in actions)
+        scn.arp_simplify_fac = 0.0
+
+    # Misc
+    scn.arp_global_scale = 1.0
+    scn.arp_mesh_smooth_type = 'EDGE'
+    scn.arp_use_tspace = False
+    scn.arp_fix_fbx_rot = True
+    scn.arp_fix_fbx_matrix = True
+    scn.arp_init_fbx_rot = False
+    scn.arp_bone_axis_primary_export = 'Y'
+    scn.arp_bone_axis_secondary_export = 'X'
+    scn.arp_export_rig_name = 'root'
 
     return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
@@ -706,9 +752,12 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 rig.data.pose_position = 'POSE'
                 clear_pose(rig)
 
-                if is_object_arp(rig):
+                if is_object_arp_humanoid(rig):
                     log(f"Exporting {filename} via Auto-Rig export")
                     result = export_autorig(context, filepath, [], no_intercept=self.debug)
+                elif is_object_arp(rig):
+                    log(f"Exporting {filename} via Auto-Rig export (universal)")
+                    result = export_autorig_universal(context, filepath, [], no_intercept=self.debug)
                 else:
                     # Temporarily rename the armature as it's the root bone itself
                     saved_rig_name = rig.name
@@ -939,9 +988,13 @@ If available, markers names and frame times are written as a list of comma-separ
                             "just exported")
 
                 actions = [export_group.action]
-                if is_object_arp(rig):
+
+                if is_object_arp_humanoid(rig):
                     log(f"Exporting {filename} via Auto-Rig export")
                     result = export_autorig(context, filepath, actions, no_intercept=self.debug)
+                elif is_object_arp(rig):
+                    log(f"Exporting {filename} via Auto-Rig export (universal)")
+                    result = export_autorig_universal(context, filepath, actions, no_intercept=self.debug)
                 else:
                     log(f"Exporting {filename}")
                     result = export_fbx(context, filepath, actions, no_intercept=self.debug)
