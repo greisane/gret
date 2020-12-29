@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from fnmatch import fnmatch
 import bpy
+import json
 import os
 import re
 from .helpers import (
@@ -394,6 +395,69 @@ class MY_OT_selection_set_toggle(bpy.types.Operator):
         self.extend = event.shift
         return self.execute(context)
 
+class MY_OT_selection_set_copy(bpy.types.Operator):
+    #tooltip
+    """Copy bone selection sets to clipboard"""
+
+    bl_idname = 'my_tools.selection_set_copy'
+    bl_label = "Copy Bone Selection Sets"
+    bl_options = {'INTERNAL'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.object is not None
+
+    def execute(self, context):
+        obj = context.object
+
+        sel_sets = getattr(obj, 'selection_sets')
+        if sel_sets:
+            sel_sets_list = [(name, sel_set.bone_ids.keys()) for name, sel_set in sel_sets.items()]
+            sel_sets_json = json.dumps(sel_sets_list)
+            context.window_manager.clipboard = sel_sets_json
+            self.report({'INFO'}, "Copied bone selection sets to clipboard.")
+
+        return {'FINISHED'}
+
+class MY_OT_selection_set_paste(bpy.types.Operator):
+    #tooltip
+    """Pastes bone selection sets from clipboard"""
+
+    bl_idname = 'my_tools.selection_set_paste'
+    bl_label = "Paste Bone Selection Sets"
+    bl_options = {'INTERNAL', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.object is not None
+
+    def execute(self, context):
+        obj = context.object
+
+        sel_sets = getattr(obj, 'selection_sets')
+        if sel_sets is None:
+            return {'CANCELLED'}
+
+        try:
+            sel_sets_list = json.loads(context.window_manager.clipboard)
+        except:
+            return {'CANCELLED'}
+
+        try:
+            for name, bone_names in sel_sets_list:
+                if name not in sel_sets:
+                    sel_set = sel_sets.add()
+                    sel_set.name = name
+                    for bone_name in bone_names:
+                        sel_set_bone = sel_set.bone_ids.add()
+                        sel_set_bone.name = bone_name
+            self.report({'INFO'}, "Pasted bone selection sets from clipboard.")
+        except:
+            pass
+        return {'FINISHED'}
+
+        return {'FINISHED'}
+
 class MY_PT_character_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -430,23 +494,28 @@ class MY_PT_character_tools(bpy.types.Panel):
 
                 row.operator('my_tools.property_remove', icon='X', text="").index = idx
 
-        selection_sets = OrderedDict(reversed(getattr(obj, 'selection_sets', {}).items()))
-        if selection_sets:
+        if hasattr(obj, 'selection_sets'):
             box = layout.box()
-            box.label(text="Bone Selection Sets", icon='GROUP_BONE')
+            row = box.row()
+            row.label(text="Bone Selection Sets", icon='GROUP_BONE')
+            row = row.row(align=True)
+            row.operator('my_tools.selection_set_copy', icon='COPYDOWN', text="")
+            row.operator('my_tools.selection_set_paste', icon='PASTEDOWN', text="")
 
-            col = box.column(align=True)
-            while selection_sets:
-                name, sel_set = selection_sets.popitem()
-                other_name = get_flipped_name(name)
-                other_sel_set = selection_sets.pop(other_name, None)
+            selection_sets = OrderedDict(reversed(obj.selection_sets.items()))
+            if selection_sets:
+                col = box.column(align=True)
+                while selection_sets:
+                    name, sel_set = selection_sets.popitem()
+                    other_name = get_flipped_name(name)
+                    other_sel_set = selection_sets.pop(other_name, None)
 
-                row = col.row(align=True)
-                if other_sel_set:
-                    row.operator('my_tools.selection_set_toggle', text=other_name,
-                        depress=other_sel_set.is_selected).name = other_name
-                row.operator('my_tools.selection_set_toggle', text=name,
-                    depress=sel_set.is_selected).name = name
+                    row = col.row(align=True)
+                    if other_sel_set:
+                        row.operator('my_tools.selection_set_toggle', text=other_name,
+                            depress=other_sel_set.is_selected).name = other_name
+                    row.operator('my_tools.selection_set_toggle', text=name,
+                        depress=sel_set.is_selected).name = name
 
         if obj and obj.type == 'ARMATURE' and obj.mode == 'POSE' and obj.data.bones.active:
             selected_bone = obj.pose.bones[obj.data.bones.active.name]
@@ -466,6 +535,8 @@ classes = (
     MY_OT_propagate_bone_inherit_scale,
     MY_OT_property_add,
     MY_OT_property_remove,
+    MY_OT_selection_set_copy,
+    MY_OT_selection_set_paste,
     MY_OT_selection_set_toggle,
     MY_OT_set_camera,
     MY_OT_set_insertor_target,
