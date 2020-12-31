@@ -1,3 +1,4 @@
+from bpy.app.handlers import persistent
 from collections import OrderedDict
 from fnmatch import fnmatch
 import bpy
@@ -544,10 +545,32 @@ classes = (
     MY_PT_character_tools,
 )
 
+saved_unhidden_collections = set()
+@persistent
+def save_pre(dummy):
+    # Automatically hide the rig armature collection on saving since I'm always forgetting
+    # This is so that the linked armature doesn't interfere with the proxy when linking
+    for coll in bpy.data.collections:
+        if coll.name.endswith('_grp_rig') and not coll.library and not coll.hide_viewport:
+            saved_unhidden_collections.add(coll.name)
+            coll.hide_viewport = True
+
+@persistent
+def save_post(dummy):
+    for coll_name in saved_unhidden_collections:
+        coll = bpy.data.collections.get(coll_name)
+        if coll:
+            coll.hide_viewport = False
+    saved_unhidden_collections.clear()
+
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
+    bpy.app.handlers.save_pre.append(save_pre)
+    bpy.app.handlers.save_post.append(save_post)
 
 def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
+    bpy.app.handlers.save_pre.remove(save_pre)
+    bpy.app.handlers.save_post.remove(save_post)
