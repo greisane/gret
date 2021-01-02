@@ -552,7 +552,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 self.saved_auto_smooth[obj] = (obj.data.use_auto_smooth, obj.data.auto_smooth_angle)
                 obj.data.use_auto_smooth = True
                 obj.data.auto_smooth_angle = math.pi
-                if not obj.hide_render and obj.find_armature() is rig:
+                if not obj.hide_render and obj.find_armature() == rig:
                     original_objs.append(obj)
                     # Meshes that aren't already doing it will transfer normals from the originals
                     if not any(mo.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL' in mo.data_types_loops
@@ -939,6 +939,16 @@ If available, markers names and frame times are written as a list of comma-separ
                         constraint.mute = True
                         self.saved_unmuted_constraints.append(constraint)
 
+        # Don't want shape keys animated as I'm using armature custom props to drive them
+        # export_fbx_bin.py will skip over absolute shape keys so use that to disable them
+        no_shape_keys = True
+        if no_shape_keys:
+            for mesh in bpy.data.meshes:
+                if mesh.shape_keys and mesh.shape_keys.use_relative:
+                    log(mesh)
+                    self.saved_meshes_with_relative_shape_keys.append(mesh)
+                    mesh.shape_keys.use_relative = False
+
         # Add actions as export groups without meshes
         action_names = set(self.actions.split(','))
         for action_name in action_names:
@@ -1037,6 +1047,7 @@ If available, markers names and frame times are written as a list of comma-separ
         context.preferences.edit.use_global_undo = False
         self.exported_files = []
         self.saved_unmuted_constraints = []
+        self.saved_meshes_with_relative_shape_keys = []
         logger.start_logging()
 
         try:
@@ -1053,8 +1064,11 @@ If available, markers names and frame times are written as a list of comma-separ
                     log(f"Removing object '{obj.name}' that was left behind")
                     bpy.data.objects.remove(obj, do_unlink=True)
             # Clean up
+            for mesh in self.saved_meshes_with_relative_shape_keys:
+                mesh.shape_keys.use_relative = True
             for modifier in self.saved_unmuted_constraints:
                 modifier.mute = False
+            del self.saved_meshes_with_relative_shape_keys
             del self.saved_unmuted_constraints
             rig.data.pose_position = saved_pose_position
             rig.animation_data.action = saved_action
