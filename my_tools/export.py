@@ -945,7 +945,6 @@ If available, markers names and frame times are written as a list of comma-separ
         if no_shape_keys:
             for mesh in bpy.data.meshes:
                 if mesh.shape_keys and mesh.shape_keys.use_relative:
-                    log(mesh)
                     self.saved_meshes_with_relative_shape_keys.append(mesh)
                     mesh.shape_keys.use_relative = False
 
