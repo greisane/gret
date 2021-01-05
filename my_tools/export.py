@@ -784,15 +784,18 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
         # Keep new objects in the target collection
         coll = bpy.data.collections.get(self.export_collection)
         if coll:
-            for export_group in export_groups:
-                for obj in export_group.objects:
-                    coll.objects.link(obj)
-                    context.scene.collection.objects.unlink(obj)
-                    # Disable features on output meshes for performance
-                    obj.data.use_auto_smooth = False
-                    obj.data.use_customdata_vertex_bevel = False
-                    obj.data.use_customdata_edge_bevel = False
-                    obj.data.use_customdata_edge_crease = False
+            for obj in self.new_objs:
+                if len(self.new_objs) == 1:
+                    # If producing a single object, rename it to match the collection
+                    obj.name = coll.name
+                    obj.data.name = coll.name
+                coll.objects.link(obj)
+                context.scene.collection.objects.unlink(obj)
+                # Disable features on output meshes for performance
+                obj.data.use_auto_smooth = False
+                obj.data.use_customdata_vertex_bevel = False
+                obj.data.use_customdata_edge_bevel = False
+                obj.data.use_customdata_edge_crease = False
             if kept_modifiers:
                 # Recreate modifiers that were stored
                 log(f"Restoring {len(kept_modifiers)} modifiers")
