@@ -317,7 +317,7 @@ class MY_OT_scene_export(bpy.types.Operator):
             # While in Blender it's more intuitive to author masks starting from black, however
             # UE4 defaults to white. Materials should then use OneMinus to get the original value
             if not obj.data.vertex_colors and not obj.vertex_color_mapping:
-                bpy.ops.mesh.vertex_color_mapping_add(r='ZERO', g='ZERO', b='ZERO', a='ZERO')
+                bpy.ops.mesh.vertex_color_mapping_add()
             bpy.ops.mesh.vertex_color_mapping_refresh(invert=True)
             bpy.ops.mesh.vertex_color_mapping_clear()
 
@@ -683,7 +683,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
                 # While in Blender it's more intuitive to author masks starting from black, however
                 # UE4 defaults to white. Materials should then use OneMinus to get the original value
                 if not obj.data.vertex_colors and not obj.vertex_color_mapping:
-                    bpy.ops.mesh.vertex_color_mapping_add(r='ZERO', g='ZERO', b='ZERO', a='ZERO')
+                    bpy.ops.mesh.vertex_color_mapping_add()
                 bpy.ops.mesh.vertex_color_mapping_refresh(invert=True)
                 bpy.ops.mesh.vertex_color_mapping_clear()
 
