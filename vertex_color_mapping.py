@@ -19,12 +19,16 @@ def values_to_vcol(mesh, src_values, dst_vcol, dst_channel_idx, invert=False):
 
 def update_vcol_from_src(obj, src, dst_vcol, dst_channel_idx, invert=False):
     mesh = obj.data
+    values = None
     if src == 'ZERO':
         values = [0.0] * len(mesh.vertices)
-        values_to_vcol(mesh, values, dst_vcol, dst_channel_idx, invert=invert)
     elif src == 'ONE':
         values = [1.0] * len(mesh.vertices)
-        values_to_vcol(mesh, values, dst_vcol, dst_channel_idx, invert=invert)
+    elif src == 'BEVEL':
+        values = [vert.bevel_weight for vert in mesh.vertices]
+    elif src == 'HASH':
+        k = hash(obj.name) % 256 / 256
+        values = [k] * len(mesh.vertices)
     elif src.startswith('vg_'):
         # Get values from vertex group
         values = [0.0] * len(mesh.vertices)
@@ -37,9 +41,12 @@ def update_vcol_from_src(obj, src, dst_vcol, dst_channel_idx, invert=False):
                     if vg.group == vgroup_idx:
                         values[vert_idx] = vg.weight
                         break
+    if values:
+        assert len(values) == len(mesh.vertices)
         values_to_vcol(mesh, values, dst_vcol, dst_channel_idx, invert=invert)
 
-def vcol_src_items(self, context):
+def vcol_src_items(self, context, channel_idx=0):
+    axis = ("X", "Y", "Z", "")[channel_idx]
     obj = context.active_object
     items = []
     if obj and obj.type == 'MESH':
@@ -47,10 +54,22 @@ def vcol_src_items(self, context):
             ('NONE', "", "Leave the channel unchanged"),
             ('ZERO', "Zero", "Fill the channel with the minimum value"),
             ('ONE', "One", "Fill the channel with the maximum value"),
+            ('BEVEL', "Bevel", "Vertex bevel weight"),
+            ('HASH', "Random", "Random value based on the object's name"),
         ])
         if obj.vertex_groups:
             items.extend([(f'vg_{vg.name}', vg.name, "Vertex group") for vg in obj.vertex_groups])
-    return items
+    return reversed(items)
+
+# Blender doesn't recognize functools.partial for EnumProperty items
+def vcol_src_r_items(self, context):
+    return vcol_src_items(self, context, channel_idx=0)
+def vcol_src_g_items(self, context):
+    return vcol_src_items(self, context, channel_idx=1)
+def vcol_src_b_items(self, context):
+    return vcol_src_items(self, context, channel_idx=2)
+def vcol_src_a_items(self, context):
+    return vcol_src_items(self, context, channel_idx=3)
 
 def vcol_src_update(self, context):
     obj = context.active_object
@@ -109,25 +128,25 @@ class MESH_OT_vertex_color_mapping_add(bpy.types.Operator):
     r: bpy.props.EnumProperty(
         name="Vertex Color R Source",
         description="Source mapping to vertex color channel red",
-        items=vcol_src_items,
+        items=vcol_src_r_items,
         update=vcol_src_update,
     )
     g: bpy.props.EnumProperty(
         name="Vertex Color G Source",
         description="Source mapping to vertex color channel green",
-        items=vcol_src_items,
+        items=vcol_src_g_items,
         update=vcol_src_update,
     )
     b: bpy.props.EnumProperty(
         name="Vertex Color B Source",
         description="Source mapping to vertex color channel blue",
-        items=vcol_src_items,
+        items=vcol_src_b_items,
         update=vcol_src_update,
     )
     a: bpy.props.EnumProperty(
         name="Vertex Color A Source",
         description="Source mapping to vertex color channel alpha",
-        items=vcol_src_items,
+        items=vcol_src_a_items,
         update=vcol_src_update,
     )
 
@@ -169,25 +188,25 @@ class MESH_PG_vertex_color_mapping(bpy.types.PropertyGroup):
     r: bpy.props.EnumProperty(
         name="Vertex Color R Source",
         description="Source mapping to vertex color channel red",
-        items=vcol_src_items,
+        items=vcol_src_r_items,
         update=vcol_src_update,
     )
     g: bpy.props.EnumProperty(
         name="Vertex Color G Source",
         description="Source mapping to vertex color channel green",
-        items=vcol_src_items,
+        items=vcol_src_g_items,
         update=vcol_src_update,
     )
     b: bpy.props.EnumProperty(
         name="Vertex Color B Source",
         description="Source mapping to vertex color channel blue",
-        items=vcol_src_items,
+        items=vcol_src_b_items,
         update=vcol_src_update,
     )
     a: bpy.props.EnumProperty(
         name="Vertex Color A Source",
         description="Source mapping to vertex color channel alpha",
-        items=vcol_src_items,
+        items=vcol_src_a_items,
         update=vcol_src_update,
     )
     invert: bpy.props.BoolProperty(
