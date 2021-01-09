@@ -48,6 +48,7 @@ def update_vcol_from_src(obj, mapping, src, dst_vcol, dst_channel_idx, invert=Fa
                         values[vert_idx] = vg.weight
                         break
     if type(values) is float:
+        values = max(0.0, min(1.0, values))
         values = [values] * len(mesh.vertices)
     if values:
         assert len(values) == len(mesh.vertices)
