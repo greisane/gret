@@ -172,6 +172,7 @@ class MESH_OT_vertex_color_mapping_set(bpy.types.Operator):
         description="Source mapping to vertex color channel alpha",
         items=vcol_src_a_items,
         update=vcol_src_update,
+        default=1,
     )
     invert: bpy.props.BoolProperty(
         name="Invert Values",
@@ -249,7 +250,10 @@ class MESH_OT_vertex_color_mapping_clear(bpy.types.Operator):
         return context.object and context.object.type == 'MESH'
 
     def execute(self, context):
-        context.object.vertex_color_mapping.clear()
+        for obj in context.selected_objects:
+            if obj.type == 'MESH':
+                if obj.vertex_color_mapping:
+                    obj.vertex_color_mapping.clear()
 
         return {'FINISHED'}
 
