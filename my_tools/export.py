@@ -279,7 +279,7 @@ class MY_OT_scene_export(bpy.types.Operator):
             logger.log_indent += 1
 
             orig_obj, obj = obj, self.copy_obj(obj)
-            context.view_layer.objects.active = obj
+            select_only(context, obj)
 
             merge_basis_shape_keys(obj)
 

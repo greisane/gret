@@ -65,7 +65,7 @@ def select_only(context, objs):
 
     if not hasattr(objs, '__iter__'):
         objs = [objs]
-    for obj in context.scene.objects:
+    for obj in context.selected_objects:
         obj.select_set(False)
     for obj in objs:
         obj.select_set(True)
