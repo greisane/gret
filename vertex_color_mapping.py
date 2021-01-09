@@ -1,5 +1,6 @@
 from math import pi
 import bpy
+import sys
 
 bl_info = {
     "name": "Vertex Color Mapping",
@@ -28,7 +29,9 @@ def update_vcol_from_src(obj, mapping, src, dst_vcol, dst_channel_idx, invert=Fa
     elif src == 'BEVEL':
         values = [vert.bevel_weight for vert in mesh.vertices]
     elif src == 'HASH':
-        values = hash(obj.name) % 256 / 256
+        min_hash = -sys.maxsize - 1
+        max_hash = sys.maxsize
+        values = (hash(obj.name) - min_hash) / (max_hash - min_hash)
     elif src == 'PIVOTLOC':
         assert dst_channel_idx <= 3
         values = (obj.location[dst_channel_idx] / mapping.extents) + 0.5
