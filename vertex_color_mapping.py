@@ -53,6 +53,23 @@ def update_vcol_from_src(obj, mapping, src, dst_vcol, dst_channel_idx, invert=Fa
         assert len(values) == len(mesh.vertices)
         values_to_vcol(mesh, values, dst_vcol, dst_channel_idx, invert=invert)
 
+def update_vcols(obj, invert=False):
+    mapping = obj.vertex_color_mapping[0] if obj.vertex_color_mapping else None
+    if not mapping:
+        return
+    if all(src == 'NONE' for src in (mapping.r, mapping.g, mapping.b, mapping.a)):
+        # Avoid creating a vertex group if nothing would be done anyway
+        return
+
+    mesh = obj.data
+    vcol = mesh.vertex_colors.active if mesh.vertex_colors else mesh.vertex_colors.new()
+    invert = invert != mapping.invert
+    update_vcol_from_src(obj, mapping, mapping.r, vcol, 0, invert=invert)
+    update_vcol_from_src(obj, mapping, mapping.g, vcol, 1, invert=invert)
+    update_vcol_from_src(obj, mapping, mapping.b, vcol, 2, invert=invert)
+    update_vcol_from_src(obj, mapping, mapping.a, vcol, 3, invert=invert)
+    mesh.update()
+
 def vcol_src_items(self, context, channel_idx=0, reverse=False):
     axis = ("X", "Y", "Z", "")[channel_idx]
     obj = context.active_object
@@ -117,24 +134,9 @@ class MESH_OT_vertex_color_mapping_refresh(bpy.types.Operator):
         return context.object and context.object.type == 'MESH'
 
     def execute(self, context):
-        obj = context.object
-        mesh = context.object.data
-        mapping = obj.vertex_color_mapping[0] if obj.vertex_color_mapping else None
-        if not mapping:
-            # No mapping, do nothing. Maybe it would be more correct to error instead
-            return {'CANCELLED'}
-
-        if all(src == 'NONE' for src in (mapping.r, mapping.g, mapping.b, mapping.a)):
-            # Avoid creating a vertex group if nothing would be done anyway
-            return {'CANCELLED'}
-
-        invert = self.invert != mapping.invert
-        vcol = mesh.vertex_colors.active if mesh.vertex_colors else mesh.vertex_colors.new()
-        update_vcol_from_src(obj, mapping, mapping.r, vcol, 0, invert=invert)
-        update_vcol_from_src(obj, mapping, mapping.g, vcol, 1, invert=invert)
-        update_vcol_from_src(obj, mapping, mapping.b, vcol, 2, invert=invert)
-        update_vcol_from_src(obj, mapping, mapping.a, vcol, 3, invert=invert)
-        mesh.update()
+        for obj in context.selected_objects:
+            if obj.type == 'MESH':
+                update_vcols(obj, invert=self.invert)
 
         return {'FINISHED'}
 
@@ -150,28 +152,24 @@ class MESH_OT_vertex_color_mapping_set(bpy.types.Operator):
         name="Vertex Color R Source",
         description="Source mapping to vertex color channel red",
         items=vcol_src_r_items,
-        update=vcol_src_update,
         default=1,
     )
     g: bpy.props.EnumProperty(
         name="Vertex Color G Source",
         description="Source mapping to vertex color channel green",
         items=vcol_src_g_items,
-        update=vcol_src_update,
         default=1,
     )
     b: bpy.props.EnumProperty(
         name="Vertex Color B Source",
         description="Source mapping to vertex color channel blue",
         items=vcol_src_b_items,
-        update=vcol_src_update,
         default=1,
     )
     a: bpy.props.EnumProperty(
         name="Vertex Color A Source",
         description="Source mapping to vertex color channel alpha",
         items=vcol_src_a_items,
-        update=vcol_src_update,
         default=1,
     )
     invert: bpy.props.BoolProperty(
@@ -190,6 +188,7 @@ class MESH_OT_vertex_color_mapping_set(bpy.types.Operator):
         return context.object and context.object.type == 'MESH'
 
     def execute(self, context):
+        print("a")
         for obj in context.selected_objects:
             if obj.type == 'MESH':
                 if not obj.vertex_color_mapping:
@@ -201,6 +200,8 @@ class MESH_OT_vertex_color_mapping_set(bpy.types.Operator):
                 mapping.a = self.a
                 mapping.invert = self.invert
                 mapping.extents = self.extents
+
+                update_vcols(obj)
 
         return {'FINISHED'}
 
@@ -217,6 +218,16 @@ class MESH_OT_vertex_color_mapping_set(bpy.types.Operator):
             col.prop(self, 'extents')
 
     def invoke(self, context, event):
+        obj = context.object
+        if obj.vertex_color_mapping:
+            # Take default values from the selected object if there's already a mapping
+            mapping = obj.vertex_color_mapping[0]
+            self.r = mapping.r
+            self.g = mapping.g
+            self.b = mapping.b
+            self.a = mapping.a
+            self.invert = mapping.invert
+            self.extents = mapping.extents
         return context.window_manager.invoke_props_dialog(self)
 
 class MESH_OT_vertex_color_mapping_add(bpy.types.Operator):
@@ -252,8 +263,10 @@ class MESH_OT_vertex_color_mapping_clear(bpy.types.Operator):
     def execute(self, context):
         for obj in context.selected_objects:
             if obj.type == 'MESH':
-                if obj.vertex_color_mapping:
-                    obj.vertex_color_mapping.clear()
+                if not obj.vertex_color_mapping:
+                    continue
+
+                obj.vertex_color_mapping.clear()
 
         return {'FINISHED'}
 
