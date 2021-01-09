@@ -53,7 +53,7 @@ def update_vcol_from_src(obj, mapping, src, dst_vcol, dst_channel_idx, invert=Fa
         assert len(values) == len(mesh.vertices)
         values_to_vcol(mesh, values, dst_vcol, dst_channel_idx, invert=invert)
 
-def vcol_src_items(self, context, channel_idx=0):
+def vcol_src_items(self, context, channel_idx=0, reverse=False):
     axis = ("X", "Y", "Z", "")[channel_idx]
     obj = context.active_object
     items = []
@@ -72,9 +72,9 @@ def vcol_src_items(self, context, channel_idx=0):
             ])
         if obj.vertex_groups:
             items.extend([(f'vg_{vg.name}', vg.name, "Vertex group") for vg in obj.vertex_groups])
-    return reversed(items)
+    return reversed(items) if reverse else items
 
-# Blender doesn't recognize functools.partial for EnumProperty items
+# Blender doesn't recognize functools.partial as a function for EnumProperty items
 def vcol_src_r_items(self, context):
     return vcol_src_items(self, context, channel_idx=0)
 def vcol_src_g_items(self, context):
@@ -83,6 +83,14 @@ def vcol_src_b_items(self, context):
     return vcol_src_items(self, context, channel_idx=2)
 def vcol_src_a_items(self, context):
     return vcol_src_items(self, context, channel_idx=3)
+def vcol_src_r_items_reversed(self, context):
+    return vcol_src_items(self, context, channel_idx=0, reverse=True)
+def vcol_src_g_items_reversed(self, context):
+    return vcol_src_items(self, context, channel_idx=1, reverse=True)
+def vcol_src_b_items_reversed(self, context):
+    return vcol_src_items(self, context, channel_idx=2, reverse=True)
+def vcol_src_a_items_reversed(self, context):
+    return vcol_src_items(self, context, channel_idx=3, reverse=True)
 
 def vcol_src_update(self, context):
     obj = context.active_object
@@ -130,12 +138,12 @@ class MESH_OT_vertex_color_mapping_refresh(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class MESH_OT_vertex_color_mapping_add(bpy.types.Operator):
+class MESH_OT_vertex_color_mapping_set(bpy.types.Operator):
     #tooltip
-    """Add vertex color mapping"""
+    """Set vertex color mapping"""
 
-    bl_idname = 'mesh.vertex_color_mapping_add'
-    bl_label = "Add Vertex Color Mapping"
+    bl_idname = 'mesh.vertex_color_mapping_set'
+    bl_label = "Set Vertex Color Mapping"
     bl_options = {'REGISTER', 'UNDO'}
 
     r: bpy.props.EnumProperty(
@@ -143,18 +151,21 @@ class MESH_OT_vertex_color_mapping_add(bpy.types.Operator):
         description="Source mapping to vertex color channel red",
         items=vcol_src_r_items,
         update=vcol_src_update,
+        default=1,
     )
     g: bpy.props.EnumProperty(
         name="Vertex Color G Source",
         description="Source mapping to vertex color channel green",
         items=vcol_src_g_items,
         update=vcol_src_update,
+        default=1,
     )
     b: bpy.props.EnumProperty(
         name="Vertex Color B Source",
         description="Source mapping to vertex color channel blue",
         items=vcol_src_b_items,
         update=vcol_src_update,
+        default=1,
     )
     a: bpy.props.EnumProperty(
         name="Vertex Color A Source",
@@ -162,21 +173,66 @@ class MESH_OT_vertex_color_mapping_add(bpy.types.Operator):
         items=vcol_src_a_items,
         update=vcol_src_update,
     )
+    invert: bpy.props.BoolProperty(
+        name="Invert Values",
+        description="Make the result 1-value for each vertex color channel",
+        default=False,
+    )
+    extents: bpy.props.FloatProperty(
+        name="Extents",
+        description="Extents of the box used to scale mappings that encode a location",
+        default=4.0, min=0.001, precision=4, step=1, unit='LENGTH',
+    )
 
     @classmethod
     def poll(cls, context):
         return context.object and context.object.type == 'MESH'
 
     def execute(self, context):
-        if context.object.vertex_color_mapping:
-            # Currently only allow only one mapping
-            return {'CANCELLED'}
+        for obj in context.selected_objects:
+            if obj.type == 'MESH':
+                if not obj.vertex_color_mapping:
+                    obj.vertex_color_mapping.add()
+                mapping = obj.vertex_color_mapping[0]
+                mapping.r = self.r
+                mapping.g = self.g
+                mapping.b = self.b
+                mapping.a = self.a
+                mapping.invert = self.invert
+                mapping.extents = self.extents
 
-        mapping = context.object.vertex_color_mapping.add()
-        mapping.r = self.r
-        mapping.g = self.g
-        mapping.b = self.b
-        mapping.a = self.a
+        return {'FINISHED'}
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+        row = col.row(align=True)
+        row.prop(self, 'r', icon='COLOR_RED', text="")
+        row.prop(self, 'g', icon='COLOR_GREEN', text="")
+        row.prop(self, 'b', icon='COLOR_BLUE', text="")
+        row.prop(self, 'a', icon='OUTLINER_DATA_FONT', text="")
+        row.prop(self, 'invert', icon='REMOVE', text="")
+        if any(src in {'PIVOTLOC'} for src in (self.r, self.g, self.b, self.a)):
+            col.prop(self, 'extents')
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+class MESH_OT_vertex_color_mapping_add(bpy.types.Operator):
+    #tooltip
+    """Add vertex color mapping"""
+
+    bl_idname = 'mesh.vertex_color_mapping_add'
+    bl_label = "Add Vertex Color Mapping"
+    bl_options = {'INTERNAL', 'UNDO'}
+
+    def execute(self, context):
+        obj = context.object
+
+        if obj.vertex_color_mapping:
+            return {'CANCELLED'}
+        mapping = obj.vertex_color_mapping.add()
+        mapping.r = mapping.g = mapping.b = mapping.a = 'ZERO'
 
         return {'FINISHED'}
 
@@ -201,25 +257,25 @@ class MESH_PG_vertex_color_mapping(bpy.types.PropertyGroup):
     r: bpy.props.EnumProperty(
         name="Vertex Color R Source",
         description="Source mapping to vertex color channel red",
-        items=vcol_src_r_items,
+        items=vcol_src_r_items_reversed,
         update=vcol_src_update,
     )
     g: bpy.props.EnumProperty(
         name="Vertex Color G Source",
         description="Source mapping to vertex color channel green",
-        items=vcol_src_g_items,
+        items=vcol_src_g_items_reversed,
         update=vcol_src_update,
     )
     b: bpy.props.EnumProperty(
         name="Vertex Color B Source",
         description="Source mapping to vertex color channel blue",
-        items=vcol_src_b_items,
+        items=vcol_src_b_items_reversed,
         update=vcol_src_update,
     )
     a: bpy.props.EnumProperty(
         name="Vertex Color A Source",
         description="Source mapping to vertex color channel alpha",
-        items=vcol_src_a_items,
+        items=vcol_src_a_items_reversed,
         update=vcol_src_update,
     )
     invert: bpy.props.BoolProperty(
@@ -230,7 +286,7 @@ class MESH_PG_vertex_color_mapping(bpy.types.PropertyGroup):
     extents: bpy.props.FloatProperty(
         name="Extents",
         description="Extents of the box used to scale mappings that encode a location",
-        default=2.0, min=0.001, precision=4, step=1, unit='LENGTH',
+        default=4.0, min=0.001, precision=4, step=1, unit='LENGTH',
     )
 
 def vcol_panel_draw(self, context):
@@ -257,6 +313,7 @@ classes = (
     MESH_OT_vertex_color_mapping_add,
     MESH_OT_vertex_color_mapping_clear,
     MESH_OT_vertex_color_mapping_refresh,
+    MESH_OT_vertex_color_mapping_set,
     MESH_PG_vertex_color_mapping,
 )
 
