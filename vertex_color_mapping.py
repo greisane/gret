@@ -188,7 +188,6 @@ class MESH_OT_vertex_color_mapping_set(bpy.types.Operator):
         return context.object and context.object.type == 'MESH'
 
     def execute(self, context):
-        print("a")
         for obj in context.selected_objects:
             if obj.type == 'MESH':
                 if not obj.vertex_color_mapping:
