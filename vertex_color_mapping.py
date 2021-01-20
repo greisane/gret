@@ -22,6 +22,7 @@ def values_to_vcol(mesh, src_values, dst_vcol, dst_channel_idx, invert=False):
 def update_vcol_from_src(obj, mapping, src, dst_vcol, dst_channel_idx, invert=False):
     mesh = obj.data
     values = None
+    remap_co = lambda co: (co[dst_channel_idx] / mapping.extents) + 0.5
     if src == 'ZERO':
         values = 0.0
     elif src == 'ONE':
@@ -34,10 +35,14 @@ def update_vcol_from_src(obj, mapping, src, dst_vcol, dst_channel_idx, invert=Fa
         values = (hash(obj.name) - min_hash) / (max_hash - min_hash)
     elif src == 'PIVOTLOC':
         assert dst_channel_idx <= 3
-        values = (obj.location[dst_channel_idx] / mapping.extents) + 0.5
+        values = remap_co(obj.location)
     elif src == 'PIVOTROT':
         assert dst_channel_idx <= 3
         values = (obj.rotation_euler[dst_channel_idx] % pi) / pi
+    elif src == 'VERTEX':
+        assert dst_channel_idx <= 3
+        m = obj.matrix_world
+        values = [remap_co(m @ vert.co) for vert in mesh.vertices]
     elif src.startswith('vg_'):
         # Get values from vertex group
         values = [0.0] * len(mesh.vertices)
@@ -90,6 +95,7 @@ def vcol_src_items(self, context, channel_idx=0, reverse=False):
             items.extend([
                 ('PIVOTLOC', "Location", f"Object pivot {axis} location"),
                 ('PIVOTROT', "Rotation", f"Object pivot {axis} rotation"),
+                ('VERTEX', "Vertex", f"Vertex {axis} world coordinates"),
             ])
         if obj.vertex_groups:
             items.extend([(f'vg_{vg.name}', vg.name, "Vertex group") for vg in obj.vertex_groups])
@@ -217,7 +223,7 @@ class MESH_OT_vertex_color_mapping_set(bpy.types.Operator):
         row.prop(self, 'b', icon='COLOR_BLUE', text="")
         row.prop(self, 'a', icon='OUTLINER_DATA_FONT', text="")
         row.prop(self, 'invert', icon='REMOVE', text="")
-        if any(src in {'PIVOTLOC'} for src in (self.r, self.g, self.b, self.a)):
+        if any(src in {'PIVOTLOC', 'VERTEX'} for src in (self.r, self.g, self.b, self.a)):
             col.prop(self, 'extents')
 
     def invoke(self, context, event):
@@ -326,7 +332,7 @@ def vcol_panel_draw(self, context):
         row.prop(mapping, 'a', icon='OUTLINER_DATA_FONT', text="")
         row.prop(mapping, 'invert', icon='REMOVE', text="")
         row.operator('mesh.vertex_color_mapping_refresh', icon='FILE_REFRESH', text="")
-        if any(src in {'PIVOTLOC'} for src in (mapping.r, mapping.g, mapping.b, mapping.a)):
+        if any(src in {'PIVOTLOC', 'VERTEX'} for src in (mapping.r, mapping.g, mapping.b, mapping.a)):
             col.prop(mapping, 'extents')
 
 classes = (
