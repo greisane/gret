@@ -79,10 +79,12 @@ def update_vcols(obj, invert=False):
     update_vcol_from_src(obj, mapping, mapping.a, vcol, 3, invert=invert)
     mesh.update()
 
-def vcol_src_items(self, context, channel_idx=0, reverse=False):
+persistent_items = [], [], [], []
+def vcol_src_items(self, context, channel_idx=0):
     axis = ("X", "Y", "Z", "")[channel_idx]
     obj = context.active_object
-    items = []
+    items = persistent_items[channel_idx]
+    items.clear()
     if obj and obj.type == 'MESH':
         items.extend([
             ('NONE', "", "Leave the channel unchanged"),
@@ -99,7 +101,7 @@ def vcol_src_items(self, context, channel_idx=0, reverse=False):
             ])
         if obj.vertex_groups:
             items.extend([(f'vg_{vg.name}', vg.name, "Vertex group") for vg in obj.vertex_groups])
-    return reversed(items) if reverse else items
+    return items
 
 # Blender doesn't recognize functools.partial as a function for EnumProperty items
 def vcol_src_r_items(self, context):
@@ -110,14 +112,6 @@ def vcol_src_b_items(self, context):
     return vcol_src_items(self, context, channel_idx=2)
 def vcol_src_a_items(self, context):
     return vcol_src_items(self, context, channel_idx=3)
-def vcol_src_r_items_reversed(self, context):
-    return vcol_src_items(self, context, channel_idx=0, reverse=True)
-def vcol_src_g_items_reversed(self, context):
-    return vcol_src_items(self, context, channel_idx=1, reverse=True)
-def vcol_src_b_items_reversed(self, context):
-    return vcol_src_items(self, context, channel_idx=2, reverse=True)
-def vcol_src_a_items_reversed(self, context):
-    return vcol_src_items(self, context, channel_idx=3, reverse=True)
 
 def vcol_src_update(self, context):
     obj = context.active_object
@@ -283,25 +277,25 @@ class MESH_PG_vertex_color_mapping(bpy.types.PropertyGroup):
     r: bpy.props.EnumProperty(
         name="Vertex Color R Source",
         description="Source mapping to vertex color channel red",
-        items=vcol_src_r_items_reversed,
+        items=vcol_src_r_items,
         update=vcol_src_update,
     )
     g: bpy.props.EnumProperty(
         name="Vertex Color G Source",
         description="Source mapping to vertex color channel green",
-        items=vcol_src_g_items_reversed,
+        items=vcol_src_g_items,
         update=vcol_src_update,
     )
     b: bpy.props.EnumProperty(
         name="Vertex Color B Source",
         description="Source mapping to vertex color channel blue",
-        items=vcol_src_b_items_reversed,
+        items=vcol_src_b_items,
         update=vcol_src_update,
     )
     a: bpy.props.EnumProperty(
         name="Vertex Color A Source",
         description="Source mapping to vertex color channel alpha",
-        items=vcol_src_a_items_reversed,
+        items=vcol_src_a_items,
         update=vcol_src_update,
     )
     invert: bpy.props.BoolProperty(
