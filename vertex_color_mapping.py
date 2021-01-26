@@ -14,7 +14,7 @@ bl_info = {
 
 def values_to_vcol(mesh, src_values, dst_vcol, dst_channel_idx, invert=False):
     for loop_idx, loop in enumerate(mesh.loops):
-        value = src_values[loop.vertex_index]
+        value = max(0.0, min(1.0, src_values[loop.vertex_index]))
         if invert:
             value = 1.0 - value
         dst_vcol.data[loop_idx].color[dst_channel_idx] = value
@@ -56,7 +56,6 @@ def update_vcol_from_src(obj, mapping, src, dst_vcol, dst_channel_idx, invert=Fa
                         values[vert_idx] = vg.weight
                         break
     if type(values) is float:
-        values = max(0.0, min(1.0, values))
         values = [values] * len(mesh.vertices)
     if values:
         assert len(values) == len(mesh.vertices)
