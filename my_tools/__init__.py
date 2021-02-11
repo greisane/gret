@@ -2,57 +2,46 @@ bl_info = {
     'name': "My Tools",
     'author': "greisane",
     'description': "",
-    'version': (0, 1),
+    'version': (0, 2),
     'blender': (2, 80, 0),
     'location': "3D View > Tools > My Tools",
     'category': "My Tools"
 }
 
-if 'bpy' in locals():
-    import importlib
-    if 'helpers' in locals():
-        importlib.reload(helpers)
-    if 'settings' in locals():
-        importlib.reload(settings)
-    if 'export' in locals():
-        importlib.reload(export)
-    if 'scene_export' in locals():
-        importlib.reload(export)
-    if 'rig_export' in locals():
-        importlib.reload(export)
-    if 'character_tools' in locals():
-        importlib.reload(character_tools)
-    if 'action_tools' in locals():
-        importlib.reload(action_tools)
-    if 'scene_tools' in locals():
-        importlib.reload(scene_tools)
+import sys
+import importlib
 
-import bpy
-from . import settings
-from . import export
-from . import scene_export
-from . import rig_export
-from . import character_tools
-from . import action_tools
-from . import scene_tools
+module_names = [
+    'helpers',
+    'settings',
+    'export',
+    'scene_export',
+    'rig_export',
+    'character_tools',
+    'action_tools',
+    'scene_tools',
+]
+ensure_starts_with = lambda s, prefix: s if s.startswith(prefix) else prefix + s
+module_names[:] = [ensure_starts_with(module_name, f'{__name__}.') for module_name in module_names]
 
-modules = (
-    settings,
-    export,
-    scene_export,
-    rig_export,
-    character_tools,
-    action_tools,
-    scene_tools,
-)
+for module_name in module_names:
+    module = sys.modules.get(module_name)
+    if module:
+        importlib.reload(module)
+    else:
+        globals()[module_name] = importlib.import_module(module_name)
 
 def register():
-    for module in modules:
-        module.register()
+    for module_name in module_names:
+        module = sys.modules.get(module_name)
+        if hasattr(module, 'register'):
+            module.register()
 
 def unregister():
-    for module in reversed(modules):
-        module.unregister()
+    for module_name in module_names:
+        module = sys.modules.get(module_name)
+        if hasattr(module, 'unregister'):
+            module.unregister()
 
 if __name__ == '__main__':
     register()
