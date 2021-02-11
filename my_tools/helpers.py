@@ -71,6 +71,20 @@ def select_only(context, objs):
         obj.select_set(True)
     context.view_layer.objects.active = next(iter(objs), None)
 
+def show_only(context, objs):
+    """Ensures only the given object or objects are visible in viewport or render."""
+
+    if not hasattr(objs, '__iter__'):
+        objs = [objs]
+    for obj in context.scene.objects:
+        obj.hide_viewport = True
+        obj.hide_render = True
+        obj.hide_select = True
+    for obj in objs:
+        obj.hide_viewport = False
+        obj.hide_render = False
+        obj.hide_select = False
+
 def is_valid(data_block):
     """Returns whether a reference to a data-block is valid."""
 
@@ -455,7 +469,7 @@ def fail_if_invalid_export_path(path, field_names):
         pass  # Directory already exists
 
 def fail_if_no_operator(bl_idname, submodule=bpy.ops.object):
-    """Checks an operator is available and returns the reason if it isn't"""
+    """Checks an operator is available and returns the reason if it isn't."""
 
     try:
         # Use getattr, hasattr seems to always return True
@@ -463,8 +477,18 @@ def fail_if_no_operator(bl_idname, submodule=bpy.ops.object):
     except AttributeError:
         raise Exception(f"Operator {bl_idname} is required and couldn't be found.")
 
+def get_nice_export_report(filepaths, elapsed):
+    """Returns text informing the user of the files that were exported."""
+
+    if len(filepaths) > 5:
+        return f"{len(filepaths)} files exported in {elapsed:.2f}s."
+    if filepaths:
+        filenames = [bpy.path.basename(filepath) for filepath in filepaths]
+        return f"Exported {', '.join(filenames)} in {elapsed:.2f}s."
+    return "Nothing exported."
+
 def path_split_all(path):
-    """Returns a path split into a list of its parts"""
+    """Returns a path split into a list of its parts."""
 
     all_parts = []
     while True:
