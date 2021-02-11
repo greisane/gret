@@ -162,6 +162,11 @@ class MY_OT_bake(bpy.types.Operator):
                 if objs is not None:
                     objs.append(obj)
 
+        # Explode objects
+        for obj_idx, obj in enumerate(set(chain.from_iterable(material_groups.values()))):
+            self.saved_transforms[obj] = obj.matrix_world.copy()
+            obj.matrix_world = Matrix.Translation((100.0 * obj_idx, 0.0, 0.0))
+
         # Setup common to all bakers
         context.scene.render.engine = 'CYCLES'
         context.scene.render.bake.margin = self.size // 128
@@ -234,6 +239,7 @@ class MY_OT_bake(bpy.types.Operator):
         self.exported_files = []
         self.new_materials = []
         self.new_images = []
+        self.saved_transforms = {}
         logger.start_logging()
 
         try:
@@ -249,6 +255,9 @@ class MY_OT_bake(bpy.types.Operator):
                 bpy.data.materials.remove(self.new_materials.pop())
             while self.new_images:
                 bpy.data.images.remove(self.new_images.pop())
+            for obj, matrix_world in self.saved_transforms.items():
+                obj.matrix_world = matrix_world
+            del self.saved_transforms
 
             load_selection(saved_selection)
             context.scene.render.engine = saved_render_engine
