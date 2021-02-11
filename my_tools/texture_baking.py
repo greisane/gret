@@ -30,8 +30,7 @@ class SolidPixels:
 def remap_materials(objs, src_mat, dst_mat):
     for obj in objs:
         for mat_idx, mat in enumerate(obj.data.materials):
-            if mat == src_mat:
-                obj.data.materials[mat_idx] = dst_mat
+            obj.data.materials[mat_idx] = dst_mat if mat == src_mat else None
 
 def bake_ao(scn, nodes, links):
     scn.cycles.samples = 128
@@ -139,9 +138,13 @@ All faces from all objects assigned to this material are assumed to contribute""
                 bake_img = self.new_image(f"_{mat.name}_{bake_src}", size)
                 bake_mat = self.new_bake_material(bake_img)
 
+                # Switch to the bake material, bake then restore
+                saved_materials = {obj: obj.data.materials[:] for obj in objs}
                 remap_materials(objs, mat, bake_mat)
                 bakers[bake_src](context.scene, bake_mat.node_tree.nodes, bake_mat.node_tree.links)
-                remap_materials(objs, bake_mat, mat)
+                for obj, saved_mats in saved_materials.items():
+                    for mat_idx, saved_mat in enumerate(saved_mats):
+                        obj.data.materials[mat_idx] = saved_mat
 
                 # Store the result
                 pixels = bake_img.pixels[:]
