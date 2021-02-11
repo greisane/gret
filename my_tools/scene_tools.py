@@ -168,6 +168,7 @@ class MY_OT_bake(bpy.types.Operator):
             obj.matrix_world = Matrix.Translation((100.0 * obj_idx, 0.0, 0.0))
 
         # Setup common to all bakers
+        # Note that excessive margins will affect the result when baking multiple objects
         context.scene.render.engine = 'CYCLES'
         context.scene.render.bake.margin = self.size // 128
 
@@ -281,9 +282,9 @@ class MY_OT_deduplicate_materials(bpy.types.Operator):
         return context.mode == 'OBJECT'
 
     def execute(self, context):
-        redirects = {}
         # Find duplicate materials
-        # For now, duplicate means they are suffixed with ".001", ".002" and the original exists
+        # For now, duplicate means they are suffixed with ".001", ".002" while the original exists
+        redirects = {}
         for mat in bpy.data.materials:
             match = re.match(r"^(.*)\.\d\d\d$", mat.name)
             if match:
@@ -291,10 +292,12 @@ class MY_OT_deduplicate_materials(bpy.types.Operator):
                 original = bpy.data.materials.get(original_name)
                 if original:
                     redirects[mat] = original
+
         # Replace references in existing meshes
         for me in bpy.data.meshes:
             for idx, mat in enumerate(me.materials):
                 me.materials[idx] = redirects.get(mat, mat)
+
         # Delete duplicate materials
         for mat in redirects.keys():
             bpy.data.materials.remove(mat, do_unlink=True)
@@ -406,7 +409,7 @@ class MY_OT_assign_collision(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.mode == 'OBJECT'
+        return len(context.selected_objects) > 1 and context.active_object and context.mode == 'OBJECT'
 
     def execute(self, context):
         collision_prefixes = ("UCX", "UBX", "UCP", "USP")
@@ -1035,8 +1038,10 @@ class MY_PT_scene_tools(bpy.types.Panel):
         layout.operator('my_tools.setup_wall')
 
         col = layout.column(align=True)
-        col.operator('my_tools.make_collision', icon='MESH_CUBE')
-        col.operator('my_tools.assign_collision')
+        col.label(text="Collision:")
+        row = col.row(align=True)
+        row.operator('my_tools.make_collision', icon='MESH_CUBE', text="Make")
+        row.operator('my_tools.assign_collision', text="Assign")
 
         col = layout.column(align=True)
         col.label(text="Bake Textures:")
