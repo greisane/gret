@@ -3,9 +3,7 @@ from mathutils import Matrix, Vector
 import bmesh
 import bpy
 import math
-import os
 import re
-import time
 from .math_helpers import (
     get_best_fit_line,
     get_point_dist_to_line,
@@ -13,19 +11,9 @@ from .math_helpers import (
     get_sq_dist,
 )
 from .helpers import (
-    beep,
-    fail_if_invalid_export_path,
-    get_export_path,
-    get_nice_export_report,
-    load_selection,
-    log,
-    logger,
     remove_extra_data,
-    save_selection,
     select_only,
-    show_only,
 )
-from .settings import bake_items
 
 # make_collision TODO:
 # - When creating collision from vertices, sometimes the result is offset
@@ -33,241 +21,6 @@ from .settings import bake_items
 # - Non-AABB boxes
 # - Symmetrize for convex isn't good
 # - Wall collision should try to decompose into boxes
-
-class SolidPixels:
-    """Mimics a pixels array, always returning the same value for all pixels."""
-    def __init__(self, size, value=0.0):
-        self.size = size
-        self.value = value
-    def __len__(self):
-        return self.size * self.size * 4
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            return [self.value] * len(range(*key.indices(len(self))))
-        return self.value
-
-def remap_materials(objs, src_mat, dst_mat):
-    for obj in objs:
-        for mat_idx, mat in enumerate(obj.data.materials):
-            if mat == src_mat:
-                obj.data.materials[mat_idx] = dst_mat
-
-def bake_ao(scn, nodes, links):
-    scn.cycles.samples = 128
-    bpy.ops.object.bake(type='AO')
-
-def bake_bevel(scn, nodes, links):
-    geometry_node = nodes.new(type='ShaderNodeNewGeometry')
-    bevel_node = nodes.new(type='ShaderNodeBevel')
-    bevel_node.samples = 1
-    bevel_node.inputs['Radius'].default_value = 0.1
-    cross_node = nodes.new(type='ShaderNodeVectorMath')
-    cross_node.operation = 'CROSS_PRODUCT'
-    length_node = nodes.new(type='ShaderNodeVectorMath')
-    length_node.operation = 'LENGTH'
-    emission_node = nodes.new(type='ShaderNodeEmission')
-    output_node = nodes.new(type='ShaderNodeOutputMaterial')
-    links.new(output_node.inputs['Surface'], emission_node.outputs['Emission'])
-    links.new(emission_node.inputs['Color'], length_node.outputs['Value'])
-    links.new(length_node.inputs['Vector'], cross_node.outputs['Vector'])
-    links.new(cross_node.inputs[0], geometry_node.outputs['Normal'])
-    links.new(cross_node.inputs[1], bevel_node.outputs['Normal'])
-
-    scn.cycles.samples = 64
-    bpy.ops.object.bake(type='EMIT')
-
-bakers = {
-    'AO': bake_ao,
-    'BEVEL': bake_bevel,
-}
-
-class MY_OT_bake(bpy.types.Operator):
-    #tooltip
-    """Export textures for the selected objects' materials, based on the selected bakers"""
-
-    bl_idname = 'my_tools.bake'
-    bl_label = "Bake"
-    bl_options = {'REGISTER'}
-
-    export_path: bpy.props.StringProperty(
-        name="Bake Export Path",
-        description="""Export path for the baked texture.
-{file} = Name of this .blend file without extension.
-{material} = Name of the material being baked.""",
-        default="//export/T_{material}.png",
-        subtype='FILE_PATH',
-    )
-    size: bpy.props.IntProperty(
-        name="Texture Size",
-        description="Size of the exported texture",
-        default=256,
-        min=8,
-    )
-    r: bpy.props.EnumProperty(
-        name="Texture R Source",
-        description="Type of mask to bake into the texture's red channel",
-        items=bake_items,
-    )
-    g: bpy.props.EnumProperty(
-        name="Texture G Source",
-        description="Type of mask to bake into the texture's green channel",
-        items=bake_items,
-    )
-    b: bpy.props.EnumProperty(
-        name="Texture B Source",
-        description="Type of mask to bake into the texture's blue channel",
-        items=bake_items,
-    )
-
-    def new_image(self, name):
-        image = bpy.data.images.new(name=name, width=self.size, height=self.size)
-        self.new_images.append(image)
-
-        image.alpha_mode = 'NONE'
-        return image
-
-    def new_bake_material(self, image):
-        mat = bpy.data.materials.new(name=image.name)
-        self.new_materials.append(mat)
-
-        mat.use_nodes = True
-        mat.node_tree.nodes.clear()
-        image_node = mat.node_tree.nodes.new(type='ShaderNodeTexImage')
-        image_node.image = image
-        return mat
-
-    @classmethod
-    def poll(cls, context):
-        return context.selected_objects and context.mode == 'OBJECT'
-
-    def _execute(self, context):
-        # External baking is broken in Blender
-        # See https://developer.blender.org/T57143 and https://developer.blender.org/D4162
-
-        material_groups = {}  # Material to object list
-
-        # Collect relevant materials
-        for obj in context.selected_objects:
-            for mat in obj.data.materials:
-                material_groups[mat] = []
-
-        if not material_groups:
-            self.report({'ERROR'}, f"Selected objects have no materials assigned.")
-            return {'CANCELLED'}
-
-        # Now collect all the objects relevant to each material
-        for obj in context.scene.objects:
-            for mat in obj.data.materials:
-                objs = material_groups.get(mat)
-                if objs is not None:
-                    objs.append(obj)
-
-        # Explode objects
-        for obj_idx, obj in enumerate(set(chain.from_iterable(material_groups.values()))):
-            self.saved_transforms[obj] = obj.matrix_world.copy()
-            obj.matrix_world = Matrix.Translation((100.0 * obj_idx, 0.0, 0.0))
-
-        # Setup common to all bakers
-        # Note that excessive margins will affect the result when baking multiple objects
-        context.scene.render.engine = 'CYCLES'
-        context.scene.render.bake.margin = self.size // 128
-
-        # For each material, bake all objects that contribute to it and export the result
-        for mat, objs in material_groups.items():
-            path_fields = {
-                'material': mat.name,
-            }
-            filepath = get_export_path(self.export_path, path_fields)
-            filename = bpy.path.basename(filepath)
-            if filepath in self.exported_files:
-                log(f"Skipping {mat.name} as it would overwrite a file that was just exported")
-
-            log(f"Baking {mat.name} with {len(objs)} contributing objects")
-            logger.log_indent += 1
-
-            show_only(context, objs)
-            select_only(context, objs)
-
-            bake_pixels = [SolidPixels(self.size)] * 3 + [SolidPixels(self.size, value=1.0)]
-            bake_srcs = [self.r, self.g, self.b]
-            for bake_src in bake_srcs:
-                if bake_src == 'NONE':
-                    continue
-
-                # Avoid doing extra work and bake only once for all channels with the same source
-                channel_idxs = [idx for idx, src in enumerate(bake_srcs) if src == bake_src]
-                channel_names = ''
-                for channel_idx in channel_idxs:
-                    bake_srcs[channel_idx] = 'NONE'
-                    channel_names += ('R', 'G', 'B')[channel_idx]
-                log(f"Baking {bake_src} for channel {channel_names}")
-                bake_img = self.new_image(f"_{mat.name}_{bake_src}")
-                bake_mat = self.new_bake_material(bake_img)
-
-                remap_materials(objs, mat, bake_mat)
-                bakers[bake_src](context.scene, bake_mat.node_tree.nodes, bake_mat.node_tree.links)
-                remap_materials(objs, bake_mat, mat)
-
-                # Store the result
-                pixels = bake_img.pixels[:]
-                for channel_idx in channel_idxs:
-                    bake_pixels[channel_idx] = pixels
-
-            log(f"Exporting {filename}")
-            pack_img = self.new_image(f"_{mat.name}")
-            pack_img.pixels[:] = chain.from_iterable(
-                zip(*(pxls[channel_idx::4] for channel_idx, pxls in enumerate(bake_pixels))))
-            pack_img.filepath_raw = filepath
-            pack_img.file_format = 'PNG'
-            pack_img.save()
-            self.exported_files.append(filepath)
-
-            logger.log_indent -= 1
-
-    def execute(self, context):
-        try:
-            fail_if_invalid_export_path(self.export_path, ['material'])
-        except Exception as e:
-            self.report({'ERROR'}, str(e))
-            return {'CANCELLED'}
-
-        saved_selection = save_selection()
-        saved_render_engine = context.scene.render.engine
-        saved_render_bake_margin = context.scene.render.bake.margin  # Don't mistake for bake_margin
-        saved_cycles_samples = context.scene.cycles.samples
-        saved_use_global_undo = context.preferences.edit.use_global_undo
-        context.preferences.edit.use_global_undo = False
-        self.exported_files = []
-        self.new_materials = []
-        self.new_images = []
-        self.saved_transforms = {}
-        logger.start_logging()
-
-        try:
-            start_time = time.time()
-            self._execute(context)
-            # Finished without errors
-            elapsed = time.time() - start_time
-            self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
-            beep(pitch=3, num=1)
-        finally:
-            # Clean up
-            while self.new_materials:
-                bpy.data.materials.remove(self.new_materials.pop())
-            while self.new_images:
-                bpy.data.images.remove(self.new_images.pop())
-            for obj, matrix_world in self.saved_transforms.items():
-                obj.matrix_world = matrix_world
-            del self.saved_transforms
-
-            load_selection(saved_selection)
-            context.scene.render.engine = saved_render_engine
-            context.scene.render.bake.margin = saved_render_bake_margin
-            context.scene.cycles.samples = saved_cycles_samples
-            context.preferences.edit.use_global_undo = saved_use_global_undo
-            logger.end_logging()
-
-        return {'FINISHED'}
 
 class MY_OT_deduplicate_materials(bpy.types.Operator):
     #tooltip
@@ -1043,24 +796,8 @@ class MY_PT_scene_tools(bpy.types.Panel):
         row.operator('my_tools.make_collision', icon='MESH_CUBE', text="Make")
         row.operator('my_tools.assign_collision', text="Assign")
 
-        col = layout.column(align=True)
-        col.label(text="Bake Textures:")
-        row = col.row(align=True)
-        row.prop(me, 'bake_r', icon='COLOR_RED', text="")
-        row.prop(me, 'bake_g', icon='COLOR_GREEN', text="")
-        row.prop(me, 'bake_b', icon='COLOR_BLUE', text="")
-        row.prop(me, 'bake_size', text="")
-        col.prop(me, 'bake_export_path', text="")
-        op = col.operator('my_tools.bake', icon='RENDER_STILL')
-        op.export_path = me.bake_export_path
-        op.size = me.bake_size
-        op.r = me.bake_r
-        op.g = me.bake_g
-        op.b = me.bake_b
-
 classes = (
     MY_OT_assign_collision,
-    MY_OT_bake,
     MY_OT_deduplicate_materials,
     MY_OT_make_collision,
     MY_OT_replace_references,

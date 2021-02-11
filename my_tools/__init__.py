@@ -20,6 +20,7 @@ module_names = [
     'character_tools',
     'action_tools',
     'scene_tools',
+    'texture_baking',
 ]
 ensure_starts_with = lambda s, prefix: s if s.startswith(prefix) else prefix + s
 module_names[:] = [ensure_starts_with(module_name, f'{__name__}.') for module_name in module_names]
@@ -38,7 +39,7 @@ def register():
             module.register()
 
 def unregister():
-    for module_name in module_names:
+    for module_name in reversed(module_names):
         module = sys.modules.get(module_name)
         if hasattr(module, 'unregister'):
             module.unregister()

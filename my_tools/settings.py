@@ -2,12 +2,6 @@ import bpy
 from bpy.app.handlers import persistent
 from .helpers import is_object_defaulted
 
-bake_items = [
-    ('NONE', "None", "Nothing."),
-    ('AO', "AO", "Ambient occlusion."),
-    ('BEVEL', "Bevel", "Bevel mask, similar to curvature."),
-]
-
 def on_collection_updated(self, context):
     scn = context.scene
     job = scn.my_tools.export_jobs[self.job_index]
@@ -329,35 +323,6 @@ class MY_PG_settings(bpy.types.PropertyGroup):
     )
     export_jobs: bpy.props.CollectionProperty(
         type=MY_PG_export_job,
-    )
-    bake_size: bpy.props.IntProperty(
-        name="Texture Size",
-        description="Size of the exported texture",
-        default=256,
-        min=8,
-    )
-    bake_r: bpy.props.EnumProperty(
-        name="Texture R Source",
-        description="Type of mask to bake into the texture's red channel",
-        items=bake_items,
-    )
-    bake_g: bpy.props.EnumProperty(
-        name="Texture G Source",
-        description="Type of mask to bake into the texture's green channel",
-        items=bake_items,
-    )
-    bake_b: bpy.props.EnumProperty(
-        name="Texture B Source",
-        description="Type of mask to bake into the texture's blue channel",
-        items=bake_items,
-    )
-    bake_export_path: bpy.props.StringProperty(
-        name="Bake Export Path",
-        description="""Export path for the baked texture.
-{file} = Name of this .blend file without extension.
-{material} = Name of the material being baked.""",
-        default="//export/T_{material}.png",
-        subtype='FILE_PATH',
     )
 
 classes = (
