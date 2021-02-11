@@ -11,133 +11,11 @@ from .helpers import (
 )
 
 class ConstantCurve:
-    """Mimics FCurve and always returns the same value on evaluation."""
+    """Mimics FCurve, always returning the same value on evaluation."""
     def __init__(self, value=0.0):
         self.value = value
     def evaluate(self, frame_index):
         return self.value
-
-def get_nice_export_report(files, elapsed):
-    if len(files) > 5:
-        return f"{len(files)} files exported in {elapsed:.2f}s."
-    if files:
-        filenames = [bpy.path.basename(filepath) for filepath in files]
-        return f"Exported {', '.join(filenames)} in {elapsed:.2f}s."
-    return "Nothing exported."
-
-ik_bone_names = [
-    "ik_foot_root",
-    "ik_foot.l",
-    "ik_foot.r",
-    "ik_hand_root",
-    "ik_hand_gun",
-    "ik_hand.l",
-    "ik_hand.r"
-]
-
-@intercept(error_result={'CANCELLED'})
-def export_autorig(context, filepath, actions):
-    scn = context.scene
-    rig = context.active_object
-    ik_bones_not_found = [s for s in ik_bone_names if
-        s not in rig.pose.bones or 'custom_bone' not in rig.pose.bones[s]]
-    if not ik_bones_not_found:
-        # All IK bones accounted for
-        add_ik_bones = False
-    elif len(ik_bones_not_found) == len(ik_bone_names):
-        # No IK bones present, let ARP create them
-        add_ik_bones = True
-    else:
-        # Only some IK bones found. Probably a mistake
-        raise Exception("Some IK bones are missing or not marked for export: "
-            + ", ".join(ik_bones_not_found))
-
-    # Configure Auto-Rig and then finally export
-    scn.arp_engine_type = 'unreal'
-    scn.arp_export_rig_type = 'humanoid'
-    scn.arp_ge_sel_only = True
-
-    # Rig Definition
-    scn.arp_keep_bend_bones = False
-    scn.arp_push_bend = False
-    scn.arp_full_facial = True
-    scn.arp_export_twist = True
-    scn.arp_export_noparent = False
-
-    # Units
-    scn.arp_units_x100 = True
-
-    # Unreal Options
-    scn.arp_ue_root_motion = True
-    scn.arp_rename_for_ue = True
-    scn.arp_ue_ik = add_ik_bones
-    scn.arp_mannequin_axes = True
-
-    # Animation
-    if not actions:
-        scn.arp_bake_actions = False
-    else:
-        scn.arp_bake_actions = True
-        scn.arp_export_name_actions = True
-        scn.arp_export_name_string = ','.join(action.name for action in actions)
-        scn.arp_simplify_fac = 0.0
-
-    # Misc
-    scn.arp_global_scale = 1.0
-    scn.arp_mesh_smooth_type = 'EDGE'
-    scn.arp_use_tspace = False
-    scn.arp_fix_fbx_rot = True
-    scn.arp_fix_fbx_matrix = True
-    scn.arp_init_fbx_rot = False
-    scn.arp_bone_axis_primary_export = 'Y'
-    scn.arp_bone_axis_secondary_export = 'X'
-    scn.arp_export_rig_name = 'root'
-
-    return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
-
-@intercept(error_result={'CANCELLED'})
-def export_autorig_universal(context, filepath, actions):
-    scn = context.scene
-    rig = context.active_object
-
-    # Configure Auto-Rig and then finally export
-    scn.arp_engine_type = 'unreal'
-    scn.arp_export_rig_type = 'mped'
-    scn.arp_ge_sel_only = True
-
-    # Rig Definition
-    scn.arp_keep_bend_bones = False
-    scn.arp_push_bend = False
-    scn.arp_export_twist = True
-    scn.arp_export_noparent = False
-
-    # Units
-    scn.arp_units_x100 = True
-
-    # Unreal Options
-    scn.arp_ue_root_motion = True
-
-    # Animation
-    if not actions:
-        scn.arp_bake_actions = False
-    else:
-        scn.arp_bake_actions = True
-        scn.arp_export_name_actions = True
-        scn.arp_export_name_string = ','.join(action.name for action in actions)
-        scn.arp_simplify_fac = 0.0
-
-    # Misc
-    scn.arp_global_scale = 1.0
-    scn.arp_mesh_smooth_type = 'EDGE'
-    scn.arp_use_tspace = False
-    scn.arp_fix_fbx_rot = True
-    scn.arp_fix_fbx_matrix = True
-    scn.arp_init_fbx_rot = False
-    scn.arp_bone_axis_primary_export = 'Y'
-    scn.arp_bone_axis_secondary_export = 'X'
-    scn.arp_export_rig_name = 'root'
-
-    return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})
 def export_fbx(context, filepath, actions):
@@ -599,9 +477,8 @@ class MY_PT_export_jobs(bpy.types.Panel):
                     col = box.column()
                     col.prop(job, 'disable_auto_eyelid')
 
-                    row = col.row(align=True)
-                    row.prop(job, 'export_markers')
-                    split = row.split(align=True)
+                    col.prop(job, 'export_markers')
+                    split = col.split(align=True)
                     split.prop(job, 'markers_export_path', text="")
                     split.enabled = job.export_markers
 

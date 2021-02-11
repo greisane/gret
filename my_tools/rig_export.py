@@ -11,6 +11,7 @@ from .helpers import (
     fail_if_no_operator,
     get_children_recursive,
     get_export_path,
+    get_nice_export_report,
     intercept,
     is_object_arp,
     is_object_arp_humanoid,
@@ -31,9 +32,16 @@ from .mesh_helpers import (
     mirror_shape_keys,
     subdivide_verts_with_bevel_weight,
 )
-from .export import (
-    get_nice_export_report,
-)
+
+ik_bone_names = [
+    "ik_foot_root",
+    "ik_foot.l",
+    "ik_foot.r",
+    "ik_hand_root",
+    "ik_hand_gun",
+    "ik_hand.l",
+    "ik_hand.r"
+]
 
 @intercept(error_result={'CANCELLED'})
 def export_autorig(context, filepath, actions):

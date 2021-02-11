@@ -7,6 +7,7 @@ from .helpers import (
     fail_if_invalid_export_path,
     fail_if_no_operator,
     get_export_path,
+    get_nice_export_report,
     load_selection,
     log,
     logger,
@@ -18,7 +19,6 @@ from .mesh_helpers import (
 )
 from .export import (
     export_fbx,
-    get_nice_export_report,
 )
 
 class MY_OT_scene_export(bpy.types.Operator):
@@ -67,11 +67,11 @@ class MY_OT_scene_export(bpy.types.Operator):
         if copy_data:
             new_data = obj.data.copy()
             if isinstance(new_data, bpy.types.Mesh):
-                self.new_meshes.add(new_data)
+                self.new_meshes.append(new_data)
             else:
                 log(f"Copied data of object {obj.name} won't be released!")
             new_obj.data = new_data
-        self.new_objs.add(new_obj)
+        self.new_objs.append(new_obj)
 
         # New objects are moved to the scene collection, ensuring they're visible
         bpy.context.scene.collection.objects.link(new_obj)
@@ -173,8 +173,8 @@ class MY_OT_scene_export(bpy.types.Operator):
         saved_use_global_undo = context.preferences.edit.use_global_undo
         context.preferences.edit.use_global_undo = False
         self.exported_files = []
-        self.new_objs = set()
-        self.new_meshes = set()
+        self.new_objs = []
+        self.new_meshes = []
         self.saved_object_names = {}
         self.saved_material_names = {}
         self.saved_transforms = {}
