@@ -16,6 +16,10 @@ if 'bpy' in locals():
         importlib.reload(settings)
     if 'export' in locals():
         importlib.reload(export)
+    if 'scene_export' in locals():
+        importlib.reload(export)
+    if 'rig_export' in locals():
+        importlib.reload(export)
     if 'character_tools' in locals():
         importlib.reload(character_tools)
     if 'action_tools' in locals():
@@ -26,6 +30,8 @@ if 'bpy' in locals():
 import bpy
 from . import settings
 from . import export
+from . import scene_export
+from . import rig_export
 from . import character_tools
 from . import action_tools
 from . import scene_tools
@@ -33,6 +39,8 @@ from . import scene_tools
 modules = (
     settings,
     export,
+    scene_export,
+    rig_export,
     character_tools,
     action_tools,
     scene_tools,
