@@ -8,12 +8,12 @@ bl_info = {
     'category': "My Tools"
 }
 
-import sys
+import bpy
 import importlib
+import sys
 
 module_names = [
     'helpers',
-    'settings',
     'export',
     'scene_export',
     'rig_export',
@@ -32,13 +32,26 @@ for module_name in module_names:
     else:
         globals()[module_name] = importlib.import_module(module_name)
 
+class MY_PG_settings(bpy.types.PropertyGroup):
+    @classmethod
+    def add_property(cls, name, annotation):
+        cls.__annotations__[name] = annotation
+
 def register():
+    # On registering, each module can add its own settings to the main group via add_property()
     for module_name in module_names:
         module = sys.modules.get(module_name)
         if hasattr(module, 'register'):
-            module.register()
+            module.register(MY_PG_settings)
+
+    # Settings used to live in WindowManager, however pointer properties break with global undo
+    bpy.utils.register_class(MY_PG_settings)
+    bpy.types.Scene.my_tools = bpy.props.PointerProperty(type=MY_PG_settings)
 
 def unregister():
+    del bpy.types.Scene.my_tools
+    bpy.utils.unregister_class(MY_PG_settings)
+
     for module_name in reversed(module_names):
         module = sys.modules.get(module_name)
         if hasattr(module, 'unregister'):

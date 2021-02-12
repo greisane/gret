@@ -347,7 +347,7 @@ classes = (
     MY_PT_material_tools,
 )
 
-def register():
+def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
 

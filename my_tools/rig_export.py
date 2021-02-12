@@ -1073,7 +1073,7 @@ classes = (
     MY_OT_rig_export,
 )
 
-def register():
+def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
 

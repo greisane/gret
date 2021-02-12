@@ -805,7 +805,7 @@ classes = (
     MY_PT_scene_tools,
 )
 
-def register():
+def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
 

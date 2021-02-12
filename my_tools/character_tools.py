@@ -571,9 +571,10 @@ def load_post(dummy):
         if coll.name.endswith('_grp_rig') and not coll.library and coll.hide_viewport:
             coll.hide_viewport = False
 
-def register():
+def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
+
     bpy.app.handlers.save_pre.append(save_pre)
     bpy.app.handlers.save_post.append(save_post)
     bpy.app.handlers.load_post.append(load_post)
@@ -581,6 +582,7 @@ def register():
 def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
+
     bpy.app.handlers.save_pre.remove(save_pre)
     bpy.app.handlers.save_post.remove(save_post)
     bpy.app.handlers.load_post.remove(load_post)

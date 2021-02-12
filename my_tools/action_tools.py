@@ -294,9 +294,15 @@ classes = (
     MY_PT_actions,
 )
 
-def register():
+def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
+
+    settings.add_property('poses_sorted', bpy.props.BoolProperty(
+        name="Sort Poses",
+        description="Displays pose markers sorted alphabetically",
+        default=False,
+    ))
 
 def unregister():
     for cls in reversed(classes):

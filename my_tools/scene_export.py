@@ -213,7 +213,7 @@ classes = (
     MY_OT_scene_export,
 )
 
-def register():
+def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
 
