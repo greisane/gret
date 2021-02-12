@@ -35,6 +35,8 @@ for module_name in module_names:
 class MY_PG_settings(bpy.types.PropertyGroup):
     @classmethod
     def add_property(cls, name, annotation):
+        if not hasattr(cls, '__annotations__'):
+            cls.__annotations__ = {}
         cls.__annotations__[name] = annotation
 
 def register():
