@@ -234,6 +234,7 @@ class MY_OT_quick_unwrap(bpy.types.Operator):
         uv_layer_name = mat.texture_bake.uv_layer_name or "UVMap"
         saved_use_uv_select_sync = context.scene.tool_settings.use_uv_select_sync
         saved_selection = save_selection()
+        margin = 1.0 / 128 * 2
 
         try:
             # Select all faces of all objects that share the material
@@ -256,13 +257,13 @@ class MY_OT_quick_unwrap(bpy.types.Operator):
             # Unwrap
             bpy.ops.uv.smart_project(
                 angle_limit=radians(66.0),
-                island_margin=0.01,
+                island_margin=margin,
                 area_weight=0.0,
                 correct_aspect=True,
                 scale_to_bounds=False)
             try:
                 # Pack using an addon if available
-                context.scene.uvp2_props.margin = 0.01
+                context.scene.uvp2_props.margin = margin
                 bpy.ops.uvpackmaster2.uv_pack()
             except AttributeError:
                 pass
