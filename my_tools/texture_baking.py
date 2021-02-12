@@ -1,4 +1,5 @@
 from itertools import chain
+from math import radians
 from mathutils import Matrix
 import bpy
 import time
@@ -74,7 +75,7 @@ All faces from all objects assigned to this material are assumed to contribute""
 
     bl_idname = 'my_tools.bake'
     bl_label = "Bake"
-    bl_options = {'REGISTER'}
+    bl_options = {'INTERNAL'}
 
     def new_image(self, name, size):
         image = bpy.data.images.new(name=name, width=size, height=size)
@@ -163,7 +164,7 @@ All faces from all objects assigned to this material are assumed to contribute""
         pack_img.pixels[:] = chain.from_iterable(
             zip(*(pixels[channel_idx::4] for channel_idx, pixels in enumerate(bake_pixels))))
         pack_img.filepath_raw = filepath
-        pack_img.file_format = 'PNG'
+        pack_img.file_format = 'PNG'  # TODO detect format from extension
         pack_img.save()
         self.exported_files.append(filepath)
 
@@ -222,16 +223,56 @@ class MY_OT_quick_unwrap(bpy.types.Operator):
 
     bl_idname = 'my_tools.quick_unwrap'
     bl_label = "Quick Unwrap"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'INTERNAL', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
-        return context.selected_objects and context.mode == 'OBJECT'
+        return context.object and context.object.active_material and context.mode == 'OBJECT'
 
     def execute(self, context):
-        objs = context.selected_objects
+        mat = context.object.active_material
+        uv_layer_name = mat.texture_bake.uv_layer_name or "UVMap"
+        saved_use_uv_select_sync = context.scene.tool_settings.use_uv_select_sync
+        saved_selection = save_selection()
 
-        # for obj in objs:
+        try:
+            # Select all faces of all objects that share the material
+            context.scene.tool_settings.use_uv_select_sync = True
+            objs = [o for o in context.scene.objects if mat.name in o.data.materials]
+            select_only(context, objs)
+            bpy.ops.object.editmode_toggle()
+            bpy.ops.mesh.reveal()
+            bpy.ops.mesh.select_mode(type='FACE')
+            bpy.ops.object.editmode_toggle()
+            for obj in objs:
+                uv_map = obj.data.uv_layers.get(uv_layer_name)
+                if not uv_map:
+                    uv_map = obj.data.uv_layers.new(name=uv_layer_name)
+                uv_map.active = True
+                for face in obj.data.polygons:
+                    face.select = obj.data.materials[face.material_index] == mat
+            bpy.ops.object.editmode_toggle()
+
+            # Unwrap
+            bpy.ops.uv.smart_project(
+                angle_limit=radians(66.0),
+                island_margin=0.01,
+                area_weight=0.0,
+                correct_aspect=True,
+                scale_to_bounds=False)
+            try:
+                # Pack using an addon if available
+                context.scene.uvp2_props.margin = 0.01
+                bpy.ops.uvpackmaster2.uv_pack()
+            except AttributeError:
+                pass
+        finally:
+            load_selection(saved_selection)
+            context.scene.tool_settings.use_uv_select_sync = saved_use_uv_select_sync
+            # Exiting edit mode here causes uvpackmaster2 to break, it's doing some weird modal stuff
+            # bpy.ops.object.mode_set(mode='OBJECT')
+
+        return {'FINISHED'}
 
 class MY_PT_material_tools(bpy.types.Panel):
     bl_space_type = 'PROPERTIES'
@@ -249,17 +290,24 @@ class MY_PT_material_tools(bpy.types.Panel):
         bake = mat.texture_bake
 
         row = layout.row(align=True)
+        row.prop(bake, 'uv_layer_name', text="")
+        row.operator('my_tools.quick_unwrap', icon='UV')
+
+        col = layout.column(align=True)
+        row = col.row(align=True)
         row.prop(bake, 'r', icon='COLOR_RED', text="")
         row.prop(bake, 'g', icon='COLOR_GREEN', text="")
         row.prop(bake, 'b', icon='COLOR_BLUE', text="")
         row.prop(bake, 'size', text="")
-        col = layout.column(align=True)
         col.prop(bake, 'export_path', text="")
-        row = col.row(align=True)
-        row.operator('my_tools.quick_unwrap', icon='UV')
-        op = row.operator('my_tools.bake', icon='RENDER_STILL')
+        col.operator('my_tools.bake', icon='RENDER_STILL')
 
 class MY_PG_texture_bake(bpy.types.PropertyGroup):
+    uv_layer_name: bpy.props.StringProperty(
+        name="UV Layer",
+        description="Name of the target UV layer",
+        default="UVMap",
+    )
     size: bpy.props.IntProperty(
         name="Texture Size",
         description="Size of the exported texture",
@@ -270,11 +318,13 @@ class MY_PG_texture_bake(bpy.types.PropertyGroup):
         name="Texture R Source",
         description="Mask to bake into the texture's red channel",
         items=bake_items,
+        default='AO',
     )
     g: bpy.props.EnumProperty(
         name="Texture G Source",
         description="Mask to bake into the texture's green channel",
         items=bake_items,
+        default='BEVEL',
     )
     b: bpy.props.EnumProperty(
         name="Texture B Source",

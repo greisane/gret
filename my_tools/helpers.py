@@ -126,11 +126,11 @@ def load_selection(state):
                 collection.hide_select = hide_select
                 collection.hide_viewport = hide_viewport
                 collection.hide_render = hide_render
-        for obj, hide_select, hide_viewport, hide_render in state.objects:
-            if is_valid(obj):
-                obj.hide_select = hide_select
-                obj.hide_viewport = hide_viewport
-                obj.hide_render = hide_render
+    for obj, hide_select, hide_viewport, hide_render in state.objects:
+        if is_valid(obj):
+            obj.hide_select = hide_select
+            obj.hide_viewport = hide_viewport
+            obj.hide_render = hide_render
 
     select_only(bpy.context, (obj for obj in state.selected if is_valid(obj)))
 
