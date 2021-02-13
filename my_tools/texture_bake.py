@@ -144,15 +144,76 @@ def bake_bevel(scene, node_tree):
     scene.cycles.samples = 16
     bpy.ops.object.bake(type='EMIT')
 
+def bake_curvature(scene, node_tree):
+    cavity = (Node('Math', operation='SUBTRACT', use_clamp=True)
+    .set(0, 1.0) \
+    .link(1, 'AO',
+        Node('AmbientOcclusion', samples=16, only_local=True)
+        .set('Distance', 0.05)
+        .link('Normal', None,
+            Node('Bevel', samples=8) \
+            .set('Radius', 0.2)
+        )
+    ))
+    edge = (Node('Math', operation='SMOOTH_MIN', use_clamp=True)
+    .set(1, 0.5)  # Value2
+    .set(2, 1.0)  # Distance
+    .link(0, None,
+        Node('Math', operation='SUBTRACT', use_clamp=True)
+        .set(0, 1.0)  # One minus AO
+        .link(1, 'AO',
+            Node('AmbientOcclusion', samples=16, inside=True, only_local=True)
+            .set('Distance', 0.1)
+            .link('Normal', None,
+                Node('Bevel', samples=8) \
+                .set('Radius', 0.1)
+            )
+        )
+    ))
+    main = (Node('OutputMaterial')
+    .link('Surface', None,
+        Node('Emission')
+        .link('Color', 0,
+            Node('Math', operation='SUBTRACT', use_clamp=True)
+            .link(1, None,
+                Node('Math', operation='MULTIPLY', use_clamp=True)
+                .set(1, 4.0)  # Value2
+                .link(0, None,
+                    Node('Math', operation='MAXIMUM', use_clamp=True)
+                    .link(0, None,
+                        Node('Math', operation='SUBTRACT', use_clamp=True)
+                        .link(0, None, cavity)
+                        .link(1, None, edge)
+                    )
+                    .link(1, None,
+                        Node('Math', operation='MULTIPLY', use_clamp=True)
+                        .link(0, None, cavity)
+                        .link(1, None, edge)
+                    )
+                )
+            )
+            .link(0, None,
+                Node('Math', operation='ADD', use_clamp=True)
+                .set(0, 0.5)  # Value1
+                .link(1, None, edge)
+            )
+        )
+    ))
+    main.build(node_tree)
+    scene.cycles.samples = 16
+    bpy.ops.object.bake(type='EMIT')
+
 bakers = {
     'AO': bake_ao,
     'BEVEL': bake_bevel,
+    'CURVATURE': bake_curvature,
 }
 
 bake_items = [
     ('NONE', "None", "Nothing."),
     ('AO', "AO", "Ambient occlusion."),
     ('BEVEL', "Bevel", "Bevel mask, similar to curvature."),
+    ('CURVATURE', "Curvature", "Curvature, centered on gray."),
 ]
 
 class MY_OT_bake(bpy.types.Operator):
@@ -437,12 +498,13 @@ class MY_PG_texture_bake(bpy.types.PropertyGroup):
         name="Texture G Source",
         description="Mask to bake into the texture's green channel",
         items=bake_items,
-        default='BEVEL',
+        default='CURVATURE',  # Curvature in green for RGB565
     )
     b: bpy.props.EnumProperty(
         name="Texture B Source",
         description="Mask to bake into the texture's blue channel",
         items=bake_items,
+        default='BEVEL',
     )
     export_path: bpy.props.StringProperty(
         name="Export Path",
