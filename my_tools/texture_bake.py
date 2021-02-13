@@ -75,7 +75,7 @@ class Node:
         for k, v in self.options.items():
             try:
                 setattr(self._node, k, v)
-            except AttributeError, TypeError as e:
+            except (AttributeError, TypeError) as e:
                 log(f"Couldn't set option {k} for node {self._node.name}: {e}")
         for k, v in self.default_values.items():
             self.find_input_socket(k).default_value = v
@@ -219,7 +219,7 @@ bake_items = [
 class MY_OT_bake(bpy.types.Operator):
     #tooltip
     """Bake and export the texture.
-All faces from all objects assigned to this material are assumed to contribute"""
+All faces from all objects assigned to the active material are assumed to contribute"""
 
     bl_idname = 'my_tools.bake'
     bl_label = "Bake"
@@ -388,25 +388,48 @@ All faces from all objects assigned to this material are assumed to contribute""
 
 class MY_OT_quick_unwrap(bpy.types.Operator):
     #tooltip
-    """Smart unwrap and pack UVs for all objects that have this material assigned"""
+    """Smart unwrap and pack UVs for all objects that have the active material assigned"""
 
     bl_idname = 'my_tools.quick_unwrap'
     bl_label = "Quick Unwrap"
-    bl_options = {'INTERNAL', 'UNDO'}
+    bl_options = {'REGISTER', 'UNDO'}
+
+    uv_layer_name: bpy.props.StringProperty(
+        name="UV Layer",
+        description="Name of the target UV layer",
+        default="UVMap",
+    )
+    angle_limit: bpy.props.FloatProperty(
+        name="Angle Limit",
+        description="Lower for more projection groups, higher for less distortion",
+        subtype='ANGLE',
+        default=radians(66.0),
+        min=radians(0.0),
+        max=radians(89.0),
+    )
+    area_weight: bpy.props.FloatProperty(
+        name="Area Weight",
+        description="Weight projection vectors by faces with larger areas",
+        default=0.0,
+        min=0.0,
+        max=1.0,
+    )
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.active_material and context.mode == 'OBJECT'
+        return context.object and context.object.active_material and context.mode == 'EDIT_MESH'
 
     def execute(self, context):
         mat = context.object.active_material
-        uv_layer_name = mat.texture_bake.uv_layer_name or "UVMap"
         saved_use_uv_select_sync = context.scene.tool_settings.use_uv_select_sync
         saved_selection = save_selection()
+        saved_active_uv_layers = {}  # Object to UV layer
         margin = 1.0 / 128 * 2
+        self.uv_layer_name = self.uv_layer_name or "UVMap"
 
         try:
             # Select all faces of all objects that share the material
+            bpy.ops.object.editmode_toggle()
             context.scene.tool_settings.use_uv_select_sync = True
             objs = [o for o in context.scene.objects if mat.name in o.data.materials]
             select_only(context, objs)
@@ -415,19 +438,20 @@ class MY_OT_quick_unwrap(bpy.types.Operator):
             bpy.ops.mesh.select_mode(type='FACE')
             bpy.ops.object.editmode_toggle()
             for obj in objs:
-                uv_map = obj.data.uv_layers.get(uv_layer_name)
-                if not uv_map:
-                    uv_map = obj.data.uv_layers.new(name=uv_layer_name)
-                uv_map.active = True
+                saved_active_uv_layers[obj] = obj.data.uv_layers.active
+                uv = obj.data.uv_layers.get(self.uv_layer_name)
+                if not uv:
+                    uv = obj.data.uv_layers.new(name=self.uv_layer_name)
+                uv.active = True
                 for face in obj.data.polygons:
                     face.select = obj.data.materials[face.material_index] == mat
             bpy.ops.object.editmode_toggle()
 
             # Unwrap
             bpy.ops.uv.smart_project(
-                angle_limit=radians(66.0),
+                angle_limit=self.angle_limit,
                 island_margin=margin,
-                area_weight=0.0,
+                area_weight=self.area_weight,
                 correct_aspect=True,
                 scale_to_bounds=False)
             try:
@@ -437,6 +461,8 @@ class MY_OT_quick_unwrap(bpy.types.Operator):
             except AttributeError:
                 pass
         finally:
+            for obj, uv_layer in saved_active_uv_layers.items():
+                obj.data.uv_layers.active = uv_layer
             load_selection(saved_selection)
             context.scene.tool_settings.use_uv_select_sync = saved_use_uv_select_sync
             # Exiting edit mode here causes uvpackmaster2 to break, it's doing some weird modal stuff
@@ -460,28 +486,21 @@ class MY_PT_material_tools(bpy.types.Panel):
         bake = mat.texture_bake
 
         row = layout.row(align=True)
-        row.prop(bake, 'uv_layer_name', text="")
-        row.operator('my_tools.quick_unwrap', icon='UV')
-
-        col = layout.column(align=True)
-        row = col.row(align=True)
         row.prop(bake, 'r', icon='COLOR_RED', text="")
         row.prop(bake, 'g', icon='COLOR_GREEN', text="")
         row.prop(bake, 'b', icon='COLOR_BLUE', text="")
         row.prop(bake, 'size', text="")
+
+        col = layout.column(align=True)
         col.prop(bake, 'export_path', text="")
         row = col.row(align=True)
+        row.operator('my_tools.quick_unwrap', icon='UV')
         op = row.operator('my_tools.bake', icon='INDIRECT_ONLY_ON', text="Bake")
         op.debug = False
         op = row.operator('my_tools.bake', icon='INDIRECT_ONLY_OFF', text="")
         op.debug = True
 
 class MY_PG_texture_bake(bpy.types.PropertyGroup):
-    uv_layer_name: bpy.props.StringProperty(
-        name="UV Layer",
-        description="Name of the target UV layer",
-        default="UVMap",
-    )
     size: bpy.props.IntProperty(
         name="Texture Size",
         description="Size of the exported texture",
