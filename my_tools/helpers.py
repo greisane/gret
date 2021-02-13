@@ -369,7 +369,7 @@ def intercept(_func=None, error_result=None):
                     from contextlib import redirect_stdout
                     with redirect_stdout(stdout):
                         result = func(*args, **kwargs)
-                except Exception as err:
+                except Exception as e:
                     # import traceback
                     # traceback.print_exc()
                     result = error_result

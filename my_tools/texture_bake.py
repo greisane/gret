@@ -18,6 +18,7 @@ from .helpers import (
 
 class SolidPixels:
     """Mimics a pixels array, always returning the same value for all pixels."""
+
     def __init__(self, size, value=0.0):
         self.size = size
         self.value = value
@@ -28,33 +29,119 @@ class SolidPixels:
             return [self.value] * len(range(*key.indices(len(self))))
         return self.value
 
+class Node:
+    """Fluent interface wrapper for nodes in a Blender node tree."""
+
+    def __init__(self, type, **kwargs):
+        self.type = 'ShaderNode' + type
+        self.options = kwargs
+        self.default_values = {}
+        self.links = []  # List of (this_input, other_output, other)
+        self._node = None
+
+    def link(self, this_input, other_output, other):
+        """Links the other's node output to this node's input.
+        If other_output is None, uses any output socket that matches the type of the input socket."""
+        self.links.append((this_input, other_output, other))
+        return self
+
+    def set(self, this_input, value):
+        """Sets the default value of the input."""
+        self.default_values[this_input] = value
+        return self
+
+    def find_input_socket(self, id_):
+        """Find an input socket by its name, index or type."""
+        if id_ in {'VALUE', 'VECTOR', 'RGBA', 'SHADER'}:
+            return next(s for s in self._node.inputs if s.type == id_)
+        return self._node.inputs[id_]
+
+    def find_output_socket(self, id_):
+        """Find an output socket by its name, index or type."""
+        if id_ in {'VALUE', 'VECTOR', 'RGBA', 'SHADER'}:
+            return next(s for s in self._node.outputs if s.type == id_)
+        return self._node.outputs[id_]
+
+    def build(self, tree, location=(0, 0)):
+        if self._node:
+            return
+
+        self._node = tree.nodes.new(type=self.type)
+        self._node.location[:] = location
+        # Can't get actual node dimensions until the layout is updated, so make a guess
+        node_height = max(len(self._node.inputs), len(self._node.outputs)) * 20.0 + 200.0
+        self.branch_height = node_height + 20.0
+
+        for k, v in self.options.items():
+            try:
+                setattr(self._node, k, v)
+            except AttributeError, TypeError as e:
+                log(f"Couldn't set option {k} for node {self._node.name}: {e}")
+        for k, v in self.default_values.items():
+            self.find_input_socket(k).default_value = v
+
+        height = 0.0
+        for link_idx, (this_input, other_output, other) in enumerate(self.links):
+            # Rudimentary arrangement
+            other_x = self._node.location.x - 200.0
+            other_y = self._node.location.y - height
+            other.build(tree, (other_x, other_y))
+            height += other.branch_height
+
+            this_input_socket = self.find_input_socket(this_input)
+            other_output = this_input_socket.type if other_output is None else other_output
+            other_output_socket = other.find_output_socket(other_output)
+            tree.links.new(this_input_socket, other_output_socket)
+
+    def __repr__(self):
+        return f"{__class__.__name__}({repr(self.type)})"
+
 def remap_materials(objs, src_mat, dst_mat):
     for obj in objs:
         for mat_idx, mat in enumerate(obj.data.materials):
             obj.data.materials[mat_idx] = dst_mat if mat == src_mat else None
 
-def bake_ao(scn, nodes, links):
-    scn.cycles.samples = 128
-    bpy.ops.object.bake(type='AO')
+def bake_ao(scene, node_tree):
+    # scene.cycles.samples = 128
+    # bpy.ops.object.bake(type='AO')
+    # Ambient occlusion node seems to produce less artifacts
+    main = (Node('OutputMaterial')
+    .link('Surface', None,
+        Node('Emission')
+        .link('Color', 0,
+            Node('AmbientOcclusion', samples=16, only_local=True)
+            .set('Distance', 2.0)
+        )
+    ))
+    main.build(node_tree)
+    scene.cycles.samples = 16
+    bpy.ops.object.bake(type='EMIT')
 
-def bake_bevel(scn, nodes, links):
-    geometry_node = nodes.new(type='ShaderNodeNewGeometry')
-    bevel_node = nodes.new(type='ShaderNodeBevel')
-    bevel_node.samples = 1
-    bevel_node.inputs['Radius'].default_value = 0.1
-    cross_node = nodes.new(type='ShaderNodeVectorMath')
-    cross_node.operation = 'CROSS_PRODUCT'
-    length_node = nodes.new(type='ShaderNodeVectorMath')
-    length_node.operation = 'LENGTH'
-    emission_node = nodes.new(type='ShaderNodeEmission')
-    output_node = nodes.new(type='ShaderNodeOutputMaterial')
-    links.new(output_node.inputs['Surface'], emission_node.outputs['Emission'])
-    links.new(emission_node.inputs['Color'], length_node.outputs['Value'])
-    links.new(length_node.inputs['Vector'], cross_node.outputs['Vector'])
-    links.new(cross_node.inputs[0], geometry_node.outputs['Normal'])
-    links.new(cross_node.inputs[1], bevel_node.outputs['Normal'])
-
-    scn.cycles.samples = 64
+def bake_bevel(scene, node_tree):
+    main = (Node('OutputMaterial')
+    .link('Surface', None,
+        Node('Emission')
+        .link('Color', 0,
+            Node('Math', operation='SMOOTH_MIN')
+            .set(1, 0.6)  # Value2
+            .set(2, 2.0)  # Distance
+            .link(0, None,
+                Node('VectorMath', operation='LENGTH')
+                .link('Vector', None,
+                    Node('VectorMath', operation='CROSS_PRODUCT')
+                    .link(0, 'Normal',
+                        Node('NewGeometry')
+                    )
+                    .link(1, 'Normal',
+                        Node('Bevel', samples=2)
+                        .set('Radius', 0.1)
+                    )
+                )
+            )
+        )
+    ))
+    main.build(node_tree)
+    scene.cycles.samples = 16
     bpy.ops.object.bake(type='EMIT')
 
 bakers = {
@@ -93,6 +180,7 @@ All faces from all objects assigned to this material are assumed to contribute""
             image = bpy.data.images.new(name=name, width=size, height=size)
         self.new_images.append(image)
 
+        image.colorspace_settings.name = 'Linear'
         image.alpha_mode = 'NONE'
         return image
 
@@ -158,7 +246,7 @@ All faces from all objects assigned to this material are assumed to contribute""
                 # Switch to the bake material, bake then restore
                 saved_materials = {obj: obj.data.materials[:] for obj in objs}
                 remap_materials(objs, mat, bake_mat)
-                bakers[bake_src](context.scene, bake_mat.node_tree.nodes, bake_mat.node_tree.links)
+                bakers[bake_src](context.scene, bake_mat.node_tree)
                 for obj, saved_mats in saved_materials.items():
                     for mat_idx, saved_mat in enumerate(saved_mats):
                         obj.data.materials[mat_idx] = saved_mat
