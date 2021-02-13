@@ -77,15 +77,31 @@ All faces from all objects assigned to this material are assumed to contribute""
     bl_label = "Bake"
     bl_options = {'INTERNAL'}
 
+    debug: bpy.props.BoolProperty(
+        name="Debug",
+        description="Debug mode with verbose output. Keeps intermediate materials and textures",
+        default=False,
+    )
+
     def new_image(self, name, size):
-        image = bpy.data.images.new(name=name, width=size, height=size)
+        # For debugging purposes, try to reuse an image if it exists
+        image = bpy.data.images.get(name)
+        if image and image.size[:] != (size, size):
+            bpy.data.images.remove(image)
+            image = None
+        if not image:
+            image = bpy.data.images.new(name=name, width=size, height=size)
         self.new_images.append(image)
 
         image.alpha_mode = 'NONE'
         return image
 
     def new_bake_material(self, image):
-        mat = bpy.data.materials.new(name=image.name)
+        # For debugging purposes, try to reuse a material if it exists
+        name = f"_bake{image.name}"
+        mat = bpy.data.materials.get(name)
+        if not mat:
+            mat = bpy.data.materials.new(name=name)
         self.new_materials.append(mat)
 
         mat.use_nodes = True
@@ -200,10 +216,11 @@ All faces from all objects assigned to this material are assumed to contribute""
             beep(pitch=3, num=1)
         finally:
             # Clean up
-            while self.new_materials:
-                bpy.data.materials.remove(self.new_materials.pop())
-            while self.new_images:
-                bpy.data.images.remove(self.new_images.pop())
+            if not self.debug:
+                while self.new_materials:
+                    bpy.data.materials.remove(self.new_materials.pop())
+                while self.new_images:
+                    bpy.data.images.remove(self.new_images.pop())
             for obj, matrix_world in self.saved_transforms.items():
                 obj.matrix_world = matrix_world
             del self.saved_transforms
@@ -214,6 +231,9 @@ All faces from all objects assigned to this material are assumed to contribute""
             context.scene.cycles.samples = saved_cycles_samples
             context.preferences.edit.use_global_undo = saved_use_global_undo
             logger.end_logging()
+
+        if self.debug:
+            bpy.ops.ed.undo_push()
 
         return {'FINISHED'}
 
@@ -301,7 +321,11 @@ class MY_PT_material_tools(bpy.types.Panel):
         row.prop(bake, 'b', icon='COLOR_BLUE', text="")
         row.prop(bake, 'size', text="")
         col.prop(bake, 'export_path', text="")
-        col.operator('my_tools.bake', icon='RENDER_STILL')
+        row = col.row(align=True)
+        op = row.operator('my_tools.bake', icon='INDIRECT_ONLY_ON', text="Bake")
+        op.debug = False
+        op = row.operator('my_tools.bake', icon='INDIRECT_ONLY_OFF', text="")
+        op.debug = True
 
 class MY_PG_texture_bake(bpy.types.PropertyGroup):
     uv_layer_name: bpy.props.StringProperty(
