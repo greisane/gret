@@ -62,13 +62,13 @@ class Node:
             return next(s for s in self._node.outputs if s.type == id_)
         return self._node.outputs[id_]
 
-    def build(self, tree, location=(0, 0)):
+    def build(self, node_tree, location=(0, 0)):
         if self._node:
             return
 
-        self._node = tree.nodes.new(type=self.type)
+        self._node = node_tree.nodes.new(type=self.type)
         self._node.location[:] = location
-        # Can't get actual node dimensions until the layout is updated, so make a guess
+        # Can't get actual node dimensions until the layout is updated, so take a guess
         node_height = max(len(self._node.inputs), len(self._node.outputs)) * 20.0 + 200.0
         self.branch_height = node_height + 20.0
 
@@ -85,13 +85,13 @@ class Node:
             # Rudimentary arrangement
             other_x = self._node.location.x - 200.0
             other_y = self._node.location.y - height
-            other.build(tree, (other_x, other_y))
+            other.build(node_tree, (other_x, other_y))
             height += other.branch_height
 
             this_input_socket = self.find_input_socket(this_input)
             other_output = this_input_socket.type if other_output is None else other_output
             other_output_socket = other.find_output_socket(other_output)
-            tree.links.new(this_input_socket, other_output_socket)
+            node_tree.links.new(this_input_socket, other_output_socket)
 
     def __repr__(self):
         return f"{__class__.__name__}({repr(self.type)})"
@@ -146,12 +146,12 @@ def bake_bevel(scene, node_tree):
 
 def bake_curvature(scene, node_tree):
     cavity = (Node('Math', operation='SUBTRACT', use_clamp=True)
-    .set(0, 1.0) \
+    .set(0, 1.0)
     .link(1, 'AO',
         Node('AmbientOcclusion', samples=16, only_local=True)
         .set('Distance', 0.05)
         .link('Normal', None,
-            Node('Bevel', samples=8) \
+            Node('Bevel', samples=8)
             .set('Radius', 0.2)
         )
     ))
@@ -165,7 +165,7 @@ def bake_curvature(scene, node_tree):
             Node('AmbientOcclusion', samples=16, inside=True, only_local=True)
             .set('Distance', 0.1)
             .link('Normal', None,
-                Node('Bevel', samples=8) \
+                Node('Bevel', samples=8)
                 .set('Radius', 0.1)
             )
         )
