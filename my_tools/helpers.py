@@ -511,13 +511,18 @@ def try_key(obj, prop_path, frame=0):
         return False
 
 @lru_cache(maxsize=4095)
-def levenshtein_distance(s, t):
-    if not s: return len(t)
-    if not t: return len(s)
-    if s[0] == t[0]: return levenshtein_distance(s[1:], t[1:])
-    l1 = levenshtein_distance(s, t[1:])
-    l2 = levenshtein_distance(s[1:], t)
-    l3 = levenshtein_distance(s[1:], t[1:])
+def levenshtein_distance(string1, string2):
+    """Returns the minimum number of operations required to transform one string into the other."""
+
+    if not string1:
+        return len(string2)
+    if not string2:
+        return len(string1)
+    if string1[0] == string2[0]:
+        return levenshtein_distance(string1[1:], string2[1:])
+    l1 = levenshtein_distance(string1, string2[1:])
+    l2 = levenshtein_distance(string1[1:], string2)
+    l3 = levenshtein_distance(string1[1:], string2[1:])
     return 1 + min(l1, l2, l3)
 
 def remove_extra_data(obj):
@@ -541,14 +546,14 @@ def remove_extra_data(obj):
 def make_annotations(cls):
     """Converts class fields to annotations if running Blender 2.8."""
 
+    if bpy.app.version < (2, 80):
+        return
+
     def is_property(o):
         try:
             return o[0].__module__ == 'bpy.props'
         except:
             return False
-
-    if bpy.app.version < (2, 80):
-        return
     bl_props = {k: v for k, v in cls.__dict__.items() if is_property(v)}
     if bl_props:
         if '__annotations__' not in cls.__dict__:
@@ -557,7 +562,6 @@ def make_annotations(cls):
         for k, v in bl_props.items():
             annotations[k] = v
             delattr(cls, k)
-    return
 
 def _280(true=True, false=False):
     return true if bpy.app.version >= (2, 80) else false

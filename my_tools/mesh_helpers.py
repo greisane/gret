@@ -10,8 +10,14 @@ from .helpers import (
     select_only,
 )
 
-def edit_mesh_elements(obj, type='VERT', func=lambda v: True):
-    """Enters edit mode and selects elements of a mesh to be operated on. Returns the number selected."""
+def edit_mesh_elements(obj, type='VERT', indices=None, key=lambda el: True):
+    """Enters edit mode and selects elements of a mesh to be operated on.
+
+    indices: Iterable with the indices of the elements to select. If None, all elements are selected.
+    key: A function can be supplied to determine which elements should be selected.
+
+    Returns the number of elements selected.
+    """
 
     select_only(bpy.context, obj)
     bpy.ops.object.mode_set(mode='EDIT')
@@ -21,19 +27,23 @@ def edit_mesh_elements(obj, type='VERT', func=lambda v: True):
     bpy.ops.mesh.select_mode(type=type)
     bpy.ops.object.mode_set(mode='OBJECT')
 
+    mesh = obj.data
     num_selected = 0
     if type == 'VERT':
-        for vert in obj.data.vertices:
-            vert.select = bool(func(vert))
-            num_selected += vert.select
+        elements = (mesh.vertices if indices is None else (mesh.vertices[i] for i in indices))
     elif type == 'EDGE':
-        for edge in obj.data.edges:
-            edge.select = bool(func(edge))
-            num_selected += edge.select
+        elements = (mesh.edges if indices is None else (mesh.edges[i] for i in indices))
     elif type == 'FACE':
-        for face in obj.data.polygons:
-            face.select = bool(func(face))
-            num_selected += face.select
+        elements = (mesh.polygons if indices is None else (mesh.polygons[i] for i in indices))
+
+    if key:
+        for el in elements:
+            el.select = bool(key(el))
+            num_selected += el.select
+    else:
+        for el in elements:
+            el.select = True
+            num_selected += 1
 
     bpy.ops.object.mode_set(mode='EDIT')
 
@@ -177,7 +187,7 @@ so the edge boundary is preserved."""
         return
     mask_vgroup = obj.vertex_groups[mask_modifier.vertex_group]
 
-    edit_mesh_elements(obj, 'VERT', lambda v: any(vg.group == mask_vgroup.index for vg in v.groups))
+    edit_mesh_elements(obj, 'VERT', key=lambda v: any(vg.group == mask_vgroup.index for vg in v.groups))
     bpy.ops.mesh.select_mode(type='FACE')
     if not mask_modifier.invert_vertex_group:
         bpy.ops.mesh.select_all(action='INVERT')
@@ -245,7 +255,7 @@ def merge_freestyle_edges(obj):
 
     saved_mode = bpy.context.mode
 
-    edit_mesh_elements(obj, 'EDGE', lambda e: e.use_freestyle_mark)
+    edit_mesh_elements(obj, 'EDGE', key=lambda e: e.use_freestyle_mark)
     old_num_verts = len(obj.data.vertices)
     bpy.ops.mesh.remove_doubles(threshold=1e-5, use_unselected=False)
 
@@ -296,7 +306,7 @@ def delete_faces_with_no_material(obj):
 def subdivide_verts_with_bevel_weight(obj, levels):
     saved_mode = bpy.context.mode
 
-    if edit_mesh_elements(obj, 'VERT', lambda v: v.bevel_weight):
+    if edit_mesh_elements(obj, 'VERT', key=lambda v: v.bevel_weight):
         bpy.ops.mesh.separate(type='SELECTED')
 
         bpy.ops.object.mode_set(mode='OBJECT')
