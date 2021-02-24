@@ -225,12 +225,14 @@ class MY_OT_make_collision(bpy.types.Operator):
     thickness: bpy.props.FloatProperty(
         name="Thickness",
         description="Wall thickness",
+        subtype='DISTANCE',
         default=0.2,
         min=0.001,
     )
     offset: bpy.props.FloatProperty(
         name="Offset",
         description="Offset the thickness from the center",
+        subtype='DISTANCE',
         default=-1.0,
         min=-1.0,
         max=1.0,
@@ -246,16 +248,19 @@ class MY_OT_make_collision(bpy.types.Operator):
     box_width: bpy.props.FloatProperty(
         name="Width",
         description="Box width",
+        subtype='DISTANCE',
         min=0.001,
     )
     box_height: bpy.props.FloatProperty(
         name="Height",
         description="Box height",
+        subtype='DISTANCE',
         min=0.001,
     )
     box_depth: bpy.props.FloatProperty(
         name="Depth",
         description="Box depth",
+        subtype='DISTANCE',
         min=0.001,
     )
     box_center: bpy.props.FloatVectorProperty(
@@ -275,16 +280,19 @@ class MY_OT_make_collision(bpy.types.Operator):
     cyl_diameter1: bpy.props.FloatProperty(
         name="Diameter 1",
         description="First cylinder diameter",
+        subtype='DISTANCE',
         min=0.001,
     )
     cyl_diameter2: bpy.props.FloatProperty(
         name="Diameter 2",
         description="Second cylinder diameter",
+        subtype='DISTANCE',
         min=0.001,
     )
     cyl_height: bpy.props.FloatProperty(
         name="Height",
         description="Cylinder height",
+        subtype='DISTANCE',
         min=0.001,
     )
 
@@ -292,11 +300,13 @@ class MY_OT_make_collision(bpy.types.Operator):
     cap_diameter: bpy.props.FloatProperty(
         name="Diameter",
         description="Capsule diameter",
+        subtype='DISTANCE',
         min=0.001,
     )
     cap_depth: bpy.props.FloatProperty(
         name="Depth",
         description="Capsule depth",
+        subtype='DISTANCE',
         min=0.001,
     )
     cap_rotation: bpy.props.FloatVectorProperty(
@@ -310,6 +320,7 @@ class MY_OT_make_collision(bpy.types.Operator):
     sph_diameter: bpy.props.FloatProperty(
         name="Diameter",
         description="Sphere diameter",
+        subtype='DISTANCE',
         min=0.001,
     )
 
@@ -689,6 +700,7 @@ A collection is created where meshes can be added to cut through the walls."""
     thickness: bpy.props.FloatProperty(
         name="Thickness",
         description="Wall thickness",
+        subtype='DISTANCE',
         default=0.2,
         min=0.001,
     )
