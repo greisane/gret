@@ -14,6 +14,8 @@ import sys
 
 module_names = [
     'helpers',
+    'math_helpers',
+    'mesh_helpers',
     'export',
     'scene_export',
     'rig_export',
