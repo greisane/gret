@@ -368,7 +368,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
 class MY_PT_export_jobs(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = "My Tools"
+    bl_category = "Jobs"
     bl_label = "Export Jobs"
 
     def draw(self, context):
