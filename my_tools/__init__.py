@@ -19,6 +19,7 @@ module_names = [
     'rig_export',
     'character_tools',
     'action_tools',
+    'collision_tools',
     'scene_tools',
     'texture_bake',
 ]
