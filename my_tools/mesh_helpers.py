@@ -321,3 +321,27 @@ def subdivide_verts_with_bevel_weight(obj, levels):
         bpy.ops.object.join()
 
     bpy.ops.object.mode_set(mode=saved_mode)
+
+def bmesh_blur_vertex_group(bm, vertex_group_index, distance, power=1.0):
+    if distance <= 0.0:
+        return
+
+    bm.verts.layers.deform.verify()
+    deform_layer = bm.verts.layers.deform.active
+    def get_weight(vert):
+        return vert[deform_layer].get(vertex_group_index, 0.0)
+    def set_weight(vert, value):
+        vert[deform_layer][vertex_group_index] = value
+
+    openset = [v for v in bm.verts if get_weight(v)]
+    while openset:
+        vert = openset.pop()
+        w = get_weight(vert)
+        for edge in vert.link_edges:
+            other_vert = edge.other_vert(vert)
+            other_vert_w = w - edge.calc_length() / distance
+            if other_vert_w > 0.0:
+                other_vert_w **= power
+                if other_vert_w > get_weight(other_vert):
+                    set_weight(other_vert, other_vert_w)
+                    openset.append(other_vert)
