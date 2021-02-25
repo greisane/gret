@@ -526,7 +526,7 @@ def levenshtein_distance(string1, string2):
     return 1 + min(l1, l2, l3)
 
 def remove_extra_data(obj):
-    """Removes all data from a mesh object, except for the mesh itself"""
+    """Removes all data from a mesh object, except for the mesh itself."""
 
     obj.vertex_groups.clear()
     obj.shape_key_clear()
@@ -542,6 +542,22 @@ def remove_extra_data(obj):
             mesh.vertex_colors.remove(mesh.vertex_colors.active)
         while mesh.uv_layers.active:
             mesh.uv_layers.remove(mesh.uv_layers.active)
+
+def link_properties(from_obj, from_data_path, to_obj, to_data_path, invert=False):
+    """Creates a simple driver linking properties between two objects."""
+
+    if not to_obj.animation_data:
+        to_obj.animation_data_create()
+    fc = to_obj.driver_add(to_data_path)
+    fc.driver.expression = '1 - var' if invert else 'var'
+    fc.driver.type = 'SCRIPTED'
+    fc.driver.use_self = True
+    var = fc.driver.variables.new()
+    var.name = 'var'
+    var.type = 'SINGLE_PROP'
+    tgt = var.targets[0]
+    tgt.data_path = from_data_path
+    tgt.id = from_obj
 
 def make_annotations(cls):
     """Converts class fields to annotations if running Blender 2.8."""

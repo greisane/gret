@@ -7,6 +7,7 @@ from .mesh_helpers import (
     edit_mesh_elements,
 )
 from .helpers import (
+    link_properties,
     load_selection,
     save_selection,
 )
@@ -450,6 +451,9 @@ class MY_OT_graft(bpy.types.Operator):
                 mask_mod = self.new_modifier(dst_obj, name=mask_vg.name, type='MASK')
                 mask_mod.vertex_group = mask_vg.name
                 mask_mod.invert_vertex_group = True
+                mod_dp = f'modifiers["{mask_mod.name}"]'
+                # Can't create a hide_viewport driver for reasons
+                link_properties(obj, 'hide_render', dst_obj, mod_dp + '.show_render', invert=True)
 
         return {'FINISHED'}
 
