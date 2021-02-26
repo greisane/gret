@@ -272,7 +272,8 @@ All faces from all objects assigned to the active material are assumed to contri
         size = bake.size
 
         # Collect all the objects that share this material
-        objs = [o for o in context.scene.objects if mat.name in o.data.materials]
+        objs = [o for o in context.scene.objects if
+            o.type == 'MESH' and o.data.uv_layers.active and mat.name in o.data.materials]
         show_only(context, objs)
         select_only(context, objs)
 
