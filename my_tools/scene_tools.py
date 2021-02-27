@@ -1,3 +1,4 @@
+from itertools import dropwhile
 import bmesh
 import bpy
 import math
@@ -248,6 +249,12 @@ class MY_OT_graft(bpy.types.Operator):
         default=0,
         min=0,
     )
+    cuts: bpy.props.IntProperty(
+        name="Number of Cuts",
+        description="Number of cuts",
+        default=0,
+        min=0,
+    )
     transfer_normals: bpy.props.BoolProperty(
         name="Transfer Normals",
         description="Transfer custom normals",
@@ -388,8 +395,14 @@ class MY_OT_graft(bpy.types.Operator):
             bm.edges.index_update()
 
             try:
-                new_faces = bmesh.ops.bridge_loops(bm, edges=edges1+edges2, use_pairs=False,
-                    use_cyclic=False, use_merge=False, merge_factor=0.5, twist_offset=0)['faces']
+                ret = bmesh.ops.bridge_loops(bm, edges=edges1+edges2, use_pairs=False,
+                    use_cyclic=False, use_merge=False, merge_factor=0.5, twist_offset=0)
+                new_faces = ret['faces']
+                if self.cuts:
+                    ret = bmesh.ops.subdivide_edges(bm, edges=ret['edges'], smooth=1.0,
+                        smooth_falloff='LINEAR', cuts=self.cuts)
+                    new_faces = list(dropwhile(lambda el: not isinstance(el, bmesh.types.BMFace),
+                        ret['geom']))
             except RuntimeError:
                 bm.free()
                 self.report({'ERROR'}, f"Couldn't bridge edge loops.")
@@ -472,6 +485,7 @@ class MY_OT_graft(bpy.types.Operator):
         layout = self.layout
 
         layout.prop(self, 'expand')
+        layout.prop(self, 'cuts')
         layout.prop(self, 'create_mask')
 
         layout.separator()

@@ -280,7 +280,7 @@ All faces from all objects assigned to the active material are assumed to contri
         log(f"Baking {mat.name} with {len(objs)} contributing objects")
         logger.log_indent += 1
 
-        # Explode objects
+        # Explode objects. Not strictly necessary anymore since AO node has only_local flag
         for obj_idx, obj in enumerate(objs):
             self.saved_transforms[obj] = obj.matrix_world.copy()
             obj.matrix_world = Matrix.Translation((100.0 * obj_idx, 0.0, 0.0))
