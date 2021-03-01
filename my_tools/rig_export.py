@@ -54,6 +54,7 @@ def export_autorig(context, filepath, actions):
         add_ik_bones = False
     elif len(ik_bones_not_found) == len(ik_bone_names):
         # No IK bones present, let ARP create them
+        log("IK bones will be created")
         add_ik_bones = True
     else:
         # Only some IK bones found. Probably a mistake
@@ -79,6 +80,7 @@ def export_autorig(context, filepath, actions):
     scn.arp_ue_root_motion = True
     scn.arp_rename_for_ue = True
     scn.arp_ue_ik = add_ik_bones
+    scn.arp_ue_ik_anim = False  # This only works with arp_ue_ik. I patched ARP to address this
     scn.arp_mannequin_axes = True
 
     # Animation
@@ -86,7 +88,9 @@ def export_autorig(context, filepath, actions):
         scn.arp_bake_actions = False
     else:
         scn.arp_bake_actions = True
-        scn.arp_export_name_actions = True
+        scn.arp_bake_only_active = False
+        scn.arp_only_containing = True
+        scn.arp_frame_range_type = 'FULL'
         scn.arp_export_name_string = ','.join(action.name for action in actions)
         scn.arp_simplify_fac = 0.0
 
@@ -97,6 +101,7 @@ def export_autorig(context, filepath, actions):
     scn.arp_fix_fbx_rot = True
     scn.arp_fix_fbx_matrix = True
     scn.arp_init_fbx_rot = False
+    scn.arp_init_fbx_rot_mesh = False
     scn.arp_bone_axis_primary_export = 'Y'
     scn.arp_bone_axis_secondary_export = 'X'
     scn.arp_export_rig_name = 'root'
@@ -130,7 +135,9 @@ def export_autorig_universal(context, filepath, actions):
         scn.arp_bake_actions = False
     else:
         scn.arp_bake_actions = True
-        scn.arp_export_name_actions = True
+        scn.arp_bake_only_active = False
+        scn.arp_only_containing = True
+        scn.arp_frame_range_type = 'FULL'
         scn.arp_export_name_string = ','.join(action.name for action in actions)
         scn.arp_simplify_fac = 0.0
 
@@ -141,6 +148,7 @@ def export_autorig_universal(context, filepath, actions):
     scn.arp_fix_fbx_rot = True
     scn.arp_fix_fbx_matrix = True
     scn.arp_init_fbx_rot = False
+    scn.arp_init_fbx_rot_mesh = False
     scn.arp_bone_axis_primary_export = 'Y'
     scn.arp_bone_axis_secondary_export = 'X'
     scn.arp_export_rig_name = 'root'
@@ -749,17 +757,21 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
 
                 if is_object_arp_humanoid(rig):
                     log(f"Exporting {filename} via Auto-Rig export")
+                    logger.log_indent += 1
                     result = export_autorig(context, filepath, [], no_intercept=self.debug)
                 elif is_object_arp(rig):
                     log(f"Exporting {filename} via Auto-Rig export (universal)")
+                    logger.log_indent += 1
                     result = export_autorig_universal(context, filepath, [], no_intercept=self.debug)
                 else:
                     # Temporarily rename the armature as it's the root bone itself
                     saved_rig_name = rig.name
                     rig.name = "root"
                     log(f"Exporting {filename}")
+                    logger.log_indent += 1
                     result = export_fbx(context, filepath, [], no_intercept=self.debug)
                     rig.name = saved_rig_name
+                logger.log_indent -= 1
 
                 if result == {'FINISHED'}:
                     self.exported_files.append(filepath)
