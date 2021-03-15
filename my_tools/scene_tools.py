@@ -1,4 +1,4 @@
-from itertools import dropwhile
+from itertools import dropwhile, chain
 import bmesh
 import bpy
 import math
@@ -341,7 +341,7 @@ class MY_OT_graft(bpy.types.Operator):
             # Push the boundary into the destination mesh and get the boolean intersection
             # Use fast since exact solver demands the object is manifold. Might need to close holes
             saved_active_modifiers = []
-            for mod in obj.modifiers:
+            for mod in chain(obj.modifiers, dst_obj.modifiers):
                 if mod.show_viewport:
                     mod.show_viewport = False
                     saved_active_modifiers.append(mod)
@@ -360,8 +360,6 @@ class MY_OT_graft(bpy.types.Operator):
             bool_bm.from_object(obj, dg)
             obj.modifiers.remove(bool_mod)
             obj.modifiers.remove(wrap_mod)
-            while saved_active_modifiers:
-                saved_active_modifiers.pop().show_viewport = True
 
             # Because the result of the boolean operation mostly matches the destination geometry,
             # all that's needed is finding those same faces in the original mesh
@@ -372,7 +370,11 @@ class MY_OT_graft(bpy.types.Operator):
                 if result:
                     if (dst_mesh.polygons[face_idx].center - p).length_squared <= 0.05:
                         intersecting_face_indices.append(face_idx)
+
+            while saved_active_modifiers:
+                saved_active_modifiers.pop().show_viewport = True
             bool_bm.free()
+
             if not intersecting_face_indices:
                 bm.free()
                 self.report({'ERROR'}, f"No intersection found between the objects.")
