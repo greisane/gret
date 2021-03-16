@@ -1,4 +1,5 @@
 from itertools import dropwhile, chain
+from mathutils import Vector
 import bmesh
 import bpy
 import math
@@ -505,6 +506,92 @@ class MY_OT_graft(bpy.types.Operator):
         row.prop(self, 'normal_blend_distance', text="Dist.")
         row.prop(self, 'normal_blend_power', text="Power")
 
+class MY_OT_strap_add(bpy.types.Operator):
+    #tooltip
+    """Construct a strap mesh wrapping around the selected object"""
+
+    bl_idname = 'mesh.strap_add'
+    bl_label = "Add Strap"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    width: bpy.props.FloatProperty(
+        name="Width",
+        description="Strap width",
+        subtype='DISTANCE',
+        default=0.2,
+        min=0.0,
+    )
+    thickness: bpy.props.FloatProperty(
+        name="Thickness",
+        description="Strap thickness",
+        subtype='DISTANCE',
+        default=0.0,
+        min=0.0,
+    )
+    offset: bpy.props.FloatProperty(
+        name="Offset",
+        description="Distance to keep from the target",
+        subtype='DISTANCE',
+        default=0.03,
+    )
+    subdivisions: bpy.props.IntProperty(
+        name="Subdivisions",
+        description="Subdivision level",
+        subtype='DISTANCE',
+        default=1,
+        min=0,
+    )
+    # Disallow smooth because it looks bad with thickness 0 and weld isn't working right
+    # use_smooth_shade: bpy.props.BoolProperty(
+    #     name="Smooth Shade",
+    #     description="Output faces with smooth shading rather than flat shaded",
+    #     default=False,
+    # )
+
+    def execute(self, context):
+        target_obj = context.active_object
+
+        mesh = bpy.data.meshes.new("Strap")
+        vertices = [Vector(), Vector((1.0, 0.0, 0.0))]
+        edges = [(0, 1)]
+        mesh.from_pydata(vertices, edges, [])
+        mesh.update()
+        obj = bpy.data.objects.new("Strap", mesh)
+        obj.location = context.scene.cursor.location
+        context.collection.objects.link(obj)
+        context.view_layer.objects.active = obj
+
+        vgroup = obj.vertex_groups.new(name="_shrinkwrap")
+        vgroup.add(range(len(vertices)), 1.0, 'REPLACE')
+        mod = obj.modifiers.new(type='SHRINKWRAP', name="Shrinkwrap")
+        mod.wrap_method = 'TARGET_PROJECT' # 'NEAREST_SURFACEPOINT'
+        mod.wrap_mode = 'OUTSIDE'
+        mod.target = target_obj
+        mod.offset = self.thickness + self.offset
+        mod.show_in_editmode = True
+        mod.show_on_cage = True
+        mod.vertex_group = vgroup.name
+
+        mod = obj.modifiers.new(type='SUBSURF', name="Subdivision")
+        mod.levels = self.subdivisions
+        mod.render_levels = self.subdivisions
+        mod.show_in_editmode = True
+        mod.show_on_cage = True
+
+        mod = obj.modifiers.new(type='SKIN', name="Skin")
+        mod.use_x_symmetry = False
+        mod.use_smooth_shade = False # self.use_smooth_shade
+        mod.show_in_editmode = True
+        mod.show_on_cage = True
+        for skin_vert in mesh.skin_vertices[0].data:
+            skin_vert.radius = (self.thickness, self.width)
+
+        # Weld to produce a single sheet when thickness is 0
+        # Disabled since the weld modifier isn't consistent about the resulting normals
+        # mod = obj.modifiers.new(type='WELD', name="Weld")
+
+        return {'FINISHED'}
+
 class MY_PT_scene_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -512,7 +599,6 @@ class MY_PT_scene_tools(bpy.types.Panel):
     bl_label = "Scene Tools"
 
     def draw(self, context):
-        me = context.scene.my_tools
         obj = context.active_object
         layout = self.layout
 
@@ -532,13 +618,25 @@ classes = (
     MY_OT_graft,
     MY_OT_replace_references,
     MY_OT_setup_wall,
+    MY_OT_strap_add,
     MY_PT_scene_tools,
 )
+
+def mesh_menu_draw_func(self, context):
+    layout = self.layout
+    layout.operator_context = 'INVOKE_REGION_WIN'
+
+    layout.separator()
+    layout.operator("mesh.strap_add", icon='MOD_SKIN', text="Strap")
 
 def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
 
+    bpy.types.VIEW3D_MT_mesh_add.append(mesh_menu_draw_func)
+
 def unregister():
+    bpy.types.VIEW3D_MT_mesh_add.remove(mesh_menu_draw_func)
+
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
