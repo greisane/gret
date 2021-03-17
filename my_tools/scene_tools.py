@@ -546,13 +546,19 @@ class MY_OT_strap_add(bpy.types.Operator):
         description="Output faces with smooth shading rather than flat shaded",
         default=False,
     )
+    use_snap_to_surface: bpy.props.BoolProperty(
+        name="Snap To Surface",
+        description="Completely snap to surface. Otherwise only inside points get pushed out",
+        default=False,
+    )
 
     def execute(self, context):
         target_obj = context.active_object
 
         mesh = bpy.data.meshes.new("Strap")
-        vertices = [Vector(), Vector((1.0, 0.0, 0.0))]
-        edges = [(0, 1)]
+        v = Vector((0.1, 0.0, 0.0))
+        vertices = [v * 0, v * 1, v * 2, v * 3]
+        edges = [(0, 1), (1, 2), (2, 3)]
         mesh.from_pydata(vertices, edges, [])
         mesh.update()
         obj = bpy.data.objects.new("Strap", mesh)
@@ -560,16 +566,13 @@ class MY_OT_strap_add(bpy.types.Operator):
         context.collection.objects.link(obj)
         context.view_layer.objects.active = obj
 
-        vgroup = obj.vertex_groups.new(name="_shrinkwrap")
-        vgroup.add(range(len(vertices)), 1.0, 'REPLACE')
         mod = obj.modifiers.new(type='SHRINKWRAP', name="Shrinkwrap")
-        mod.wrap_method = 'TARGET_PROJECT' # 'NEAREST_SURFACEPOINT'
-        mod.wrap_mode = 'OUTSIDE'
+        mod.wrap_method = 'TARGET_PROJECT'
+        mod.wrap_mode = 'OUTSIDE_SURFACE' if self.use_snap_to_surface else 'OUTSIDE'
         mod.target = target_obj
         mod.offset = self.thickness + self.offset
         mod.show_in_editmode = True
         mod.show_on_cage = True
-        mod.vertex_group = vgroup.name
 
         mod = obj.modifiers.new(type='SUBSURF', name="Subdivision")
         mod.levels = self.subdivisions
