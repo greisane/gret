@@ -518,14 +518,14 @@ class MY_OT_strap_add(bpy.types.Operator):
         name="Width",
         description="Strap width",
         subtype='DISTANCE',
-        default=0.2,
+        default=0.05,
         min=0.0,
     )
     thickness: bpy.props.FloatProperty(
         name="Thickness",
         description="Strap thickness",
         subtype='DISTANCE',
-        default=0.0,
+        default=0.01,
         min=0.0,
     )
     offset: bpy.props.FloatProperty(
@@ -541,12 +541,11 @@ class MY_OT_strap_add(bpy.types.Operator):
         default=1,
         min=0,
     )
-    # Disallow smooth because it looks bad with thickness 0 and weld isn't working right
-    # use_smooth_shade: bpy.props.BoolProperty(
-    #     name="Smooth Shade",
-    #     description="Output faces with smooth shading rather than flat shaded",
-    #     default=False,
-    # )
+    use_smooth_shade: bpy.props.BoolProperty(
+        name="Smooth Shade",
+        description="Output faces with smooth shading rather than flat shaded",
+        default=False,
+    )
 
     def execute(self, context):
         target_obj = context.active_object
@@ -580,14 +579,15 @@ class MY_OT_strap_add(bpy.types.Operator):
 
         mod = obj.modifiers.new(type='SKIN', name="Skin")
         mod.use_x_symmetry = False
-        mod.use_smooth_shade = False # self.use_smooth_shade
+        # Smooth shade looks wrong with no thickness
+        mod.use_smooth_shade = False if self.thickness <= 0.0 else self.use_smooth_shade
         mod.show_in_editmode = True
         mod.show_on_cage = True
         for skin_vert in mesh.skin_vertices[0].data:
             skin_vert.radius = (self.thickness, self.width)
 
-        # Weld to produce a single sheet when thickness is 0
-        # Disabled since the weld modifier isn't consistent about the resulting normals
+        # Ideally there would be a weld modifier here when thickness is 0
+        # However it isn't consistent about the resulting normals and the faces get flipped around
         # mod = obj.modifiers.new(type='WELD', name="Weld")
 
         return {'FINISHED'}
@@ -627,7 +627,7 @@ def mesh_menu_draw_func(self, context):
     layout.operator_context = 'INVOKE_REGION_WIN'
 
     layout.separator()
-    layout.operator("mesh.strap_add", icon='MOD_SKIN', text="Strap")
+    layout.operator("mesh.strap_add", icon='EDGESEL', text="Strap")
 
 def register(settings):
     for cls in classes:
