@@ -1,8 +1,8 @@
 from itertools import dropwhile, chain
 from mathutils import Vector
+from math import sin, cos, pi
 import bmesh
 import bpy
-import math
 import re
 from .mesh_helpers import (
     bmesh_blur_vertex_group,
@@ -440,7 +440,7 @@ class MY_OT_graft(bpy.types.Operator):
                 mod.data_types_loops = {'CUSTOM_NORMAL'}
                 mod.loop_mapping = 'POLYINTERP_NEAREST'
                 obj.data.use_auto_smooth = True
-                obj.data.auto_smooth_angle = math.pi
+                obj.data.auto_smooth_angle = pi
                 bpy.ops.mesh.customdata_custom_splitnormals_clear(ctx)
                 bpy.ops.object.modifier_apply(ctx, modifier=mod.name)
 
@@ -537,7 +537,6 @@ class MY_OT_strap_add(bpy.types.Operator):
     subdivisions: bpy.props.IntProperty(
         name="Subdivisions",
         description="Subdivision level",
-        subtype='DISTANCE',
         default=1,
         min=0,
     )
@@ -561,6 +560,7 @@ class MY_OT_strap_add(bpy.types.Operator):
         edges = [(0, 1), (1, 2), (2, 3)]
         mesh.from_pydata(vertices, edges, [])
         mesh.update()
+
         obj = bpy.data.objects.new("Strap", mesh)
         obj.location = context.scene.cursor.location
         context.collection.objects.link(obj)
@@ -595,6 +595,140 @@ class MY_OT_strap_add(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class MY_OT_rope_add(bpy.types.Operator):
+    #tooltip
+    """Construct a rope mesh following the selected curve"""
+
+    bl_idname = 'mesh.rope_add'
+    bl_label = "Add Rope"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    number_of_rows: bpy.props.IntProperty(
+        name="Number of Rows",
+        description="Number of rows",
+        default=10,
+        min=1,
+    )
+    number_of_cuts: bpy.props.IntProperty(
+        name="Number of Cuts",
+        description="Number of cuts for each row",
+        default=2,
+        min=0,
+    )
+    radius: bpy.props.FloatProperty(
+        name="Radius",
+        description="Rope radius",
+        subtype='DISTANCE',
+        default=0.05,
+        min=0.0,
+    )
+    row_height: bpy.props.FloatProperty(
+        name="Row Height",
+        description="Height of each row",
+        subtype='DISTANCE',
+        default=0.1,
+        min=0.0,
+    )
+    depth: bpy.props.FloatProperty(
+        name="Depth",
+        description="Depth of the groove",
+        subtype='DISTANCE',
+        default=0.01,
+        min=0.0,
+    )
+    spread: bpy.props.FloatProperty(
+        name="Spread",
+        description="Width ratio of the groove",
+        default=0.2,
+        min=0.0,
+        max=1.0,
+    )
+    subdivisions: bpy.props.IntProperty(
+        name="Subdivisions",
+        description="Subdivision level",
+        default=1,
+        min=0,
+    )
+    use_smooth_shade: bpy.props.BoolProperty(
+        name="Smooth Shade",
+        description="Output faces with smooth shading rather than flat shaded",
+        default=True,
+    )
+
+    def execute(self, context):
+        target_obj = context.object if context.object and context.object.type == 'CURVE' else None
+
+        mesh = bpy.data.meshes.new("Rope")
+        theta = pi/4 * (1.0 - self.spread)  # [45..0] degrees for spread [0..1]
+        r0 = self.radius - self.depth
+        r1 = self.radius
+        vertices = [
+            Vector((cos(0.0) * r0, sin(0.0) * r0, 0.0)),
+            Vector((cos(pi/4 - theta) * r1, sin(pi/4 - theta) * r1, 0.0)),
+            Vector((cos(pi/4) * r1, sin(pi/4) * r1, 0.0)),
+            Vector((cos(pi/4 + theta) * r1, sin(pi/4 + theta) * r1, 0.0)),
+            Vector((cos(pi/2) * r0, sin(pi/2) * r0, 0.0)),
+        ]
+        faces = [(n, n+1, n+1+len(vertices), n+len(vertices)) for n in range(4)]
+        cut_height = self.row_height / (self.number_of_cuts + 1)
+        vertices.extend([Vector((v.x, v.y, cut_height)) for v in vertices])
+        mesh.from_pydata(vertices, [], faces)
+        for face in mesh.polygons:
+            face.use_smooth = self.use_smooth_shade
+        mesh.use_customdata_edge_crease = True
+        mesh.use_auto_smooth = True
+        mesh.auto_smooth_angle = pi
+        for edge in (mesh.edges[4], mesh.edges[8]):
+            edge.use_edge_sharp = True
+            edge.crease = 1.0
+        mesh.update()
+
+        obj = bpy.data.objects.new("Rope", mesh)
+        if target_obj:
+            # Snap to the target curve so that the curve modifier works as expected
+            obj.location = target_obj.location
+        else:
+            obj.location = context.scene.cursor.location
+        context.collection.objects.link(obj)
+        context.view_layer.objects.active = obj
+
+        mod = obj.modifiers.new(type='MIRROR', name="Mirror")
+        mod.use_axis = [True, True, False]
+        mod.use_clip = True
+        mod.merge_threshold = 1e-5
+
+        mod = obj.modifiers.new(type='ARRAY', name="Array")
+        mod.count = self.number_of_cuts + 1
+        mod.relative_offset_displace = [0.0, 0.0, 1.0]
+        mod.use_merge_vertices = True
+        mod.merge_threshold = 1e-5
+
+        mod = obj.modifiers.new(type='SIMPLE_DEFORM', name="SimpleDeform")
+        mod.deform_method = 'TWIST'
+        mod.angle = pi/2
+        mod.deform_axis = 'Z'
+
+        mod = obj.modifiers.new(type='ARRAY', name="Array")
+        mod.count = self.number_of_rows
+        mod.relative_offset_displace = [0.0, 0.0, 1.0]
+        mod.use_merge_vertices = True
+        mod.merge_threshold = 1e-5
+
+        mod = obj.modifiers.new(type='CURVE', name="Curve")
+        mod.object = target_obj
+        mod.deform_axis = 'POS_Z'
+
+        mod = obj.modifiers.new(type='WELD', name="Weld")
+        mod.show_viewport = mod.show_render = bool(target_obj and target_obj.data.splines.active
+            and target_obj.data.splines.active.use_cyclic_u)  # Only weld if it's a cyclic curve
+        mod.merge_threshold = 1e-5
+
+        mod = obj.modifiers.new(type='SUBSURF', name="Subdivision")
+        mod.levels = self.subdivisions
+        mod.render_levels = self.subdivisions
+
+        return {'FINISHED'}
+
 class MY_PT_scene_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -622,6 +756,7 @@ classes = (
     MY_OT_replace_references,
     MY_OT_setup_wall,
     MY_OT_strap_add,
+    MY_OT_rope_add,
     MY_PT_scene_tools,
 )
 
@@ -631,6 +766,7 @@ def mesh_menu_draw_func(self, context):
 
     layout.separator()
     layout.operator("mesh.strap_add", icon='EDGESEL', text="Strap")
+    layout.operator("mesh.rope_add", icon='MOD_SCREW', text="Rope")
 
 def register(settings):
     for cls in classes:

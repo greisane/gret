@@ -18,7 +18,7 @@ from .helpers import (
 # make_collision TODO:
 # - When creating collision from vertices, sometimes the result is offset
 # - Multiple objects. Should take away the shape properties and leave only the type
-# - Non-AABB boxes
+# - Non-axis aligned boxes
 # - Symmetrize for convex isn't good
 # - Wall collision should try to decompose into boxes
 
