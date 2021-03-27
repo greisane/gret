@@ -666,9 +666,9 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
     )
     what: bpy.props.EnumProperty(
         items=[
-            ('SCENE', "Scene", "Scene objects.", 'SCENE_DATA', 0),
-            ('RIG', "Rig", "Armature and meshes.", 'ARMATURE_DATA', 1),
-            ('ANIMATION', "Animation", "Armature animation only.", 'ANIM', 2),
+            ('SCENE', "Scene", "Scene objects", 'SCENE_DATA', 0),
+            ('RIG', "Rig", "Armature and meshes", 'ARMATURE_DATA', 1),
+            ('ANIMATION', "Animation", "Armature animation only", 'ANIM', 2),
         ],
         name="Export Type",
         description="What to export",
