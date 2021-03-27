@@ -182,11 +182,9 @@ class RBF:
     def thin_plate(cls, matrix, radius):
         result = matrix / radius
         result *= matrix
-
         np.warnings.filterwarnings("ignore")
         result = np.where(result > 0, np.log(result), result)
         np.warnings.filterwarnings("always")
-
         return result
 
     @classmethod
@@ -209,10 +207,10 @@ class RBF:
         return result
 
     @classmethod
-    def get_weight_matrix(cls, src_pts, tgt_pts, rbf, radius):
+    def get_weight_matrix(cls, src_pts, dst_pts, rbf, radius):
         """Get the weight matrix x in Ax=B."""
 
-        assert src_pts.shape == tgt_pts.shape
+        assert src_pts.shape == dst_pts.shape
         num_pts, dim = src_pts.shape
         identity = np.ones((num_pts, 1))
         dist = cls.get_distance_matrix(src_pts, src_pts, rbf, radius)
@@ -222,11 +220,17 @@ class RBF:
             [identity.T, np.zeros((1, 1)), np.zeros((1, dim))],
             [src_pts.T, np.zeros((dim, 1)), np.zeros((dim, dim))],
         ])
-        rhs = np.bmat([[tgt_pts], [np.zeros((1, dim))], [np.zeros((dim, dim))]])
-
-        # weights = np.linalg.solve(H, rhs)
-        Apinv = np.linalg.pinv(H)
-        weights = Apinv.dot(rhs)
+        rhs = np.bmat([[dst_pts], [np.zeros((1, dim))], [np.zeros((dim, dim))]])
+        try:
+            weights = np.linalg.solve(H, rhs)
+        except np.linalg.LinAlgError as err:
+            if 'Singular matrix' in str(err):
+                # While testing the matrix would get close to singular, without a definite solution
+                # Can't reproduce it now, however in such a case try an approximation
+                Hpinv = np.linalg.pinv(H)
+                weights = Hpinv.dot(rhs)
+            else:
+                raise
         return weights
 
     @classmethod

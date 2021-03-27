@@ -410,7 +410,9 @@ class MY_OT_graft(bpy.types.Operator):
 
 class MY_OT_retarget_mesh(bpy.types.Operator):
     #tooltip
-    """Retarget meshes fit on a source mesh to a modified version of the source mesh"""
+    """Retarget meshes fit on a source mesh to a modified version of the source mesh.
+The meshes are expected to share topology and vertex order"""
+    # Note: If vertex order gets messed up, try using an addon like Transfer Vert Order to fix it
 
     bl_idname = 'my_tools.retarget_mesh'
     bl_label = "Retarget Mesh"
@@ -420,7 +422,7 @@ class MY_OT_retarget_mesh(bpy.types.Operator):
         name="Source",
         description="Source mesh that the meshes were originally fit to",
     )
-    target: bpy.props.StringProperty(
+    destination: bpy.props.StringProperty(
         name="Target",
         description="Modified source mesh to retarget to",
     )
@@ -435,7 +437,7 @@ class MY_OT_retarget_mesh(bpy.types.Operator):
         ],
         name="Function",
         description="Radial basis function kernel",
-        default='GAUSSIAN',
+        default='BIHARMONIC',  # Least prone to explode and not too slidy
     )
     radius: bpy.props.FloatProperty(
         name="Radius",
@@ -450,20 +452,25 @@ class MY_OT_retarget_mesh(bpy.types.Operator):
         default=1,
         min=1,
     )
+    as_shapekey: bpy.props.BoolProperty(
+        name="As Shapekey",
+        description="Save the result as a shape key on the mesh",
+        default=False,
+    )
 
     @classmethod
     def poll(cls, context):
-        return context.mode == 'OBJECT'
+        return context.mode == 'OBJECT' and context.selected_objects
 
     def execute(self, context):
-        src_mesh = bpy.data.meshes[self.source]
-        tgt_mesh = bpy.data.meshes[self.target]
-        if len(src_mesh.vertices) != len(tgt_mesh.vertices):
-            self.report({'ERROR'}, "Source and target meshes must have the same amount of vertices.")
-            return {'CANCELLED'}
-        meshes = [obj.data for obj in context.selected_objects if obj.type == 'MESH']
-        if not meshes:
-            self.report({'ERROR'}, "No meshes selected.")
+        objs = context.selected_objects
+        src_mesh = bpy.data.meshes.get(self.source)
+        dst_mesh = bpy.data.meshes.get(self.destination)
+        if not src_mesh or not dst_mesh:
+            # Don't error here so the user can call up the props dialog
+            return {'FINISHED'}
+        if len(src_mesh.vertices) != len(dst_mesh.vertices):
+            self.report({'ERROR'}, "Source and destination meshes must have equal amount of vertices.")
             return {'CANCELLED'}
 
         rbf_kernels = {
@@ -476,18 +483,33 @@ class MY_OT_retarget_mesh(bpy.types.Operator):
         }
         rbf = rbf_kernels.get(self.function, RBF.linear)
         src_pts = get_mesh_points(src_mesh, self.stride)
-        tgt_pts = get_mesh_points(tgt_mesh, self.stride)
-        weights = RBF.get_weight_matrix(src_pts, tgt_pts, rbf, self.radius)
+        dst_pts = get_mesh_points(dst_mesh, self.stride)
+        try:
+            weights = RBF.get_weight_matrix(src_pts, dst_pts, rbf, self.radius)
+        except np.linalg.LinAlgError as err:
+            # Solving for C2 kernel may throw 'SVD did not converge' sometimes
+            self.report({'ERROR'}, "Failed to retarget. Try a different function or change the radius.")
+            return {'CANCELLED'}
 
-        for mesh in meshes:
-            mesh_pts = get_mesh_points(mesh)
+        for obj in objs:
+            if obj.type != 'MESH':
+                continue
+            mesh_pts = get_mesh_points(obj.data)
             num_mesh_pts = mesh_pts.shape[0]
 
             dist = RBF.get_distance_matrix(mesh_pts, src_pts, rbf, self.radius)
             identity = np.ones((num_mesh_pts, 1))
             h = np.bmat([[dist, identity, mesh_pts]])
             new_mesh_pts = np.asarray(np.dot(h, weights))
-            set_mesh_points(mesh, new_mesh_pts)
+
+            if self.as_shapekey:
+                if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:
+                    obj.shape_key_add(name="Basis")
+                shape_key = obj.shape_key_add(name=f"Retarget_{dst_mesh.name}")
+                shape_key.data.foreach_set('co', new_mesh_pts.ravel())
+                shape_key.value = 1.0
+            else:
+                set_mesh_points(obj.data, new_mesh_pts)
 
         return {'FINISHED'}
 
@@ -498,9 +520,7 @@ class MY_OT_retarget_mesh(bpy.types.Operator):
         layout.prop(self, 'function')
         layout.prop(self, 'radius')
         layout.prop(self, 'stride')
-
-    def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self)
+        layout.prop(self, 'as_shapekey')
 
 class MY_PT_scene_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
@@ -511,12 +531,43 @@ class MY_PT_scene_tools(bpy.types.Panel):
     def draw(self, context):
         obj = context.active_object
         layout = self.layout
+        settings = context.scene.my_tools
 
         col = layout.column(align=True)
         col.label(text="Collision:")
         row = col.row(align=True)
         row.operator('my_tools.make_collision', icon='MESH_CUBE', text="Make")
         row.operator('my_tools.assign_collision', text="Assign")
+
+        col = layout.column(align=True)
+        row = col.row(align=False)
+        row.label(text="Retarget Mesh:")
+        row.prop(settings, 'retarget_show_options', icon='SETTINGS', text="")
+
+        if settings.retarget_show_options:
+            sub = col.column(align=False)
+            sub.prop(settings, 'retarget_function', text="")
+            sub.prop(settings, 'retarget_radius')
+            sub.prop(settings, 'retarget_stride')
+            sub.separator()
+
+        row = col.row(align=True)
+        row.prop(settings, 'retarget_src', text="")
+        row.label(text="", icon='FORWARD')
+        row.prop(settings, 'retarget_dst', text="")
+
+        row = col.row(align=True)
+        op1 = row.operator('my_tools.retarget_mesh', icon='CHECKMARK', text="Apply")
+        op2 = row.operator('my_tools.retarget_mesh', icon='SHAPEKEY_DATA', text="Save")
+        if settings.retarget_src and settings.retarget_dst:
+            op1.source = op2.source = settings.retarget_src.data.name
+            op1.destination = op2.destination = settings.retarget_dst.data.name
+            op1.function = op2.function = settings.retarget_function
+            op1.radius = op2.radius = settings.retarget_radius
+            op1.as_shapekey = False
+            op2.as_shapekey = True
+        else:
+            row.active = False
 
         col = layout.column(align=True)
         col.label(text="Other Tools:")
@@ -533,6 +584,28 @@ classes = (
 def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
+
+    settings.add_property('retarget_src', bpy.props.PointerProperty(
+        name="Mesh Retarget Source",
+        description="Source mesh that the meshes were originally fit to",
+        type=bpy.types.Object,
+        poll=lambda self, obj: obj and obj.type == 'MESH',
+    ))
+    settings.add_property('retarget_dst', bpy.props.PointerProperty(
+        name="Mesh Retarget Destination",
+        description="Modified source mesh to retarget to",
+        type=bpy.types.Object,
+        poll=lambda self, obj: obj and obj.type == 'MESH' and obj != self.retarget_src and (
+            not self.retarget_src or len(obj.data.vertices) == len(self.retarget_src.data.vertices))
+    ))
+    settings.add_property('retarget_function', MY_OT_retarget_mesh.__annotations__['function'])
+    settings.add_property('retarget_radius', MY_OT_retarget_mesh.__annotations__['radius'])
+    settings.add_property('retarget_stride', MY_OT_retarget_mesh.__annotations__['stride'])
+    settings.add_property('retarget_show_options', bpy.props.BoolProperty(
+        name="Configure",
+        description="Show retargeting options",
+        default=False,
+    ))
 
 def unregister():
     for cls in reversed(classes):

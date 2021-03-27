@@ -210,10 +210,10 @@ bakers = {
 }
 
 bake_items = [
-    ('NONE', "None", "Nothing."),
-    ('AO', "AO", "Ambient occlusion."),
-    ('BEVEL', "Bevel", "Bevel mask, similar to curvature."),
-    ('CURVATURE', "Curvature", "Curvature, centered on gray."),
+    ('NONE', "None", "Nothing"),
+    ('AO', "AO", "Ambient occlusion"),
+    ('BEVEL', "Bevel", "Bevel mask, similar to curvature"),
+    ('CURVATURE', "Curvature", "Curvature, centered on gray"),
 ]
 
 class MY_OT_bake(bpy.types.Operator):
