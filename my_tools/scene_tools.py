@@ -422,7 +422,6 @@ class MY_PT_scene_tools(bpy.types.Panel):
 
         col = layout.column(align=True)
         col.label(text="Other Tools:")
-        col.operator('my_tools.setup_wall', icon='MOD_BUILD')
         col.operator('my_tools.graft', icon='MOD_BOOLEAN')
 
 classes = (
