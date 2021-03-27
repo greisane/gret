@@ -9,7 +9,6 @@ from .mesh_helpers import (
     bmesh_blur_vertex_group,
     edit_mesh_elements,
     get_mesh_points,
-    set_mesh_points,
 )
 from .helpers import (
     link_properties,
