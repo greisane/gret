@@ -163,3 +163,75 @@ def fit_curve(points, num_segments, polydeg=3, max_iter=20):
 
     step = len(f_uu) // (num_segments + 1) + 1
     return f_uu[::step]
+
+class RBF:
+    """Radial basis function kernels and helpers."""
+    # Based on https://github.com/chadmv/cmt/blob/master/scripts/cmt/rig/meshretarget.py
+    # Which in turn references http://mathlab.github.io/PyGeM/_modules/pygem/radial.html#RBF
+
+    @classmethod
+    def linear(cls, matrix, radius):
+        return matrix
+
+    @classmethod
+    def gaussian(cls, matrix, radius):
+        result = np.exp(-(matrix * matrix) / (radius * radius))
+        return result
+
+    @classmethod
+    def thin_plate(cls, matrix, radius):
+        result = matrix / radius
+        result *= matrix
+
+        np.warnings.filterwarnings("ignore")
+        result = np.where(result > 0, np.log(result), result)
+        np.warnings.filterwarnings("always")
+
+        return result
+
+    @classmethod
+    def multi_quadratic_biharmonic(cls, matrix, radius):
+        result = np.sqrt((matrix * matrix) + (radius * radius))
+        return result
+
+    @classmethod
+    def inv_multi_quadratic_biharmonic(cls, matrix, radius):
+        result = 1.0 / (np.sqrt((matrix * matrix) + (radius * radius)))
+        return result
+
+    @classmethod
+    def beckert_wendland_c2_basis(cls, matrix, radius):
+        arg = matrix / radius
+        first = np.zeros(matrix.shape)
+        first = np.where(1 - arg > 0, np.power(1 - arg, 4), first)
+        second = (4 * arg) + 1
+        result = first * second
+        return result
+
+    @classmethod
+    def get_weight_matrix(cls, src_pts, tgt_pts, rbf, radius):
+        """Get the weight matrix x in Ax=B."""
+
+        assert src_pts.shape == tgt_pts.shape
+        num_pts, dim = src_pts.shape
+        identity = np.ones((num_pts, 1))
+        dist = cls.get_distance_matrix(src_pts, src_pts, rbf, radius)
+        # Solve x for Ax=B
+        H = np.bmat([
+            [dist, identity, src_pts],
+            [identity.T, np.zeros((1, 1)), np.zeros((1, dim))],
+            [src_pts.T, np.zeros((dim, 1)), np.zeros((dim, dim))],
+        ])
+        rhs = np.bmat([[tgt_pts], [np.zeros((1, dim))], [np.zeros((dim, dim))]])
+
+        # weights = np.linalg.solve(H, rhs)
+        Apinv = np.linalg.pinv(H)
+        weights = Apinv.dot(rhs)
+        return weights
+
+    @classmethod
+    def get_distance_matrix(cls, v1, v2, rbf, radius):
+        # numpy alternative to scipy.spatial.distance.cdist(v1, v2, 'euclidean')
+        matrix = v1[:, np.newaxis, :] - v2[np.newaxis, :, :]
+        matrix = np.linalg.norm(matrix, axis=-1)
+        return rbf(matrix, radius)

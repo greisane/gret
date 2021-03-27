@@ -2,10 +2,14 @@ from itertools import dropwhile, chain
 from math import pi
 import bmesh
 import bpy
+import numpy as np
 import re
+from .math_helpers import RBF
 from .mesh_helpers import (
     bmesh_blur_vertex_group,
     edit_mesh_elements,
+    get_mesh_points,
+    set_mesh_points,
 )
 from .helpers import (
     link_properties,
@@ -404,6 +408,100 @@ class MY_OT_graft(bpy.types.Operator):
         row.prop(self, 'normal_blend_distance', text="Dist.")
         row.prop(self, 'normal_blend_power', text="Power")
 
+class MY_OT_retarget_mesh(bpy.types.Operator):
+    #tooltip
+    """Retarget meshes fit on a source mesh to a modified version of the source mesh"""
+
+    bl_idname = 'my_tools.retarget_mesh'
+    bl_label = "Retarget Mesh"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    source: bpy.props.StringProperty(
+        name="Source",
+        description="Source mesh that the meshes were originally fit to",
+    )
+    target: bpy.props.StringProperty(
+        name="Target",
+        description="Modified source mesh to retarget to",
+    )
+    function: bpy.props.EnumProperty(
+        items=[
+            ('LINEAR', "Linear", "Linear function"),
+            ('GAUSSIAN', "Gaussian", "Gaussian function"),
+            ('PLATE', "Thin Plate", "Thin plate function"),
+            ('BIHARMONIC', "Biharmonic", "Multi quadratic biharmonic"),
+            ('INV_BIHARMONIC', "Inverse Biharmonic", "Inverse multi quadratic biharmonic"),
+            ('C2', "C2", "Beckert-Wendland C2 basis"),
+        ],
+        name="Function",
+        description="Radial basis function kernel",
+        default='GAUSSIAN',
+    )
+    radius: bpy.props.FloatProperty(
+        name="Radius",
+        description="Smoothing parameter for the radial basis function",
+        subtype='DISTANCE',
+        default=0.5,
+        min=0.0,
+    )
+    stride: bpy.props.IntProperty(
+        name="Stride",
+        description="Increase vertex sampling stride to reduce accuracy and speed up calculation",
+        default=1,
+        min=1,
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'OBJECT'
+
+    def execute(self, context):
+        src_mesh = bpy.data.meshes[self.source]
+        tgt_mesh = bpy.data.meshes[self.target]
+        if len(src_mesh.vertices) != len(tgt_mesh.vertices):
+            self.report({'ERROR'}, "Source and target meshes must have the same amount of vertices.")
+            return {'CANCELLED'}
+        meshes = [obj.data for obj in context.selected_objects if obj.type == 'MESH']
+        if not meshes:
+            self.report({'ERROR'}, "No meshes selected.")
+            return {'CANCELLED'}
+
+        rbf_kernels = {
+            'LINEAR': RBF.linear,
+            'GAUSSIAN': RBF.gaussian,
+            'PLATE': RBF.thin_plate,
+            'BIHARMONIC': RBF.multi_quadratic_biharmonic,
+            'INV_BIHARMONIC': RBF.inv_multi_quadratic_biharmonic,
+            'C2': RBF.beckert_wendland_c2_basis,
+        }
+        rbf = rbf_kernels.get(self.function, RBF.linear)
+        src_pts = get_mesh_points(src_mesh, self.stride)
+        tgt_pts = get_mesh_points(tgt_mesh, self.stride)
+        weights = RBF.get_weight_matrix(src_pts, tgt_pts, rbf, self.radius)
+
+        for mesh in meshes:
+            mesh_pts = get_mesh_points(mesh)
+            num_mesh_pts = mesh_pts.shape[0]
+
+            dist = RBF.get_distance_matrix(mesh_pts, src_pts, rbf, self.radius)
+            identity = np.ones((num_mesh_pts, 1))
+            h = np.bmat([[dist, identity, mesh_pts]])
+            new_mesh_pts = np.asarray(np.dot(h, weights))
+            set_mesh_points(mesh, new_mesh_pts)
+
+        return {'FINISHED'}
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop_search(self, 'source', bpy.data, 'meshes', text="From")
+        layout.prop_search(self, 'target', bpy.data, 'meshes', text="To")
+        layout.prop(self, 'function')
+        layout.prop(self, 'radius')
+        layout.prop(self, 'stride')
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
 class MY_PT_scene_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -428,6 +526,7 @@ classes = (
     MY_OT_deduplicate_materials,
     MY_OT_graft,
     MY_OT_replace_references,
+    MY_OT_retarget_mesh,
     MY_PT_scene_tools,
 )
 

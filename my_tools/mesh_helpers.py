@@ -2,6 +2,7 @@ from collections import namedtuple
 from itertools import chain
 import bmesh
 import bpy
+import numpy as np
 import re
 from .helpers import (
     get_flipped_name,
@@ -345,3 +346,14 @@ def bmesh_blur_vertex_group(bm, vertex_group_index, distance, power=1.0):
                 if other_vert_w > get_weight(other_vert):
                     set_weight(other_vert, other_vert_w)
                     openset.append(other_vert)
+
+def get_mesh_points(mesh, stride=1):
+    """Return vertex coordinates of a mesh as a numpy array with shape (?, 3)."""
+    points = np.zeros(len(mesh.vertices)*3, dtype=np.float)
+    mesh.vertices.foreach_get('co', points)
+    return points.reshape((-1, 3))[::stride]
+
+def set_mesh_points(mesh, points):
+    """Set vertex coordinates of a mesh from a numpy array with shape (?, 3)."""
+    mesh.vertices.foreach_set('co', points.ravel())
+    mesh.update()
