@@ -7,7 +7,7 @@ class MY_OT_wall_add(bpy.types.Operator):
     """Construct a flat wall mesh.
 A collection is created where meshes can be added to create openings."""
 
-    bl_idname = 'mesh.wall_add'
+    bl_idname = 'my_tools.wall_add'
     bl_label = "Add Wall"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -107,7 +107,7 @@ class MY_OT_strap_add(bpy.types.Operator):
     #tooltip
     """Construct a strap mesh wrapping around the selected object"""
 
-    bl_idname = 'mesh.strap_add'
+    bl_idname = 'my_tools.strap_add'
     bl_label = "Add Strap"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -196,7 +196,7 @@ class MY_OT_rope_add(bpy.types.Operator):
     #tooltip
     """Construct a rope mesh following the selected curve"""
 
-    bl_idname = 'mesh.rope_add'
+    bl_idname = 'my_tools.rope_add'
     bl_label = "Add Rope"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -337,9 +337,9 @@ def mesh_menu_draw_func(self, context):
     layout.operator_context = 'INVOKE_REGION_WIN'
 
     layout.separator()
-    layout.operator("mesh.strap_add", icon='EDGESEL', text="Strap")
-    layout.operator("mesh.rope_add", icon='MOD_SCREW', text="Rope")
-    layout.operator("mesh.wall_add", icon='MOD_BUILD', text="Wall")
+    layout.operator('my_tools.strap_add', icon='EDGESEL', text="Strap")
+    layout.operator('my_tools.rope_add', icon='MOD_SCREW', text="Rope")
+    layout.operator('my_tools.wall_add', icon='MOD_BUILD', text="Wall")
 
 def register(settings):
     for cls in classes:
