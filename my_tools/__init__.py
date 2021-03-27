@@ -23,6 +23,7 @@ module_names = [
     'action_tools',
     'collision_tools',
     'scene_tools',
+    'extra_objects',
     'texture_bake',
 ]
 ensure_starts_with = lambda s, prefix: s if s.startswith(prefix) else prefix + s
