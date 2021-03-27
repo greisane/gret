@@ -347,13 +347,19 @@ def bmesh_blur_vertex_group(bm, vertex_group_index, distance, power=1.0):
                     set_weight(other_vert, other_vert_w)
                     openset.append(other_vert)
 
-def get_mesh_points(mesh, stride=1):
+def get_mesh_points(obj, use_object_transform=False, stride=1):
     """Return vertex coordinates of a mesh as a numpy array with shape (?, 3)."""
+    # Moving the mesh seems to be faster. See https://blender.stackexchange.com/questions/139511
+
+    mesh = obj.data
+    if use_object_transform:
+        mesh = mesh.copy()
+        mesh.transform(obj.matrix_world)
+
     points = np.zeros(len(mesh.vertices)*3, dtype=np.float)
     mesh.vertices.foreach_get('co', points)
-    return points.reshape((-1, 3))[::stride]
+    points = points.reshape((-1, 3))[::stride]
 
-def set_mesh_points(mesh, points):
-    """Set vertex coordinates of a mesh from a numpy array with shape (?, 3)."""
-    mesh.vertices.foreach_set('co', points.ravel())
-    mesh.update()
+    if use_object_transform:
+        bpy.data.meshes.remove(mesh)
+    return points
