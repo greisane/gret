@@ -214,7 +214,7 @@ def apply_modifiers(obj, mask_edge_boundary=False):
                 modifiers.append(modifier)
 
         log(f"Applying modifiers with {num_shape_keys} shape keys")
-        bpy.ops.object.apply_modifiers_with_shape_keys({'object': obj})
+        bpy.ops.object.shape_key_apply_modifiers({'object': obj})
     else:
         modifiers = [mo for mo in obj.modifiers if mo.show_viewport]
 

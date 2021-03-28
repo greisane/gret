@@ -818,7 +818,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
 
         # Check addon availability and export path
         try:
-            fail_if_no_operator('apply_modifiers_with_shape_keys')
+            fail_if_no_operator('shape_key_apply_modifiers')
             fail_if_no_operator('vertex_color_mapping_refresh', submodule=bpy.ops.mesh)
             fail_if_invalid_export_path(self.export_path, ['rigfile', 'rig'])
         except Exception as e:
