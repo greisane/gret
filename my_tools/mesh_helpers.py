@@ -138,7 +138,7 @@ def mirror_shape_keys(obj, side_vgroup_name):
     if not other_vgroup_name:
         return
     vgroup = obj.vertex_groups.get(side_vgroup_name) or obj.vertex_groups.new(name=side_vgroup_name)
-    vgroup.add([vert.index for vert in obj.data.vertices], 1.0, 'REPLACE')
+    vgroup.add(range(len(obj.data.vertices)), 1.0, 'REPLACE')
     vgroup = obj.vertex_groups.get(other_vgroup_name) or obj.vertex_groups.new(name=other_vgroup_name)
 
     for sk in obj.data.shape_keys.key_blocks:
@@ -214,7 +214,7 @@ def apply_modifiers(obj, mask_edge_boundary=False):
                 modifiers.append(modifier)
 
         log(f"Applying modifiers with {num_shape_keys} shape keys")
-        bpy.ops.object.shape_key_apply_modifiers({'object': obj})
+        bpy.ops.object.shape_key_apply_modifiers({'object': obj}, keep_modifiers=True)
     else:
         modifiers = [mo for mo in obj.modifiers if mo.show_viewport]
 

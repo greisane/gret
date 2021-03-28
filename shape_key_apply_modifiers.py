@@ -47,6 +47,12 @@ class OBJECT_OT_shape_key_apply_modifiers(bpy.types.Operator):
     bl_context = "objectmode"
     bl_options = {'REGISTER', 'UNDO'}
 
+    keep_modifiers: bpy.props.BoolProperty(
+        name="Keep Modifiers",
+        description="Keep muted or disabled modifiers",
+        default=False,
+    )
+
     @classmethod
     def poll(cls, context):
         return context.mode == 'OBJECT' and context.object and context.object.type == 'MESH'
@@ -127,7 +133,10 @@ class OBJECT_OT_shape_key_apply_modifiers(bpy.types.Operator):
                 try:
                     bpy.ops.object.modifier_apply(modifier=modifier.name)
                 except RuntimeError:
-                    pass
+                    if not self.keep_modifiers:
+                        bpy.ops.object.modifier_remove(modifier=modifier.name)
+            elif not self.keep_modifiers:
+                bpy.ops.object.modifier_remove(modifier=modifier.name)
 
         # Finally add the applied shape keys back
         for new_shape_key in new_shape_keys:
@@ -141,8 +150,8 @@ class OBJECT_OT_shape_key_apply_modifiers(bpy.types.Operator):
             shape_key.vertex_group = new_shape_key.vertex_group
 
             if len(shape_key.data) * 3 != len(new_shape_key.points):
-                self.report({'ERROR'}, "Old and new vertex counts for shape key '%s' did not match, "
-                    "could be caused by a Mirror modifier with Merge on." % shape_key.name)
+                self.report({'ERROR'}, f"Vertex count for '{shape_key.name}' did not match, "
+                    "the shape key will be lost.")
                 continue
 
             shape_key.data.foreach_set('co', new_shape_key.points)
