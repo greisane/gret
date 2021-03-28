@@ -1,42 +1,106 @@
-from collections import namedtuple
-from math import sqrt
+from collections import namedtuple, defaultdict
+import bmesh
 import bpy
 
 bl_info = {
     "name": "Shape Key Apply Modifiers",
     "author": "greisane",
     "description": "Applies viewport modifiers while preserving shape keys",
-    "version": (0, 8),
+    "version": (1, 0),
     "blender": (2, 90, 0),
     "location": "Properties Editor > Object Data > Shape Keys > Specials Menu",
     "category": "Mesh"
 }
 
-def mirror_merge(merge_x, merge_y, merge_z, merge_threshold=0.0):
-    # TODO: Fails in some cases where mirror doesn't
-    obj = bpy.context.object
-    verts = obj.data.vertices
-    half_merge_threshold = merge_threshold * 0.5
-    saved_mode = bpy.context.mode
+def get_sq_dist(a, b):
+    """Returns the square distance between two vectors."""
+    x, y, z = a.x - b.x, a.y - b.y, a.z - b.z
+    return x*x + y*y + z*z
 
-    # Need vertex mode to be set then object mode to actually select
-    if bpy.context.mode != 'EDIT':
-        bpy.ops.object.mode_set(mode='EDIT')
-    bpy.ops.mesh.select_mode(type='VERT')
-    bpy.ops.object.mode_set(mode='OBJECT')
+class ShapeKeyInfo(namedtuple('ShapeKeyInfo', ['coords', 'interpolation', 'mute', 'name',
+    'slider_max', 'slider_min', 'value', 'vertex_group'])):
+    @classmethod
+    def from_shape_key_with_empty_data(cls, shape_key):
+        return cls(
+            coords=[],
+            interpolation=shape_key.interpolation,
+            mute=shape_key.mute,
+            name=shape_key.name,
+            slider_max=shape_key.slider_max,
+            slider_min=shape_key.slider_min,
+            value=shape_key.value,
+            vertex_group=shape_key.vertex_group,
+        )
+    @classmethod
+    def from_shape_key(cls, shape_key):
+        info = cls.from_shape_key_with_empty_data(shape_key)
+        info.get_coords_from(shape_key.data)
+        return info
+    def get_coords_from(self, vertices):
+        self.coords[:] = [0.0] * (len(vertices) * 3)
+        vertices.foreach_get('co', self.coords)
+    def put_coords_into(self, vertices):
+        vertices.foreach_set('co', self.coords)
 
-    for vert_idx in range(len(verts)):
-        v = verts[vert_idx]
-        verts[vert_idx].select = ((merge_x and abs(v.co.x) <= half_merge_threshold)
-            or (merge_y and abs(v.co.y) <= half_merge_threshold)
-            or (merge_z and abs(v.co.z) <= half_merge_threshold))
+def apply_mirror_modifier(obj, modifier, weld_map={}):
+    """
+    Apply a mirror modifier in the given mesh.
+    weld_map: Specifies vertex pairs to be welded after mirroring. Will be filled if empty.
+    """
+    assert modifier.type == 'MIRROR'
+    mesh = obj.data
+    num_verts = len(mesh.vertices)
+    num_mirrors = sum(modifier.use_axis)
+    merge_dist_sq = modifier.merge_threshold ** 2
+    modifier.use_mirror_merge = False
+    bpy.ops.object.modifier_apply({'object': obj}, modifier=modifier.name)
 
-    bpy.ops.object.mode_set(mode='EDIT')
-    bpy.ops.mesh.remove_doubles(threshold=merge_threshold, use_unselected=False)
+    if not weld_map:
+        welds = []
+        for n in range(1, num_mirrors + 1):
+            num_part_verts = num_verts * (2 ** (n - 1))
 
-    # Clean up
-    if bpy.context.mode != saved_mode:
-        bpy.ops.object.mode_set(mode=saved_mode)
+            new_welds = []
+            for src_idx, dst_idx in welds:
+                new_welds.append((src_idx + num_part_verts, dst_idx + num_part_verts))
+            welds.extend(new_welds)
+
+            for vert_idx in range(num_part_verts):
+                vert = mesh.vertices[vert_idx]
+                other_vert_idx = vert_idx + num_part_verts
+                other_vert = mesh.vertices[other_vert_idx]
+                if get_sq_dist(vert.co, other_vert.co) <= merge_dist_sq:
+                    welds.append((other_vert_idx, vert_idx))
+
+            # Resolve the welds into a single dict. This probably isn't too robust
+            weld_map_reverse = defaultdict(list)
+            for src_idx, dst_idx in welds:
+                dst_idx = weld_map.get(dst_idx, dst_idx)
+                weld_map[src_idx] = dst_idx
+                old_idxs = weld_map_reverse.get(src_idx, [])
+                for old_idx in old_idxs:
+                    weld_map[old_idx] = dst_idx
+                    weld_map_reverse[dst_idx].append(old_idx)
+                weld_map_reverse[dst_idx].append(src_idx)
+
+    # Merge according to the weld map
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bm.verts.ensure_lookup_table()
+    targetmap = {bm.verts[src_idx]: bm.verts[dst_idx] for src_idx, dst_idx in weld_map.items()}
+    bmesh.ops.weld_verts(bm, targetmap=targetmap)
+    bm.to_mesh(mesh)
+    bm.free()
+
+def try_apply_modifier(obj, modifier, keep_if_disabled=True):
+    if modifier.show_viewport:
+        try:
+            bpy.ops.object.modifier_apply({'object': obj}, modifier=modifier.name)
+        except RuntimeError:
+            if not keep_if_disabled:
+                bpy.ops.object.modifier_remove({'object': obj}, modifier=modifier.name)
+    elif not keep_if_disabled:
+        bpy.ops.object.modifier_remove({'object': obj}, modifier=modifier.name)
 
 class OBJECT_OT_shape_key_apply_modifiers(bpy.types.Operator):
     #tooltip
@@ -47,6 +111,12 @@ class OBJECT_OT_shape_key_apply_modifiers(bpy.types.Operator):
     bl_context = "objectmode"
     bl_options = {'REGISTER', 'UNDO'}
 
+    smart_mirror: bpy.props.BoolProperty(
+        name="Smart Mirror",
+        description="""Makes mirror modifiers merge according to the Basis key.
+            Fixes shape keys that move vertices into or out of the merge distance.""",
+        default=True,
+    )
     keep_modifiers: bpy.props.BoolProperty(
         name="Keep Modifiers",
         description="Keep muted or disabled modifiers",
@@ -60,7 +130,7 @@ class OBJECT_OT_shape_key_apply_modifiers(bpy.types.Operator):
     def execute(self, context):
         obj = context.object
 
-        if not any(m.show_viewport for m in obj.modifiers):
+        if not any(mod.show_viewport for mod in obj.modifiers):
             # There are no modifiers to apply, don't do anything
             return {'FINISHED'}
 
@@ -68,97 +138,83 @@ class OBJECT_OT_shape_key_apply_modifiers(bpy.types.Operator):
             # Make single user copy
             obj.data = obj.data.copy()
 
-        # Disable mirror merge to avoid issues when shapekeys push vertices past the threshold
-        merge_x = merge_y = merge_z = False
-        merge_threshold = 0.0
-        for modifier in obj.modifiers:
-            if not modifier.show_viewport:
-                continue
-            if modifier.type == 'MIRROR' and modifier.use_mirror_merge:
-                modifier.use_mirror_merge = False
-                merge_x |= modifier.use_axis[0]
-                merge_y |= modifier.use_axis[1]
-                merge_z |= modifier.use_axis[2]
-                merge_threshold = max(merge_threshold, modifier.merge_threshold)
-
-        # Make a copy of the mesh. This is just for convenience to be able to
-        # call from_existing(fcurve) instead of manually recreating the drivers
-        mesh_copy = obj.data.copy()
-
-        ShapeKeyInfo = namedtuple('ShapeKeyInfo', ['points', 'interpolation', 'mute',
-            'name', 'slider_max', 'slider_min', 'value', 'vertex_group'])
-        shape_keys = obj.data.shape_keys.key_blocks[:] if obj.data.shape_keys else []
-        new_shape_keys = []
-
+        mesh_copy = obj.data.copy()  # Copy for convenience, to be able to call from_existing(fcurve)
+        shape_keys = obj.data.shape_keys.key_blocks if obj.data.shape_keys else []
+        shape_key_infos = []
         saved_active_shape_key_index = obj.active_shape_key_index
         saved_show_only_shape_key = obj.show_only_shape_key
 
-        for shape_key_index, shape_key in enumerate(shape_keys):
-            # Create a temporary mesh of each shape key with modifiers applied,
-            # then save the vertex coordinates (don't need anything else)
-            saved_shape_key_mute = shape_key.mute
-            shape_key.mute = False
-            obj.show_only_shape_key = True
-            obj.active_shape_key_index = shape_key_index
+        def is_merging_mirror(m):
+            return m.show_viewport and m.type == 'MIRROR' and m.use_mirror_merge and any(m.use_axis)
 
-            # Disable vertex blend temporarily, vertex groups haven't been mirrored yet
-            vertex_group = shape_key.vertex_group
-            shape_key.vertex_group = ''
+        if self.smart_mirror and any(is_merging_mirror(mod) for mod in obj.modifiers):
+            # Start by separating each shape key so the modifiers can be applied one by one
+            shape_key_objs = []
+            for shape_key in shape_keys:
+                shape_key_info = ShapeKeyInfo.from_shape_key(shape_key)
+                shape_key_infos.append(shape_key_info)
 
-            dg = context.evaluated_depsgraph_get()
-            eval_obj = obj.evaluated_get(dg)
-            eval_mesh = eval_obj.to_mesh()
+                new_obj = obj.copy()
+                new_obj.data = obj.data.copy()
+                shape_key_objs.append(new_obj)
 
-            new_shape_key = ShapeKeyInfo(
-                points=[0.0] * (len(eval_mesh.vertices) * 3),
-                interpolation=shape_key.interpolation,
-                mute=saved_shape_key_mute,
-                name=shape_key.name,
-                slider_max=shape_key.slider_max,
-                slider_min=shape_key.slider_min,
-                value=shape_key.value,
-                vertex_group=vertex_group
-            )
-            eval_mesh.vertices.foreach_get('co', new_shape_key.points)
-            new_shape_keys.append(new_shape_key)
+            # Record welded vertex pairs for each mirror modifier applied in the original object
+            weld_maps = defaultdict(dict)
+            obj.shape_key_clear()
+            for modifier in obj.modifiers[:]:
+                if is_merging_mirror(modifier):
+                    apply_mirror_modifier(obj, modifier, weld_maps[modifier.name])
+                else:
+                    try_apply_modifier(obj, modifier, keep_if_disabled=self.keep_modifiers)
+            # Store vertex coordinates of each shape key with modifiers applied
+            for sk_info, sk_obj in zip(shape_key_infos, shape_key_objs):
+                sk_mesh = sk_obj.data
+                sk_obj.shape_key_clear()
+                sk_info.put_coords_into(sk_mesh.vertices)
+                for modifier in sk_obj.modifiers[:]:
+                    if is_merging_mirror(modifier):
+                        apply_mirror_modifier(sk_obj, modifier, weld_maps[modifier.name])
+                    else:
+                        try_apply_modifier(sk_obj, modifier)
+                sk_info.get_coords_from(sk_mesh.vertices)
 
-            # Clean up
-            eval_obj.to_mesh_clear()
+                bpy.data.objects.remove(sk_obj)
+                bpy.data.meshes.remove(sk_mesh)
+        else:
+            # Store vertex coordinates of each shape key with modifiers applied
+            for shape_key_index, shape_key in enumerate(shape_keys):
+                shape_key_info = ShapeKeyInfo.from_shape_key_with_empty_data(shape_key)
+                shape_key_infos.append(shape_key_info)
 
-        # Clear shape keys to allow applying modifiers
-        obj.shape_key_clear()
+                shape_key.mute = False
+                obj.show_only_shape_key = True
+                obj.active_shape_key_index = shape_key_index
+                dg = context.evaluated_depsgraph_get()
+                eval_obj = obj.evaluated_get(dg)
+                eval_mesh = eval_obj.to_mesh()
+                shape_key_info.get_coords_from(eval_mesh.vertices)
+                eval_obj.to_mesh_clear()
 
-        for modifier in obj.modifiers[:]:
-            if modifier.show_viewport:
-                try:
-                    bpy.ops.object.modifier_apply(modifier=modifier.name)
-                except RuntimeError:
-                    if not self.keep_modifiers:
-                        bpy.ops.object.modifier_remove(modifier=modifier.name)
-            elif not self.keep_modifiers:
-                bpy.ops.object.modifier_remove(modifier=modifier.name)
+            # Apply modifiers in the original object
+            obj.shape_key_clear()
+            for modifier in obj.modifiers[:]:
+                try_apply_modifier(obj, modifier, keep_if_disabled=self.keep_modifiers)
 
-        # Finally add the applied shape keys back
-        for new_shape_key in new_shape_keys:
+        # Add the shape keys back
+        for shape_key_info in shape_key_infos:
             shape_key = obj.shape_key_add()
-            shape_key.interpolation = new_shape_key.interpolation
-            shape_key.mute = new_shape_key.mute
-            shape_key.name = new_shape_key.name
-            shape_key.slider_max = new_shape_key.slider_max
-            shape_key.slider_min = new_shape_key.slider_min
-            shape_key.value = new_shape_key.value
-            shape_key.vertex_group = new_shape_key.vertex_group
-
-            if len(shape_key.data) * 3 != len(new_shape_key.points):
+            shape_key.interpolation = shape_key_info.interpolation
+            shape_key.mute = shape_key_info.mute
+            shape_key.name = shape_key_info.name
+            shape_key.slider_max = shape_key_info.slider_max
+            shape_key.slider_min = shape_key_info.slider_min
+            shape_key.value = shape_key_info.value
+            shape_key.vertex_group = shape_key_info.vertex_group
+            if len(shape_key.data) * 3 != len(shape_key_info.coords):
                 self.report({'ERROR'}, f"Vertex count for '{shape_key.name}' did not match, "
                     "the shape key will be lost.")
                 continue
-
-            shape_key.data.foreach_set('co', new_shape_key.points)
-
-        # Manual mirror merge
-        if merge_threshold > 0.0:
-            mirror_merge(merge_x, merge_y, merge_z, merge_threshold)
+            shape_key_info.put_coords_into(shape_key.data)
 
         # Recreate drivers
         if mesh_copy.shape_keys and mesh_copy.shape_keys.animation_data:
