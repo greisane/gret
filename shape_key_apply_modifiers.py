@@ -49,7 +49,7 @@ class OBJECT_OT_shape_key_apply_modifiers(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.mode == "OBJECT" and context.object.type == "MESH"
+        return context.mode == 'OBJECT' and context.object and context.object.type == 'MESH'
 
     def execute(self, context):
         obj = context.object
@@ -61,9 +61,6 @@ class OBJECT_OT_shape_key_apply_modifiers(bpy.types.Operator):
         if obj.data.users > 1:
             # Make single user copy
             obj.data = obj.data.copy()
-
-        # Modifier blacklist. These are applied at the end AFTER shapekeys are recreated
-        disabled_modifiers = []
 
         # Disable mirror merge to avoid issues when shapekeys push vertices past the threshold
         merge_x = merge_y = merge_z = False
@@ -77,13 +74,10 @@ class OBJECT_OT_shape_key_apply_modifiers(bpy.types.Operator):
                 merge_y |= modifier.use_axis[1]
                 merge_z |= modifier.use_axis[2]
                 merge_threshold = max(merge_threshold, modifier.merge_threshold)
-            elif modifier.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL' in modifier.data_types_loops:
-                modifier.show_viewport = False
-                disabled_modifiers.append(modifier)
 
         # Make a copy of the mesh. This is just for convenience to be able to
         # call from_existing(fcurve) instead of manually recreating the drivers
-        data_copy = obj.data.copy()
+        mesh_copy = obj.data.copy()
 
         ShapeKeyInfo = namedtuple('ShapeKeyInfo', ['points', 'interpolation', 'mute',
             'name', 'slider_max', 'slider_min', 'value', 'vertex_group'])
@@ -110,7 +104,7 @@ class OBJECT_OT_shape_key_apply_modifiers(bpy.types.Operator):
             eval_mesh = eval_obj.to_mesh()
 
             new_shape_key = ShapeKeyInfo(
-                points=[0.0] * len(eval_mesh.vertices) * 3,
+                points=[0.0] * (len(eval_mesh.vertices) * 3),
                 interpolation=shape_key.interpolation,
                 mute=saved_shape_key_mute,
                 name=shape_key.name,
@@ -126,26 +120,14 @@ class OBJECT_OT_shape_key_apply_modifiers(bpy.types.Operator):
             eval_obj.to_mesh_clear()
 
         # Clear shape keys to allow applying modifiers
-        if obj.data.shape_keys:
-            if bpy.app.version == (2, 80, 75):
-                # Work around a bug in 2.80, see https://developer.blender.org/T68710
-                while obj.data.shape_keys and obj.data.shape_keys.key_blocks:
-                    bpy.ops.object.shape_key_remove(all=False)
-            else:
-                bpy.ops.object.shape_key_remove(all=True)
+        obj.shape_key_clear()
 
-        for modifier_name in [mo.name for mo in obj.modifiers if mo.show_viewport]:
-            try:
-                moved_up = 0
-                # Just to mute the warning output
-                while obj.modifiers[0].name != modifier_name:
-                    moved_up += 1
-                    bpy.ops.object.modifier_move_up(modifier=modifier_name)
-                bpy.ops.object.modifier_apply(modifier=modifier_name)
-            except RuntimeError:
-                # Modifier is disabled, skipping apply
-                for _ in range(moved_up):
-                    bpy.ops.object.modifier_move_down(modifier=modifier_name)
+        for modifier in obj.modifiers[:]:
+            if modifier.show_viewport:
+                try:
+                    bpy.ops.object.modifier_apply(modifier=modifier.name)
+                except RuntimeError:
+                    pass
 
         # Finally add the applied shape keys back
         for new_shape_key in new_shape_keys:
@@ -161,7 +143,6 @@ class OBJECT_OT_shape_key_apply_modifiers(bpy.types.Operator):
             if len(shape_key.data) * 3 != len(new_shape_key.points):
                 self.report({'ERROR'}, "Old and new vertex counts for shape key '%s' did not match, "
                     "could be caused by a Mirror modifier with Merge on." % shape_key.name)
-                # Note: 1e-5 seems to be a good merging threshold for mirror modifiers
                 continue
 
             shape_key.data.foreach_set('co', new_shape_key.points)
@@ -170,18 +151,9 @@ class OBJECT_OT_shape_key_apply_modifiers(bpy.types.Operator):
         if merge_threshold > 0.0:
             mirror_merge(merge_x, merge_y, merge_z, merge_threshold)
 
-        # Apply blacklist modifiers, these should work even with shape keys
-        for modifier in disabled_modifiers:
-            modifier.show_viewport = True
-            try:
-                bpy.ops.object.modifier_apply(modifier=modifier.name)
-            except RuntimeError:
-                # Modifier is disabled, skipping apply
-                pass
-
         # Recreate drivers
-        if data_copy.shape_keys and data_copy.shape_keys.animation_data:
-            for fcurve in data_copy.shape_keys.animation_data.drivers:
+        if mesh_copy.shape_keys and mesh_copy.shape_keys.animation_data:
+            for fcurve in mesh_copy.shape_keys.animation_data.drivers:
                 if obj.data.shape_keys.animation_data is None:
                     obj.data.shape_keys.animation_data_create()
                 obj.data.shape_keys.animation_data.drivers.from_existing(src_driver=fcurve)
@@ -189,8 +161,7 @@ class OBJECT_OT_shape_key_apply_modifiers(bpy.types.Operator):
         # Clean up
         obj.show_only_shape_key = saved_show_only_shape_key
         obj.active_shape_key_index = saved_active_shape_key_index
-
-        bpy.data.meshes.remove(data_copy)
+        bpy.data.meshes.remove(mesh_copy)
 
         return {'FINISHED'}
 
