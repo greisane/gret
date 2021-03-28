@@ -76,7 +76,7 @@ Currently only handles objects and modifiers, and no nested properties"""
     )
     dst_obj_name: bpy.props.EnumProperty(
         items=get_obj_name_items,
-        name="Target Object",
+        name="Destination Object",
         description="Object to be used in its place",
     )
 
@@ -91,7 +91,7 @@ Currently only handles objects and modifiers, and no nested properties"""
             return {'CANCELLED'}
         dst_obj = bpy.data.objects.get(self.dst_obj_name)
         if not dst_obj:
-            self.report({'ERROR'}, f"Target object does not exist.")
+            self.report({'ERROR'}, f"Destination object does not exist.")
             return {'CANCELLED'}
         if src_obj == dst_obj:
             self.report({'ERROR'}, f"Source and destination objects are the same.")
@@ -114,7 +114,7 @@ Currently only handles objects and modifiers, and no nested properties"""
                             setattr(obj, prop.identifier, dst_obj)
                             num_replaced += 1
                         except:
-                            verb = "failed to be"
+                            verb = "couldn't be"
                     print(f"{path} {verb} replaced")
                     num_found += 1
 
@@ -127,7 +127,9 @@ Currently only handles objects and modifiers, and no nested properties"""
             for mo in obj.modifiers:
                 replace_pointer_properties(mo, path=obj.name)
 
-        if self.dry_run:
+        if self.num_found == 0:
+            self.report({'INFO'}, f"No references found.")
+        elif self.dry_run:
             self.report({'INFO'}, f"{num_found} references found, see the console for details.")
         else:
             self.report({'INFO'}, f"{num_found} references found, {num_replaced} replaced.")
@@ -596,6 +598,8 @@ class MY_PT_scene_tools(bpy.types.Panel):
         col = layout.column(align=True)
         col.label(text="Other Tools:")
         col.operator('my_tools.graft', icon='MOD_BOOLEAN')
+        col.operator('my_tools.deduplicate_materials', icon='MATERIAL')
+        col.operator('my_tools.replace_references', icon='LIBRARY_DATA_OVERRIDE')
 
 classes = (
     MY_OT_deduplicate_materials,
