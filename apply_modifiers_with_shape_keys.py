@@ -196,11 +196,16 @@ class OBJECT_OT_apply_modifiers_with_shape_keys(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def draw_func(self, context):
+    self.layout.operator(OBJECT_OT_apply_modifiers_with_shape_keys.bl_idname, icon='X')
+
 def register():
     bpy.utils.register_class(OBJECT_OT_apply_modifiers_with_shape_keys)
+    bpy.types.MESH_MT_shape_key_context_menu.append(draw_func)
 
 def unregister():
+    bpy.types.MESH_MT_shape_key_context_menu.remove(draw_func)
     bpy.utils.unregister_class(OBJECT_OT_apply_modifiers_with_shape_keys)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     register()
