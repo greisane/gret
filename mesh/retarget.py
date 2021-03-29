@@ -2,7 +2,16 @@ import bmesh
 import bpy
 import numpy as np
 
-import gret.rbf
+import gret.rbf as rbf
+
+rbf_kernels = {
+    'LINEAR': rbf.linear,
+    'GAUSSIAN': rbf.gaussian,
+    'PLATE': rbf.thin_plate,
+    'BIHARMONIC': rbf.multi_quadratic_biharmonic,
+    'INV_BIHARMONIC': rbf.inv_multi_quadratic_biharmonic,
+    'C2': rbf.beckert_wendland_c2_basis,
+}
 
 class GRET_OT_retarget_mesh(bpy.types.Operator):
     #tooltip
@@ -74,7 +83,7 @@ The meshes are expected to share topology and vertex order"""
             self.report({'ERROR'}, "Source and destination meshes must have equal amount of vertices.")
             return {'CANCELLED'}
 
-        rbf_kernel = rbf.kernels.get(self.function, rbf.linear)
+        rbf_kernel = rbf_kernels.get(self.function, rbf.linear)
         src_pts = rbf.get_mesh_points(src_obj, self.use_object_transform, self.stride)
         dst_pts = rbf.get_mesh_points(dst_obj, self.use_object_transform, self.stride)
         try:
@@ -132,7 +141,7 @@ The meshes are expected to share topology and vertex order"""
         layout.prop(self, 'stride')
         layout.prop(self, 'as_shapekey')
 
-def draw(self, context):
+def draw_panel(self, context):
     layout = self.layout
     settings = context.scene.gret
 

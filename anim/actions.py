@@ -222,7 +222,7 @@ def get_actions_for_rig(rig):
             continue
         yield action
 
-def draw(self, context):
+def draw_panel(self, context):
     obj = context.object
     layout = self.layout
     settings = context.scene.gret

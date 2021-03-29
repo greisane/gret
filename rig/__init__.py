@@ -20,7 +20,8 @@ class GRET_PT_rig(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.mode in {'OBJECT', 'POSE'} and context.object
+        obj = context.object
+        return obj and obj.type == 'ARMATURE' and context.mode in {'OBJECT', 'POSE'}
 
     def draw(self, context):
         for draw_func in __class__.draw_funcs:
@@ -30,8 +31,8 @@ def register(settings):
     for module in modules:
         if hasattr(module, 'register'):
             module.register(settings)
-        # if hasattr(module, 'draw'):
-        #     module.register(GRET_PG_settings)
+        if hasattr(module, 'draw_panel'):
+            GRET_PT_rig.draw_funcs.append(module.draw_panel)
 
     bpy.utils.register_class(GRET_PT_rig)
 

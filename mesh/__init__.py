@@ -23,6 +23,11 @@ class GRET_PT_mesh(bpy.types.Panel):
 
     draw_funcs = []
 
+    @classmethod
+    def poll(cls, context):
+        obj = context.object
+        return obj and obj.type == 'MESH'
+
     def draw(self, context):
         for draw_func in __class__.draw_funcs:
             draw_func(self, context)
@@ -31,8 +36,8 @@ def register(settings):
     for module in modules:
         if hasattr(module, 'register'):
             module.register(settings)
-        # if hasattr(module, 'draw'):
-        #     module.register(GRET_PG_settings)
+        if hasattr(module, 'draw_panel'):
+            GRET_PT_mesh.draw_funcs.append(module.draw_panel)
 
     bpy.utils.register_class(GRET_PT_mesh)
 

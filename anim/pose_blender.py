@@ -737,7 +737,7 @@ This improves performance and unlocks bones to be posed manually"""
 
         return {'FINISHED'}
 
-def draw(self, context):
+def draw_panel(self, context):
     obj = context.object
     layout = self.layout
 

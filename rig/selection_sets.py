@@ -108,7 +108,7 @@ class GRET_OT_selection_set_paste(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def draw(self, context):
+def draw_panel(self, context):
     obj = context.object
     layout = self.layout
 

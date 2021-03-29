@@ -35,15 +35,6 @@ def beckert_wendland_c2_basis(matrix, radius):
     result = first * second
     return result
 
-rbf_kernels = {
-    'LINEAR': linear,
-    'GAUSSIAN': gaussian,
-    'PLATE': thin_plate,
-    'BIHARMONIC': multi_quadratic_biharmonic,
-    'INV_BIHARMONIC': inv_multi_quadratic_biharmonic,
-    'C2': beckert_wendland_c2_basis,
-}
-
 def get_weight_matrix(src_pts, dst_pts, rbf, radius):
     """Get the weight matrix x in Ax=B."""
 

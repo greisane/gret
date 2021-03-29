@@ -93,7 +93,7 @@ class GRET_OT_property_remove(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def draw(self, context):
+def draw_panel(self, context):
     obj = context.object
     layout = self.layout
 
