@@ -2,11 +2,11 @@ import os
 import bpy
 from .helpers import clear_pose, try_key
 
-class MY_OT_action_set(bpy.types.Operator):
+class GRET_OT_action_set(bpy.types.Operator):
     #tooltip
     """Edit this action. Ctrl-click to rename"""
 
-    bl_idname = 'my_tools.action_set'
+    bl_idname = 'gret.action_set'
     bl_label = "Set Action"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -60,11 +60,11 @@ class MY_OT_action_set(bpy.types.Operator):
             self.new_name = ""
             return self.execute(context)
 
-class MY_OT_action_add(bpy.types.Operator):
+class GRET_OT_action_add(bpy.types.Operator):
     #tooltip
     """Add a new action"""
 
-    bl_idname = 'my_tools.action_add'
+    bl_idname = 'gret.action_add'
     bl_label = "Add Action"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -86,11 +86,11 @@ class MY_OT_action_add(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class MY_OT_action_remove(bpy.types.Operator):
+class GRET_OT_action_remove(bpy.types.Operator):
     #tooltip
     """Delete the action"""
 
-    bl_idname = 'my_tools.action_remove'
+    bl_idname = 'gret.action_remove'
     bl_label = "Remove Action"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -110,11 +110,11 @@ class MY_OT_action_remove(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class MY_OT_action_duplicate(bpy.types.Operator):
+class GRET_OT_action_duplicate(bpy.types.Operator):
     #tooltip
     """Duplicate this action"""
 
-    bl_idname = 'my_tools.action_duplicate'
+    bl_idname = 'gret.action_duplicate'
     bl_label = "Duplicate Action"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -135,11 +135,11 @@ class MY_OT_action_duplicate(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class MY_OT_pose_set(bpy.types.Operator):
+class GRET_OT_pose_set(bpy.types.Operator):
     #tooltip
     """Go to the frame for this pose. Ctrl-click to rename"""
 
-    bl_idname = 'my_tools.pose_set'
+    bl_idname = 'gret.pose_set'
     bl_label = "Set Pose"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -179,11 +179,11 @@ class MY_OT_pose_set(bpy.types.Operator):
             self.new_name = ""
             return self.execute(context)
 
-class MY_OT_pose_make(bpy.types.Operator):
+class GRET_OT_pose_make(bpy.types.Operator):
     #tooltip
     """Creates a pose marker for every frame in the action"""
 
-    bl_idname = 'my_tools.pose_make'
+    bl_idname = 'gret.pose_make'
     bl_label = "Make Poses"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -221,10 +221,10 @@ def get_actions_for_rig(rig):
             continue
         yield action
 
-class MY_PT_actions(bpy.types.Panel):
+class GRET_PT_actions(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = "My Tools"
+    bl_category = "gret"
     bl_label = "Actions"
 
     @classmethod
@@ -235,13 +235,13 @@ class MY_PT_actions(bpy.types.Panel):
     def draw(self, context):
         obj = context.object
         layout = self.layout
-        settings = context.scene.my_tools
+        settings = context.scene.gret
 
         if obj and obj.type == 'ARMATURE':
             box = layout.box()
             row = box.row(align=True)
             row.label(text="Available Actions", icon='ACTION')
-            row.operator('my_tools.action_add', icon='ADD', text="")
+            row.operator('gret.action_add', icon='ADD', text="")
 
             rig_actions = list(get_actions_for_rig(obj))
             active_action = obj.animation_data.action if obj.animation_data else None
@@ -255,21 +255,21 @@ class MY_PT_actions(bpy.types.Panel):
                         op.restore_frame = False
                     else:
                         icon = 'PLAY' if selected else 'TRIA_RIGHT'
-                        op = row.operator('my_tools.action_set', icon=icon, text="", emboss=False)
+                        op = row.operator('gret.action_set', icon=icon, text="", emboss=False)
                         op.name = action.name
                         op.play = True
-                    op = row.operator('my_tools.action_set', text=action.name)
+                    op = row.operator('gret.action_set', text=action.name)
                     op.name = action.name
                     op.play = False
-                    row.operator('my_tools.action_duplicate', icon='DUPLICATE', text="").name = action.name
-                    row.operator('my_tools.action_remove', icon='X', text="").name = action.name
+                    row.operator('gret.action_duplicate', icon='DUPLICATE', text="").name = action.name
+                    row.operator('gret.action_remove', icon='X', text="").name = action.name
 
             if active_action:
                 box = layout.box()
                 row = box.row(align=True)
                 row.label(text="Pose Markers", icon='BOOKMARKS')
                 row.prop(settings, 'poses_sorted', icon='SORTALPHA', text="")
-                row.operator('my_tools.pose_make', icon='ADD', text="")
+                row.operator('gret.pose_make', icon='ADD', text="")
 
                 if active_action.pose_markers:
                     col = box.column(align=True)
@@ -281,17 +281,17 @@ class MY_PT_actions(bpy.types.Panel):
                         selected = marker.frame == context.scene.frame_current
                         row = col.row(align=True)
                         row.label(text="", icon='PMARKER_ACT' if selected else 'PMARKER_SEL')
-                        op = row.operator('my_tools.pose_set', text=marker.name)
+                        op = row.operator('gret.pose_set', text=marker.name)
                         op.name = marker.name
 
 classes = (
-    MY_OT_action_add,
-    MY_OT_action_duplicate,
-    MY_OT_action_remove,
-    MY_OT_action_set,
-    MY_OT_pose_make,
-    MY_OT_pose_set,
-    MY_PT_actions,
+    GRET_OT_action_add,
+    GRET_OT_action_duplicate,
+    GRET_OT_action_remove,
+    GRET_OT_action_set,
+    GRET_OT_pose_make,
+    GRET_OT_pose_set,
+    GRET_PT_actions,
 )
 
 def register(settings):

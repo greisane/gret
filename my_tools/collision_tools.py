@@ -31,11 +31,11 @@ def find_free_col_name(prefix, name):
             break
     return col_name
 
-class MY_OT_assign_collision(bpy.types.Operator):
+class GRET_OT_assign_collision(bpy.types.Operator):
     #tooltip
     """Assigns (renames) the selected collision meshes to the active object"""
 
-    bl_idname = 'my_tools.assign_collision'
+    bl_idname = 'gret.assign_collision'
     bl_label = "Assign Collision"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -66,11 +66,11 @@ across the center for each vertex, within some threshold"""
             return False
     return True
 
-class MY_OT_make_collision(bpy.types.Operator):
+class GRET_OT_make_collision(bpy.types.Operator):
     #tooltip
     """Generate collision for the selected geometry"""
 
-    bl_idname = 'my_tools.make_collision'
+    bl_idname = 'gret.make_collision'
     bl_label = "Make Collision"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -568,8 +568,8 @@ class MY_OT_make_collision(bpy.types.Operator):
             col.prop(self, 'wall_fill_holes')
 
 classes = (
-    MY_OT_assign_collision,
-    MY_OT_make_collision,
+    GRET_OT_assign_collision,
+    GRET_OT_make_collision,
 )
 
 def register(settings):

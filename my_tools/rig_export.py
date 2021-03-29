@@ -197,8 +197,8 @@ def export_fbx(context, filepath, actions):
         , use_batch_own_dir=False
     )
 
-class MY_OT_scene_export(bpy.types.Operator):
-    bl_idname = 'export_scene.my_fbx'
+class GRET_OT_scene_export(bpy.types.Operator):
+    bl_idname = 'gret.scene_export'
     bl_label = "Scene Export"
     bl_context = 'objectmode'
     bl_options = {'REGISTER'}
@@ -388,8 +388,8 @@ class MY_OT_scene_export(bpy.types.Operator):
     # def invoke(self, context, event):
         # return context.window_manager.invoke_props_dialog(self)
 
-class MY_OT_rig_export(bpy.types.Operator):
-    bl_idname = 'my_tools.rig_export'
+class GRET_OT_rig_export(bpy.types.Operator):
+    bl_idname = 'gret.rig_export'
     bl_label = "Rig Export"
     bl_context = 'objectmode'
     bl_options = {'INTERNAL'}
@@ -874,8 +874,8 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
 
-class MY_OT_animation_export(bpy.types.Operator):
-    bl_idname = 'my_tools.animation_export'
+class GRET_OT_animation_export(bpy.types.Operator):
+    bl_idname = 'gret.animation_export'
     bl_label = "Animation Export"
     bl_context = "objectmode"
     bl_options = {'INTERNAL'}
@@ -1081,8 +1081,8 @@ If available, markers names and frame times are written as a list of comma-separ
         return context.window_manager.invoke_props_dialog(self)
 
 classes = (
-    MY_OT_animation_export,
-    MY_OT_rig_export,
+    GRET_OT_animation_export,
+    GRET_OT_rig_export,
 )
 
 def register(settings):

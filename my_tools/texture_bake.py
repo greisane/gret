@@ -216,12 +216,12 @@ bake_items = [
     ('CURVATURE', "Curvature", "Curvature, centered on gray"),
 ]
 
-class MY_OT_bake(bpy.types.Operator):
+class GRET_OT_bake(bpy.types.Operator):
     #tooltip
     """Bake and export the texture.
 All faces from all objects assigned to the active material are assumed to contribute"""
 
-    bl_idname = 'my_tools.bake'
+    bl_idname = 'gret.bake'
     bl_label = "Bake"
     bl_options = {'INTERNAL'}
 
@@ -387,11 +387,11 @@ All faces from all objects assigned to the active material are assumed to contri
 
         return {'FINISHED'}
 
-class MY_OT_quick_unwrap(bpy.types.Operator):
+class GRET_OT_quick_unwrap(bpy.types.Operator):
     #tooltip
     """Smart unwrap and pack UVs for all objects that have the active material assigned"""
 
-    bl_idname = 'my_tools.quick_unwrap'
+    bl_idname = 'gret.quick_unwrap'
     bl_label = "Quick Unwrap"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -471,7 +471,7 @@ class MY_OT_quick_unwrap(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class MY_PT_material_tools(bpy.types.Panel):
+class GRET_PT_material_tools(bpy.types.Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = 'material'
@@ -495,13 +495,13 @@ class MY_PT_material_tools(bpy.types.Panel):
         col = layout.column(align=True)
         col.prop(bake, 'export_path', text="")
         row = col.row(align=True)
-        row.operator('my_tools.quick_unwrap', icon='UV')
-        op = row.operator('my_tools.bake', icon='INDIRECT_ONLY_ON', text="Bake")
+        row.operator('gret.quick_unwrap', icon='UV')
+        op = row.operator('gret.bake', icon='INDIRECT_ONLY_ON', text="Bake")
         op.debug = False
-        op = row.operator('my_tools.bake', icon='INDIRECT_ONLY_OFF', text="")
+        op = row.operator('gret.bake', icon='INDIRECT_ONLY_OFF', text="")
         op.debug = True
 
-class MY_PG_texture_bake(bpy.types.PropertyGroup):
+class GRET_PG_texture_bake(bpy.types.PropertyGroup):
     size: bpy.props.IntProperty(
         name="Texture Size",
         description="Size of the exported texture",
@@ -536,17 +536,17 @@ class MY_PG_texture_bake(bpy.types.PropertyGroup):
     )
 
 classes = (
-    MY_OT_bake,
-    MY_OT_quick_unwrap,
-    MY_PG_texture_bake,
-    MY_PT_material_tools,
+    GRET_OT_bake,
+    GRET_OT_quick_unwrap,
+    GRET_PG_texture_bake,
+    GRET_PT_material_tools,
 )
 
 def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    bpy.types.Material.texture_bake = bpy.props.PointerProperty(type=MY_PG_texture_bake)
+    bpy.types.Material.texture_bake = bpy.props.PointerProperty(type=GRET_PG_texture_bake)
 
 def unregister():
     del bpy.types.Material.texture_bake

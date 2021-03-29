@@ -1,11 +1,11 @@
 bl_info = {
-    'name': "My Tools",
+    'name': "gret",
     'author': "greisane",
     'description': "",
-    'version': (0, 2),
-    'blender': (2, 80, 0),
-    'location': "3D View > Tools > My Tools",
-    'category': "My Tools"
+    'version': (1, 0),
+    'blender': (2, 92, 0),
+    'location': "3D View > Tools > gret",
+    'category': "gret"
 }
 
 import bpy
@@ -36,7 +36,7 @@ for module_name in module_names:
     else:
         globals()[module_name] = importlib.import_module(module_name)
 
-class MY_PG_settings(bpy.types.PropertyGroup):
+class GRET_PG_settings(bpy.types.PropertyGroup):
     @classmethod
     def add_property(cls, name, annotation):
         if not hasattr(cls, '__annotations__'):
@@ -48,15 +48,15 @@ def register():
     for module_name in module_names:
         module = sys.modules.get(module_name)
         if hasattr(module, 'register'):
-            module.register(MY_PG_settings)
+            module.register(GRET_PG_settings)
 
     # Settings used to live in WindowManager, however pointer properties break with global undo
-    bpy.utils.register_class(MY_PG_settings)
-    bpy.types.Scene.my_tools = bpy.props.PointerProperty(type=MY_PG_settings)
+    bpy.utils.register_class(GRET_PG_settings)
+    bpy.types.Scene.gret = bpy.props.PointerProperty(type=GRET_PG_settings)
 
 def unregister():
-    del bpy.types.Scene.my_tools
-    bpy.utils.unregister_class(MY_PG_settings)
+    del bpy.types.Scene.gret
+    bpy.utils.unregister_class(GRET_PG_settings)
 
     for module_name in reversed(module_names):
         module = sys.modules.get(module_name)

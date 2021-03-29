@@ -16,11 +16,11 @@ from .helpers import (
     save_selection,
 )
 
-class MY_OT_deduplicate_materials(bpy.types.Operator):
+class GRET_OT_deduplicate_materials(bpy.types.Operator):
     #tooltip
     """Deletes duplicate materials and fixes meshes that reference them"""
 
-    bl_idname = 'my_tools.deduplicate_materials'
+    bl_idname = 'gret.deduplicate_materials'
     bl_label = "Deduplicate Materials"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -52,12 +52,12 @@ class MY_OT_deduplicate_materials(bpy.types.Operator):
         self.report({'INFO'}, f"Deleted {len(redirects)} duplicate materials.")
         return {'FINISHED'}
 
-class MY_OT_replace_references(bpy.types.Operator):
+class GRET_OT_replace_references(bpy.types.Operator):
     #tooltip
     """Replaces references to an object with a different object. Use with care.
 Currently only handles objects and modifiers, and no nested properties"""
 
-    bl_idname = 'my_tools.replace_references'
+    bl_idname = 'gret.replace_references'
     bl_label = "Replace References"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -139,11 +139,11 @@ Currently only handles objects and modifiers, and no nested properties"""
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
 
-class MY_OT_graft(bpy.types.Operator):
+class GRET_OT_graft(bpy.types.Operator):
     #tooltip
     """Connects boundaries of selected objects to the active object"""
 
-    bl_idname = 'my_tools.graft'
+    bl_idname = 'gret.graft'
     bl_label = "Graft"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -409,13 +409,13 @@ class MY_OT_graft(bpy.types.Operator):
         row.prop(self, 'normal_blend_distance', text="Dist.")
         row.prop(self, 'normal_blend_power', text="Power")
 
-class MY_OT_retarget_mesh(bpy.types.Operator):
+class GRET_OT_retarget_mesh(bpy.types.Operator):
     #tooltip
     """Retarget meshes fit on a source mesh to a modified version of the source mesh.
 The meshes are expected to share topology and vertex order"""
     # Note: If vertex order gets messed up, try using an addon like Transfer Vert Order to fix it
 
-    bl_idname = 'my_tools.retarget_mesh'
+    bl_idname = 'gret.retarget_mesh'
     bl_label = "Retarget Mesh"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -545,22 +545,22 @@ The meshes are expected to share topology and vertex order"""
         layout.prop(self, 'stride')
         layout.prop(self, 'as_shapekey')
 
-class MY_PT_scene_tools(bpy.types.Panel):
+class GRET_PT_scene_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = "My Tools"
+    bl_category = "gret"
     bl_label = "Scene Tools"
 
     def draw(self, context):
         obj = context.active_object
         layout = self.layout
-        settings = context.scene.my_tools
+        settings = context.scene.gret
 
         col = layout.column(align=True)
         col.label(text="Collision:")
         row = col.row(align=True)
-        row.operator('my_tools.make_collision', icon='MESH_CUBE', text="Make")
-        row.operator('my_tools.assign_collision', text="Assign")
+        row.operator('gret.make_collision', icon='MESH_CUBE', text="Make")
+        row.operator('gret.assign_collision', text="Assign")
 
         col = layout.column(align=True)
         row = col.row(align=False)
@@ -582,8 +582,8 @@ class MY_PT_scene_tools(bpy.types.Panel):
         row.prop(settings, 'retarget_dst', text="")
 
         row = col.row(align=True)
-        op1 = row.operator('my_tools.retarget_mesh', icon='CHECKMARK', text="Apply")
-        op2 = row.operator('my_tools.retarget_mesh', icon='SHAPEKEY_DATA', text="Save")
+        op1 = row.operator('gret.retarget_mesh', icon='CHECKMARK', text="Apply")
+        op2 = row.operator('gret.retarget_mesh', icon='SHAPEKEY_DATA', text="Save")
         if settings.retarget_src and settings.retarget_dst:
             op1.source = op2.source = settings.retarget_src.name
             op1.destination = op2.destination = settings.retarget_dst.name
@@ -597,16 +597,16 @@ class MY_PT_scene_tools(bpy.types.Panel):
 
         col = layout.column(align=True)
         col.label(text="Other Tools:")
-        col.operator('my_tools.graft', icon='MOD_BOOLEAN')
-        col.operator('my_tools.deduplicate_materials', icon='MATERIAL')
-        col.operator('my_tools.replace_references', icon='LIBRARY_DATA_OVERRIDE')
+        col.operator('gret.graft', icon='MOD_BOOLEAN')
+        col.operator('gret.deduplicate_materials', icon='MATERIAL')
+        col.operator('gret.replace_references', icon='LIBRARY_DATA_OVERRIDE')
 
 classes = (
-    MY_OT_deduplicate_materials,
-    MY_OT_graft,
-    MY_OT_replace_references,
-    MY_OT_retarget_mesh,
-    MY_PT_scene_tools,
+    GRET_OT_deduplicate_materials,
+    GRET_OT_graft,
+    GRET_OT_replace_references,
+    GRET_OT_retarget_mesh,
+    GRET_PT_scene_tools,
 )
 
 def register(settings):
@@ -627,7 +627,7 @@ def register(settings):
         poll=lambda self, obj: obj and obj.type == 'MESH' and obj != self.retarget_src and (
             not self.retarget_src or len(obj.data.vertices) == len(self.retarget_src.data.vertices))
     ))
-    retarget_props = MY_OT_retarget_mesh.__annotations__
+    retarget_props = GRET_OT_retarget_mesh.__annotations__
     settings.add_property('retarget_function', retarget_props['function'])
     settings.add_property('retarget_radius', retarget_props['radius'])
     settings.add_property('retarget_stride', retarget_props['stride'])

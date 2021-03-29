@@ -59,18 +59,18 @@ def export_fbx(context, filepath, actions):
         , use_batch_own_dir=False
     )
 
-class MY_OT_export_job_add(bpy.types.Operator):
+class GRET_OT_export_job_add(bpy.types.Operator):
     #tooltip
     """Add a new export job"""
 
-    bl_idname = 'my_tools.export_job_add'
+    bl_idname = 'gret.export_job_add'
     bl_label = "Add Export Job"
     bl_options = {'INTERNAL', 'UNDO'}
 
     def execute(self, context):
         scn = context.scene
-        job = scn.my_tools.export_jobs.add()
-        job_index = len(scn.my_tools.export_jobs) - 1
+        job = scn.gret.export_jobs.add()
+        job_index = len(scn.gret.export_jobs) - 1
         job.name = "Job #%d" % (job_index + 1)
         collection = job.collections.add()
         collection.job_index = job_index
@@ -85,7 +85,7 @@ class MY_OT_export_job_add(bpy.types.Operator):
 
 def refresh_job_list(context):
     """Call after changing the job list, keeps job indices up to date"""
-    for job_idx, job in enumerate(context.scene.my_tools.export_jobs):
+    for job_idx, job in enumerate(context.scene.gret.export_jobs):
         for coll in job.collections:
             coll.job_index = job_idx
         for action in job.actions:
@@ -95,59 +95,59 @@ def refresh_job_list(context):
         for remap_material in job.remap_materials:
             remap_material.job_index = job_idx
 
-class MY_OT_export_job_remove(bpy.types.Operator):
+class GRET_OT_export_job_remove(bpy.types.Operator):
     #tooltip
     """Removes an export job"""
 
-    bl_idname = 'my_tools.export_job_remove'
+    bl_idname = 'gret.export_job_remove'
     bl_label = "Remove Export Job"
     bl_options = {'INTERNAL', 'UNDO'}
 
     index: bpy.props.IntProperty(options={'HIDDEN'})
 
     def execute(self, context):
-        context.scene.my_tools.export_jobs.remove(self.index)
+        context.scene.gret.export_jobs.remove(self.index)
         refresh_job_list(context)
 
         return {'FINISHED'}
 
-class MY_OT_export_job_move_up(bpy.types.Operator):
+class GRET_OT_export_job_move_up(bpy.types.Operator):
     #tooltip
     """Moves the export job up"""
 
-    bl_idname = 'my_tools.export_job_move_up'
+    bl_idname = 'gret.export_job_move_up'
     bl_label = "Move Export Job Up"
     bl_options = {'INTERNAL', 'UNDO'}
 
     index: bpy.props.IntProperty(options={'HIDDEN'})
 
     def execute(self, context):
-        context.scene.my_tools.export_jobs.move(self.index, self.index - 1)
+        context.scene.gret.export_jobs.move(self.index, self.index - 1)
         refresh_job_list(context)
 
         return {'FINISHED'}
 
-class MY_OT_export_job_move_down(bpy.types.Operator):
+class GRET_OT_export_job_move_down(bpy.types.Operator):
     #tooltip
     """Moves the export job down"""
 
-    bl_idname = 'my_tools.export_job_move_down'
+    bl_idname = 'gret.export_job_move_down'
     bl_label = "Move Export Job Down"
     bl_options = {'INTERNAL', 'UNDO'}
 
     index: bpy.props.IntProperty(options={'HIDDEN'})
 
     def execute(self, context):
-        context.scene.my_tools.export_jobs.move(self.index, self.index + 1)
+        context.scene.gret.export_jobs.move(self.index, self.index + 1)
         refresh_job_list(context)
 
         return {'FINISHED'}
 
-class MY_OT_export_job_run(bpy.types.Operator):
+class GRET_OT_export_job_run(bpy.types.Operator):
     #tooltip
     """Execute export job"""
 
-    bl_idname = 'my_tools.export_job_run'
+    bl_idname = 'gret.export_job_run'
     bl_label = "Execute Export Job"
 
     index: bpy.props.IntProperty(options={'HIDDEN'})
@@ -160,7 +160,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
 
     def _execute(self, context):
         scn = context.scene
-        job = scn.my_tools.export_jobs[self.index]
+        job = scn.gret.export_jobs[self.index]
 
         def should_export(job_coll, what):
             if job_coll is None or what is None:
@@ -257,7 +257,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                 for obj in export_coll.objects:
                     bpy.data.objects.remove(obj, do_unlink=True)
 
-            bpy.ops.my_tools.rig_export(
+            bpy.ops.gret.rig_export(
                 export_path=job.rig_export_path if not job.to_collection else "",
                 export_collection=export_coll.name if job.to_collection and export_coll else "",
                 merge_basis_shape_keys=job.merge_basis_shape_keys,
@@ -334,7 +334,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
                         val = fcurve_src.evaluate(frame_idx)
                         fcurve_dst.keyframe_points.insert(frame_idx, val)
 
-            bpy.ops.my_tools.animation_export(
+            bpy.ops.gret.animation_export(
                 export_path=job.animation_export_path,
                 markers_export_path=job.markers_export_path if job.export_markers else "",
                 actions=','.join(action_names),
@@ -365,7 +365,7 @@ class MY_OT_export_job_run(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class MY_PT_export_jobs(bpy.types.Panel):
+class GRET_PT_export_jobs(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "Jobs"
@@ -375,9 +375,9 @@ class MY_PT_export_jobs(bpy.types.Panel):
         layout = self.layout
         scn = context.scene
 
-        layout.operator("my_tools.export_job_add", text="Add")
+        layout.operator("gret.export_job_add", text="Add")
 
-        for job_idx, job in enumerate(scn.my_tools.export_jobs):
+        for job_idx, job in enumerate(scn.gret.export_jobs):
             col_job = layout.column(align=True)
             box = col_job.box()
             row = box.row()
@@ -387,14 +387,14 @@ class MY_PT_export_jobs(bpy.types.Panel):
             row.prop(job, 'name', text="")
             row = row.row(align=True)
             split = row.split()
-            op = split.operator('my_tools.export_job_move_up', icon='TRIA_UP', text="", emboss=False)
+            op = split.operator('gret.export_job_move_up', icon='TRIA_UP', text="", emboss=False)
             op.index = job_idx
             split.enabled = job_idx > 0
             split = row.split()
-            op = split.operator('my_tools.export_job_move_down', icon='TRIA_DOWN', text="", emboss=False)
+            op = split.operator('gret.export_job_move_down', icon='TRIA_DOWN', text="", emboss=False)
             op.index = job_idx
-            split.enabled = job_idx < len(scn.my_tools.export_jobs) - 1
-            op = row.operator('my_tools.export_job_remove', icon='X', text="", emboss=False)
+            split.enabled = job_idx < len(scn.gret.export_jobs) - 1
+            op = row.operator('gret.export_job_remove', icon='X', text="", emboss=False)
             op.index = job_idx
             box = col_job.box()
             col = box
@@ -494,17 +494,17 @@ class MY_PT_export_jobs(bpy.types.Panel):
                     col.prop(job, 'animation_export_path', text="")
 
             row = col.row(align=True)
-            op = row.operator('my_tools.export_job_run', icon='INDIRECT_ONLY_ON', text="Execute")
+            op = row.operator('gret.export_job_run', icon='INDIRECT_ONLY_ON', text="Execute")
             op.index = job_idx
             op.debug = False
-            op = row.operator('my_tools.export_job_run', icon='INDIRECT_ONLY_OFF', text="")
+            op = row.operator('gret.export_job_run', icon='INDIRECT_ONLY_OFF', text="")
             op.index = job_idx
             op.debug = True
 
 
 def on_collection_updated(self, context):
     scn = context.scene
-    job = scn.my_tools.export_jobs[self.job_index]
+    job = scn.gret.export_jobs[self.job_index]
     index = job.collections.values().index(self)
 
     empty = not self.collection
@@ -517,7 +517,7 @@ def on_collection_updated(self, context):
         coll = job.collections.add()
         coll.job_index = self.job_index
 
-class MY_PG_export_collection(bpy.types.PropertyGroup):
+class GRET_PG_export_collection(bpy.types.PropertyGroup):
     job_index: bpy.props.IntProperty()
     collection: bpy.props.PointerProperty(
         name="Collection",
@@ -538,7 +538,7 @@ class MY_PG_export_collection(bpy.types.PropertyGroup):
 
 def on_action_updated(self, context):
     scn = context.scene
-    job = scn.my_tools.export_jobs[self.job_index]
+    job = scn.gret.export_jobs[self.job_index]
     index = job.actions.values().index(self)
 
     empty = not self.action and not self.use_pattern
@@ -551,7 +551,7 @@ def on_action_updated(self, context):
         action = job.actions.add()
         action.job_index = self.job_index
 
-class MY_PG_export_action(bpy.types.PropertyGroup):
+class GRET_PG_export_action(bpy.types.PropertyGroup):
     job_index: bpy.props.IntProperty()
     action: bpy.props.StringProperty(
         name="Action",
@@ -568,7 +568,7 @@ class MY_PG_export_action(bpy.types.PropertyGroup):
 
 def on_copy_property_updated(self, context):
     scn = context.scene
-    job = scn.my_tools.export_jobs[self.job_index]
+    job = scn.gret.export_jobs[self.job_index]
     index = job.copy_properties.values().index(self)
 
     empty = not self.source and not self.destination
@@ -581,7 +581,7 @@ def on_copy_property_updated(self, context):
         copy_property = job.copy_properties.add()
         copy_property.job_index = self.job_index
 
-class MY_PG_copy_property(bpy.types.PropertyGroup):
+class GRET_PG_copy_property(bpy.types.PropertyGroup):
     job_index: bpy.props.IntProperty()
     source: bpy.props.StringProperty(
         name="Source",
@@ -600,7 +600,7 @@ e.g.: ["eye_target"]""",
 
 def on_remap_material_updated(self, context):
     scn = context.scene
-    job = scn.my_tools.export_jobs[self.job_index]
+    job = scn.gret.export_jobs[self.job_index]
     index = job.remap_materials.values().index(self)
 
     empty = not self.source and not self.destination
@@ -613,7 +613,7 @@ def on_remap_material_updated(self, context):
         remap_material = job.remap_materials.add()
         remap_material.job_index = self.job_index
 
-class MY_PG_remap_material(bpy.types.PropertyGroup):
+class GRET_PG_remap_material(bpy.types.PropertyGroup):
     job_index: bpy.props.IntProperty()
     source: bpy.props.PointerProperty(
         name="Source",
@@ -631,23 +631,23 @@ class MY_PG_remap_material(bpy.types.PropertyGroup):
 def on_what_updated(self, context):
     # Ensure collections are valid
     if not self.collections:
-        job_index = context.scene.my_tools.export_jobs.values().index(self)
+        job_index = context.scene.gret.export_jobs.values().index(self)
         collection = self.collections.add()
         collection.job_index = job_index
     if not self.actions:
-        job_index = context.scene.my_tools.export_jobs.values().index(self)
+        job_index = context.scene.gret.export_jobs.values().index(self)
         action = self.actions.add()
         action.job_index = job_index
     if not self.copy_properties:
-        job_index = context.scene.my_tools.export_jobs.values().index(self)
+        job_index = context.scene.gret.export_jobs.values().index(self)
         copy_property = self.copy_properties.add()
         copy_property.job_index = job_index
     if not self.remap_materials:
-        job_index = context.scene.my_tools.export_jobs.values().index(self)
+        job_index = context.scene.gret.export_jobs.values().index(self)
         remap_material = self.remap_materials.add()
         remap_material.job_index = job_index
 
-class MY_PG_export_job(bpy.types.PropertyGroup):
+class GRET_PG_export_job(bpy.types.PropertyGroup):
     show_expanded: bpy.props.BoolProperty(
         name="Show Expanded",
         description="Set export job expanded in the user interface",
@@ -685,7 +685,7 @@ class MY_PG_export_job(bpy.types.PropertyGroup):
         default=True,
     )
     collections: bpy.props.CollectionProperty(
-        type=MY_PG_export_collection,
+        type=GRET_PG_export_collection,
     )
     material_name_prefix: bpy.props.StringProperty(
         name="Material Prefix",
@@ -754,7 +754,7 @@ Normals are preserved""",
         default=False,
     )
     remap_materials: bpy.props.CollectionProperty(
-        type=MY_PG_remap_material,
+        type=GRET_PG_remap_material,
     )
     to_collection: bpy.props.BoolProperty(
         name="To Collection",
@@ -779,7 +779,7 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
 
     # Animation export options
     actions: bpy.props.CollectionProperty(
-        type=MY_PG_export_action,
+        type=GRET_PG_export_action,
     )
     disable_auto_eyelid: bpy.props.BoolProperty(
         name="Disable Auto-Eyelid",
@@ -802,7 +802,7 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
         subtype='FILE_PATH',
     )
     copy_properties: bpy.props.CollectionProperty(
-        type=MY_PG_copy_property,
+        type=GRET_PG_copy_property,
     )
     animation_export_path: bpy.props.StringProperty(
         name="Export Path",
@@ -816,17 +816,17 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
     )
 
 classes = (
-    MY_OT_export_job_add,
-    MY_OT_export_job_move_down,
-    MY_OT_export_job_move_up,
-    MY_OT_export_job_remove,
-    MY_OT_export_job_run,
-    MY_PG_copy_property,
-    MY_PG_export_action,
-    MY_PG_export_collection,
-    MY_PG_remap_material,
-    MY_PG_export_job,
-    MY_PT_export_jobs,
+    GRET_OT_export_job_add,
+    GRET_OT_export_job_move_down,
+    GRET_OT_export_job_move_up,
+    GRET_OT_export_job_remove,
+    GRET_OT_export_job_run,
+    GRET_PG_copy_property,
+    GRET_PG_export_action,
+    GRET_PG_export_collection,
+    GRET_PG_remap_material,
+    GRET_PG_export_job,
+    GRET_PT_export_jobs,
 )
 
 def register(settings):
@@ -834,7 +834,7 @@ def register(settings):
         bpy.utils.register_class(cls)
 
     settings.add_property('export_jobs', bpy.props.CollectionProperty(
-        type=MY_PG_export_job,
+        type=GRET_PG_export_job,
     ))
 
 def unregister():

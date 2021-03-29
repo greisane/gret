@@ -2,12 +2,12 @@ from mathutils import Vector
 from math import sin, cos, pi
 import bpy
 
-class MY_OT_wall_add(bpy.types.Operator):
+class GRET_OT_wall_add(bpy.types.Operator):
     #tooltip
     """Construct a flat wall mesh.
 A collection is created where meshes can be added to create openings."""
 
-    bl_idname = 'my_tools.wall_add'
+    bl_idname = 'gret.wall_add'
     bl_label = "Add Wall"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -103,11 +103,11 @@ A collection is created where meshes can be added to create openings."""
 
         return {'FINISHED'}
 
-class MY_OT_strap_add(bpy.types.Operator):
+class GRET_OT_strap_add(bpy.types.Operator):
     #tooltip
     """Construct a strap mesh wrapping around the selected object"""
 
-    bl_idname = 'my_tools.strap_add'
+    bl_idname = 'gret.strap_add'
     bl_label = "Add Strap"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -192,11 +192,11 @@ class MY_OT_strap_add(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class MY_OT_rope_add(bpy.types.Operator):
+class GRET_OT_rope_add(bpy.types.Operator):
     #tooltip
     """Construct a rope mesh following the selected curve"""
 
-    bl_idname = 'my_tools.rope_add'
+    bl_idname = 'gret.rope_add'
     bl_label = "Add Rope"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -327,9 +327,9 @@ class MY_OT_rope_add(bpy.types.Operator):
         return {'FINISHED'}
 
 classes = (
-    MY_OT_wall_add,
-    MY_OT_strap_add,
-    MY_OT_rope_add,
+    GRET_OT_wall_add,
+    GRET_OT_strap_add,
+    GRET_OT_rope_add,
 )
 
 def mesh_menu_draw_func(self, context):
@@ -337,9 +337,9 @@ def mesh_menu_draw_func(self, context):
     layout.operator_context = 'INVOKE_REGION_WIN'
 
     layout.separator()
-    layout.operator('my_tools.strap_add', icon='EDGESEL', text="Strap")
-    layout.operator('my_tools.rope_add', icon='MOD_SCREW', text="Rope")
-    layout.operator('my_tools.wall_add', icon='MOD_BUILD', text="Wall")
+    layout.operator('gret.strap_add', icon='EDGESEL', text="Strap")
+    layout.operator('gret.rope_add', icon='MOD_SCREW', text="Rope")
+    layout.operator('gret.wall_add', icon='MOD_BUILD', text="Wall")
 
 def register(settings):
     for cls in classes:

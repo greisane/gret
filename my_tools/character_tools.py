@@ -44,11 +44,11 @@ def parse_prop_path(obj, prop_path):
 
     return None, None, prop_path
 
-class MY_OT_property_add(bpy.types.Operator):
+class GRET_OT_property_add(bpy.types.Operator):
     #tooltip
     """Add a property to the list"""
 
-    bl_idname = 'my_tools.property_add'
+    bl_idname = 'gret.property_add'
     bl_label = "Add Property"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -78,11 +78,11 @@ class MY_OT_property_add(bpy.types.Operator):
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
 
-class MY_OT_property_remove(bpy.types.Operator):
+class GRET_OT_property_remove(bpy.types.Operator):
     #tooltip
     """Remove the property from the list"""
 
-    bl_idname = 'my_tools.property_remove'
+    bl_idname = 'gret.property_remove'
     bl_label = "Remove Property"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -102,11 +102,11 @@ class MY_OT_property_remove(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class MY_OT_propagate_bone_inherit_scale(bpy.types.Operator):
+class GRET_OT_propagate_bone_inherit_scale(bpy.types.Operator):
     #tooltip
     """Propagates 'Inherit Scale' from the selected bone to children"""
 
-    bl_idname = 'my_tools.propagate_bone_inherit_scale'
+    bl_idname = 'gret.propagate_bone_inherit_scale'
     bl_label = "Propagate Bone Inherit Scale"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -124,11 +124,11 @@ class MY_OT_propagate_bone_inherit_scale(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class MY_OT_selection_set_toggle(bpy.types.Operator):
+class GRET_OT_selection_set_toggle(bpy.types.Operator):
     #tooltip
     """Toggle this bone selection set. Shift-click to extend selection"""
 
-    bl_idname = 'my_tools.selection_set_toggle'
+    bl_idname = 'gret.selection_set_toggle'
     bl_label = "Toggle Bone Selection Set"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -165,11 +165,11 @@ class MY_OT_selection_set_toggle(bpy.types.Operator):
         self.extend = event.shift
         return self.execute(context)
 
-class MY_OT_selection_set_copy(bpy.types.Operator):
+class GRET_OT_selection_set_copy(bpy.types.Operator):
     #tooltip
     """Copy bone selection sets to clipboard"""
 
-    bl_idname = 'my_tools.selection_set_copy'
+    bl_idname = 'gret.selection_set_copy'
     bl_label = "Copy Bone Selection Sets"
     bl_options = {'INTERNAL'}
 
@@ -189,11 +189,11 @@ class MY_OT_selection_set_copy(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class MY_OT_selection_set_paste(bpy.types.Operator):
+class GRET_OT_selection_set_paste(bpy.types.Operator):
     #tooltip
     """Pastes bone selection sets from clipboard"""
 
-    bl_idname = 'my_tools.selection_set_paste'
+    bl_idname = 'gret.selection_set_paste'
     bl_label = "Paste Bone Selection Sets"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -228,10 +228,10 @@ class MY_OT_selection_set_paste(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class MY_PT_character_tools(bpy.types.Panel):
+class GRET_PT_character_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = "My Tools"
+    bl_category = "gret"
     bl_label = "Character Tools"
 
     @classmethod
@@ -246,7 +246,7 @@ class MY_PT_character_tools(bpy.types.Panel):
         box = layout.box()
         row = box.row()
         row.label(text="Properties", icon='PROPERTIES')
-        row.operator('my_tools.property_add', icon='ADD', text="")
+        row.operator('gret.property_add', icon='ADD', text="")
 
         properties = obj.get('properties')
         if properties:
@@ -262,15 +262,15 @@ class MY_PT_character_tools(bpy.types.Panel):
                     row.alert = True
                     row.label(text=f"Missing: {label}")
 
-                row.operator('my_tools.property_remove', icon='X', text="").index = idx
+                row.operator('gret.property_remove', icon='X', text="").index = idx
 
         if hasattr(obj, 'selection_sets'):
             box = layout.box()
             row = box.row()
             row.label(text="Bone Selection Sets", icon='GROUP_BONE')
             row = row.row(align=True)
-            row.operator('my_tools.selection_set_copy', icon='COPYDOWN', text="")
-            row.operator('my_tools.selection_set_paste', icon='PASTEDOWN', text="")
+            row.operator('gret.selection_set_copy', icon='COPYDOWN', text="")
+            row.operator('gret.selection_set_paste', icon='PASTEDOWN', text="")
 
             selection_sets = OrderedDict(reversed(obj.selection_sets.items()))
             if selection_sets:
@@ -282,19 +282,19 @@ class MY_PT_character_tools(bpy.types.Panel):
 
                     row = col.row(align=True)
                     if other_sel_set:
-                        row.operator('my_tools.selection_set_toggle', text=other_name,
+                        row.operator('gret.selection_set_toggle', text=other_name,
                             depress=other_sel_set.is_selected).name = other_name
-                    row.operator('my_tools.selection_set_toggle', text=name,
+                    row.operator('gret.selection_set_toggle', text=name,
                         depress=sel_set.is_selected).name = name
 
 classes = (
-    MY_OT_propagate_bone_inherit_scale,
-    MY_OT_property_add,
-    MY_OT_property_remove,
-    MY_OT_selection_set_copy,
-    MY_OT_selection_set_paste,
-    MY_OT_selection_set_toggle,
-    MY_PT_character_tools,
+    GRET_OT_propagate_bone_inherit_scale,
+    GRET_OT_property_add,
+    GRET_OT_property_remove,
+    GRET_OT_selection_set_copy,
+    GRET_OT_selection_set_paste,
+    GRET_OT_selection_set_toggle,
+    GRET_PT_character_tools,
 )
 
 saved_unhidden_collections = set()

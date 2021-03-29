@@ -21,7 +21,7 @@ from .export import (
     export_fbx,
 )
 
-class MY_OT_scene_export(bpy.types.Operator):
+class GRET_OT_scene_export(bpy.types.Operator):
     bl_idname = 'export_scene.my_fbx'
     bl_label = "Scene Export"
     bl_context = 'objectmode'
@@ -210,7 +210,7 @@ class MY_OT_scene_export(bpy.types.Operator):
         return {'FINISHED'}
 
 classes = (
-    MY_OT_scene_export,
+    GRET_OT_scene_export,
 )
 
 def register(settings):
