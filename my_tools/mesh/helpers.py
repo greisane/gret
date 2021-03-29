@@ -1,18 +1,13 @@
-from collections import namedtuple
-from itertools import chain
 import bmesh
 import bpy
-import numpy as np
 import re
-from .helpers import (
-    get_flipped_name,
-    log,
-    logger,
-    select_only,
-)
+
+from gret.helpers import get_flipped_name, select_only
+from gret.log import log, logger
 
 def edit_mesh_elements(obj, type='VERT', indices=None, key=lambda el: True):
-    """Enters edit mode and selects elements of a mesh to be operated on.
+    """
+    Enters edit mode and selects elements of a mesh to be operated on.
 
     indices: Iterable with the indices of the elements to select. If None, all elements are selected.
     key: A function can be supplied to determine which elements should be selected.
@@ -346,20 +341,3 @@ def bmesh_blur_vertex_group(bm, vertex_group_index, distance, power=1.0):
                 if other_vert_w > get_weight(other_vert):
                     set_weight(other_vert, other_vert_w)
                     openset.append(other_vert)
-
-def get_mesh_points(obj, use_object_transform=False, stride=1):
-    """Return vertex coordinates of a mesh as a numpy array with shape (?, 3)."""
-    # Moving the mesh seems to be faster. See https://blender.stackexchange.com/questions/139511
-
-    mesh = obj.data
-    if use_object_transform:
-        mesh = mesh.copy()
-        mesh.transform(obj.matrix_world)
-
-    points = np.zeros(len(mesh.vertices)*3, dtype=np.float)
-    mesh.vertices.foreach_get('co', points)
-    points = points.reshape((-1, 3))[::stride]
-
-    if use_object_transform:
-        bpy.data.meshes.remove(mesh)
-    return points

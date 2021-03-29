@@ -1,6 +1,7 @@
-import os
 import bpy
-from ..helpers import clear_pose, try_key
+import os
+
+from gret.rig.helpers import clear_pose, try_key
 
 class GRET_OT_action_set(bpy.types.Operator):
     #tooltip

@@ -1,4 +1,4 @@
-from ..helpers import log
+from gret.log import log
 
 class SolidPixels:
     """Mimics a pixels array, always returning the same value for all pixels."""

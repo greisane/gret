@@ -2,24 +2,20 @@ from collections import defaultdict
 import bpy
 import re
 import time
-from ..helpers import (
+
+from gret.helpers import (
     beep,
     fail_if_invalid_export_path,
     fail_if_no_operator,
     get_export_path,
     get_nice_export_report,
     load_selection,
-    log,
-    logger,
     save_selection,
     select_only,
 )
-from ..mesh_helpers import (
-    merge_basis_shape_keys,
-)
-from ..export import (
-    export_fbx,
-)
+from gret.mesh.helpers import merge_basis_shape_keys
+from gret.log import log, logger
+from .export import export_fbx  # Fix this?
 
 class GRET_OT_scene_export(bpy.types.Operator):
     bl_idname = 'export_scene.my_fbx'

@@ -2,15 +2,9 @@ from itertools import dropwhile, chain
 from math import pi
 import bmesh
 import bpy
-from ..mesh_helpers import (
-    bmesh_blur_vertex_group,
-    edit_mesh_elements,
-)
-from ..helpers import (
-    link_properties,
-    load_selection,
-    save_selection,
-)
+
+from gret.mesh.helpers import bmesh_blur_vertex_group, edit_mesh_elements
+from gret.helpers import link_properties, load_selection, save_selection
 
 class GRET_OT_graft(bpy.types.Operator):
     #tooltip

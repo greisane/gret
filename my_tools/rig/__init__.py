@@ -3,6 +3,9 @@ import importlib
 import sys
 
 module_names = [
+    'helpers',
+    'auto_hide_arp',
+    'propagate_bone_inherit_scale',
     'properties',
     'selection_sets',
 ]

@@ -1,9 +1,8 @@
 from collections import OrderedDict
 import bpy
 import json
-from ..helpers import (
-    get_flipped_name,
-)
+
+from gret.helpers import get_flipped_name
 
 class GRET_OT_selection_set_toggle(bpy.types.Operator):
     #tooltip

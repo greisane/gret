@@ -1,17 +1,17 @@
 from fnmatch import fnmatch
 import bpy
-from ..helpers import (
+
+from gret.helpers import (
     get_children_recursive,
     intercept,
     load_selection,
-    log,
-    logger,
     save_selection,
     select_only,
 )
+from gret.log import log, logger
 
 class ConstantCurve:
-    """Mimics FCurve, always returning the same value on evaluation."""
+    """Mimics FCurve and always returns the same value on evaluation."""
     def __init__(self, value=0.0):
         self.value = value
     def evaluate(self, frame_index):

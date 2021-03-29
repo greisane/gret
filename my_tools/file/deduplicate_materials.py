@@ -3,7 +3,7 @@ import re
 
 class GRET_OT_deduplicate_materials(bpy.types.Operator):
     #tooltip
-    """Deletes duplicate materials and fixes meshes that reference them"""
+    """Deletes duplicate materials and fixes meshes referencing them"""
 
     bl_idname = 'gret.deduplicate_materials'
     bl_label = "Deduplicate Materials"

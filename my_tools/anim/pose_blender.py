@@ -1,12 +1,13 @@
 from bpy.app.handlers import persistent
 from collections import defaultdict, namedtuple
+from itertools import chain
 from mathutils import Vector, Euler, Quaternion
 from numbers import Number
 import bpy
-import itertools
 import json
 import re
-from ..helpers import get_flipped_name
+
+from gret.helpers import get_flipped_name
 
 ZERO_ANIMWEIGHT_THRESH = 0.00001
 DELTA = 0.00001
@@ -336,7 +337,7 @@ class PoseBlender:
                     del transforms[bone_name]
 
         # Collect the names of the bones used in the poses
-        self.relevant_bones = sorted(set(itertools.chain.from_iterable(transforms.keys()
+        self.relevant_bones = sorted(set(chain.from_iterable(transforms.keys()
             for transforms in pose_transforms)))
 
         # Finalize poses, changing dicts to lists for performance. The indices correspond

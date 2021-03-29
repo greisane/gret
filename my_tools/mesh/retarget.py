@@ -1,10 +1,8 @@
 import bmesh
 import bpy
 import numpy as np
-from ..math_helpers import RBF
-from ..mesh_helpers import (
-    get_mesh_points,
-)
+
+import gret.rbf
 
 class GRET_OT_retarget_mesh(bpy.types.Operator):
     #tooltip
@@ -76,19 +74,11 @@ The meshes are expected to share topology and vertex order"""
             self.report({'ERROR'}, "Source and destination meshes must have equal amount of vertices.")
             return {'CANCELLED'}
 
-        rbf_kernels = {
-            'LINEAR': RBF.linear,
-            'GAUSSIAN': RBF.gaussian,
-            'PLATE': RBF.thin_plate,
-            'BIHARMONIC': RBF.multi_quadratic_biharmonic,
-            'INV_BIHARMONIC': RBF.inv_multi_quadratic_biharmonic,
-            'C2': RBF.beckert_wendland_c2_basis,
-        }
-        rbf = rbf_kernels.get(self.function, RBF.linear)
+        rbf_kernel = rbf.kernels.get(self.function, rbf.linear)
         src_pts = get_mesh_points(src_obj, self.use_object_transform, self.stride)
         dst_pts = get_mesh_points(dst_obj, self.use_object_transform, self.stride)
         try:
-            weights = RBF.get_weight_matrix(src_pts, dst_pts, rbf, self.radius)
+            weights = rbf.get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius)
         except np.linalg.LinAlgError:
             # Solving for C2 kernel may throw 'SVD did not converge' sometimes
             self.report({'ERROR'}, "Failed to retarget. Try a different function or change the radius.")
@@ -100,7 +90,7 @@ The meshes are expected to share topology and vertex order"""
             mesh_pts = get_mesh_points(obj, self.use_object_transform)
             num_mesh_pts = mesh_pts.shape[0]
 
-            dist = RBF.get_distance_matrix(mesh_pts, src_pts, rbf, self.radius)
+            dist = rbf.get_distance_matrix(mesh_pts, src_pts, rbf_kernel, self.radius)
             identity = np.ones((num_mesh_pts, 1))
             h = np.bmat([[dist, identity, mesh_pts]])
             new_mesh_pts = np.asarray(np.dot(h, weights))

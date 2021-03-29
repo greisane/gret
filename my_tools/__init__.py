@@ -14,14 +14,13 @@ import sys
 
 module_names = [
     'helpers',
-    'math_helpers',
-    'mesh_helpers',
-    'anim',
+    # 'stringcase',  # Third party, no need to register or reload
     'file',
-    'jobs',
     'material',
     'mesh',
     'rig',
+    'anim',  # Depends on rig
+    'jobs',  # Depends on mesh, rig
 ]
 ensure_starts_with = lambda s, prefix: s if s.startswith(prefix) else prefix + s
 module_names[:] = [ensure_starts_with(module_name, f'{__name__}.') for module_name in module_names]

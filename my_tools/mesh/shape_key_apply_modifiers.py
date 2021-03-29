@@ -1,7 +1,8 @@
 from collections import namedtuple, defaultdict
 import bmesh
 import bpy
-from ..math_helpers import get_sq_dist
+
+from gret.math import get_sq_dist
 
 class ShapeKeyInfo(namedtuple('ShapeKeyInfo', ['coords', 'interpolation', 'mute', 'name',
     'slider_max', 'slider_min', 'value', 'vertex_group'])):

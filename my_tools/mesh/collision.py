@@ -4,16 +4,9 @@ import bmesh
 import bpy
 import math
 import re
-from ..math_helpers import (
-    get_best_fit_line,
-    get_point_dist_to_line,
-    get_range_pct,
-    get_sq_dist,
-)
-from ..helpers import (
-    remove_extra_data,
-    select_only,
-)
+
+from gret.helpers import remove_extra_data, select_only
+from gret.math import get_best_fit_line, get_point_dist_to_line, get_range_pct, get_sq_dist
 
 # make_collision TODO:
 # - When creating collision from vertices, sometimes the result is offset

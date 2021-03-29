@@ -3,6 +3,7 @@ import importlib
 import sys
 
 module_names = [
+    'helpers',
     'collision',
     'graft',
     'remove_unused_vertex_groups',
