@@ -332,7 +332,7 @@ classes = (
     GRET_OT_rope_add,
 )
 
-def mesh_menu_draw_func(self, context):
+def draw_menu(self, context):
     layout = self.layout
     layout.operator_context = 'INVOKE_REGION_WIN'
 
@@ -345,10 +345,10 @@ def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    bpy.types.VIEW3D_MT_mesh_add.append(mesh_menu_draw_func)
+    bpy.types.VIEW3D_MT_mesh_add.append(draw_menu)
 
 def unregister():
-    bpy.types.VIEW3D_MT_mesh_add.remove(mesh_menu_draw_func)
+    bpy.types.VIEW3D_MT_mesh_add.remove(draw_menu)
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

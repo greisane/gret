@@ -75,8 +75,8 @@ The meshes are expected to share topology and vertex order"""
             return {'CANCELLED'}
 
         rbf_kernel = rbf.kernels.get(self.function, rbf.linear)
-        src_pts = get_mesh_points(src_obj, self.use_object_transform, self.stride)
-        dst_pts = get_mesh_points(dst_obj, self.use_object_transform, self.stride)
+        src_pts = rbf.get_mesh_points(src_obj, self.use_object_transform, self.stride)
+        dst_pts = rbf.get_mesh_points(dst_obj, self.use_object_transform, self.stride)
         try:
             weights = rbf.get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius)
         except np.linalg.LinAlgError:
@@ -87,7 +87,7 @@ The meshes are expected to share topology and vertex order"""
         for obj in objs:
             if obj.type != 'MESH':
                 continue
-            mesh_pts = get_mesh_points(obj, self.use_object_transform)
+            mesh_pts = rbf.get_mesh_points(obj, self.use_object_transform)
             num_mesh_pts = mesh_pts.shape[0]
 
             dist = rbf.get_distance_matrix(mesh_pts, src_pts, rbf_kernel, self.radius)

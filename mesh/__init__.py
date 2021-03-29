@@ -3,6 +3,7 @@ import bpy
 module_names = [
     'helpers',
     'collision',
+    'extra_objects',
     'graft',
     'remove_unused_vertex_groups',
     'retarget',
