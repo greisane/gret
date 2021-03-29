@@ -5,12 +5,11 @@ import bpy
 import math
 import re
 
-from gret.helpers import remove_extra_data, select_only
+from gret.helpers import remove_extra_data
 from gret.math import get_best_fit_line, get_point_dist_to_line, get_range_pct, get_sq_dist
 
 # make_collision TODO:
 # - When creating collision from vertices, sometimes the result is offset
-# - Multiple objects. Should take away the shape properties and leave only the type
 # - Non-axis aligned boxes
 # - Symmetrize for convex isn't good
 # - Wall collision should try to decompose into boxes
@@ -238,9 +237,8 @@ class GRET_OT_make_collision(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return (context.object
-            and context.object.type == 'MESH'
-            and context.mode in {'OBJECT', 'EDIT_MESH'})
+        obj = context.active_object
+        return obj and obj.type == 'MESH' and obj.mode in {'OBJECT', 'EDIT'}
 
     def create_col_object_from_bm(self, context, obj, bm, prefix=None):
         if not prefix:
@@ -433,30 +431,29 @@ class GRET_OT_make_collision(bpy.types.Operator):
         bm.free()
 
     def execute(self, context):
-        for obj in context.selected_objects[:]:
-            if context.mode != 'EDIT_MESH':
-                pattern = re.compile(rf"^U[A-Z][A-Z]_{obj.name}_\d+")
-                for mesh in [mesh for mesh in bpy.data.meshes if pattern.match(mesh.name)]:
-                    bpy.data.meshes.remove(mesh)
-            select_only(context, obj)
-            if self.shape == 'BOX':
-                self.make_box_collision(context, obj)
-            elif self.shape == 'CYLINDER':
-                self.make_cylinder_collision(context, obj)
-            elif self.shape == 'CAPSULE':
-                self.make_capsule_collision(context, obj)
-            elif self.shape == 'SPHERE':
-                self.make_sphere_collision(context, obj)
-            elif self.shape == 'CONVEX':
-                self.make_convex_collision(context, obj)
-            elif self.shape == 'WALL':
-                self.make_wall_collision(context, obj)
+        obj = context.active_object
+        if obj.mode != 'EDIT':
+            # When working from object mode, it follows that there should be only one collision shape
+            pattern = re.compile(rf"^U[A-Z][A-Z]_{obj.name}_\d+")
+            for mesh in [mesh for mesh in bpy.data.meshes if pattern.match(mesh.name)]:
+                bpy.data.meshes.remove(mesh)
+        if self.shape == 'BOX':
+            self.make_box_collision(context, obj)
+        elif self.shape == 'CYLINDER':
+            self.make_cylinder_collision(context, obj)
+        elif self.shape == 'CAPSULE':
+            self.make_capsule_collision(context, obj)
+        elif self.shape == 'SPHERE':
+            self.make_sphere_collision(context, obj)
+        elif self.shape == 'CONVEX':
+            self.make_convex_collision(context, obj)
+        elif self.shape == 'WALL':
+            self.make_wall_collision(context, obj)
         return {'FINISHED'}
 
     def invoke(self, context, event):
         # Calculate initial properties
         try:
-
             self.calculate_parameters(context, context.object)
         except RuntimeError as e:
             self.report({'ERROR'}, str(e))
@@ -560,7 +557,7 @@ class GRET_OT_make_collision(bpy.types.Operator):
             col.prop(self, 'offset')
             col.prop(self, 'wall_fill_holes')
 
-def draw(self, context):
+def draw_panel(self, context):
     layout = self.layout
 
     col = layout.column(align=True)
