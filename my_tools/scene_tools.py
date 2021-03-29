@@ -141,7 +141,7 @@ Currently only handles objects and modifiers, and no nested properties"""
 
 class MY_OT_graft(bpy.types.Operator):
     #tooltip
-    """Connect boundaries of selected objects to the active object"""
+    """Connects boundaries of selected objects to the active object"""
 
     bl_idname = 'my_tools.graft'
     bl_label = "Graft"

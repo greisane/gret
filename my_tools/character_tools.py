@@ -44,180 +44,6 @@ def parse_prop_path(obj, prop_path):
 
     return None, None, prop_path
 
-def get_bone_chain(bone, num):
-    bones = [bone]
-    num -= 1
-    while bone.parent and num > 0:
-        bone = bone.parent
-        bones.append(bone)
-        num -= 1
-    return bones
-
-def find_proxy(obj):
-    if obj and obj.library:
-        # Linked object, find proxy if possible
-        return next((o for o in bpy.data.objects if o.proxy == obj), None)
-    return obj
-
-class MY_OT_set_camera(bpy.types.Operator):
-    #tooltip
-    """Switches to the camera attached to the character"""
-
-    bl_idname = 'my_tools.set_camera'
-    bl_label = "Set Camera"
-    bl_options = {'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        return context.object and context.object.type == 'ARMATURE'
-
-    def execute(self, context):
-        obj = context.object.proxy or context.object
-
-        camera = next((o for o in bpy.data.objects if o.type == 'CAMERA' and o.parent == obj), None)
-        if not camera:
-            self.report({'INFO'}, "Character has no attached camera.")
-            return {'CANCELLED'}
-
-        bpy.context.scene.camera = camera
-
-        self.report({'INFO'}, "Active camera set.")
-        return {'FINISHED'}
-
-class MY_OT_set_insertor_target(bpy.types.Operator):
-    #tooltip
-    """Configures an insertor setup"""
-
-    bl_idname = 'my_tools.set_insertor_target'
-    bl_label = "Set Insertor Target"
-    bl_options = {'INTERNAL', 'UNDO'}
-
-    def get_path_items(self, context):
-        return [(o.name, f"{o.name} ({o.parent.name})", "") for o in bpy.data.objects
-            if o.type == 'CURVE' and o.parent and o.parent.type == 'ARMATURE']
-
-    path: bpy.props.EnumProperty(
-        items=get_path_items,
-        name="Target Path",
-        description="Path for the insertor to follow",
-    )
-
-    @classmethod
-    def poll(cls, context):
-        obj = context.object
-        return obj and obj.type == 'ARMATURE' and obj.mode == 'POSE' and obj.data.bones.active
-
-    def execute(self, context):
-        obj = context.object
-
-        insertor_bone = obj.data.bones[obj.data.bones.active.name]
-        insertor_spline_ik = next(c for c in obj.pose.bones[insertor_bone.name].constraints
-            if c.type == 'SPLINE_IK')
-        insertor_bones = get_bone_chain(insertor_bone, insertor_spline_ik.chain_count)
-
-        path = bpy.data.objects[self.path]
-        insertee = find_proxy(path.parent)
-        if not insertee or insertee.type != 'ARMATURE':
-            self.report({'ERROR'}, "Path is not parented to an armature.")
-            return {'CANCELLED'}
-
-        hook = next((m for m in path.modifiers if m.type == 'HOOK'), None)
-        if hook and hook.object and hook.object.type == 'ARMATURE':
-            hook_bone = find_proxy(hook.object).pose.bones[hook.subtarget]
-            if hook_bone:
-                insertor_root = insertor_bones[-1].parent
-                if not insertor_root:
-                    self.report({'ERROR'}, "Insertor chain must have a parent bone.")
-                    return {'CANCELLED'}
-
-                con = hook_bone.constraints.new(type='COPY_TRANSFORMS')
-                con.show_expanded = False
-                con.name = "Hook Follow"
-                con.target = obj
-                con.subtarget = insertor_root.name
-                con.head_tail = 1.0
-
-        if '_bones' in path:
-            def add_collision(bone, other_bone, head_tail):
-                con = bone.constraints.new(type='LIMIT_DISTANCE')
-                con.show_expanded = False
-                con.name = f"{other_bone.name} ({head_tail})"
-                con.target = obj
-                con.subtarget = other_bone.name
-                con.head_tail = head_tail
-                con.distance = lerp(other_bone.head_radius, other_bone.tail_radius, head_tail)
-                con.limit_mode = 'LIMITDIST_OUTSIDE'
-
-                # Move to top in case there are additional constraints like clamping
-                ctx = {'object': insertee, 'constraint': con}
-                insertee.data.bones.active = insertee.data.bones[bone.name]
-                while bone.constraints[0] != con:
-                    result = bpy.ops.constraint.move_up(ctx, constraint=con.name, owner='BONE')
-                    if result == {'CANCELLED'}:
-                        # Prevent an infinite loop in case the operator fails
-                        self.report({'ERROR'}, "Failed to reorder constraints.")
-                        break
-
-            saved_layers = insertee.data.layers[:]
-            insertee.data.layers[:] = [True] * len(saved_layers)
-            patterns = path['_bones'].split(',')
-
-            insertee_bones = [b for b in insertee.pose.bones if any(fnmatch(b.name, s) for s in patterns)]
-            for bone in insertee_bones:
-                for other_bone in insertor_bones:
-                    add_collision(bone, other_bone, 0.33)
-                    add_collision(bone, other_bone, 0.66)
-                    add_collision(bone, other_bone, 1.0)
-
-            insertee.data.layers[:] = saved_layers
-
-        insertor_spline_ik.target = path
-
-        return {'FINISHED'}
-
-class MY_OT_clear_insertor_target(bpy.types.Operator):
-    #tooltip
-    """Reverts an insertor setup"""
-
-    bl_idname = 'my_tools.clear_insertor_target'
-    bl_label = "Clear Insertor Target"
-    bl_options = {'INTERNAL', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        obj = context.object
-        return obj and obj.type == 'ARMATURE' and obj.mode == 'POSE' and obj.data.bones.active
-
-    def execute(self, context):
-        obj = context.object
-
-        insertor_bone = obj.data.bones[obj.data.bones.active.name]
-        insertor_spline_ik = next(c for c in obj.pose.bones[insertor_bone.name].constraints
-            if c.type == 'SPLINE_IK')
-        insertor_bones = get_bone_chain(insertor_bone, insertor_spline_ik.chain_count)
-
-        path = insertor_spline_ik.target
-        insertee = find_proxy(path.parent)
-
-        hook = next((m for m in path.modifiers if m.type == 'HOOK'), None)
-        if hook and hook.object and hook.object.type == 'ARMATURE':
-            hook_bone = find_proxy(hook.object).pose.bones[hook.subtarget]
-            if hook_bone:
-                for con in hook_bone.constraints[:]:
-                    if con.type == 'COPY_TRANSFORMS' and con.target == obj:
-                        hook_bone.constraints.remove(con)
-
-        if insertee and insertee.type == 'ARMATURE' and '_bones' in path:
-            insertee_bones = [b for b in insertee.pose.bones if fnmatch(b.name, path['_bones'])]
-            for bone in insertee_bones:
-                for con in bone.constraints[:]:
-                    if con.type == 'LIMIT_DISTANCE' and con.target in insertor_bones:
-                        bone.constraints.remove(con)
-
-        insertor_spline_ik.target = None
-
-        return {'FINISHED'}
-
 class MY_OT_property_add(bpy.types.Operator):
     #tooltip
     """Add a property to the list"""
@@ -295,63 +121,6 @@ class MY_OT_propagate_bone_inherit_scale(bpy.types.Operator):
             active_bone = obj.data.bones[active_pbone.name]
             for bone in active_bone.children_recursive:
                 bone.inherit_scale = active_bone.inherit_scale
-
-        return {'FINISHED'}
-
-class MY_OT_vertex_group_subdivide(bpy.types.Operator):
-    #tooltip
-    """Subdivide weights along the corresponding armature bone, if it exists"""
-
-    bl_idname = 'my_tools.vertex_group_subdivide'
-    bl_label = "Subdivide"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    number_cuts: bpy.props.IntProperty(
-        name="Subdivisions",
-        description="Number of subdivisions",
-        default=2,
-        min=1,
-    )
-
-    @classmethod
-    def poll(cls, context):
-        return context.mode == 'PAINT_WEIGHT' and context.object and context.object.vertex_groups.active
-
-    def execute(self, context):
-        obj = context.object
-        vgroups = obj.vertex_groups
-        src_vg = vgroups.active
-
-        armature = obj.find_armature()
-        if not armature:
-            self.report({'ERROR'}, "No armature found.")
-            return {'CANCELLED'}
-
-        bone = armature.data.bones.get(src_vg.name)
-        if not bone:
-            self.report({'ERROR'}, "No bone associated with the vertex group.")
-            return {'CANCELLED'}
-
-        bone_dir = bone.tail - bone.head
-        bone_length = bone_dir.length
-        bone_dir /= bone_length
-        dst_vgs = [vgroups.new(name=f"{src_vg.name}.{n:03d}") for n in range(self.number_cuts)]
-
-        for vert in obj.data.vertices:
-            for vg in vert.groups:
-                if vg.group == src_vg.index:
-                    x = bone_dir.dot(vert.co - bone.head) / bone_length * len(dst_vgs)
-                    for n, dst_vg in enumerate(dst_vgs):
-                        t = 1.0
-                        if n > 0:
-                            t = min(t, x + 0.5 - n)
-                        if n < len(dst_vgs) - 1:
-                            t = min(t, (n + 1.5) - x)
-                        t = max(0.0, min(1.0, t))
-                        dst_vg.add([vert.index], vg.weight * t, 'REPLACE')
-
-        # Remove original
-        vgroups.remove(src_vg)
 
         return {'FINISHED'}
 
@@ -518,30 +287,13 @@ class MY_PT_character_tools(bpy.types.Panel):
                     row.operator('my_tools.selection_set_toggle', text=name,
                         depress=sel_set.is_selected).name = name
 
-        if obj and obj.type == 'ARMATURE' and obj.mode == 'POSE' and obj.data.bones.active:
-            selected_bone = obj.pose.bones[obj.data.bones.active.name]
-            spline_ik = next((m for m in selected_bone.constraints if m.type == 'SPLINE_IK'), None)
-
-            if spline_ik and spline_ik.target:
-                layout.operator('my_tools.clear_insertor_target',
-                    text="Clear Insertor Target", icon='CONSTRAINT_BONE')
-            elif spline_ik:
-                layout.operator_menu_enum('my_tools.set_insertor_target', 'path',
-                    text="Set Insertor Target", icon='CONSTRAINT_BONE')
-
-        layout.operator('my_tools.set_camera', icon='CAMERA_DATA')
-
 classes = (
-    MY_OT_clear_insertor_target,
     MY_OT_propagate_bone_inherit_scale,
     MY_OT_property_add,
     MY_OT_property_remove,
     MY_OT_selection_set_copy,
     MY_OT_selection_set_paste,
     MY_OT_selection_set_toggle,
-    MY_OT_set_camera,
-    MY_OT_set_insertor_target,
-    MY_OT_vertex_group_subdivide,
     MY_PT_character_tools,
 )
 
