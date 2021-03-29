@@ -57,6 +57,24 @@ def load_post(dummy):
         if not is_defaulted(scene.my_tools):
             print("Found old gret settings in file, restoring")
             load_properties(scene.gret, save_properties(scene.my_tools))
+            # Clean up holes in list settings in jobs. Ugly but this is only backwards compat
+            for job in scene.gret.export_jobs:
+                for index in range(len(job.collections) - 2, -1, -1):
+                    item = job.collections[index]
+                    if not item.collection:
+                        job.collections.remove(index)
+                for index in range(len(job.actions) - 2, -1, -1):
+                    item = job.actions[index]
+                    if not item.action and not item.use_pattern:
+                        job.actions.remove(index)
+                for index in range(len(job.copy_properties) - 2, -1, -1):
+                    item = job.copy_properties[index]
+                    if not item.source and not item.destination:
+                        job.copy_properties.remove(index)
+                for index in range(len(job.remap_materials) - 2, -1, -1):
+                    item = job.remap_materials[index]
+                    if not item.source and not item.destination:
+                        job.remap_materials.remove(index)
     del bpy.types.Scene.my_tools
 
 backwards_compat = True
