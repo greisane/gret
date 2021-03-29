@@ -4,7 +4,7 @@ import math
 import os
 import re
 import time
-from .helpers import (
+from ..helpers import (
     beep,
     clear_pose,
     fail_if_invalid_export_path,
@@ -23,7 +23,7 @@ from .helpers import (
     save_selection,
     select_only,
 )
-from .mesh_helpers import (
+from ..mesh_helpers import (
     apply_modifiers,
     apply_shape_keys_with_vertex_groups,
     delete_faces_with_no_material,

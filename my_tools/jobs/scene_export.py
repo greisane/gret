@@ -2,7 +2,7 @@ from collections import defaultdict
 import bpy
 import re
 import time
-from .helpers import (
+from ..helpers import (
     beep,
     fail_if_invalid_export_path,
     fail_if_no_operator,
@@ -14,10 +14,10 @@ from .helpers import (
     save_selection,
     select_only,
 )
-from .mesh_helpers import (
+from ..mesh_helpers import (
     merge_basis_shape_keys,
 )
-from .export import (
+from ..export import (
     export_fbx,
 )
 

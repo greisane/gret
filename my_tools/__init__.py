@@ -16,15 +16,12 @@ module_names = [
     'helpers',
     'math_helpers',
     'mesh_helpers',
-    'export',
-    'scene_export',
-    'rig_export',
-    'character_tools',
-    'action_tools',
-    'collision_tools',
-    'scene_tools',
-    'extra_objects',
-    'texture_bake',
+    'anim',
+    'file',
+    'jobs',
+    'material',
+    'mesh',
+    'rig',
 ]
 ensure_starts_with = lambda s, prefix: s if s.startswith(prefix) else prefix + s
 module_names[:] = [ensure_starts_with(module_name, f'{__name__}.') for module_name in module_names]

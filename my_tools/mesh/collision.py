@@ -4,13 +4,13 @@ import bmesh
 import bpy
 import math
 import re
-from .math_helpers import (
+from ..math_helpers import (
     get_best_fit_line,
     get_point_dist_to_line,
     get_range_pct,
     get_sq_dist,
 )
-from .helpers import (
+from ..helpers import (
     remove_extra_data,
     select_only,
 )
@@ -566,6 +566,15 @@ class GRET_OT_make_collision(bpy.types.Operator):
             col.prop(self, 'thickness')
             col.prop(self, 'offset')
             col.prop(self, 'wall_fill_holes')
+
+def draw(self, context):
+    layout = self.layout
+
+    col = layout.column(align=True)
+    col.label(text="Collision:")
+    row = col.row(align=True)
+    row.operator('gret.make_collision', icon='MESH_CUBE', text="Make")
+    row.operator('gret.assign_collision', text="Assign")
 
 classes = (
     GRET_OT_assign_collision,

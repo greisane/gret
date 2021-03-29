@@ -1,6 +1,6 @@
 import os
 import bpy
-from .helpers import clear_pose, try_key
+from ..helpers import clear_pose, try_key
 
 class GRET_OT_action_set(bpy.types.Operator):
     #tooltip
@@ -221,68 +221,57 @@ def get_actions_for_rig(rig):
             continue
         yield action
 
-class GRET_PT_actions(bpy.types.Panel):
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
-    bl_category = "gret"
-    bl_label = "Actions"
+def draw(self, context):
+    obj = context.object
+    layout = self.layout
+    settings = context.scene.gret
 
-    @classmethod
-    def poll(cls, context):
-        obj = context.object
-        return context.mode in {'OBJECT', 'POSE'} and obj and obj.type == 'ARMATURE'
+    if obj and obj.type == 'ARMATURE':
+        box = layout.box()
+        row = box.row(align=True)
+        row.label(text="Available Actions", icon='ACTION')
+        row.operator('gret.action_add', icon='ADD', text="")
 
-    def draw(self, context):
-        obj = context.object
-        layout = self.layout
-        settings = context.scene.gret
+        rig_actions = list(get_actions_for_rig(obj))
+        active_action = obj.animation_data.action if obj.animation_data else None
+        if rig_actions:
+            col = box.column(align=True)
+            for action in rig_actions:
+                selected = action == active_action
+                row = col.row(align=True)
+                if selected and context.screen.is_animation_playing:
+                    op = row.operator('screen.animation_cancel', icon='PAUSE', text="", emboss=False)
+                    op.restore_frame = False
+                else:
+                    icon = 'PLAY' if selected else 'TRIA_RIGHT'
+                    op = row.operator('gret.action_set', icon=icon, text="", emboss=False)
+                    op.name = action.name
+                    op.play = True
+                op = row.operator('gret.action_set', text=action.name)
+                op.name = action.name
+                op.play = False
+                row.operator('gret.action_duplicate', icon='DUPLICATE', text="").name = action.name
+                row.operator('gret.action_remove', icon='X', text="").name = action.name
 
-        if obj and obj.type == 'ARMATURE':
+        if active_action:
             box = layout.box()
             row = box.row(align=True)
-            row.label(text="Available Actions", icon='ACTION')
-            row.operator('gret.action_add', icon='ADD', text="")
+            row.label(text="Pose Markers", icon='BOOKMARKS')
+            row.prop(settings, 'poses_sorted', icon='SORTALPHA', text="")
+            row.operator('gret.pose_make', icon='ADD', text="")
 
-            rig_actions = list(get_actions_for_rig(obj))
-            active_action = obj.animation_data.action if obj.animation_data else None
-            if rig_actions:
+            if active_action.pose_markers:
                 col = box.column(align=True)
-                for action in rig_actions:
-                    selected = action == active_action
+                if settings.poses_sorted:
+                    markers = sorted(active_action.pose_markers, key=lambda p: p.name)
+                else:
+                    markers = active_action.pose_markers
+                for marker in markers:
+                    selected = marker.frame == context.scene.frame_current
                     row = col.row(align=True)
-                    if selected and context.screen.is_animation_playing:
-                        op = row.operator('screen.animation_cancel', icon='PAUSE', text="", emboss=False)
-                        op.restore_frame = False
-                    else:
-                        icon = 'PLAY' if selected else 'TRIA_RIGHT'
-                        op = row.operator('gret.action_set', icon=icon, text="", emboss=False)
-                        op.name = action.name
-                        op.play = True
-                    op = row.operator('gret.action_set', text=action.name)
-                    op.name = action.name
-                    op.play = False
-                    row.operator('gret.action_duplicate', icon='DUPLICATE', text="").name = action.name
-                    row.operator('gret.action_remove', icon='X', text="").name = action.name
-
-            if active_action:
-                box = layout.box()
-                row = box.row(align=True)
-                row.label(text="Pose Markers", icon='BOOKMARKS')
-                row.prop(settings, 'poses_sorted', icon='SORTALPHA', text="")
-                row.operator('gret.pose_make', icon='ADD', text="")
-
-                if active_action.pose_markers:
-                    col = box.column(align=True)
-                    if settings.poses_sorted:
-                        markers = sorted(active_action.pose_markers, key=lambda p: p.name)
-                    else:
-                        markers = active_action.pose_markers
-                    for marker in markers:
-                        selected = marker.frame == context.scene.frame_current
-                        row = col.row(align=True)
-                        row.label(text="", icon='PMARKER_ACT' if selected else 'PMARKER_SEL')
-                        op = row.operator('gret.pose_set', text=marker.name)
-                        op.name = marker.name
+                    row.label(text="", icon='PMARKER_ACT' if selected else 'PMARKER_SEL')
+                    op = row.operator('gret.pose_set', text=marker.name)
+                    op.name = marker.name
 
 classes = (
     GRET_OT_action_add,
@@ -291,7 +280,6 @@ classes = (
     GRET_OT_action_set,
     GRET_OT_pose_make,
     GRET_OT_pose_set,
-    GRET_PT_actions,
 )
 
 def register(settings):

@@ -1,6 +1,6 @@
 from fnmatch import fnmatch
 import bpy
-from .helpers import (
+from ..helpers import (
     get_children_recursive,
     intercept,
     load_selection,
