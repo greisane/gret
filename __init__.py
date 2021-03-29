@@ -8,6 +8,7 @@ bl_info = {
     'category': "Object"
 }
 
+from bpy.app.handlers import persistent
 import bpy
 import importlib
 import sys
@@ -27,6 +28,7 @@ def import_or_reload_modules(module_names, package_name):
 
 module_names = [
     'helpers',
+    'log',
     # 'stringcase',  # Third party, no need to register or reload
     'file',
     'material',
@@ -44,6 +46,21 @@ class GRET_PG_settings(bpy.types.PropertyGroup):
             cls.__annotations__ = {}
         cls.__annotations__[name] = annotation
 
+@persistent
+def load_pre(dummy):
+    bpy.types.Scene.my_tools = bpy.props.PointerProperty(type=GRET_PG_settings)
+
+@persistent
+def load_post(dummy):
+    from gret.helpers import is_defaulted, save_properties, load_properties
+    for scene in bpy.data.scenes:
+        if not is_defaulted(scene.my_tools):
+            print("Found old gret settings in file, restoring")
+            load_properties(scene.gret, save_properties(scene.my_tools))
+    del bpy.types.Scene.my_tools
+
+backwards_compat = True
+
 def register():
     # On registering, each module can add its own settings to the main group via add_property()
     for module in modules:
@@ -54,7 +71,15 @@ def register():
     bpy.utils.register_class(GRET_PG_settings)
     bpy.types.Scene.gret = bpy.props.PointerProperty(type=GRET_PG_settings)
 
+    if backwards_compat:
+        bpy.app.handlers.load_pre.append(load_pre)
+        bpy.app.handlers.load_post.append(load_post)
+
 def unregister():
+    if backwards_compat:
+        bpy.app.handlers.load_pre.remove(load_pre)
+        bpy.app.handlers.load_post.remove(load_post)
+
     del bpy.types.Scene.gret
     bpy.utils.unregister_class(GRET_PG_settings)
 

@@ -88,11 +88,17 @@ def save_properties(obj):
 
     saved = {}
     for prop in obj.bl_rna.properties:
+        prop_id = prop.identifier
         try:
-            if getattr(prop, 'is_array', False):
-                saved[prop.identifier] = getattr(obj, prop.identifier)[:]
+            if not prop.is_runtime:
+                # Only save user properties
+                continue
+            if prop.type == 'COLLECTION':
+                saved[prop_id] = [save_properties(el) for el in getattr(obj, prop_id)]
+            elif getattr(prop, 'is_array', False):
+                saved[prop_id] = getattr(obj, prop_id)[:]
             else:
-                saved[prop.identifier] = getattr(obj, prop.identifier)
+                saved[prop_id] = getattr(obj, prop_id)
         except:
             continue
     return saved
@@ -100,35 +106,48 @@ def save_properties(obj):
 def load_properties(obj, saved):
     """Restores properties from a dictionary returned by save_properties()"""
 
-    for identifier, value in saved.items():
+    for prop_id, value in saved.items():
         try:
-            if not obj.is_property_readonly(identifier):
-                setattr(obj, identifier, value)
+            prop = obj.bl_rna.properties[prop_id]
+            if prop.type == 'COLLECTION':
+                collection = getattr(obj, prop_id)
+                collection.clear()
+                for saved_el in value:
+                    el = collection.add()
+                    load_properties(el, saved_el)
+            elif not prop.is_readonly:
+                setattr(obj, prop_id, value)
         except:
             continue
 
-def is_object_defaulted(obj, recursive=False):
+def is_defaulted(obj):
     """Returns whether the properties of an object are set to their default values."""
+    # This is not extensively tested, it should work for most things
 
     for prop in obj.bl_rna.properties:
         if prop.name == 'Name':
-            # Skip this one
+            # Skip this one (why?)
             continue
-
+        prop_id = prop.identifier
         try:
-            if getattr(prop, 'is_array', False):
-                # Handle arrays
-                current = [p for p in getattr(obj, prop.identifier)]
-                default = [p for p in prop.default_array]
+            if prop.type == 'COLLECTION':
+                # Consider that if the collection has any elements, then it's not default
+                current = len(getattr(obj, prop_id))
+                default = 0
+            elif prop.type == 'POINTER':
+                current = getattr(obj, prop_id)
+                default = None
+            elif getattr(prop, 'is_array', False):
+                current = getattr(obj, prop_id)[:]
+                default = prop.default_array[:]
             else:
-                current = getattr(obj, prop.identifier)
+                current = getattr(obj, prop_id)
                 default = getattr(prop, 'default', type(current)())
 
             if current != default:
                 return False
         except TypeError:
             # The value type is not trivially initializable, omit it
-            # Could be a PointerProperty but checking recursively is not currently supported
             continue
 
     return True
