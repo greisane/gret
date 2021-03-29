@@ -204,7 +204,11 @@ class GRET_OT_rig_export(bpy.types.Operator):
     bl_options = {'INTERNAL'}
 
     export_path: job_props['rig_export_path']
-    export_collection: job_props['export_collection']
+    export_collection: bpy.props.StringProperty(
+        name="Export Collection",
+        description="Collection where to place export products",
+        default=""
+    )
     merge_basis_shape_keys: job_props['merge_basis_shape_keys']
     mirror_shape_keys: job_props['mirror_shape_keys']
     side_vgroup_name: job_props['side_vgroup_name']

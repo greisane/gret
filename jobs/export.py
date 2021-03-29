@@ -509,15 +509,14 @@ def on_collection_updated(self, context):
     job = scn.gret.export_jobs[self.job_index]
     index = job.collections.values().index(self)
 
-    empty = not self.collection
-
-    if empty and index < len(job.collections) - 1:
+    is_empty = not self.collection
+    if is_empty and index < len(job.collections) - 1:
         # Remove it unless it's the last item
         job.collections.remove(index)
-    elif not empty and index == len(job.collections) - 1:
+    elif not is_empty and index == len(job.collections) - 1:
         # Make sure there's always an empty item at the end
-        coll = job.collections.add()
-        coll.job_index = self.job_index
+        new_item = job.collections.add()
+        new_item.job_index = self.job_index
 
 class GRET_PG_export_collection(bpy.types.PropertyGroup):
     job_index: bpy.props.IntProperty()
@@ -543,15 +542,14 @@ def on_action_updated(self, context):
     job = scn.gret.export_jobs[self.job_index]
     index = job.actions.values().index(self)
 
-    empty = not self.action and not self.use_pattern
-
-    if empty and index < len(job.actions) - 1:
+    is_empty = not self.action and not self.use_pattern
+    if is_empty and index < len(job.actions) - 1:
         # Remove it unless it's the last item
         job.actions.remove(index)
-    elif not empty and index == len(job.actions) - 1:
+    elif not is_empty and index == len(job.actions) - 1:
         # Make sure there's always an empty item at the end
-        action = job.actions.add()
-        action.job_index = self.job_index
+        new_item = job.actions.add()
+        new_item.job_index = self.job_index
 
 class GRET_PG_export_action(bpy.types.PropertyGroup):
     job_index: bpy.props.IntProperty()
@@ -573,15 +571,14 @@ def on_copy_property_updated(self, context):
     job = scn.gret.export_jobs[self.job_index]
     index = job.copy_properties.values().index(self)
 
-    empty = not self.source and not self.destination
-
-    if empty and index < len(job.copy_properties) - 1:
+    is_empty = not self.source and not self.destination
+    if is_empty and index < len(job.copy_properties) - 1:
         # Remove it unless it's the last item
         job.copy_properties.remove(index)
-    elif not empty and index == len(job.copy_properties) - 1:
+    elif not is_empty and index == len(job.copy_properties) - 1:
         # Make sure there's always an empty item at the end
-        copy_property = job.copy_properties.add()
-        copy_property.job_index = self.job_index
+        new_item = job.copy_properties.add()
+        new_item.job_index = self.job_index
 
 class GRET_PG_copy_property(bpy.types.PropertyGroup):
     job_index: bpy.props.IntProperty()
@@ -605,15 +602,14 @@ def on_remap_material_updated(self, context):
     job = scn.gret.export_jobs[self.job_index]
     index = job.remap_materials.values().index(self)
 
-    empty = not self.source and not self.destination
-
-    if empty and index < len(job.remap_materials) - 1:
+    is_empty = not self.source and not self.destination
+    if is_empty and index < len(job.remap_materials) - 1:
         # Remove it unless it's the last item
         job.remap_materials.remove(index)
-    elif not empty and index == len(job.remap_materials) - 1:
+    elif not is_empty and index == len(job.remap_materials) - 1:
         # Make sure there's always an empty item at the end
-        remap_material = job.remap_materials.add()
-        remap_material.job_index = self.job_index
+        new_item = job.remap_materials.add()
+        new_item.job_index = self.job_index
 
 class GRET_PG_remap_material(bpy.types.PropertyGroup):
     job_index: bpy.props.IntProperty()

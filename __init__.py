@@ -52,12 +52,14 @@ def load_pre(dummy):
 
 @persistent
 def load_post(dummy):
+    if not hasattr(bpy.types.Scene, 'my_tools'):
+        return
     from gret.helpers import is_defaulted, save_properties, load_properties
     for scene in bpy.data.scenes:
         if not is_defaulted(scene.my_tools):
             print("Found old gret settings in file, restoring")
             load_properties(scene.gret, save_properties(scene.my_tools))
-            # Clean up holes in list settings in jobs. Ugly but this is only backwards compat
+            # Fix up holes in list settings in jobs. Ugly but this is only backwards compat
             for job in scene.gret.export_jobs:
                 for index in range(len(job.collections) - 2, -1, -1):
                     item = job.collections[index]
