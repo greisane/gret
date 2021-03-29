@@ -1,6 +1,4 @@
 import bpy
-import importlib
-import sys
 
 module_names = [
     'actions',

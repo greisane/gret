@@ -1,6 +1,4 @@
 import bpy
-import importlib
-import sys
 
 module_names = [
     'helpers',
@@ -30,7 +28,6 @@ class GRET_PT_rig(bpy.types.Panel):
 
 def register(settings):
     for module in modules:
-        module = sys.modules.get(module_name)
         if hasattr(module, 'register'):
             module.register(settings)
         # if hasattr(module, 'draw'):
