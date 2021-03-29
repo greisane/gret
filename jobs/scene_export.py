@@ -9,13 +9,58 @@ from gret.helpers import (
     fail_if_no_operator,
     get_export_path,
     get_nice_export_report,
+    intercept,
     load_selection,
     save_selection,
     select_only,
 )
-from gret.mesh.helpers import merge_basis_shape_keys
+from gret.jobs.export import GRET_PG_export_job
 from gret.log import log, logger
-from .export import export_fbx  # Fix this?
+from gret.mesh.helpers import merge_basis_shape_keys
+
+job_props = GRET_PG_export_job.__annotations__
+
+@intercept(error_result={'CANCELLED'})
+def export_fbx(context, filepath, actions):
+    if actions:
+        # Needs to slap action strips in the NLA
+        raise NotImplementedError
+    return bpy.ops.export_scene.fbx(
+        filepath=filepath
+        , check_existing=False
+        , axis_forward='-Z'
+        , axis_up='Y'
+        , use_selection=True
+        , use_active_collection=False
+        , global_scale=1.0
+        , apply_unit_scale=True
+        , apply_scale_options='FBX_SCALE_NONE'
+        , object_types={'MESH'}
+        , use_mesh_modifiers=True
+        , use_mesh_modifiers_render=False
+        , mesh_smooth_type='EDGE'
+        , bake_space_transform=True
+        , use_subsurf=False
+        , use_mesh_edges=False
+        , use_tspace=False
+        , use_custom_props=False
+        , add_leaf_bones=False
+        , primary_bone_axis='Y'
+        , secondary_bone_axis='X'
+        , use_armature_deform_only=True
+        , armature_nodetype='NULL'
+        , bake_anim=len(actions) > 0
+        , bake_anim_use_all_bones=False
+        , bake_anim_use_nla_strips=False
+        , bake_anim_use_all_actions=True
+        , bake_anim_force_startend_keying=True
+        , bake_anim_step=1.0
+        , bake_anim_simplify_factor=1.0
+        , path_mode='STRIP'
+        , embed_textures=False
+        , batch_mode='OFF'
+        , use_batch_own_dir=False
+    )
 
 class GRET_OT_scene_export(bpy.types.Operator):
     bl_idname = 'gret.scene_export'
@@ -23,30 +68,10 @@ class GRET_OT_scene_export(bpy.types.Operator):
     bl_context = 'objectmode'
     bl_options = {'REGISTER'}
 
-    export_path: bpy.props.StringProperty(
-        name="Export Path",
-        description="""Export path relative to the current folder.
-{file} = Name of this .blend file without extension.
-{object} = Name of the object being exported.
-{collection} = Name of the first collection the object belongs to""",
-        default="//export/S_{object}.fbx",
-        subtype='FILE_PATH',
-    )
-    export_collision: bpy.props.BoolProperty(
-        name="Export Collision",
-        description="Exports collision objects that follow the UE4 naming pattern",
-        default=True,
-    )
-    keep_transforms: bpy.props.BoolProperty(
-        name="Keep Transforms",
-        description="Keep the position and rotation of objects relative to world center",
-        default=False,
-    )
-    material_name_prefix: bpy.props.StringProperty(
-        name="Material Prefix",
-        description="Ensures that exported material names begin with a prefix",
-        default="MI_",
-    )
+    export_path: job_props['scene_export_path']
+    export_collision: job_props['export_collision']
+    keep_transforms: job_props['keep_transforms']
+    material_name_prefix: job_props['material_name_prefix']
     debug: bpy.props.BoolProperty(
         name="Debug",
         description="Debug mode with verbose output. Exceptions are caught but not handled",

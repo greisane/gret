@@ -2,8 +2,8 @@ import bpy
 
 module_names = [
     'export',
-    'rig_export',
-    'scene_export',
+    'rig_export',  # Depends on export
+    'scene_export',  # Depends on export
 ]
 from gret import import_or_reload_modules
 modules = import_or_reload_modules(module_names, __name__)

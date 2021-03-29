@@ -28,9 +28,11 @@ from gret.mesh.helpers import (
     mirror_shape_keys,
     subdivide_verts_with_bevel_weight,
 )
+from gret.jobs.export import GRET_PG_export_job
 from gret.log import log, logger
 from gret.rig.helpers import clear_pose, is_object_arp, is_object_arp_humanoid
 
+job_props = GRET_PG_export_job.__annotations__
 ik_bone_names = [
     "ik_foot_root",
     "ik_foot.l",
@@ -201,61 +203,16 @@ class GRET_OT_rig_export(bpy.types.Operator):
     bl_context = 'objectmode'
     bl_options = {'INTERNAL'}
 
-    export_path: bpy.props.StringProperty(
-        name="Export Path",
-        description="""Export path relative to the current folder.
-{file} = Name of this .blend file without extension.
-{rigfile} = Name of the .blend file the rig is linked from, without extension.
-{rig} = Name of the rig being exported""",
-        default="//export/{file}.fbx",
-        subtype='FILE_PATH',
-    )
-    export_collection: bpy.props.StringProperty(
-        name="Export Collection",
-        description="Collection where to place export products",
-        default="",
-    )
-    merge_basis_shape_keys: bpy.props.BoolProperty(
-        name="Merge Basis Shape Keys",
-        description="Blends 'Key' and 'b_' shapekeys into the basis shape",
-        default=True,
-    )
-    mirror_shape_keys: bpy.props.BoolProperty(
-        name="Mirror Shape Keys",
-        description="Creates mirrored versions of shape keys that have side suffixes",
-        default=True,
-    )
-    side_vgroup_name: bpy.props.StringProperty(
-        name="Side Vertex Group Name",
-        description="Name of the vertex groups that will be created on mirroring shape keys",
-        default="_side.l",
-    )
-    apply_modifiers: bpy.props.BoolProperty(
-        name="Apply Modifiers",
-        description="Allows exporting of shape keys even if the meshes have modifiers",
-        default=True,
-    )
-    modifier_tags: bpy.props.StringProperty(
-        name="Modifier Tags",
-        description="""Tagged modifiers are only applied if the tag is found in this list.
-Separate tags with commas. Tag modifiers with 'g:tag'""",
-        default="",
-    )
-    join_meshes: bpy.props.BoolProperty(
-        name="Join Meshes",
-        description="Joins meshes before exporting",
-        default=True,
-    )
-    split_masks: bpy.props.BoolProperty(
-        name="Split Masks",
-        description="Splits mask modifiers into extra meshes that are exported separately",
-        default=False,
-    )
-    material_name_prefix: bpy.props.StringProperty(
-        name="Material Prefix",
-        description="Ensures that exported material names begin with a prefix",
-        default="MI_",
-    )
+    export_path: job_props['rig_export_path']
+    export_collection: job_props['export_collection']
+    merge_basis_shape_keys: job_props['merge_basis_shape_keys']
+    mirror_shape_keys: job_props['mirror_shape_keys']
+    side_vgroup_name: job_props['side_vgroup_name']
+    apply_modifiers: job_props['apply_modifiers']
+    modifier_tags: job_props['modifier_tags']
+    join_meshes: job_props['join_meshes']
+    split_masks: job_props['split_masks']
+    material_name_prefix: job_props['material_name_prefix']
     debug: bpy.props.BoolProperty(
         name="Debug",
         description="Debug mode with verbose output. Exceptions are caught but not handled",
@@ -687,34 +644,14 @@ class GRET_OT_animation_export(bpy.types.Operator):
     bl_context = "objectmode"
     bl_options = {'INTERNAL'}
 
-    export_path: bpy.props.StringProperty(
-        name="Export Path",
-        description="""Export path relative to the current folder.
-{file} = Name of this .blend file without extension.
-{rigfile} = Name of the .blend file the rig is linked from, without extension.
-{action} = Name of the action being exported""",
-        default="//export/{action}.fbx",
-        subtype='FILE_PATH',
-    )
-    markers_export_path: bpy.props.StringProperty(
-        name="Markers Export Path",
-        description="""Export path for markers relative to the current folder.
-If available, markers names and frame times are written as a list of comma-separated values.
-{file} = Name of this .blend file without extension.
-{rigfile} = Name of the .blend file the rig is linked from, without extension.
-{action} = Name of the action being exported""",
-        default="//export/{action}.csv",
-        subtype='FILE_PATH',
-    )
+    export_path: job_props['animation_export_path']
+    markers_export_path: job_props['markers_export_path']
+    disable_auto_eyelid: job_props['disable_auto_eyelid']
+    markers_export_path: job_props['markers_export_path']
     actions: bpy.props.StringProperty(
         name="Action Names",
         description="Comma separated list of actions to export",
         default=""
-    )
-    disable_auto_eyelid: bpy.props.BoolProperty(
-        name="Disable Auto-Eyelid",
-        description="Disables Auto-Eyelid (ARP only)",
-        default=True,
     )
     debug: bpy.props.BoolProperty(
         name="Debug",
