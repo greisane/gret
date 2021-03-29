@@ -107,48 +107,6 @@ def load_properties(obj, saved):
         except:
             continue
 
-def merge_vertex_groups(obj, src_name, dst_name, remove_src=True):
-    """Merges the source vertex group into the destination vertex group."""
-
-    src = obj.vertex_groups[src_name]
-    dst = obj.vertex_groups.get(dst_name)
-    if not dst:
-        dst = obj.vertex_groups.new(name=dst_name)
-
-    for vert_idx, vert in enumerate(obj.data.vertices):
-        try:
-            dst.add([vert_idx], src.weight(vert_idx), 'ADD')
-        except RuntimeError:
-            pass
-
-    if remove_src:
-        obj.vertex_groups.remove(src)
-
-def subdivide_vertex_group(obj, src_name, dst_names, bone_head, bone_tail, remove_src=True):
-    """Subdivides a vertex group along a line."""
-
-    src = obj.vertex_groups[src_name]
-    dsts = [obj.vertex_groups.new(name=name) for name in dst_names]
-    bone_dir = bone_tail - bone_head
-    bone_length = bone_dir.length
-    bone_dir /= bone_length
-
-    for vert in obj.data.vertices:
-        for vgrp in vert.groups:
-            if vgrp.group == src.index:
-                x = bone_dir.dot(vert.co - bone_head) / bone_length * len(dsts)
-                for n, dst in enumerate(dsts):
-                    t = 1.0
-                    if n > 0:
-                        t = min(t, x + 0.5 - n)
-                    if n < len(dsts) - 1:
-                        t = min(t, (n + 1.5) - x)
-                    t = max(0.0, min(1.0, t))
-                    dst.add([vert.index], vgrp.weight * t, 'REPLACE')
-
-    if remove_src:
-        obj.vertex_groups.remove(src)
-
 def is_object_defaulted(obj, recursive=False):
     """Returns whether the properties of an object are set to their default values."""
 

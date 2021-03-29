@@ -9,6 +9,7 @@ from gret.helpers import (
     select_only,
 )
 from gret.log import log, logger
+from gret.rig.helpers import is_object_arp
 
 class ConstantCurve:
     """Mimics FCurve and always returns the same value on evaluation."""
@@ -475,7 +476,8 @@ class GRET_PT_export_jobs(bpy.types.Panel):
                         row.prop(action, 'use_pattern', icon='SELECT_SET', text="")
 
                     col = box.column()
-                    col.prop(job, 'disable_auto_eyelid')
+                    if is_object_arp(job.rig):
+                        col.prop(job, 'disable_auto_eyelid')
 
                     col.prop(job, 'export_markers')
                     split = col.split(align=True)
