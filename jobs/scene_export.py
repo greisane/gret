@@ -18,7 +18,7 @@ from gret.log import log, logger
 from .export import export_fbx  # Fix this?
 
 class GRET_OT_scene_export(bpy.types.Operator):
-    bl_idname = 'export_scene.my_fbx'
+    bl_idname = 'gret.scene_export'
     bl_label = "Scene Export"
     bl_context = 'objectmode'
     bl_options = {'REGISTER'}

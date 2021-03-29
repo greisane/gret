@@ -4,8 +4,8 @@ bl_info = {
     'description': "",
     'version': (1, 0),
     'blender': (2, 92, 0),
-    'location': "3D View > Tools > gret",
-    'category': "gret"
+    'location': "3D View > Tools",
+    'category': "Object"
 }
 
 import bpy
