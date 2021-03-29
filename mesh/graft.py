@@ -109,6 +109,11 @@ class GRET_OT_graft(bpy.types.Operator):
             for edge in edges1:
                 boundary_vg.add([edge.verts[0].index, edge.verts[1].index], 1.0, 'REPLACE')
 
+            if not edges1:
+                bm.free()
+                self.report({'ERROR'}, f"The object must have an open boundary.")
+                return
+
             # Push the boundary into the destination mesh and get the boolean intersection
             # Use fast since exact solver demands the object is manifold. Might need to close holes
             saved_active_modifiers = []

@@ -16,7 +16,6 @@ def import_or_reload_modules(module_names, package_name):
     ensure_starts_with = lambda s, prefix: s if s.startswith(prefix) else prefix + s
     module_names = [ensure_starts_with(name, f'{package_name}.') for name in module_names]
     modules = []
-
     for module_name in module_names:
         module = sys.modules.get(module_name)
         if module:
@@ -24,7 +23,6 @@ def import_or_reload_modules(module_names, package_name):
         else:
             module = globals()[module_name] = importlib.import_module(module_name)
         modules.append(module)
-
     return modules
 
 module_names = [
