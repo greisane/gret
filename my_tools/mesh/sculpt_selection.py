@@ -1,21 +1,11 @@
 import bmesh
 import bpy
 
-bl_info = {
-    "name": "Sculpt Mask from Vertex Selection",
-    "author": "greisane",
-    "description": "Sets the sculpt mask from the current edit-mode vertex selection",
-    "version": (0, 1),
-    "blender": (2, 83, 0),
-    "location": "View3D > Select",
-    "category": "Mesh",
-}
-
-class MESH_OT_sculpt_selection(bpy.types.Operator):
+class GRET_OT_sculpt_selection(bpy.types.Operator):
     #tooltip
     """Sculpt the selected vertices"""
 
-    bl_idname = "mesh.sculpt_selection"
+    bl_idname = "gret.sculpt_selection"
     bl_label = "Sculpt Selection"
     bl_context = 'mesh_edit'
     bl_options = {'REGISTER', 'UNDO'}
@@ -25,6 +15,7 @@ class MESH_OT_sculpt_selection(bpy.types.Operator):
         return context.object and context.mode == 'EDIT_MESH'
 
     def execute(self, context):
+        # Set the sculpt mask from the current edit-mode vertex selection
         obj = context.object
         bpy.ops.object.mode_set(mode='SCULPT')
 
@@ -41,17 +32,14 @@ class MESH_OT_sculpt_selection(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def draw_func(self, context):
+def draw_menu(self, context):
     self.layout.separator()
-    self.layout.operator(MESH_OT_sculpt_selection.bl_idname)
+    self.layout.operator(GRET_OT_sculpt_selection.bl_idname)
 
-def register():
-    bpy.utils.register_class(MESH_OT_sculpt_selection)
-    bpy.types.VIEW3D_MT_select_edit_mesh.append(draw_func)
+def register(settings):
+    bpy.utils.register_class(GRET_OT_sculpt_selection)
+    bpy.types.VIEW3D_MT_select_edit_mesh.append(draw_menu)
 
 def unregister():
-    bpy.types.VIEW3D_MT_select_edit_mesh.remove(draw_func)
-    bpy.utils.unregister_class(MESH_OT_sculpt_selection)
-
-if __name__ == '__main__':
-    register()
+    bpy.types.VIEW3D_MT_select_edit_mesh.remove(draw_menu)
+    bpy.utils.unregister_class(GRET_OT_sculpt_selection)

@@ -6,41 +6,14 @@ import bpy
 import itertools
 import json
 import re
-
-bl_info = {
-    "name": "Pose Blender",
-    "author": "greisane",
-    "description": "Allows blending between poses similarly to the UE4 AnimGraph node",
-    "version": (0, 3),
-    "blender": (2, 80, 0),
-    "location": "View 3D > Sidebar > Tool Tab",
-    "category": "Animation"
-}
+from ..helpers import get_flipped_name
 
 ZERO_ANIMWEIGHT_THRESH = 0.00001
 DELTA = 0.00001
 lerp = lambda a, b, t: t * b + (1.0 - t) * a
 zero_vector = Vector((0.0, 0.0, 0.0))
 one_vector = Vector((1.0, 1.0, 1.0))
-
-def get_flipped_name(name):
-    """Returns the given name with flipped L/R affixes, or None if not applicable"""
-
-    def flip_LR(s):
-        if "L" in s.upper():
-            return s.replace("l", "r").replace("L", "R")
-        else:
-            return s.replace("r", "l").replace("R", "L")
-
-    match = re.match(r"(.+)([_\.][LlRr])$", name) # Suffix
-    if match:
-        return match[1] + flip_LR(match[2])
-
-    match = re.match(r"^([LlRr][_\.])(.+)", name) # Prefix
-    if match:
-        return flip_LR(match[1]) + match[2]
-
-    return None
+pose_blenders = {}
 
 class Transform:
     __slots__ = ['location', 'rotation', 'scale']
@@ -216,6 +189,8 @@ class Pose:
         self.transforms = transforms
 
 class PoseBlender:
+    """Allows blending between poses similarly to the UE4 AnimGraph node."""
+
     additive = False
     depsgraph_update_pre_handler = None
     frame_change_post_handler = None
@@ -289,8 +264,8 @@ class PoseBlender:
             if not self.armature:
                 # Couldn't recover, clean up invalid pose blender
                 self.armature = None
-                self.unregister()
-                del PB_PT_pose_blender.pose_blenders[self.armature_name]
+                self.unhook()
+                del pose_blenders[self.armature_name]
         return self.armature is not None
 
     def is_armature_valid(self):
@@ -521,7 +496,7 @@ class PoseBlender:
             self.ensure_properties_exist()
             self.update_armature()
 
-    def register(self):
+    def hook(self):
         if not self.depsgraph_update_pre_handler:
             self.depsgraph_update_pre_handler = self.on_update
             bpy.app.handlers.depsgraph_update_pre.append(self.depsgraph_update_pre_handler)
@@ -534,7 +509,7 @@ class PoseBlender:
             self.undo_post_handler = self.on_undo
             bpy.app.handlers.undo_post.append(self.undo_post_handler)
 
-    def unregister(self):
+    def unhook(self):
         if self.depsgraph_update_pre_handler:
             if self.depsgraph_update_pre_handler in bpy.app.handlers.depsgraph_update_pre:
                 bpy.app.handlers.depsgraph_update_pre.remove(self.depsgraph_update_pre_handler)
@@ -550,117 +525,109 @@ class PoseBlender:
                 bpy.app.handlers.undo_post.remove(self.undo_post_handler)
             self.undo_post_handler = None
 
-class PB_OT_add(bpy.types.Operator):
+class GRET_OT_pose_blender_add(bpy.types.Operator):
     #tooltip
     """Adds pose blending to the active object"""
 
-    bl_idname = 'pose_blender.add'
+    bl_idname = 'gret.pose_blender_add'
     bl_label = "Add Pose Blender"
 
     @classmethod
     def poll(cls, context):
         obj = context.object
-        return (obj
-            and obj.type == 'ARMATURE'
-            and obj.pose_library
-            and obj.name not in PB_PT_pose_blender.pose_blenders)
+        return obj and obj.type == 'ARMATURE' and obj.pose_library and obj.name not in pose_blenders
 
     def execute(self, context):
-        cls = PB_PT_pose_blender
         obj = context.object
 
-        pose_blender = cls.pose_blenders.get(obj.name)
+        pose_blender = pose_blenders.get(obj.name)
         if not pose_blender:
-            cls.pose_blenders[obj.name] = pose_blender = PoseBlender(obj)
-            pose_blender.register()
+            pose_blenders[obj.name] = pose_blender = PoseBlender(obj)
+            pose_blender.hook()
         else:
             pose_blender.cache_poses()
         pose_blender.update_armature()
 
         return {'FINISHED'}
 
-class PB_OT_remove(bpy.types.Operator):
+class GRET_OT_pose_blender_remove(bpy.types.Operator):
     #tooltip
     """Removes pose blending from the active object"""
 
-    bl_idname = 'pose_blender.remove'
+    bl_idname = 'gret.pose_blender_remove'
     bl_label = "Remove Pose Blender"
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.name in PB_PT_pose_blender.pose_blenders
+        return context.object and context.object.name in pose_blenders
 
     def execute(self, context):
-        cls = PB_PT_pose_blender
         obj = context.object
 
-        pose_blender = cls.pose_blenders.get(obj.name)
+        pose_blender = pose_blenders.get(obj.name)
         if pose_blender:
-            pose_blender.unregister()
-            del cls.pose_blenders[obj.name]
+            pose_blender.unhook()
+            del pose_blenders[obj.name]
 
         return {'FINISHED'}
 
-class PB_OT_clear(bpy.types.Operator):
+class GRET_OT_pose_blender_clear(bpy.types.Operator):
     #tooltip
     """Clear weights for all poses"""
 
-    bl_idname = 'pose_blender.clear'
+    bl_idname = 'gret.pose_blender_clear'
     bl_label = "Clear Poses"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.name in PB_PT_pose_blender.pose_blenders
+        return context.object and context.object.name in pose_blenders
 
     def execute(self, context):
-        cls = PB_PT_pose_blender
         obj = context.object
 
-        pose_blender = cls.pose_blenders.get(obj.name)
+        pose_blender = pose_blenders.get(obj.name)
         if pose_blender:
             pose_blender.clear_pose_weights()
 
         return {'FINISHED'}
 
-class PB_OT_flip(bpy.types.Operator):
+class GRET_OT_pose_blender_flip(bpy.types.Operator):
     #tooltip
     """Swaps weights for symmetric poses"""
 
-    bl_idname = "pose_blender.flip"
+    bl_idname = "gret.pose_blender_flip"
     bl_label = "Flip Poses"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.name in PB_PT_pose_blender.pose_blenders
+        return context.object and context.object.name in pose_blenders
 
     def execute(self, context):
-        cls = PB_PT_pose_blender
         obj = context.object
 
-        pose_blender = cls.pose_blenders.get(obj.name)
+        pose_blender = pose_blenders.get(obj.name)
         if pose_blender:
             pose_blender.flip_pose_weights()
 
         return {'FINISHED'}
 
-class PB_OT_copy(bpy.types.Operator):
+class GRET_OT_pose_blender_copy(bpy.types.Operator):
     #tooltip
     """Copies pose weights to clipboard"""
 
-    bl_idname = 'pose_blender.copy'
+    bl_idname = 'gret.pose_blender_copy'
     bl_label = "Copy Poses"
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.name in PB_PT_pose_blender.pose_blenders
+        return context.object and context.object.name in pose_blenders
 
     def execute(self, context):
-        cls = PB_PT_pose_blender
         obj = context.object
 
-        pose_blender = cls.pose_blenders.get(obj.name)
+        pose_blender = pose_blenders.get(obj.name)
         if pose_blender:
             pose_weights = {pose.name: pose.weight for pose in pose_blender.poses}
             pose_weights_json = json.dumps(pose_weights)
@@ -669,23 +636,22 @@ class PB_OT_copy(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class PB_OT_paste(bpy.types.Operator):
+class GRET_OT_pose_blender_paste(bpy.types.Operator):
     #tooltip
     """Pastes pose weights from clipboard"""
 
-    bl_idname = 'pose_blender.paste'
+    bl_idname = 'gret.pose_blender_paste'
     bl_label = "Paste Poses"
     bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.name in PB_PT_pose_blender.pose_blenders
+        return context.object and context.object.name in pose_blenders
 
     def execute(self, context):
-        cls = PB_PT_pose_blender
         obj = context.object
 
-        pose_blender = cls.pose_blenders.get(obj.name)
+        pose_blender = pose_blenders.get(obj.name)
         if not pose_blender:
             return {'CANCELLED'}
 
@@ -705,34 +671,33 @@ class PB_OT_paste(bpy.types.Operator):
             pass
         return {'FINISHED'}
 
-class PB_OT_key(bpy.types.Operator):
+class GRET_OT_pose_blender_key(bpy.types.Operator):
     #tooltip
     """Keyframes the current pose"""
 
-    bl_idname = 'pose_blender.key'
+    bl_idname = 'gret.pose_blender_key'
     bl_label = "Keyframe Poses"
     bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.name in PB_PT_pose_blender.pose_blenders
+        return context.object and context.object.name in pose_blenders
 
     def execute(self, context):
-        cls = PB_PT_pose_blender
         obj = context.object
 
-        pose_blender = cls.pose_blenders.get(obj.name)
+        pose_blender = pose_blenders.get(obj.name)
         if pose_blender:
             pose_blender.key_pose_weights()
 
         return {'FINISHED'}
 
-class PB_OT_sanitize(bpy.types.Operator):
+class GRET_OT_pose_blender_sanitize(bpy.types.Operator):
     #tooltip
     """Ensures the pose library only contains bone animation for the currently selected bones.
 This improves performance and unlocks bones to be posed manually"""
 
-    bl_idname = 'pose_blender.sanitize'
+    bl_idname = 'gret.pose_blender_sanitize'
     bl_label = "Sanitize Poses"
     bl_options = {'UNDO'}
 
@@ -771,77 +736,61 @@ This improves performance and unlocks bones to be posed manually"""
 
         return {'FINISHED'}
 
-class PB_PT_pose_blender(bpy.types.Panel):
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
-    bl_category = "Tool"
-    bl_label = "Pose Blender"
+def draw(self, context):
+    obj = context.object
+    layout = self.layout
 
-    pose_blenders = {}
+    col = layout.column(align=True)
+    row = col.row(align=True)
+    row.operator('gret.pose_blender_add', icon='MOD_ARMATURE')
+    row.operator('gret.pose_blender_remove', icon='X', text="")
 
-    @classmethod
-    def poll(cls, context):
-        return (context.mode in {'OBJECT', 'POSE'}
-            and context.object and context.object.type == 'ARMATURE')
-
-    @classmethod
-    def clear(cls):
-        for pose_blender in cls.pose_blenders.values():
-            pose_blender.unregister()
-        cls.pose_blenders.clear()
-
-    def draw(self, context):
-        cls = __class__
-        obj = context.object
-        layout = self.layout
-
+    pose_blender = pose_blenders.get(obj.name)
+    if pose_blender:
         col = layout.column(align=True)
-        row = col.row(align=True)
-        row.operator('pose_blender.add', icon='MOD_ARMATURE')
-        row.operator('pose_blender.remove', icon='X', text="")
+        for pose_row in pose_blender.pose_rows:
+            row = col.row(align=True)
+            for pose_name in pose_row:
+                row.prop(obj, '["%s"]' % pose_name, slider=True)
 
-        pose_blender = cls.pose_blenders.get(obj.name)
-        if pose_blender:
-            col = layout.column(align=True)
-            for pose_row in pose_blender.pose_rows:
-                row = col.row(align=True)
-                for pose_name in pose_row:
-                    row.prop(obj, '["%s"]' % pose_name, slider=True)
-
-            row = layout.row(align=True)
-            row.operator('pose_blender.clear', icon='X', text="")
-            row.operator('pose_blender.flip', icon='ARROW_LEFTRIGHT', text="")
-            row.operator('pose_blender.copy', icon='COPYDOWN', text="")
-            row.operator('pose_blender.paste', icon='PASTEDOWN', text="")
-            row.operator('pose_blender.key', icon='KEYINGSET', text="")
-        else:
-            col.operator('pose_blender.sanitize', icon='HELP')
+        row = layout.row(align=True)
+        row.operator('gret.pose_blender_clear', icon='X', text="")
+        row.operator('gret.pose_blender_flip', icon='ARROW_LEFTRIGHT', text="")
+        row.operator('gret.pose_blender_copy', icon='COPYDOWN', text="")
+        row.operator('gret.pose_blender_paste', icon='PASTEDOWN', text="")
+        row.operator('gret.pose_blender_key', icon='KEYINGSET', text="")
+    else:
+        col.operator('gret.pose_blender_sanitize', icon='HELP')
 
 classes = (
-    PB_OT_add,
-    PB_OT_clear,
-    PB_OT_copy,
-    PB_OT_flip,
-    PB_OT_key,
-    PB_OT_paste,
-    PB_OT_remove,
-    PB_OT_sanitize,
-    PB_PT_pose_blender,
+    GRET_OT_pose_blender_add,
+    GRET_OT_pose_blender_clear,
+    GRET_OT_pose_blender_copy,
+    GRET_OT_pose_blender_flip,
+    GRET_OT_pose_blender_key,
+    GRET_OT_pose_blender_paste,
+    GRET_OT_pose_blender_remove,
+    GRET_OT_pose_blender_sanitize,
 )
 
 @persistent
 def load_pre_handler(scene):
-    PB_PT_pose_blender.clear()
+    for pose_blender in pose_blenders.values():
+        pose_blender.unhook()
+    pose_blenders.clear()
 
 @persistent
-def register():
+def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
 
     bpy.app.handlers.load_pre.append(load_pre_handler)
 
 def unregister():
-    PB_PT_pose_blender.clear()
+    for pose_blender in pose_blenders.values():
+        pose_blender.unhook()
+    pose_blenders.clear()
+
     bpy.app.handlers.load_pre.remove(load_pre_handler)
 
     for cls in reversed(classes):

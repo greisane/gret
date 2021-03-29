@@ -2,16 +2,6 @@ from math import pi
 import bpy
 import sys
 
-bl_info = {
-    "name": "Vertex Color Mapping",
-    "author": "greisane",
-    "description": "Build vertex colors from other sources, like vertex groups",
-    "version": (0, 1),
-    "blender": (2, 90, 1),
-    "location": "Properties Editor > Object Data > Vertex Colors",
-    "category": "Mesh"
-}
-
 def values_to_vcol(mesh, src_values, dst_vcol, dst_channel_idx, invert=False):
     for loop_idx, loop in enumerate(mesh.loops):
         value = max(0.0, min(1.0, src_values[loop.vertex_index]))
@@ -102,7 +92,7 @@ def vcol_src_items(self, context, channel_idx=0):
             items.extend([(f'vg_{vg.name}', vg.name, "Vertex group") for vg in obj.vertex_groups])
     return items
 
-# Blender doesn't recognize functools.partial as a function for EnumProperty items
+# Blender doesn't recognize functools.partial as a valid function for EnumProperty items
 def vcol_src_r_items(self, context):
     return vcol_src_items(self, context, channel_idx=0)
 def vcol_src_g_items(self, context):
@@ -118,7 +108,7 @@ def vcol_src_update(self, context):
         # Automatically refresh mappings only if it wouldn't create a vcol layer
         bpy.ops.mesh.vertex_color_mapping_refresh()
 
-class MESH_OT_vertex_color_mapping_refresh(bpy.types.Operator):
+class GRET_OT_vertex_color_mapping_refresh(bpy.types.Operator):
     #tooltip
     """Creates or refreshes the active vertex color layer from source mappings"""
 
@@ -143,7 +133,7 @@ class MESH_OT_vertex_color_mapping_refresh(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class MESH_OT_vertex_color_mapping_set(bpy.types.Operator):
+class GRET_OT_vertex_color_mapping_set(bpy.types.Operator):
     #tooltip
     """Set vertex color mapping"""
 
@@ -232,7 +222,7 @@ class MESH_OT_vertex_color_mapping_set(bpy.types.Operator):
             self.extents = mapping.extents
         return context.window_manager.invoke_props_dialog(self)
 
-class MESH_OT_vertex_color_mapping_add(bpy.types.Operator):
+class GRET_OT_vertex_color_mapping_add(bpy.types.Operator):
     #tooltip
     """Add vertex color mapping"""
 
@@ -250,7 +240,7 @@ class MESH_OT_vertex_color_mapping_add(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class MESH_OT_vertex_color_mapping_clear(bpy.types.Operator):
+class GRET_OT_vertex_color_mapping_clear(bpy.types.Operator):
     #tooltip
     """Clear vertex color mapping"""
 
@@ -272,7 +262,7 @@ class MESH_OT_vertex_color_mapping_clear(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class MESH_PG_vertex_color_mapping(bpy.types.PropertyGroup):
+class GRET_PG_vertex_color_mapping(bpy.types.PropertyGroup):
     r: bpy.props.EnumProperty(
         name="Vertex Color R Source",
         description="Source mapping to vertex color channel red",
@@ -329,19 +319,19 @@ def vcol_panel_draw(self, context):
             col.prop(mapping, 'extents')
 
 classes = (
-    MESH_OT_vertex_color_mapping_add,
-    MESH_OT_vertex_color_mapping_clear,
-    MESH_OT_vertex_color_mapping_refresh,
-    MESH_OT_vertex_color_mapping_set,
-    MESH_PG_vertex_color_mapping,
+    GRET_OT_vertex_color_mapping_add,
+    GRET_OT_vertex_color_mapping_clear,
+    GRET_OT_vertex_color_mapping_refresh,
+    GRET_OT_vertex_color_mapping_set,
+    GRET_PG_vertex_color_mapping,
 )
 
-def register():
+def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
 
     bpy.types.Object.vertex_color_mapping = bpy.props.CollectionProperty(
-        type=MESH_PG_vertex_color_mapping,
+        type=GRET_PG_vertex_color_mapping,
     )
     bpy.types.DATA_PT_vertex_colors.append(vcol_panel_draw)
 

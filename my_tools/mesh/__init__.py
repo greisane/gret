@@ -5,7 +5,12 @@ import sys
 module_names = [
     'collision',
     'graft',
+    'remove_unused_vertex_groups',
     'retarget',
+    'sculpt_selection',
+    'shape_key_apply_modifiers',
+    'shape_key_normalize',
+    'vertex_color_mapping',
 ]
 ensure_starts_with = lambda s, prefix: s if s.startswith(prefix) else prefix + s
 module_names[:] = [ensure_starts_with(module_name, f'{__name__}.') for module_name in module_names]

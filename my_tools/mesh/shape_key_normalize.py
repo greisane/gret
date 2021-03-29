@@ -1,34 +1,22 @@
 import bpy
 import bmesh
 
-bl_info = {
-    "name": "Shape Key Normalize",
-    "description": "Resets Min/Max of shape keys while keeping the range of motion",
-    "author": "greisane",
-    "version": (0, 2, 0),
-    "blender": (2, 90, 1),
-    "location": "Properties Editor > Object Data > Shape Keys > Specials Menu",
-    "category": "Mesh"
-}
-
-class OBJECT_OT_shape_key_normalize(bpy.types.Operator):
+class GRET_OT_shape_key_normalize(bpy.types.Operator):
     #tooltip
-    """Resets Min/Max of shape keys while keeping the range of motion"""
+    """Resets min/max of shape keys while keeping the range of motion"""
 
-    bl_idname = 'object.shape_key_normalize'
+    bl_idname = 'gret.shape_key_normalize'
     bl_label = "Normalize Shape Key"
     bl_context = 'objectmode'
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
-        return (context.object
-            and context.object.mode == "OBJECT"
-            and context.object.type == "MESH"
-            and context.object.active_shape_key_index > 0)
+        obj = context.active_object
+        return obj and obj.mode == 'OBJECT' and obj.type == 'MESH' and obj.active_shape_key_index > 0
 
     def execute(self, context):
-        obj = context.object
+        obj = context.active_object
         this_sk = obj.active_shape_key
 
         # Store state
@@ -78,20 +66,13 @@ class OBJECT_OT_shape_key_normalize(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def shape_key_specials_draw(self, context):
-    self.layout.operator(OBJECT_OT_shape_key_normalize.bl_idname)
+def draw_menu(self, context):
+    self.layout.operator(GRET_OT_shape_key_normalize.bl_idname)
 
-def register():
-    bpy.utils.register_class(OBJECT_OT_shape_key_normalize)
-    shape_key_menu = (bpy.types.MESH_MT_shape_key_specials if bpy.app.version < (2, 80) else
-        bpy.types.MESH_MT_shape_key_context_menu)
-    shape_key_menu.append(shape_key_specials_draw)
+def register(settings):
+    bpy.utils.register_class(GRET_OT_shape_key_normalize)
+    bpy.types.MESH_MT_shape_key_context_menu.append(draw_menu)
 
 def unregister():
-    bpy.utils.unregister_class(OBJECT_OT_shape_key_normalize)
-    shape_key_menu = (bpy.types.MESH_MT_shape_key_specials if bpy.app.version < (2, 80) else
-        bpy.types.MESH_MT_shape_key_context_menu)
-    shape_key_menu.remove(shape_key_specials_draw)
-
-if __name__ == '__main__':
-    register()
+    bpy.types.MESH_MT_shape_key_context_menu.remove(draw_menu)
+    bpy.utils.unregister_class(GRET_OT_shape_key_normalize)

@@ -1,21 +1,7 @@
 from collections import namedtuple, defaultdict
 import bmesh
 import bpy
-
-bl_info = {
-    "name": "Shape Key Apply Modifiers",
-    "author": "greisane",
-    "description": "Applies viewport modifiers while preserving shape keys",
-    "version": (1, 0),
-    "blender": (2, 90, 0),
-    "location": "Properties Editor > Object Data > Shape Keys > Specials Menu",
-    "category": "Mesh"
-}
-
-def get_sq_dist(a, b):
-    """Returns the square distance between two vectors."""
-    x, y, z = a.x - b.x, a.y - b.y, a.z - b.z
-    return x*x + y*y + z*z
+from ..math_helpers import get_sq_dist
 
 class ShapeKeyInfo(namedtuple('ShapeKeyInfo', ['coords', 'interpolation', 'mute', 'name',
     'slider_max', 'slider_min', 'value', 'vertex_group'])):
@@ -102,11 +88,11 @@ def try_apply_modifier(obj, modifier, keep_if_disabled=True):
     elif not keep_if_disabled:
         bpy.ops.object.modifier_remove({'object': obj}, modifier=modifier.name)
 
-class OBJECT_OT_shape_key_apply_modifiers(bpy.types.Operator):
+class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
     #tooltip
     """Applies viewport modifiers while preserving shape keys"""
 
-    bl_idname = "object.shape_key_apply_modifiers"
+    bl_idname = "gret.shape_key_apply_modifiers"
     bl_label = "Apply Modifiers with Shape Keys"
     bl_context = "objectmode"
     bl_options = {'REGISTER', 'UNDO'}
@@ -230,16 +216,13 @@ class OBJECT_OT_shape_key_apply_modifiers(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def draw_func(self, context):
-    self.layout.operator(OBJECT_OT_shape_key_apply_modifiers.bl_idname, icon='CHECKMARK')
+def draw_menu(self, context):
+    self.layout.operator(GRET_OT_shape_key_apply_modifiers.bl_idname, icon='CHECKMARK')
 
-def register():
-    bpy.utils.register_class(OBJECT_OT_shape_key_apply_modifiers)
-    bpy.types.MESH_MT_shape_key_context_menu.append(draw_func)
+def register(settings):
+    bpy.utils.register_class(GRET_OT_shape_key_apply_modifiers)
+    bpy.types.MESH_MT_shape_key_context_menu.append(draw_menu)
 
 def unregister():
-    bpy.types.MESH_MT_shape_key_context_menu.remove(draw_func)
-    bpy.utils.unregister_class(OBJECT_OT_shape_key_apply_modifiers)
-
-if __name__ == "__main__":
-    register()
+    bpy.types.MESH_MT_shape_key_context_menu.remove(draw_menu)
+    bpy.utils.unregister_class(GRET_OT_shape_key_apply_modifiers)

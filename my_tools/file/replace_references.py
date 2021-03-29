@@ -75,7 +75,7 @@ Currently only handles objects and modifiers, and no nested properties"""
             for mo in obj.modifiers:
                 replace_pointer_properties(mo, path=obj.name)
 
-        if self.num_found == 0:
+        if num_found == 0:
             self.report({'INFO'}, f"No references found.")
         elif self.dry_run:
             self.report({'INFO'}, f"{num_found} references found, see the console for details.")
