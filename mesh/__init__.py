@@ -2,9 +2,9 @@ import bpy
 
 module_names = [
     'helpers',
+    'graft',  # So it appears at the top, fix this later
     'collision',
     'extra_objects',
-    'graft',
     'remove_unused_vertex_groups',
     'retarget',
     'sculpt_selection',

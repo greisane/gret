@@ -281,6 +281,12 @@ class GRET_OT_graft(bpy.types.Operator):
         row.prop(self, 'normal_blend_distance', text="Dist.")
         row.prop(self, 'normal_blend_power', text="Power")
 
+def draw_panel(self, context):
+    layout = self.layout
+
+    col = layout.column(align=True)
+    col.operator('gret.graft', icon='MOD_BOOLEAN')
+
 classes = (
     GRET_OT_graft,
 )
