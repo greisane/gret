@@ -29,6 +29,8 @@ def import_or_reload_modules(module_names, package_name):
 module_names = [
     'helpers',
     'log',
+    'math',
+    'rbf',
     # 'stringcase',  # Third party, no need to register or reload
     'file',
     'material',
@@ -38,6 +40,44 @@ module_names = [
     'jobs',  # Depends on mesh, rig
 ]
 modules = import_or_reload_modules(module_names, __name__)
+
+class GretAddonPreferences(bpy.types.AddonPreferences):
+    # This must match the addon name, use '__package__'
+    # when defining this in a submodule of a python package.
+    bl_idname = __name__
+
+    mesh_panel_enable: bpy.props.BoolProperty(
+        name="Mesh Panel",
+        description="Show the mesh panel",
+        default=True,
+    )
+    rig_panel_enable: bpy.props.BoolProperty(
+        name="Rig Panel",
+        description="Show the rig panel",
+        default=True,
+    )
+    animation_panel_enable: bpy.props.BoolProperty(
+        name="Animation Panel",
+        description="Show the animation panel",
+        default=True,
+    )
+    jobs_panel_enable: bpy.props.BoolProperty(
+        name="Export Jobs Panel",
+        description="Show the export jobs panel",
+        default=False,
+    )
+    bake_panel_enable: bpy.props.BoolProperty(
+        name="Texture Bake",
+        description="Show the texture bake panel",
+        default=False,
+    )
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "mesh_panel_enable")
+        layout.prop(self, "rig_panel_enable")
+        layout.prop(self, "animation_panel_enable")
+        layout.prop(self, "jobs_panel_enable")
 
 class GRET_PG_settings(bpy.types.PropertyGroup):
     @classmethod
@@ -56,10 +96,10 @@ def load_post(dummy):
         return
     from gret.helpers import is_defaulted, save_properties, load_properties
     for scene in bpy.data.scenes:
-        if not is_defaulted(scene.my_tools):
+        if 'my_tools' in scene and not is_defaulted(scene.my_tools):
             print("Found old gret settings in file, restoring")
             load_properties(scene.gret, save_properties(scene.my_tools))
-            # Fix up holes in list settings in jobs. Ugly but this is only backwards compat
+            # Fix up holes in old job settings
             for job in scene.gret.export_jobs:
                 for index in range(len(job.collections) - 2, -1, -1):
                     item = job.collections[index]
@@ -77,9 +117,15 @@ def load_post(dummy):
                     item = job.remap_materials[index]
                     if not item.source and not item.destination:
                         job.remap_materials.remove(index)
+            del scene['my_tools']
     del bpy.types.Scene.my_tools
 
 backwards_compat = True
+
+classes = (
+    GRET_PG_settings,
+    GretAddonPreferences,
+)
 
 def register():
     # On registering, each module can add its own settings to the main group via add_property()
@@ -87,8 +133,9 @@ def register():
         if hasattr(module, 'register'):
             module.register(GRET_PG_settings)
 
-    # Settings used to live in WindowManager, however pointer properties break with global undo
-    bpy.utils.register_class(GRET_PG_settings)
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
     bpy.types.Scene.gret = bpy.props.PointerProperty(type=GRET_PG_settings)
 
     if backwards_compat:
@@ -101,7 +148,9 @@ def unregister():
         bpy.app.handlers.load_post.remove(load_post)
 
     del bpy.types.Scene.gret
-    bpy.utils.unregister_class(GRET_PG_settings)
+
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
 
     for module in reversed(modules):
         if hasattr(module, 'unregister'):

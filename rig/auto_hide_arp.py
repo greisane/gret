@@ -4,7 +4,7 @@ import bpy
 saved_unhidden_collections = set()
 @persistent
 def save_pre(dummy):
-    # Automatically hide the ARP rig armature collection on saving since I'm always forgetting
+    # Automatically hide the ARP armature collection on saving since I'm always forgetting
     # This is so that the linked armature doesn't interfere with the proxy when linking
     for coll in bpy.data.collections:
         if coll.name.endswith('_grp_rig') and not coll.library and not coll.hide_viewport:

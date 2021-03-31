@@ -392,7 +392,7 @@ class GRET_OT_quick_unwrap(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class GRET_PT_material_tools(bpy.types.Panel):
+class GRET_PT_texture_bake(bpy.types.Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = 'material'
@@ -460,7 +460,7 @@ classes = (
     GRET_OT_bake,
     GRET_OT_quick_unwrap,
     GRET_PG_texture_bake,
-    GRET_PT_material_tools,
+    GRET_PT_texture_bake,
 )
 
 def register(settings):

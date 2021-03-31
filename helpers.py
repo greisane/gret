@@ -88,11 +88,11 @@ def save_properties(obj):
 
     saved = {}
     for prop in obj.bl_rna.properties:
+        if not prop.is_runtime:
+            # Only save user properties
+            continue
         prop_id = prop.identifier
         try:
-            if not prop.is_runtime:
-                # Only save user properties
-                continue
             if prop.type == 'COLLECTION':
                 saved[prop_id] = [save_properties(el) for el in getattr(obj, prop_id)]
             elif getattr(prop, 'is_array', False):
@@ -125,8 +125,8 @@ def is_defaulted(obj):
     # This is not extensively tested, it should work for most things
 
     for prop in obj.bl_rna.properties:
-        if prop.name == 'Name':
-            # Skip this one (why?)
+        if not prop.is_runtime:
+            # Only consider user properties
             continue
         prop_id = prop.identifier
         try:
