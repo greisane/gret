@@ -143,14 +143,12 @@ def draw_panel(self, context):
     settings = context.scene.gret
 
     col = layout.column(align=True)
-    row = col.row(align=False)
-    row.label(text="Retarget Mesh:")
-    sub = row.row(align=True)
-    sub = col.column(align=False)
-    sub.prop(settings, 'retarget_function', text="")
-    sub.prop(settings, 'retarget_radius')
-    sub.prop(settings, 'retarget_stride')
-    sub.separator()
+    col.label(text="Retarget Mesh:")
+    col.prop(settings, 'retarget_function', text="")
+    row = col.row(align=True)
+    row.prop(settings, 'retarget_radius')
+    row.prop(settings, 'retarget_stride')
+    col.separator()
 
     row = col.row(align=True)
     row.prop(settings, 'retarget_src', text="")
@@ -159,7 +157,7 @@ def draw_panel(self, context):
 
     row = col.row(align=True)
     op1 = row.operator('gret.retarget_mesh', icon='CHECKMARK', text="Retarget")
-    op2 = row.operator('gret.retarget_mesh', icon='SHAPEKEY_DATA', text="To Shape Key")
+    op2 = row.operator('gret.retarget_mesh', icon='SHAPEKEY_DATA', text="As Shape Key")
     if settings.retarget_src and settings.retarget_dst:
         op1.source = op2.source = settings.retarget_src.name
         op1.destination = op2.destination = settings.retarget_dst.name
