@@ -374,7 +374,7 @@ class GRET_OT_make_collision(bpy.types.Operator):
         for face in bm.faces:
             face.smooth = False
 
-        # While convex_hull works only on verts, pass all the geometry so it gets tagged
+        # While convex_hull works only on verts, pass all the geometry so that it gets tagged
         geom = list(chain(bm.verts, bm.edges, bm.faces))
         result = bmesh.ops.convex_hull(bm, input=geom, use_existing_faces=True)
         # geom_interior: elements that ended up inside the hull rather than part of it

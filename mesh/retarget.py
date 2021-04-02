@@ -53,7 +53,7 @@ The meshes are expected to share topology and vertex order"""
     )
     stride: bpy.props.IntProperty(
         name="Stride",
-        description="Increase vertex sampling stride to reduce accuracy and speed up calculation",
+        description="Increase vertex sampling stride to speed up calculation (reduces accuracy)",
         default=1,
         min=1,
     )
@@ -61,11 +61,6 @@ The meshes are expected to share topology and vertex order"""
         name="As Shapekey",
         description="Save the result as a shape key on the mesh",
         default=False,
-    )
-    use_object_transform: bpy.props.BoolProperty(
-        name="Object Transform",
-        description="Evaluate all meshes in global space",
-        default=True,
     )
 
     @classmethod
@@ -84,8 +79,8 @@ The meshes are expected to share topology and vertex order"""
             return {'CANCELLED'}
 
         rbf_kernel = rbf_kernels.get(self.function, rbf.linear)
-        src_pts = rbf.get_mesh_points(src_obj, self.use_object_transform, self.stride)
-        dst_pts = rbf.get_mesh_points(dst_obj, self.use_object_transform, self.stride)
+        src_pts = rbf.get_mesh_points(src_obj, matrix=None, stride=self.stride)
+        dst_pts = rbf.get_mesh_points(dst_obj, matrix=None, stride=self.stride)
         try:
             weights = rbf.get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius)
         except np.linalg.LinAlgError:
@@ -96,18 +91,20 @@ The meshes are expected to share topology and vertex order"""
         for obj in objs:
             if obj.type != 'MESH':
                 continue
-            mesh_pts = rbf.get_mesh_points(obj, self.use_object_transform)
+            world_to_obj = obj.matrix_world.inverted()
+            dst_to_obj = world_to_obj @ dst_obj.matrix_world
+            obj_to_dst = dst_to_obj.inverted()
+            mesh_pts = rbf.get_mesh_points(obj, matrix=obj_to_dst)
             num_mesh_pts = mesh_pts.shape[0]
 
             dist = rbf.get_distance_matrix(mesh_pts, src_pts, rbf_kernel, self.radius)
             identity = np.ones((num_mesh_pts, 1))
             h = np.bmat([[dist, identity, mesh_pts]])
             new_mesh_pts = np.asarray(np.dot(h, weights))
-            if self.use_object_transform:
-                # Result back to local space
-                new_mesh_pts = np.c_[new_mesh_pts, identity]
-                new_mesh_pts = np.einsum('ij,aj->ai', obj.matrix_world.inverted(), new_mesh_pts)
-                new_mesh_pts = new_mesh_pts[:, :-1]
+            # Result back to local space
+            new_mesh_pts = np.c_[new_mesh_pts, identity]
+            new_mesh_pts = np.einsum('ij,aj->ai', dst_to_obj, new_mesh_pts)
+            new_mesh_pts = new_mesh_pts[:, :-1]
 
             if self.as_shapekey:
                 # Result to new shape key
@@ -149,7 +146,6 @@ def draw_panel(self, context):
     row = col.row(align=False)
     row.label(text="Retarget Mesh:")
     sub = row.row(align=True)
-    sub.prop(settings, 'retarget_use_object_transform', icon='ORIENTATION_GLOBAL', text="")
     sub.prop(settings, 'retarget_show_options', icon='SETTINGS', text="")
 
     if settings.retarget_show_options:
@@ -165,14 +161,13 @@ def draw_panel(self, context):
     row.prop(settings, 'retarget_dst', text="")
 
     row = col.row(align=True)
-    op1 = row.operator('gret.retarget_mesh', icon='CHECKMARK', text="Apply")
-    op2 = row.operator('gret.retarget_mesh', icon='SHAPEKEY_DATA', text="Save")
+    op1 = row.operator('gret.retarget_mesh', icon='CHECKMARK', text="Retarget")
+    op2 = row.operator('gret.retarget_mesh', icon='SHAPEKEY_DATA', text="To Shape Key")
     if settings.retarget_src and settings.retarget_dst:
         op1.source = op2.source = settings.retarget_src.name
         op1.destination = op2.destination = settings.retarget_dst.name
         op1.function = op2.function = settings.retarget_function
         op1.radius = op2.radius = settings.retarget_radius
-        op1.use_object_transform = op2.use_object_transform = settings.retarget_use_object_transform
         op1.as_shapekey = False
         op2.as_shapekey = True
     else:
@@ -204,7 +199,6 @@ def register(settings):
     settings.add_property('retarget_function', retarget_props['function'])
     settings.add_property('retarget_radius', retarget_props['radius'])
     settings.add_property('retarget_stride', retarget_props['stride'])
-    settings.add_property('retarget_use_object_transform', retarget_props['use_object_transform'])
     settings.add_property('retarget_show_options', bpy.props.BoolProperty(
         name="Configure",
         description="Show retargeting options",
