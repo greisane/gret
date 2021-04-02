@@ -330,6 +330,7 @@ def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
 
+    # TODO This shouldn't be a collection
     bpy.types.Object.vertex_color_mapping = bpy.props.CollectionProperty(
         type=GRET_PG_vertex_color_mapping,
     )

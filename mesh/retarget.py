@@ -31,6 +31,11 @@ The meshes are expected to share topology and vertex order"""
         name="Destination",
         description="Modified mesh object to retarget to",
     )
+    use_shape_key: bpy.props.BoolProperty(
+        name="Use Shape Key",
+        description="Destination is the name of a shape key in the source mesh",
+        default=False,
+    )
     function: bpy.props.EnumProperty(
         items=[
             ('LINEAR', "Linear", "Linear function"),
@@ -70,13 +75,11 @@ The meshes are expected to share topology and vertex order"""
     def execute(self, context):
         objs = context.selected_objects
         src_obj = bpy.data.objects.get(self.source)
-        dst_obj = bpy.data.objects.get(self.destination)
-        if not src_obj or src_obj.type != 'MESH' or not dst_obj or dst_obj.type != 'MESH':
-            self.report({'ERROR'}, "Must specify source and destination base meshes.")
-            return {'CANCELLED'}
-        if len(objs) == 1 and (src_obj in objs or dst_obj in objs):
-            self.report({'ERROR'}, "Select the mesh to be retargeted, not the base meshes.")
-            return {'CANCELLED'}
+        dst_is_shape_key = self.destination.startswith('s_')
+        dst_obj = bpy.data.objects.get(self.destination[2:]) if not dst_is_shape_key else src_obj
+        dst_shape_key = self.destination[2:] if dst_is_shape_key else None
+        assert src_obj and dst_obj and src_obj.type == 'MESH' and dst_obj.type == 'MESH'
+
         if len(src_obj.data.vertices) != len(dst_obj.data.vertices):
             self.report({'ERROR'}, "Source and destination meshes must have equal amount of vertices.")
             return {'CANCELLED'}
@@ -87,8 +90,8 @@ The meshes are expected to share topology and vertex order"""
             return {'CANCELLED'}
 
         rbf_kernel = rbf_kernels.get(self.function, rbf.linear)
-        src_pts = rbf.get_mesh_points(src_obj, stride=self.stride)
-        dst_pts = rbf.get_mesh_points(dst_obj, stride=self.stride)
+        src_pts = rbf.get_mesh_points(src_obj.data, stride=self.stride)
+        dst_pts = rbf.get_mesh_points(dst_obj.data, shape_key=dst_shape_key, stride=self.stride)
         try:
             weights = rbf.get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius)
         except np.linalg.LinAlgError:
@@ -101,7 +104,7 @@ The meshes are expected to share topology and vertex order"""
                 continue
             dst_to_obj = obj.matrix_world.inverted() @ dst_obj.matrix_world
             obj_to_dst = dst_to_obj.inverted()
-            mesh_pts = rbf.get_mesh_points(obj, matrix=obj_to_dst)
+            mesh_pts = rbf.get_mesh_points(obj.data, matrix=obj_to_dst)
             num_mesh_pts = mesh_pts.shape[0]
 
             dist = rbf.get_distance_matrix(mesh_pts, src_pts, rbf_kernel, self.radius)
@@ -157,10 +160,9 @@ def draw_panel(self, context):
     row = col.row(align=True)
     op1 = row.operator('gret.retarget_mesh', icon='CHECKMARK', text="Retarget")
     op2 = row.operator('gret.retarget_mesh', icon='SHAPEKEY_DATA', text="As Shape Key")
-    src_obj, dst_obj = settings.retarget_src, settings.retarget_dst
-    if src_obj and dst_obj and obj != src_obj and obj != dst_obj:
+    if settings.retarget_src and settings.retarget_dst != 'NONE':
         op1.source = op2.source = settings.retarget_src.name
-        op1.destination = op2.destination = settings.retarget_dst.name
+        op1.destination = op2.destination = settings.retarget_dst
         op1.function = op2.function = settings.retarget_function
         op1.radius = op2.radius = settings.retarget_radius
         op1.stride = op2.stride = settings.retarget_stride
@@ -173,23 +175,40 @@ classes = (
     GRET_OT_retarget_mesh,
 )
 
+def retarget_src_update(self, context):
+    context.scene.gret.retarget_dst = 'NONE'
+
+items = []
+def retarget_dst_items(self, context):
+    settings = context.scene.gret
+    src_obj = settings.retarget_src
+
+    items.clear()
+    items.append(('NONE', "", ""))
+    if src_obj:
+        for o in context.scene.objects:
+            if o.type == 'MESH' and o != src_obj and len(o.data.vertices) == len(src_obj.data.vertices):
+                items.append(('o_' + o.name, o.name, f"Object '{o.name}'", 'OBJECT_DATA', len(items)))
+        if src_obj.data.shape_keys:
+            for sk in src_obj.data.shape_keys.key_blocks:
+                items.append(('s_' + sk.name, sk.name, f"Shape Key '{sk.name}'", 'SHAPEKEY_DATA', len(items)))
+    return items
+
 def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    # Add persistent settings for mesh retargeting
     settings.add_property('retarget_src', bpy.props.PointerProperty(
         name="Mesh Retarget Source",
         description="Source mesh that the meshes were originally fit to",
         type=bpy.types.Object,
         poll=lambda self, obj: obj and obj.type == 'MESH',
+        update=retarget_src_update,
     ))
-    settings.add_property('retarget_dst', bpy.props.PointerProperty(
+    settings.add_property('retarget_dst', bpy.props.EnumProperty(
         name="Mesh Retarget Destination",
-        description="Modified source mesh to retarget to",
-        type=bpy.types.Object,
-        poll=lambda self, obj: obj and obj.type == 'MESH' and obj != self.retarget_src and (
-            not self.retarget_src or len(obj.data.vertices) == len(self.retarget_src.data.vertices))
+        description="Destination mesh or shape key to retarget to",
+        items=retarget_dst_items,
     ))
     retarget_props = GRET_OT_retarget_mesh.__annotations__
     settings.add_property('retarget_function', retarget_props['function'])
