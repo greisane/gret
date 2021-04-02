@@ -81,6 +81,7 @@ The meshes are expected to share topology and vertex order"""
             self.report({'ERROR'}, "Source and destination meshes must have equal amount of vertices.")
             return {'CANCELLED'}
         if (len(src_obj.data.vertices) // self.stride) > 5000:
+            # Should stride be automatically determined?
             self.report({'ERROR'}, "With too many vertices, retargeting may take a long time or crash.\n"
                 "Increase stride then try again.")
             return {'CANCELLED'}
@@ -162,6 +163,7 @@ def draw_panel(self, context):
         op1.destination = op2.destination = settings.retarget_dst.name
         op1.function = op2.function = settings.retarget_function
         op1.radius = op2.radius = settings.retarget_radius
+        op1.stride = op2.stride = settings.retarget_stride
         op1.as_shape_key = False
         op2.as_shape_key = True
     else:
