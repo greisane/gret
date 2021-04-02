@@ -21,7 +21,7 @@ The meshes are expected to share topology and vertex order"""
 
     bl_idname = 'gret.retarget_mesh'
     bl_label = "Retarget Mesh"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'INTERNAL', 'UNDO'}
 
     source: bpy.props.StringProperty(
         name="Source",
@@ -72,8 +72,8 @@ The meshes are expected to share topology and vertex order"""
         src_obj = bpy.data.objects.get(self.source)
         dst_obj = bpy.data.objects.get(self.destination)
         if not src_obj or src_obj.type != 'MESH' or not dst_obj or dst_obj.type != 'MESH':
-            # Don't error here so the user can call up the props dialog
-            return {'FINISHED'}
+            self.report({'ERROR'}, "Must specify source and destination base meshes.")
+            return {'CANCELLED'}
         if len(objs) == 1 and (src_obj in objs or dst_obj in objs):
             self.report({'ERROR'}, "Select the mesh to be retargeted, not the base meshes.")
             return {'CANCELLED'}
@@ -135,18 +135,10 @@ The meshes are expected to share topology and vertex order"""
 
         return {'FINISHED'}
 
-    def draw(self, context):
-        layout = self.layout
-        layout.prop_search(self, 'source', bpy.data, 'meshes', text="From")
-        layout.prop_search(self, 'destination', bpy.data, 'meshes', text="To")
-        layout.prop(self, 'function')
-        layout.prop(self, 'radius')
-        layout.prop(self, 'stride')
-        layout.prop(self, 'as_shape_key')
-
 def draw_panel(self, context):
     layout = self.layout
     settings = context.scene.gret
+    obj = context.object
 
     col = layout.column(align=True)
     col.label(text="Retarget Mesh:")
@@ -164,7 +156,8 @@ def draw_panel(self, context):
     row = col.row(align=True)
     op1 = row.operator('gret.retarget_mesh', icon='CHECKMARK', text="Retarget")
     op2 = row.operator('gret.retarget_mesh', icon='SHAPEKEY_DATA', text="As Shape Key")
-    if settings.retarget_src and settings.retarget_dst:
+    src_obj, dst_obj = settings.retarget_src, settings.retarget_dst
+    if src_obj and dst_obj and obj != src_obj and obj != dst_obj:
         op1.source = op2.source = settings.retarget_src.name
         op1.destination = op2.destination = settings.retarget_dst.name
         op1.function = op2.function = settings.retarget_function
@@ -172,7 +165,7 @@ def draw_panel(self, context):
         op1.as_shape_key = False
         op2.as_shape_key = True
     else:
-        row.active = False
+        row.enabled = False
 
 classes = (
     GRET_OT_retarget_mesh,
