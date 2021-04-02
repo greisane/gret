@@ -57,8 +57,8 @@ The meshes are expected to share topology and vertex order"""
         default=1,
         min=1,
     )
-    as_shapekey: bpy.props.BoolProperty(
-        name="As Shapekey",
+    as_shape_key: bpy.props.BoolProperty(
+        name="As Shape Key",
         description="Save the result as a shape key on the mesh",
         default=False,
     )
@@ -74,13 +74,20 @@ The meshes are expected to share topology and vertex order"""
         if not src_obj or src_obj.type != 'MESH' or not dst_obj or dst_obj.type != 'MESH':
             # Don't error here so the user can call up the props dialog
             return {'FINISHED'}
+        if len(objs) == 1 and (src_obj in objs or dst_obj in objs):
+            self.report({'ERROR'}, "Select the mesh to be retargeted, not the base meshes.")
+            return {'CANCELLED'}
         if len(src_obj.data.vertices) != len(dst_obj.data.vertices):
             self.report({'ERROR'}, "Source and destination meshes must have equal amount of vertices.")
             return {'CANCELLED'}
+        if (len(src_obj.data.vertices) // self.stride) > 5000:
+            self.report({'ERROR'}, "With too many vertices, retargeting may take a long time or crash.\n"
+                "Increase stride then try again.")
+            return {'CANCELLED'}
 
         rbf_kernel = rbf_kernels.get(self.function, rbf.linear)
-        src_pts = rbf.get_mesh_points(src_obj, matrix=None, stride=self.stride)
-        dst_pts = rbf.get_mesh_points(dst_obj, matrix=None, stride=self.stride)
+        src_pts = rbf.get_mesh_points(src_obj, stride=self.stride)
+        dst_pts = rbf.get_mesh_points(dst_obj, stride=self.stride)
         try:
             weights = rbf.get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius)
         except np.linalg.LinAlgError:
@@ -89,10 +96,9 @@ The meshes are expected to share topology and vertex order"""
             return {'CANCELLED'}
 
         for obj in objs:
-            if obj.type != 'MESH':
+            if obj.type != 'MESH' or obj == src_obj or obj == dst_obj:
                 continue
-            world_to_obj = obj.matrix_world.inverted()
-            dst_to_obj = world_to_obj @ dst_obj.matrix_world
+            dst_to_obj = obj.matrix_world.inverted() @ dst_obj.matrix_world
             obj_to_dst = dst_to_obj.inverted()
             mesh_pts = rbf.get_mesh_points(obj, matrix=obj_to_dst)
             num_mesh_pts = mesh_pts.shape[0]
@@ -106,7 +112,7 @@ The meshes are expected to share topology and vertex order"""
             new_mesh_pts = np.einsum('ij,aj->ai', dst_to_obj, new_mesh_pts)
             new_mesh_pts = new_mesh_pts[:, :-1]
 
-            if self.as_shapekey:
+            if self.as_shape_key:
                 # Result to new shape key
                 if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:
                     obj.shape_key_add(name="Basis")
@@ -136,7 +142,7 @@ The meshes are expected to share topology and vertex order"""
         layout.prop(self, 'function')
         layout.prop(self, 'radius')
         layout.prop(self, 'stride')
-        layout.prop(self, 'as_shapekey')
+        layout.prop(self, 'as_shape_key')
 
 def draw_panel(self, context):
     layout = self.layout
@@ -163,8 +169,8 @@ def draw_panel(self, context):
         op1.destination = op2.destination = settings.retarget_dst.name
         op1.function = op2.function = settings.retarget_function
         op1.radius = op2.radius = settings.retarget_radius
-        op1.as_shapekey = False
-        op2.as_shapekey = True
+        op1.as_shape_key = False
+        op2.as_shape_key = True
     else:
         row.active = False
 
