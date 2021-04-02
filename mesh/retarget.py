@@ -146,14 +146,11 @@ def draw_panel(self, context):
     row = col.row(align=False)
     row.label(text="Retarget Mesh:")
     sub = row.row(align=True)
-    sub.prop(settings, 'retarget_show_options', icon='SETTINGS', text="")
-
-    if settings.retarget_show_options:
-        sub = col.column(align=False)
-        sub.prop(settings, 'retarget_function', text="")
-        sub.prop(settings, 'retarget_radius')
-        sub.prop(settings, 'retarget_stride')
-        sub.separator()
+    sub = col.column(align=False)
+    sub.prop(settings, 'retarget_function', text="")
+    sub.prop(settings, 'retarget_radius')
+    sub.prop(settings, 'retarget_stride')
+    sub.separator()
 
     row = col.row(align=True)
     row.prop(settings, 'retarget_src', text="")
@@ -199,11 +196,6 @@ def register(settings):
     settings.add_property('retarget_function', retarget_props['function'])
     settings.add_property('retarget_radius', retarget_props['radius'])
     settings.add_property('retarget_stride', retarget_props['stride'])
-    settings.add_property('retarget_show_options', bpy.props.BoolProperty(
-        name="Configure",
-        description="Show retargeting options",
-        default=False,
-    ))
 
 def unregister():
     for cls in reversed(classes):
