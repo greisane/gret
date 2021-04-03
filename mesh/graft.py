@@ -84,13 +84,18 @@ class GRET_OT_graft(bpy.types.Operator):
         return modifier
 
     def _execute(self, context):
-        dst_obj = context.active_object
-        dst_mesh = dst_obj.data
+        # Get an evaluated version of the destination object
+        # Can't use to_mesh because we will need to enter edit mode on it
+        dg = context.evaluated_depsgraph_get()
+        eval_obj = context.active_object.evaluated_get(dg)
+        dst_mesh = bpy.data.meshes.new_from_object(eval_obj)
+        dst_obj = bpy.data.objects.new(eval_obj.name, dst_mesh)
+        context.scene.collection.objects.link(dst_obj)
 
         for obj in context.selected_objects[:]:
             if obj.type != 'MESH':
                 continue
-            if obj == dst_obj:
+            if obj == context.active_object:
                 continue
 
             # Initial setup
@@ -111,13 +116,15 @@ class GRET_OT_graft(bpy.types.Operator):
 
             if not edges1:
                 bm.free()
+                bpy.data.objects.remove(dst_obj)
+                bpy.data.meshes.remove(dst_mesh)
                 self.report({'ERROR'}, f"The object must have an open boundary.")
                 return
 
             # Push the boundary into the destination mesh and get the boolean intersection
             # Use fast since exact solver demands the object is manifold. Might need to close holes
             saved_active_modifiers = []
-            for mod in chain(obj.modifiers, dst_obj.modifiers):
+            for mod in obj.modifiers:
                 if mod.show_viewport:
                     mod.show_viewport = False
                     saved_active_modifiers.append(mod)
@@ -153,6 +160,8 @@ class GRET_OT_graft(bpy.types.Operator):
 
             if not intersecting_face_indices:
                 bm.free()
+                bpy.data.objects.remove(dst_obj)
+                bpy.data.meshes.remove(dst_mesh)
                 self.report({'ERROR'}, f"No intersection found between the objects.")
                 return
 
@@ -183,6 +192,8 @@ class GRET_OT_graft(bpy.types.Operator):
                         ret['geom']))
             except RuntimeError:
                 bm.free()
+                bpy.data.objects.remove(dst_obj)
+                bpy.data.meshes.remove(dst_mesh)
                 self.report({'ERROR'}, f"Couldn't bridge edge loops.")
                 return
             for face in new_faces:
@@ -246,6 +257,8 @@ class GRET_OT_graft(bpy.types.Operator):
                 # Can't create a hide_viewport driver for reasons
                 link_properties(obj, 'hide_render', dst_obj, mod_dp + '.show_render', invert=True)
 
+        bpy.data.objects.remove(dst_obj)
+        bpy.data.meshes.remove(dst_mesh)
         return {'FINISHED'}
 
     def execute(self, context):

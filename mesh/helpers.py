@@ -5,7 +5,7 @@ import re
 from gret.helpers import get_flipped_name, select_only
 from gret.log import log, logger
 
-def edit_mesh_elements(obj, type='VERT', indices=None, key=lambda el: True):
+def edit_mesh_elements(obj, type='VERT', indices=None, key=None):
     """
     Enters edit mode and selects elements of a mesh to be operated on.
 
@@ -32,14 +32,14 @@ def edit_mesh_elements(obj, type='VERT', indices=None, key=lambda el: True):
     elif type == 'FACE':
         elements = (mesh.polygons if indices is None else (mesh.polygons[i] for i in indices))
 
-    if key:
-        for el in elements:
-            el.select = bool(key(el))
-            num_selected += el.select
-    else:
+    if key is None:
         for el in elements:
             el.select = True
             num_selected += 1
+    else:
+        for el in elements:
+            el.select = bool(key(el))
+            num_selected += el.select
 
     bpy.ops.object.mode_set(mode='EDIT')
 
@@ -251,7 +251,7 @@ def apply_modifiers(obj, mask_edge_boundary=False):
                 modifiers.append(modifier)
 
         log(f"Applying modifiers with {num_shape_keys} shape keys")
-        bpy.ops.object.shape_key_apply_modifiers({'object': obj}, keep_modifiers=True)
+        bpy.ops.gret.shape_key_apply_modifiers({'object': obj}, keep_modifiers=True)
     else:
         modifiers = [mo for mo in obj.modifiers if mo.show_viewport]
 
