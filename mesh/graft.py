@@ -90,7 +90,7 @@ class GRET_OT_graft(bpy.types.Operator):
         for obj in context.selected_objects[:]:
             if obj.type != 'MESH':
                 continue
-            if obj == context.active_object:
+            if obj == dst_obj:
                 continue
 
             # Initial setup

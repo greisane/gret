@@ -1,5 +1,8 @@
 import bpy
 
+def obj_name_items(self, context):
+    return [(o.name, o.name, "") for o in bpy.data.objects]
+
 class GRET_OT_replace_references(bpy.types.Operator):
     #tooltip
     """Replaces references to an object with a different object. Use with care.
@@ -9,21 +12,18 @@ Currently only handles objects and modifiers, and no nested properties"""
     bl_label = "Replace References"
     bl_options = {'REGISTER', 'UNDO'}
 
-    def get_obj_name_items(self, context):
-        return [(o.name, o.name, "") for o in bpy.data.objects]
-
     dry_run: bpy.props.BoolProperty(
         name="Dry Run",
         description="List the names of the properties that would be affected without making changes",
         default=True,
     )
     src_obj_name: bpy.props.EnumProperty(
-        items=get_obj_name_items,
+        items=obj_name_items,
         name="Source Object",
         description="Object to be replaced",
     )
     dst_obj_name: bpy.props.EnumProperty(
-        items=get_obj_name_items,
+        items=obj_name_items,
         name="Destination Object",
         description="Object to be used in its place",
     )

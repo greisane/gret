@@ -17,7 +17,7 @@ one_vector = Vector((1.0, 1.0, 1.0))
 pose_blenders = {}
 
 class Transform:
-    __slots__ = ['location', 'rotation', 'scale']
+    __slots__ = ('location', 'rotation', 'scale')
 
     def __init__(self, location=None, rotation=None, scale=None):
         self.location = location or Vector()
@@ -170,24 +170,17 @@ and accumulates that into a destination transform."""
             +self.rotation
             +self.scale)
 
-class Pose:
-    __slots__ = ['owner', 'name', 'transforms']
-
-    def get_weight(self):
+class Pose(namedtuple('Pose', ('owner', 'name', 'transforms'))):
+    @property
+    def weight(self):
         return self.owner.armature[self.name]
 
-    def set_weight(self, value):
+    @weight.setter
+    def weight(self, value):
         if not isinstance(value, Number):
             return
         value = min(1.0, max(0.0, float(value)))
         self.owner.armature[self.name] = value
-
-    weight = property(get_weight, set_weight, None, "Pose weight")
-
-    def __init__(self, owner, name, transforms):
-        self.owner = owner
-        self.name = name
-        self.transforms = transforms
 
 class PoseBlender:
     """Allows blending between poses similarly to the UE4 AnimGraph node."""

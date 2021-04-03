@@ -176,10 +176,12 @@ classes = (
 )
 
 def retarget_src_update(self, context):
+    # On changing the source object, reset the destination object
     context.scene.gret.retarget_dst = 'NONE'
 
 items = []
 def retarget_dst_items(self, context):
+    # Return shape keys of the source object and mesh objects with the same amount of vertices
     settings = context.scene.gret
     src_obj = settings.retarget_src
 
@@ -200,14 +202,14 @@ def register(settings):
 
     settings.add_property('retarget_src', bpy.props.PointerProperty(
         name="Mesh Retarget Source",
-        description="Source mesh that the meshes were originally fit to",
+        description="Base mesh that the meshes are fit to",
         type=bpy.types.Object,
         poll=lambda self, obj: obj and obj.type == 'MESH',
         update=retarget_src_update,
     ))
     settings.add_property('retarget_dst', bpy.props.EnumProperty(
         name="Mesh Retarget Destination",
-        description="Destination mesh or shape key to retarget to",
+        description="Mesh or shape key to retarget to",
         items=retarget_dst_items,
     ))
     retarget_props = GRET_OT_retarget_mesh.__annotations__
