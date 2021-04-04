@@ -84,6 +84,8 @@ class GRET_OT_graft(bpy.types.Operator):
         return modifier
 
     def _execute(self, context):
+        objs = [o for o in context.selected_objects if o.type == 'MESH' and o != context.active_object]
+
         # Get an evaluated version of the destination object
         # Can't use to_mesh because we will need to enter edit mode on it
         dg = context.evaluated_depsgraph_get()
@@ -92,20 +94,14 @@ class GRET_OT_graft(bpy.types.Operator):
         dst_obj = bpy.data.objects.new(eval_obj.name, dst_mesh)
         context.scene.collection.objects.link(dst_obj)
 
-        for obj in context.selected_objects[:]:
-            if obj.type != 'MESH':
-                continue
-            if obj == context.active_object:
-                continue
-
+        for obj in objs:
             # Initial setup
             obj_to_world = obj.matrix_world.copy()
             world_to_obj = obj.matrix_world.inverted()
             dst_to_obj = world_to_obj @ dst_obj.matrix_world
             obj_to_dst = dst_to_obj.inverted()
 
-            boundary_vg = self.new_vgroup(obj, f"_boundary")
-            soft_boundary_vg = self.new_vgroup(obj, f"_boundary_soft")
+            boundary_vg = obj.vertex_groups.new(name="_boundary")
             bm = bmesh.new()
             bm.from_mesh(obj.data)
 
@@ -180,6 +176,7 @@ class GRET_OT_graft(bpy.types.Operator):
             edges2 = [bm.edges.new((idx_to_bmvert[e.vertices[0]], idx_to_bmvert[e.vertices[1]]))
                 for e in dst_mesh.edges if e.select]
             bm.edges.index_update()
+            fm_layer = bm.faces.layers.face_map.verify()
 
             try:
                 ret = bmesh.ops.bridge_loops(bm, edges=edges1+edges2, use_pairs=False,
@@ -196,8 +193,11 @@ class GRET_OT_graft(bpy.types.Operator):
                 bpy.data.meshes.remove(dst_mesh)
                 self.report({'ERROR'}, f"Couldn't bridge edge loops.")
                 return
+
+            face_map = obj.face_maps.get('graft') or obj.face_maps.new(name='graft')
             for face in new_faces:
                 face.smooth = True
+                face[fm_layer] = face_map.index
 
             # Begin transferring data from the destination mesh
             bm.verts.layers.deform.verify()
@@ -206,9 +206,8 @@ class GRET_OT_graft(bpy.types.Operator):
                 if edge.is_boundary:
                     for vert in edge.verts:
                         vert[deform_layer][boundary_vg.index] = 1.0
-                        vert[deform_layer][soft_boundary_vg.index] = 1.0
             if self.transfer_normals:
-                bmesh_blur_vertex_group(bm, soft_boundary_vg.index,
+                bmesh_blur_vertex_group(bm, boundary_vg.index,
                     distance=self.normal_blend_distance,
                     power=self.normal_blend_power)
 
@@ -220,7 +219,7 @@ class GRET_OT_graft(bpy.types.Operator):
             if self.transfer_normals:
                 mod = self.new_modifier(obj, name="transfer normals", type='DATA_TRANSFER')
                 mod.object = dst_obj
-                mod.vertex_group = soft_boundary_vg.name
+                mod.vertex_group = boundary_vg.name
                 mod.use_object_transform = True
                 mod.use_loop_data = True
                 mod.data_types_loops = {'CUSTOM_NORMAL'}
@@ -257,6 +256,7 @@ class GRET_OT_graft(bpy.types.Operator):
                 # Can't create a hide_viewport driver for reasons
                 link_properties(obj, 'hide_render', dst_obj, mod_dp + '.show_render', invert=True)
 
+        obj.vertex_groups.remove(boundary_vg)
         bpy.data.objects.remove(dst_obj)
         bpy.data.meshes.remove(dst_mesh)
         return {'FINISHED'}
