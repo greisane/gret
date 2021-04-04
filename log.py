@@ -1,7 +1,8 @@
 import time
+from functools import partial
 
 class Logger:
-    """Simple logger for operators that take a long time to complete. Can be used as a mixin."""
+    """Simple logger. Can be used as a mixin."""
 
     def start_logging(self, filepath=None, defer_print=True):
         if not self.is_logging():
@@ -12,6 +13,7 @@ class Logger:
             self.log_prefix = ""
             self.log_indent = 0
             self.log_started = 0
+            self.log_categories = []
         self.log_started += 1
 
     def end_logging(self):
@@ -30,7 +32,7 @@ class Logger:
     def is_logging(self):
         return hasattr(self, 'logs')
 
-    def log(self, *args, sep=' '):
+    def log(self, *args, sep=' ', category=None):
         if not self.is_logging():
             # start_logging wasn't called, so just print
             print(*args, sep=sep)
@@ -40,16 +42,18 @@ class Logger:
             message = f"{str(self.log_prefix)} {message}"
         if self.log_indent > 0:
             message = "  " * self.log_indent + message
-        self.logs.append((time.time(), message))
+        self.logs.append((time.time(), message, category))
         if not self.log_defer_print:
             self._print_log(*self.logs[-1])
 
-    def _print_log(self, timestamp, message):
-        line = f"{timestamp - self.log_start_time:6.2f}s | {message}"
-        print(line)
-        if self.log_file:
-            print(line, file=self.log_file)
+    def _print_log(self, timestamp, message, category):
+        if not category or category in self.log_categories:
+            line = f"{timestamp - self.log_start_time:6.2f}s | {message}"
+            print(line)
+            if self.log_file:
+                print(line, file=self.log_file)
 
 # Singleton instance
 logger = Logger()
 log = logger.log
+logd = partial(log, category='debug')
