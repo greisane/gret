@@ -114,7 +114,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
                 continue
 
             log(f"Processing {obj.name}")
-            logger.log_indent += 1
+            logger.indent += 1
 
             orig_obj, obj = obj, self.copy_obj(obj)
             select_only(context, obj)
@@ -167,7 +167,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
             export_groups[filepath].append(obj)
             export_groups[filepath].extend(col_objs)
 
-            logger.log_indent -= 1
+            logger.indent -= 1
 
         # Export each file
         for filepath, objs in export_groups.items():

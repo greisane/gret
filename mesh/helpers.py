@@ -183,7 +183,7 @@ def mirror_shape_keys(obj, side_vgroup_name):
         # Only mirror it if it doesn't already exist
         if flipped_name and flipped_name not in obj.data.shape_keys.key_blocks:
             log(f"Mirroring shape key {sk.name}")
-            logger.log_indent += 1
+            logger.indent += 1
             sk.vertex_group = side_vgroup_name
             new_sk = duplicate_shape_key(obj, sk.name, flipped_name)
             new_sk.vertex_group = other_vgroup_name
@@ -214,7 +214,7 @@ def mirror_shape_keys(obj, side_vgroup_name):
             except Exception as e:
                 log(f"Couldn't mirror driver: {e}")
 
-            logger.log_indent -= 1
+            logger.indent -= 1
 
 def apply_mask_modifier(obj, mask_modifier):
     """Applies a mask modifier in the active object by removing faces instead of vertices \

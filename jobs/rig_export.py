@@ -400,7 +400,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
         for export_group in export_groups:
             for obj in export_group.objects:
                 log(f"Processing {obj.name}")
-                logger.log_indent += 1
+                logger.indent += 1
 
                 delete_faces_with_no_material(obj)
 
@@ -451,7 +451,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 # Ensure proper mesh state
                 self.sanitize_mesh(obj)
 
-                logger.log_indent -= 1
+                logger.indent -= 1
 
         merges = {}
         if self.join_meshes:
@@ -465,7 +465,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 merges.update({obj.name: merged_obj for obj in objs})
                 log(f"Merging {', '.join(obj.name for obj in objs if obj is not merged_obj)} " \
                     f"into {merged_obj.name}")
-                logger.log_indent += 1
+                logger.indent += 1
 
                 subsurf_levels = max(wants_subsurf.get(obj.name, 0) for obj in objs)
                 for obj in objs:
@@ -503,7 +503,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
                     subdivide_verts_with_bevel_weight(merged_obj, levels=subsurf_levels)
                     merged_obj.data.use_customdata_vertex_bevel = False
 
-                logger.log_indent -= 1
+                logger.indent -= 1
 
         # Finally export
         if self.export_path:
@@ -525,21 +525,21 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
                 if is_object_arp_humanoid(rig):
                     log(f"Exporting {filename} via Auto-Rig export")
-                    logger.log_indent += 1
+                    logger.indent += 1
                     result = export_autorig(context, filepath, [], no_intercept=self.debug)
                 elif is_object_arp(rig):
                     log(f"Exporting {filename} via Auto-Rig export (universal)")
-                    logger.log_indent += 1
+                    logger.indent += 1
                     result = export_autorig_universal(context, filepath, [], no_intercept=self.debug)
                 else:
                     # Temporarily rename the armature as it's the root bone itself
                     saved_rig_name = rig.name
                     rig.name = "root"
                     log(f"Exporting {filename}")
-                    logger.log_indent += 1
+                    logger.indent += 1
                     result = export_fbx(context, filepath, [], no_intercept=self.debug)
                     rig.name = saved_rig_name
-                logger.log_indent -= 1
+                logger.indent -= 1
 
                 if result == {'FINISHED'}:
                     self.exported_files.append(filepath)

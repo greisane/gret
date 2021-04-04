@@ -199,7 +199,7 @@ All faces from all objects assigned to the active material are assumed to contri
         select_only(context, objs)
 
         log(f"Baking {mat.name} with {len(objs)} contributing objects")
-        logger.log_indent += 1
+        logger.indent += 1
 
         # Explode objects. Not strictly necessary anymore since AO node has only_local flag
         for obj_idx, obj in enumerate(objs):
@@ -255,7 +255,7 @@ All faces from all objects assigned to the active material are assumed to contri
         pack_img.save()
         self.exported_files.append(filepath)
 
-        logger.log_indent -= 1
+        logger.indent -= 1
 
     def execute(self, context):
         bake = context.object.active_material.texture_bake
