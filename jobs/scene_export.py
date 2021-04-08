@@ -15,7 +15,7 @@ from gret.helpers import (
     select_only,
 )
 from gret.jobs.export import GRET_PG_export_job
-from gret.log import log, logger
+from gret.log import logger, log, logd
 from gret.mesh.helpers import merge_basis_shape_keys
 
 job_props = GRET_PG_export_job.__annotations__
@@ -200,6 +200,8 @@ class GRET_OT_scene_export(bpy.types.Operator):
         self.saved_material_names = {}
         self.saved_transforms = {}
         logger.start_logging()
+        if self.debug:
+            logger.categories.append('debug')
 
         try:
             start_time = time.time()

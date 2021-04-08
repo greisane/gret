@@ -29,7 +29,7 @@ from gret.mesh.helpers import (
     subdivide_verts_with_bevel_weight,
 )
 from gret.jobs.export import GRET_PG_export_job
-from gret.log import log, logger
+from gret.log import logger, log, logd
 from gret.rig.helpers import clear_pose, is_object_arp, is_object_arp_humanoid
 
 job_props = GRET_PG_export_job.__annotations__
@@ -420,11 +420,13 @@ class GRET_OT_rig_export(bpy.types.Operator):
                             wants_subsurf[obj.name] = modifier.levels
                             bpy.ops.object.modifier_remove(modifier=modifier.name)
                         else:
+                            logd(f"Enabled {modifier.type} modifier {modifier.name}")
                             modifier.show_viewport = True
                     else:
                         if '!keep' in modifier.name:
                             # Store the modifier to recreate it later
                             kept_modifiers.append((obj.name, modifier_idx, save_properties(modifier)))
+                        logd(f"Removed {modifier.type} modifier {modifier.name}")
                         bpy.ops.object.modifier_remove(modifier=modifier.name)
                 if self.apply_modifiers:
                     apply_modifiers(obj, mask_edge_boundary=self.split_masks)
@@ -604,6 +606,8 @@ class GRET_OT_rig_export(bpy.types.Operator):
         self.saved_material_names = {}
         self.saved_auto_smooth = {}
         logger.start_logging()
+        if self.debug:
+            logger.categories.append('debug')
 
         try:
             start_time = time.time()
@@ -796,6 +800,8 @@ class GRET_OT_animation_export(bpy.types.Operator):
         self.saved_unmuted_constraints = []
         self.saved_meshes_with_relative_shape_keys = []
         logger.start_logging()
+        if self.debug:
+            logger.categories.append('debug')
 
         try:
             start_time = time.time()
