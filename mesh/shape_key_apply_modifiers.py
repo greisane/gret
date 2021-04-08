@@ -4,6 +4,11 @@ import bpy
 
 from gret.math import get_sq_dist
 
+# shape_key_apply_modifiers TODO:
+# - Transfer vertex order when topology doesn't change
+# Is there a solution for identifying which face went where that doesn't involve guessing?
+# - Specialcase more merging modifiers, solidify for example. Might want to make a class
+
 class ShapeKeyInfo(namedtuple('ShapeKeyInfo', ['coords', 'interpolation', 'mute', 'name',
     'slider_max', 'slider_min', 'value', 'vertex_group'])):
     @classmethod
@@ -43,6 +48,8 @@ def apply_mirror_modifier(obj, modifier, weld_map={}):
     bpy.ops.object.modifier_apply({'object': obj}, modifier=modifier.name)
 
     if not weld_map:
+        # Fill the weld map. Only consider pairs of mirrored vertices for merging
+        # Will probably break if mirror flip is enabled
         welds = []
         for n in range(1, num_mirrors + 1):
             num_part_verts = num_verts * (2 ** (n - 1))
@@ -59,18 +66,48 @@ def apply_mirror_modifier(obj, modifier, weld_map={}):
                 if get_sq_dist(vert.co, other_vert.co) <= merge_dist_sq:
                     welds.append((other_vert_idx, vert_idx))
 
-            # Resolve the welds into a single dict. This probably isn't too robust
-            weld_map_reverse = defaultdict(list)
-            for src_idx, dst_idx in welds:
-                dst_idx = weld_map.get(dst_idx, dst_idx)
-                weld_map[src_idx] = dst_idx
-                old_idxs = weld_map_reverse.get(src_idx, [])
-                for old_idx in old_idxs:
-                    weld_map[old_idx] = dst_idx
-                    weld_map_reverse[dst_idx].append(old_idx)
-                weld_map_reverse[dst_idx].append(src_idx)
+        # Resolve the welds into a single dict. Not too robust but weld_verts doesn't complain
+        weld_map_reverse = defaultdict(list)
+        for src_idx, dst_idx in welds:
+            dst_idx = weld_map.get(dst_idx, dst_idx)
+            weld_map[src_idx] = dst_idx
+            old_idxs = weld_map_reverse.get(src_idx, [])
+            for old_idx in old_idxs:
+                weld_map[old_idx] = dst_idx
+                weld_map_reverse[dst_idx].append(old_idx)
+            weld_map_reverse[dst_idx].append(src_idx)
 
-    # Merge according to the weld map
+    weld_mesh(mesh, weld_map)
+
+def apply_weld_modifier(obj, modifier, weld_map={}):
+    """
+    Apply a weld modifier in the given mesh.
+    weld_map: Specifies vertex pairs to be welded. Will be filled if empty.
+    """
+    assert modifier.type == 'WELD'
+    mesh = obj.data
+    vg = obj.vertex_groups.get(modifier.vertex_group)
+    merge_dist = modifier.merge_threshold
+    bpy.ops.object.modifier_remove({'object': obj}, modifier=modifier.name)
+
+    if not weld_map:
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        bm.verts.ensure_lookup_table()
+        deform_layer = bm.verts.layers.deform.active
+        if deform_layer and vg:
+            # Handle vertex group filtering
+            invert = modifier.invert_vertex_group
+            verts = [v for v in bm.verts if bool(v[deform_layer].get(vg.index, 0.0)) != invert]
+        else:
+            verts = bm.verts
+        targetmap = bmesh.ops.find_doubles(bm, verts=verts, dist=merge_dist)['targetmap']
+        weld_map.update({src.index: dst.index for src, dst in targetmap.items()})
+        bm.free()
+
+    weld_mesh(mesh, weld_map)
+
+def weld_mesh(mesh, weld_map):
     bm = bmesh.new()
     bm.from_mesh(mesh)
     bm.verts.ensure_lookup_table()
@@ -98,12 +135,6 @@ class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
     bl_context = "objectmode"
     bl_options = {'REGISTER', 'UNDO'}
 
-    smart_mirror: bpy.props.BoolProperty(
-        name="Smart Mirror",
-        description="""Makes mirror modifiers merge according to the Basis key.
-            Fixes shape keys that move vertices into or out of the merge distance.""",
-        default=True,
-    )
     keep_modifiers: bpy.props.BoolProperty(
         name="Keep Modifiers",
         description="Keep muted or disabled modifiers",
@@ -133,59 +164,47 @@ class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
 
         def is_merging_mirror(m):
             return m.show_viewport and m.type == 'MIRROR' and m.use_mirror_merge and any(m.use_axis)
+        def is_weld(m):
+            return m.show_viewport and m.type == 'WELD' and m.mode == 'ALL'
 
-        if self.smart_mirror and any(is_merging_mirror(mod) for mod in obj.modifiers):
-            # Start by separating each shape key so the modifiers can be applied one by one
-            shape_key_objs = []
-            for shape_key in shape_keys:
-                shape_key_info = ShapeKeyInfo.from_shape_key(shape_key)
-                shape_key_infos.append(shape_key_info)
+        # Start by separating each shape key so modifiers can be applied one by one
+        shape_key_objs = []
+        for shape_key in shape_keys:
+            shape_key_info = ShapeKeyInfo.from_shape_key(shape_key)
+            shape_key_infos.append(shape_key_info)
 
-                new_obj = obj.copy()
-                new_obj.data = obj.data.copy()
-                shape_key_objs.append(new_obj)
+            new_obj = obj.copy()
+            new_obj.name = f"{obj.name}_{shape_key.name}"
+            new_obj.data = obj.data.copy()
+            shape_key_objs.append(new_obj)
 
-            # Record welded vertex pairs for each mirror modifier applied in the original object
-            weld_maps = defaultdict(dict)
-            obj.shape_key_clear()
-            for modifier in obj.modifiers[:]:
-                if is_merging_mirror(modifier):
-                    apply_mirror_modifier(obj, modifier, weld_maps[modifier.name])
-                else:
-                    try_apply_modifier(obj, modifier, keep_if_disabled=self.keep_modifiers)
-            # Store vertex coordinates of each shape key with modifiers applied
-            for sk_info, sk_obj in zip(shape_key_infos, shape_key_objs):
-                sk_mesh = sk_obj.data
-                sk_obj.shape_key_clear()
-                sk_info.put_coords_into(sk_mesh.vertices)
-                for modifier in sk_obj.modifiers[:]:
-                    if is_merging_mirror(modifier):
-                        apply_mirror_modifier(sk_obj, modifier, weld_maps[modifier.name])
-                    else:
-                        try_apply_modifier(sk_obj, modifier)
-                sk_info.get_coords_from(sk_mesh.vertices)
-
-                bpy.data.objects.remove(sk_obj)
-                bpy.data.meshes.remove(sk_mesh)
-        else:
-            # Store vertex coordinates of each shape key with modifiers applied
-            for shape_key_index, shape_key in enumerate(shape_keys):
-                shape_key_info = ShapeKeyInfo.from_shape_key_with_empty_data(shape_key)
-                shape_key_infos.append(shape_key_info)
-
-                shape_key.mute = False
-                obj.show_only_shape_key = True
-                obj.active_shape_key_index = shape_key_index
-                dg = context.evaluated_depsgraph_get()
-                eval_obj = obj.evaluated_get(dg)
-                eval_mesh = eval_obj.to_mesh()
-                shape_key_info.get_coords_from(eval_mesh.vertices)
-                eval_obj.to_mesh_clear()
-
-            # Apply modifiers in the original object
-            obj.shape_key_clear()
-            for modifier in obj.modifiers[:]:
+        # Record welded vertex pairs for each mirror modifier applied in the original object
+        weld_maps = defaultdict(dict)
+        obj.shape_key_clear()
+        for modifier in obj.modifiers[:]:
+            if is_merging_mirror(modifier):
+                apply_mirror_modifier(obj, modifier, weld_maps[modifier.name])
+            elif is_weld(modifier):
+                apply_weld_modifier(obj, modifier, weld_maps[modifier.name])
+            else:
                 try_apply_modifier(obj, modifier, keep_if_disabled=self.keep_modifiers)
+
+        # Store vertex coordinates of each shape key with modifiers applied
+        for sk_info, sk_obj in zip(shape_key_infos, shape_key_objs):
+            sk_mesh = sk_obj.data
+            sk_obj.shape_key_clear()
+            sk_info.put_coords_into(sk_mesh.vertices)
+            for modifier in sk_obj.modifiers[:]:
+                if is_merging_mirror(modifier):
+                    apply_mirror_modifier(sk_obj, modifier, weld_maps[modifier.name])
+                elif is_weld(modifier):
+                    apply_weld_modifier(sk_obj, modifier, weld_maps[modifier.name])
+                else:
+                    try_apply_modifier(sk_obj, modifier)
+            sk_info.get_coords_from(sk_mesh.vertices)
+
+            bpy.data.objects.remove(sk_obj)
+            bpy.data.meshes.remove(sk_mesh)
 
         # Add the shape keys back
         for shape_key_info in shape_key_infos:
