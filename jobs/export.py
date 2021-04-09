@@ -191,7 +191,7 @@ class GRET_OT_export_job_run(bpy.types.Operator):
 
             log(f"Beginning scene export job '{job.name}'")
 
-            bpy.ops.export_scene.my_fbx(
+            bpy.ops.gret.scene_export(
                 export_path=job.scene_export_path,
                 export_collision=job.export_collision,
                 keep_transforms=job.keep_transforms,
@@ -742,7 +742,7 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
     )
     join_meshes: bpy.props.BoolProperty(
         name="Join Meshes",
-        description="Joins meshes before exporting",
+        description="Joins meshes before exporting, otherwise exports each mesh to a different file",
         default=True,
     )
     split_masks: bpy.props.BoolProperty(

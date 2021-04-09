@@ -327,7 +327,12 @@ class GRET_OT_rig_export(bpy.types.Operator):
         ExportGroup = namedtuple('ExportGroup', ['suffix', 'objects'])
         export_groups = []
         if mesh_objs:
-            export_groups.append(ExportGroup(suffix="", objects=mesh_objs[:]))
+            if self.join_meshes:
+                export_groups.append(ExportGroup(suffix="", objects=mesh_objs[:]))
+            else:
+                # Each mesh exports to a different file
+                for obj, mesh_obj in zip(original_objs, mesh_objs):
+                    export_groups.append(ExportGroup(suffix=f"_{obj.name}", objects=[mesh_obj]))
 
         if self.split_masks:
             for obj in mesh_objs:
@@ -400,6 +405,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
         # Process individual meshes
         for export_group in export_groups:
+            num_objects = len(export_group.objects)
             for obj in export_group.objects:
                 log(f"Processing {obj.name}")
                 logger.indent += 1
@@ -416,20 +422,21 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 context.view_layer.objects.active = obj
                 for modifier_idx, modifier in enumerate(obj.modifiers[:]):
                     if should_enable_modifier(modifier):
-                        if (modifier.type == 'SUBSURF' and modifier.levels > 0
-                            and self.join_meshes and len(export_group.objects) > 1):
+                        if modifier.type == 'SUBSURF' and modifier.levels > 0 and num_objects > 1:
                             # Subsurf will be applied after merge, otherwise boundaries won't match up
+                            ogd(f"Removed {modifier.type} modifier {modifier.name}")
                             wants_subsurf[obj.name] = modifier.levels
                             bpy.ops.object.modifier_remove(modifier=modifier.name)
                         else:
                             logd(f"Enabled {modifier.type} modifier {modifier.name}")
                             modifier.show_viewport = True
                     else:
-                        if '!keep' in modifier.name:
+                        if "!keep" in modifier.name:
                             # Store the modifier to recreate it later
                             kept_modifiers.append((obj.name, modifier_idx, save_properties(modifier)))
                         logd(f"Removed {modifier.type} modifier {modifier.name}")
                         bpy.ops.object.modifier_remove(modifier=modifier.name)
+
                 if self.apply_modifiers:
                     apply_modifiers(obj, mask_edge_boundary=self.split_masks)
 
@@ -457,57 +464,57 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
                 logger.indent -= 1
 
+        # Join meshes
         merges = {}
-        if self.join_meshes:
-            for export_group in export_groups:
-                objs = export_group.objects
-                if len(objs) <= 1:
-                    continue
+        for export_group in export_groups:
+            objs = export_group.objects
+            if len(objs) <= 1:
+                continue
 
-                # Pick the densest object to receive all the others
-                merged_obj = max(objs, key=lambda ob: len(ob.data.vertices))
-                merges.update({obj.name: merged_obj for obj in objs})
-                log(f"Merging {', '.join(obj.name for obj in objs if obj is not merged_obj)} " \
-                    f"into {merged_obj.name}")
-                logger.indent += 1
+            # Pick the densest object to receive all the others
+            merged_obj = max(objs, key=lambda ob: len(ob.data.vertices))
+            merges.update({obj.name: merged_obj for obj in objs})
+            log(f"Merging {', '.join(obj.name for obj in objs if obj is not merged_obj)} " \
+                f"into {merged_obj.name}")
+            logger.indent += 1
 
-                subsurf_levels = max(wants_subsurf.get(obj.name, 0) for obj in objs)
-                for obj in objs:
-                    if subsurf_levels:
-                        # Mark vertices that belong to a subsurf mesh
-                        obj.data.use_customdata_vertex_bevel = True
-                        for vert in obj.data.vertices:
-                            vert.bevel_weight = obj.name in wants_subsurf
-                    if obj is not merged_obj:
-                        self.new_objs.discard(obj)
-                        self.new_meshes.discard(obj.data)
-
-                ctx = {}
-                ctx['object'] = ctx['active_object'] = merged_obj
-                ctx['selected_objects'] = ctx['selected_editable_objects'] = objs
-                bpy.ops.object.join(ctx)
-                objs[:] = [merged_obj]
-
-                # Joining objects won't copy drivers, so do that now
-                for original_obj in original_objs:
-                    if original_obj.data.shape_keys and original_obj.data.shape_keys.animation_data:
-                        for fc in original_obj.data.shape_keys.animation_data.drivers:
-                            if merged_obj.data.shape_keys.animation_data is None:
-                                merged_obj.data.shape_keys.animation_data_create()
-                            merged_obj.data.shape_keys.animation_data.drivers.from_existing(src_driver=fc)
-
-                # Ensure proper mesh state
-                self.sanitize_mesh(merged_obj)
-
-                num_verts_merged = merge_freestyle_edges(merged_obj)
-                if num_verts_merged > 0:
-                    log(f"Welded {num_verts_merged} verts (edges were marked freestyle)")
-
+            subsurf_levels = max(wants_subsurf.get(obj.name, 0) for obj in objs)
+            for obj in objs:
                 if subsurf_levels:
-                    subdivide_verts_with_bevel_weight(merged_obj, levels=subsurf_levels)
-                    merged_obj.data.use_customdata_vertex_bevel = False
+                    # Mark vertices that belong to a subsurf mesh
+                    obj.data.use_customdata_vertex_bevel = True
+                    for vert in obj.data.vertices:
+                        vert.bevel_weight = obj.name in wants_subsurf
+                if obj is not merged_obj:
+                    self.new_objs.discard(obj)
+                    self.new_meshes.discard(obj.data)
 
-                logger.indent -= 1
+            ctx = {}
+            ctx['object'] = ctx['active_object'] = merged_obj
+            ctx['selected_objects'] = ctx['selected_editable_objects'] = objs
+            bpy.ops.object.join(ctx)
+            objs[:] = [merged_obj]
+
+            # Joining objects won't copy drivers, so do that now
+            for original_obj in original_objs:
+                if original_obj.data.shape_keys and original_obj.data.shape_keys.animation_data:
+                    for fc in original_obj.data.shape_keys.animation_data.drivers:
+                        if merged_obj.data.shape_keys.animation_data is None:
+                            merged_obj.data.shape_keys.animation_data_create()
+                        merged_obj.data.shape_keys.animation_data.drivers.from_existing(src_driver=fc)
+
+            # Ensure proper mesh state
+            self.sanitize_mesh(merged_obj)
+
+            num_verts_merged = merge_freestyle_edges(merged_obj)
+            if num_verts_merged > 0:
+                log(f"Welded {num_verts_merged} verts (edges were marked freestyle)")
+
+            if subsurf_levels:
+                subdivide_verts_with_bevel_weight(merged_obj, levels=subsurf_levels)
+                merged_obj.data.use_customdata_vertex_bevel = False
+
+            logger.indent -= 1
 
         # Finally export
         if self.export_path:
