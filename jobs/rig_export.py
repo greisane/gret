@@ -276,7 +276,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
         obj.active_shape_key_index = 0
         obj.show_only_shape_key = False
 
-        # After messing with shapekeys basis may be left in an undesirable state
+        # After messing with shape keys, basis may be left in an undesirable state
         # Not sure why, and data.update() doesn't seem to fix it
         bpy.context.view_layer.objects.active = obj
         bpy.ops.object.mode_set(mode='EDIT')
@@ -303,6 +303,10 @@ class GRET_OT_rig_export(bpy.types.Operator):
         original_objs = []
         rig.data.pose_position = 'REST'
 
+        def has_custom_normals(obj):
+            return obj.data.has_custom_normals or any(m.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL'
+                in m.data_types_loops for m in obj.modifiers)
+
         for obj in get_children_recursive(rig):
             # Enable all render modifiers in the originals, except masks
             for modifier in obj.modifiers:
@@ -315,9 +319,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 obj.data.auto_smooth_angle = math.pi
                 if not obj.hide_render and obj.find_armature() == rig:
                     original_objs.append(obj)
-                    # Meshes that aren't already doing it will transfer normals from the originals
-                    if not any(mo.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL' in mo.data_types_loops
-                        for mo in obj.modifiers):
+                    if not has_custom_normals(obj):
                         mesh_objs.append(self.copy_obj_clone_normals(obj))
                     else:
                         mesh_objs.append(self.copy_obj(obj))
