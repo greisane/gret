@@ -267,7 +267,6 @@ class GRET_OT_export_job_run(bpy.types.Operator):
                 apply_modifiers=job.apply_modifiers,
                 modifier_tags=job.modifier_tags,
                 join_meshes=job.join_meshes,
-                split_masks=job.split_masks,
                 material_name_prefix=job.material_name_prefix,
                 debug=self.debug,
             )
@@ -442,8 +441,6 @@ class GRET_PT_export_jobs(bpy.types.Panel):
                     split.enabled = job.apply_modifiers
 
                     col.prop(job, 'join_meshes')
-                    # Don't have an use for Split Masks currently and too many options gets confusing
-                    # col.prop(job, 'split_masks')
 
                     col = box.column(align=True)
                     col.label(text="Remap Materials:")
@@ -744,12 +741,6 @@ Separate tags with commas. Tag modifiers with 'g:tag'""",
         name="Join Meshes",
         description="Joins meshes before exporting, otherwise exports each mesh to a different file",
         default=True,
-    )
-    split_masks: bpy.props.BoolProperty(
-        name="Split Masks",
-        description="""Splits mask modifiers into extra meshes that are exported separately.
-Normals are preserved""",
-        default=False,
     )
     remap_materials: bpy.props.CollectionProperty(
         type=GRET_PG_remap_material,

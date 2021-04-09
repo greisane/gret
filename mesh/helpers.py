@@ -216,33 +216,15 @@ def mirror_shape_keys(obj, side_vgroup_name):
 
             logger.indent -= 1
 
-def apply_mask_modifier(obj, mask_modifier):
-    """Applies a mask modifier in the active object by removing faces instead of vertices \
-so the edge boundary is preserved."""
-
-    if mask_modifier.vertex_group not in obj.vertex_groups:
-        # No such vertex group
-        return
-    mask_vgroup = obj.vertex_groups[mask_modifier.vertex_group]
-
-    edit_mesh_elements(obj, 'VERT', key=lambda v: any(vg.group == mask_vgroup.index for vg in v.groups))
-    bpy.ops.mesh.select_mode(type='FACE')
-    if not mask_modifier.invert_vertex_group:
-        bpy.ops.mesh.select_all(action='INVERT')
-    bpy.ops.mesh.delete(type='FACE')
-
-    obj.modifiers.remove(mask_modifier)
-
-def apply_modifiers(obj, mask_edge_boundary=False):
+def apply_modifiers(obj):
     """Apply modifiers while preserving shape keys. Handles some modifiers specially."""
 
     modifiers = []
     num_shape_keys = len(obj.data.shape_keys.key_blocks) if obj.data.shape_keys else 0
     if num_shape_keys:
-        def should_disable_modifier(mo):
-            return (mo.type in {'ARMATURE', 'NORMAL_EDIT'}
-                or mo.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL' in mo.data_types_loops
-                or mo.type == 'MASK' and mask_edge_boundary)
+        def should_disable_modifier(mod):
+            return (mod.type in {'ARMATURE', 'NORMAL_EDIT'}
+                or mod.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL' in mod.data_types_loops)
 
         for modifier in obj.modifiers:
             # Disable modifiers to be applied after mirror
@@ -253,17 +235,13 @@ def apply_modifiers(obj, mask_edge_boundary=False):
         log(f"Applying modifiers with {num_shape_keys} shape keys")
         bpy.ops.gret.shape_key_apply_modifiers({'object': obj}, keep_modifiers=True)
     else:
-        modifiers = [mo for mo in obj.modifiers if mo.show_viewport]
+        modifiers = [mod for mod in obj.modifiers if mod.show_viewport]
 
     for modifier in modifiers:
         modifier.show_viewport = True
         if modifier.type == 'ARMATURE':
             # Do nothing, just reenable
             pass
-        elif modifier.type == 'MASK' and mask_edge_boundary:
-            # Try to preserve edge boundaries
-            log(f"Applying mask '{modifier.name}' while preserving boundaries")
-            apply_mask_modifier(obj, modifier)
         else:
             if modifier.name == "_Clone Normals":
                 log(f"Cloning normals from original")

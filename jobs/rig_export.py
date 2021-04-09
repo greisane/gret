@@ -215,7 +215,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
     apply_modifiers: job_props['apply_modifiers']
     modifier_tags: job_props['modifier_tags']
     join_meshes: job_props['join_meshes']
-    split_masks: job_props['split_masks']
     material_name_prefix: job_props['material_name_prefix']
     debug: bpy.props.BoolProperty(
         name="Debug",
@@ -334,68 +333,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 for obj, mesh_obj in zip(original_objs, mesh_objs):
                     export_groups.append(ExportGroup(suffix=f"_{obj.name}", objects=[mesh_obj]))
 
-        if self.split_masks:
-            for obj in mesh_objs:
-                masks = [mo for mo in obj.modifiers if mo.type == 'MASK' and mo.show_render]
-                if not masks:
-                    continue
-
-                # As a special case if the only modifier has the same name as the object,
-                # just make a new export group for it
-                if len(masks) == 1 and masks[0].name == obj.name:
-                    export_groups.append(ExportGroup(suffix="_%s" % masks[0].name, objects=[obj]))
-                    export_groups[0].objects.remove(obj)
-                    obj.modifiers.remove(masks[0])
-                    continue
-
-                # Split masked parts into extra meshes that receive normals from the original
-                for mask in masks:
-                    log(f"Splitting {mask.name} from {obj.name}")
-                    new_obj = self.copy_obj_clone_normals(obj)
-                    new_obj.name = mask.name
-
-                    # Remove all masks but this one in the new object
-                    for new_mask in [mo for mo in new_obj.modifiers if mo.type == 'MASK']:
-                        if new_mask.name != mask.name:
-                            new_obj.modifiers.remove(new_mask)
-
-                    # New export group for the split off part
-                    export_groups.append(ExportGroup(suffix="_%s" % mask.name, objects=[new_obj]))
-
-                # Invert the masks for the part that is left behind
-                base_obj = self.copy_obj_clone_normals(obj)
-                original_name = obj.name
-                obj.name = original_name + "_whole"
-                base_obj.name = original_name
-                export_groups[0].objects.append(base_obj)
-
-                for modifier in base_obj.modifiers:
-                    if modifier.type == 'MASK':
-                        modifier.invert_vertex_group = not modifier.invert_vertex_group
-
-                # Apply modifiers in the whole object, which won't be exported
-                context.view_layer.objects.active = obj
-                export_groups[0].objects.remove(obj)
-
-                if obj.data.shape_keys:
-                    if bpy.app.version == (2, 80, 75):
-                        # Work around a bug in 2.80, see https://developer.blender.org/T68710
-                        while obj.data.shape_keys and obj.data.shape_keys.key_blocks:
-                            bpy.ops.object.shape_key_remove(all=False)
-                    else:
-                        bpy.ops.object.shape_key_remove(all=True)
-
-                for modifier in obj.modifiers[:]:
-                    if modifier.type in {'MASK'}:
-                        bpy.ops.object.modifier_remove(modifier=modifier.name)
-                    elif modifier.show_render:
-                        try:
-                            bpy.ops.object.modifier_apply(modifier=modifier.name)
-                        except RuntimeError:
-                            bpy.ops.object.modifier_remove(modifier=modifier.name)
-                    else:
-                        bpy.ops.object.modifier_remove(modifier=modifier.name)
-
         any_modifier_tags = set(self.modifier_tags.split(','))
         kept_modifiers = []  # List of (object name, modifier index, modifier properties)
         wants_subsurf = {}  # Object name to subsurf level
@@ -438,7 +375,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
                         bpy.ops.object.modifier_remove(modifier=modifier.name)
 
                 if self.apply_modifiers:
-                    apply_modifiers(obj, mask_edge_boundary=self.split_masks)
+                    apply_modifiers(obj)
 
                 # If set, ensure prefix for any exported materials
                 if self.material_name_prefix:
