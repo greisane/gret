@@ -29,21 +29,19 @@ class GRET_OT_align_each(bpy.types.Operator):
         bm = bmesh.from_edit_mesh(obj.data)
         uv_layer = bm.loops.layers.uv.verify()
 
-        bags = get_selection_bags(bm)
-
-        chains = []
-        for n, bag in enumerate(bags):
-            chain = chain_from_bag(bag)
-            if not chain:
+        bags = []
+        for bag in get_selection_bags(bm):
+            bag = bag.to_chain()
+            if not bag:
                 self.report({'ERROR'}, "Works only on edge loops.")
                 return {'CANCELLED'}
-            chains.append(chain)
-        if len(chains) < 2:
+            bags.append(bag)
+        if len(bags) < 2:
             self.report({'ERROR'}, "Select two or more edge loops.")
             return {'CANCELLED'}
 
         # Align each
-        for items in zip(*chains):
+        for items in zip(*bags):
             bag = UVBag(items)
             center = bag.calc_center()
             axis = 1 - bag.axis

@@ -11,7 +11,6 @@ class UVBag(tuple):
     """Represents a set of connected UV vertices."""
 
     _axis = -1
-    _ends = None
 
     def __mul__(self, value):
         return NotImplemented
@@ -22,11 +21,6 @@ class UVBag(tuple):
         us, vs = [item.point.u for item in self], [item.point.v for item in self]
         self._bounds = bounds = min(us), min(vs), max(us), max(vs)
         self._axis = 1 if (bounds[2] - bounds[0] < bounds[3] - bounds[1]) else 0
-
-    def _ensure_ends(self):
-        if self._ends is not None:
-            return
-        self._ends = [item for item in self if len(item.links) == 1]
 
     def calc_center(self):
         self._ensure_bounds()
@@ -43,29 +37,28 @@ class UVBag(tuple):
         self._ensure_bounds()
         return self._bounds
 
-    @property
-    def ends(self):
-        self._ensure_ends()
-        return self._ends
-
-    @property
-    def is_chain(self):
-        self._ensure_ends()
-        return len(self._ends) == 2
-
-def chain_from_bag(bag):
-    if not bag or not bag.is_chain:
-        # Not a chain
-        return None
-    # Pick one end to start on, based on bag bounds
-    current = bag.ends[0] if bag.ends[0][bag.axis] < bag.ends[1][bag.axis] else bag.ends[1]
-    chain = []
-    last = None
-    while current:
-        chain.append(current)
-        current = next((it for it in current.links if it is not last), None)
-        last = chain[-1] if chain else None
-    return UVBag(chain)
+    def to_chain(self):
+        ends = []
+        for item in self:
+            if len(item.links) == 1:
+                ends.append(item)
+                if len(ends) > 2:
+                    # Too many ends, not a chain
+                    return UVBag()
+            elif len(item.links) != 2:
+                # Manifold vert, not a chain
+                return UVBag()
+        if not ends:
+            return UVBag()
+        # Pick one end to start on, based on bounds
+        current = ends[0] if (ends[0].point[self.axis] < ends[1].point[self.axis]) else ends[1]
+        chain = []
+        last = None
+        while current:
+            chain.append(current)
+            current = next((it for it in current.links if it is not last), None)
+            last = chain[-1] if chain else None
+        return UVBag(chain)
 
 def _resolve_bag(point_to_item):
     """Reformat bags into their proper form by resolving the links. Easier to work with."""
