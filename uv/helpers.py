@@ -2,6 +2,8 @@ from collections import namedtuple
 from mathutils import Vector
 import bmesh
 
+from gret.math import calc_bounds_2d, calc_center_2d
+
 class UVVector(Vector):
     """Vector with an extra component used to separately identify face corners."""
 
@@ -28,32 +30,17 @@ class UVPoint(namedtuple('UVPoint', ['uv', 'links', 'bmloops'])):
 class UVBag(tuple):
     """Collection of UV points."""
 
-    _axis = -1
-
     def __mul__(self, value):
         return NotImplemented
 
-    def _ensure_bounds(self):
-        if self._axis != -1:
-            return
-        us, vs = [point.uv.x for point in self], [point.uv.y for point in self]
-        self._bounds = bounds = min(us), min(vs), max(us), max(vs)
-        self._axis = 1 if (bounds[2] - bounds[0] < bounds[3] - bounds[1]) else 0
+    def calc_bounds(self):
+        return calc_bounds_2d(point.uv for point in self)
 
     def calc_center(self):
-        self._ensure_bounds()
-        bounds = self._bounds
-        return Vector(((bounds[2] + bounds[0]) / 2, (bounds[3] + bounds[1]) / 2))
+        return calc_center_2d(point.uv for point in self)
 
-    @property
-    def axis(self):
-        self._ensure_bounds()
-        return self._axis
-
-    @property
-    def bounds(self):
-        self._ensure_bounds()
-        return self._bounds
+class UVBagLoop(UVBag):
+    is_closed = False
 
 def get_selection_bags(bm):
     uv2uv2p = {}  # UVVector to (UVVector to UVPoint)
@@ -135,7 +122,8 @@ def get_selection_loops(bm):
         ends = [point for point in bag if len(point.links) == 1]
         if len(ends) == 2:
             # Open loop, pick the endpoint to start on based on bounds
-            current = ends[0] if (ends[0].uv[bag.axis] < ends[1].uv[bag.axis]) else ends[1]
+            _, _, axis = bag.calc_bounds()
+            current = ends[0] if (ends[0].uv[axis] < ends[1].uv[axis]) else ends[1]
             end = None
         else:
             # Closed loop, begin anywhere
@@ -151,7 +139,8 @@ def get_selection_loops(bm):
                 break
         assert len(points) == len(bag)
 
-        is_closed = end is not None
-        loops.append((UVBag(points), is_closed))
+        loop = UVBagLoop(points)
+        loop.is_closed = end is not None
+        loops.append(loop)
 
     return loops

@@ -84,9 +84,9 @@ class GRET_OT_relax_loops(bpy.types.Operator):
         bm = bmesh.from_edit_mesh(obj.data)
         uv_layer = bm.loops.layers.uv.verify()
 
-        for loop, is_closed in get_selection_loops(bm):
+        for loop in get_selection_loops(bm):
             indices = list(range(len(loop)))
-            if is_closed:
+            if loop.is_closed:
                 indices.append(indices[0])
 
             # Calculate splines and new positions

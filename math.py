@@ -2,6 +2,23 @@ from mathutils import Vector
 from numpy.polynomial import polynomial as pl
 import numpy as np
 
+def calc_bounds(points):
+    xs, ys, zs = zip(*points)
+    x0, y0, z1, x1, y1, z1 = min(xs), min(ys), min(zs), max(xs), max(ys), max(zs)
+    return Vector((x0, y0, z0)), Vector((x1, y1, z1))
+
+def calc_bounds_2d(points):
+    xs, ys = zip(*points)
+    x0, y0, x1, y1 = min(xs), min(ys), max(xs), max(ys)
+    axis = 1 if (x1 - x0 < y1 - y0) else 0
+    return Vector((x0, y0)), Vector((x1, y1)), axis
+
+def calc_center(points):
+    return sum(points, Vector()) / len(points)
+
+def calc_center_2d(points):
+    return sum(points, Vector((0.0, 0.0))) / len(points)
+
 def get_sq_dist(a, b):
     """Returns the square distance between two vectors."""
     x, y, z = a.x - b.x, a.y - b.y, a.z - b.z

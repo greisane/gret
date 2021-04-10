@@ -2,7 +2,8 @@ import bmesh
 import bpy
 import itertools
 
-from gret.uv.helpers import get_selection_loops, UVBag
+from gret.uv.helpers import get_selection_loops
+from gret.math import calc_bounds_2d
 
 class GRET_OT_align_each(bpy.types.Operator):
     #tooltip
@@ -31,11 +32,10 @@ class GRET_OT_align_each(bpy.types.Operator):
         # Align each
         if len(loops) >= 2:
             for points in zip(*loops):
-                row = UVBag(points)
-                center = row.calc_center()
-                axis = 1 - row.axis
+                mn, mx, axis = calc_bounds_2d(points)
+                center = (mn + mx) / 2
                 for bmloop in itertools.chain.from_iterable(point.bmloops for point in points):
-                    bmloop[uv_layer].uv[axis] = center[axis]
+                    bmloop[uv_layer].uv[1-axis] = center[1-axis]
 
         bmesh.update_edit_mesh(obj.data)
         return {'FINISHED'}
