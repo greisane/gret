@@ -6,11 +6,12 @@ from gret.math import get_sq_dist
 
 # shape_key_apply_modifiers TODO:
 # - Specialcase more merging modifiers, solidify for example
-# - Transfer vertex order. Still necessary if all merging modifiers are covered?
-# Is there a solution for identifying which face went where that doesn't involve guessing?
+# - Transfer vertex order. Is it still necessary if all merging modifiers are covered?
+#   Is it possible to identify which face went where without guessing?
 
 class ShapeKeyInfo(namedtuple('ShapeKeyInfo', ['coords', 'interpolation', 'mute', 'name',
     'slider_max', 'slider_min', 'value', 'vertex_group'])):
+    """Helper to preserve shape key information."""
     @classmethod
     def from_shape_key_with_empty_data(cls, shape_key):
         return cls(
@@ -35,7 +36,7 @@ class ShapeKeyInfo(namedtuple('ShapeKeyInfo', ['coords', 'interpolation', 'mute'
         vertices.foreach_set('co', self.coords)
 
 def weld_mesh(mesh, weld_map):
-    """Welds mesh vertices according to a weld map."""
+    """Welds mesh vertices according to a source index to destination index weld map."""
     bm = bmesh.new()
     bm.from_mesh(mesh)
     bm.verts.ensure_lookup_table()
@@ -45,6 +46,8 @@ def weld_mesh(mesh, weld_map):
     bm.free()
 
 class ModifierHandler:
+    """Subclass this to define special behavior when applying different modifiers."""
+
     type = None
     name = None
 
@@ -182,7 +185,7 @@ class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     keep_modifiers: bpy.props.BoolProperty(
-        name="Keep Modifiers",
+        name="Keep Disabled Modifiers",
         description="Keep muted or disabled modifiers",
         default=False,
     )
