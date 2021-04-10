@@ -36,6 +36,7 @@ module_names = [
     'material',
     'mesh',
     'rig',
+    'uv',
     'anim',  # Depends on rig
     'jobs',  # Depends on mesh, rig
 ]
