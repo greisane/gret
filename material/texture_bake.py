@@ -15,7 +15,7 @@ from gret.helpers import (
     select_only,
     show_only,
 )
-from .helpers import SolidPixels, Node
+from gret.material.helpers import SolidPixels, Node
 
 def remap_materials(objs, src_mat, dst_mat):
     for obj in objs:

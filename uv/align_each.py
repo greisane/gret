@@ -2,11 +2,7 @@ import bmesh
 import bpy
 import itertools
 
-from gret.uv.helpers import (
-    chain_from_bag,
-    get_selection_bags,
-    UVBag,
-)
+from gret.uv.helpers import get_selection_bags, UVBag
 
 class GRET_OT_align_each(bpy.types.Operator):
     #tooltip
@@ -49,7 +45,6 @@ class GRET_OT_align_each(bpy.types.Operator):
                 loop[uv_layer].uv[axis] = center[axis]
 
         bmesh.update_edit_mesh(obj.data)
-        #bm.free()  # Freeing here seems to be causing trouble
         return {'FINISHED'}
 
 def draw_menu(self, context):

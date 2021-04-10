@@ -12,6 +12,7 @@ from gret.math import get_sq_dist
 class ShapeKeyInfo(namedtuple('ShapeKeyInfo', ['coords', 'interpolation', 'mute', 'name',
     'slider_max', 'slider_min', 'value', 'vertex_group'])):
     """Helper to preserve shape key information."""
+
     @classmethod
     def from_shape_key_with_empty_data(cls, shape_key):
         return cls(
@@ -24,19 +25,23 @@ class ShapeKeyInfo(namedtuple('ShapeKeyInfo', ['coords', 'interpolation', 'mute'
             value=shape_key.value,
             vertex_group=shape_key.vertex_group,
         )
+
     @classmethod
     def from_shape_key(cls, shape_key):
         info = cls.from_shape_key_with_empty_data(shape_key)
         info.get_coords_from(shape_key.data)
         return info
+
     def get_coords_from(self, vertices):
         self.coords[:] = [0.0] * (len(vertices) * 3)
         vertices.foreach_get('co', self.coords)
+
     def put_coords_into(self, vertices):
         vertices.foreach_set('co', self.coords)
 
 def weld_mesh(mesh, weld_map):
     """Welds mesh vertices according to a source index to destination index weld map."""
+
     bm = bmesh.new()
     bm.from_mesh(mesh)
     bm.verts.ensure_lookup_table()
