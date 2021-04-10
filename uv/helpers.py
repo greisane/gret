@@ -20,10 +20,13 @@ class UVVector(Vector):
     def __repr__(self):
         return f"UVVector(i={self.vert_index}, u={self.x:.3f}, v={self.y:.3f})"
 
-UVItem = namedtuple('UVItem', ['uv', 'links', 'loops'])  # (UVVector, UVItem list, BMLoop list)
+class UVPoint(namedtuple('UVPoint', ['uv', 'links', 'bmloops'])):
+    @property
+    def vert(self):
+        return self.bmloops[0].vert
 
 class UVBag(tuple):
-    """Represents a set of connected UV vertices."""
+    """Collection of UV points."""
 
     _axis = -1
 
@@ -33,7 +36,7 @@ class UVBag(tuple):
     def _ensure_bounds(self):
         if self._axis != -1:
             return
-        us, vs = [item.uv.x for item in self], [item.uv.y for item in self]
+        us, vs = [point.uv.x for point in self], [point.uv.y for point in self]
         self._bounds = bounds = min(us), min(vs), max(us), max(vs)
         self._axis = 1 if (bounds[2] - bounds[0] < bounds[3] - bounds[1]) else 0
 
@@ -52,44 +55,9 @@ class UVBag(tuple):
         self._ensure_bounds()
         return self._bounds
 
-    def to_chain(self):
-        ends = []
-        for item in self:
-            if len(item.links) == 1:
-                ends.append(item)
-                if len(ends) > 2:
-                    # Too many ends, not a chain
-                    return UVBag()
-            elif len(item.links) != 2:
-                # Manifold vert, not a chain
-                return UVBag()
-        if not ends:
-            return UVBag()
-        # Pick one end to start on, based on bounds
-        current = ends[0] if (ends[0].uv[self.axis] < ends[1].uv[self.axis]) else ends[1]
-        chain = []
-        last = None
-        while current:
-            chain.append(current)
-            current = next((it for it in current.links if it is not last), None)
-            last = chain[-1] if chain else None
-        return UVBag(chain)
-
-def _resolve_bag(uv_to_item):
-    """Reformat bags into their proper form by resolving the links. Easier to work with."""
-
-    item_lookup = {}
-    new_items = []
-    for item in uv_to_item.values():
-        item_lookup[item.uv] = new_item = UVItem(item.uv, [], item.loops)
-        new_items.append(new_item)
-    for old_item, new_item in zip(uv_to_item.values(), new_items):
-        new_item.links[:] = [item_lookup[uv] for uv in old_item.links]
-    return UVBag(new_items)
-
 def get_selection_bags(bm):
-    bag_map = {}  # UVVector to (UVVector to UVItem)
-    bags = []  # List of unique bags
+    uv2uv2p = {}  # UVVector to (UVVector to UVPoint)
+    all_uv2p = []  # List of unique (UVVector to UVPoint)
     uv_layer = bm.loops.layers.uv.verify()
 
     for face in bm.faces:
@@ -100,35 +68,90 @@ def get_selection_bags(bm):
             loopuv = loop[uv_layer]
             if not loopuv.select:
                 continue
+
+            # Check if this face corner belongs to a bag by virtue of being UV 'welded'
             uv = UVVector(loop.vert.index, loopuv.uv)
-            bag = bag_map.get(uv)
-            if bag:
-                bag[uv].loops.append(loop)
+            uv2p = uv2uv2p.get(uv)
+            if uv2p:
+                uv2p[uv].bmloops.append(loop)
 
             for other_loop in (loop.link_loop_next, loop.link_loop_prev):
                 other_loopuv = other_loop[uv_layer]
-                if other_loopuv.select:
-                    other_point = UVVector(other_loop.vert.index, other_loopuv.uv)
-                    other_bag = bag_map.get(other_point)
-                    if other_bag:
-                        other_bag[other_point].links.add(uv)
-                        if not bag:
-                            # This loop joins the adjacent bag
-                            bag_map[uv] = bag = other_bag
-                            assert uv not in bag
-                            bag[uv] = UVItem(uv, set([other_point]), [loop])
-                        elif bag and bag is not other_bag:
-                            # This loop is adjacent to two or more bags, merge them
-                            assert bag.keys().isdisjoint(other_bag.keys())
-                            bag.update(other_bag)
-                            bag[uv].links.add(other_point)
-                            for other_bag_point in other_bag.keys():
-                                bag_map[other_bag_point] = bag
-                            bags.remove(other_bag)
+                if not other_loopuv.select:
+                    continue
 
-            if not bag:
-                # Lone loop creates a new bag
-                bag_map[uv] = bag = {uv: UVItem(uv, set(), [loop])}
-                bags.append(bag)
+                other_point = UVVector(other_loop.vert.index, other_loopuv.uv)
+                other_bag = uv2uv2p.get(other_point)
+                if other_bag:
+                    other_bag[other_point].links.add(uv)
+                    if not uv2p:
+                        # This point doesn't have a bag, join the adjacent bag
+                        uv2uv2p[uv] = uv2p = other_bag
+                        assert uv not in uv2p
+                        uv2p[uv] = UVPoint(uv, set([other_point]), [loop])
+                    elif uv2p and uv2p is not other_bag:
+                        # This point is adjacent to two or more bags, merge them
+                        assert uv2p.keys().isdisjoint(other_bag.keys())
+                        uv2p.update(other_bag)
+                        uv2p[uv].links.add(other_point)
+                        for other_bag_point in other_bag.keys():
+                            uv2uv2p[other_bag_point] = uv2p
+                        all_uv2p.remove(other_bag)
 
-    return [_resolve_bag(bag) for bag in bags]
+            if not uv2p:
+                # Lone point creates a new bag
+                uv2uv2p[uv] = uv2p = {uv: UVPoint(uv, set(), [loop])}
+                all_uv2p.append(uv2p)
+
+    # Reformat bags into their proper form by resolving the links
+    bags = []
+    for uv2p in all_uv2p:
+        new_uv2p = {}
+        new_points = []
+
+        for p in uv2p.values():
+            new_uv2p[p.uv] = new_p = UVPoint(p.uv, [], p.bmloops)
+            new_points.append(new_p)
+        for old_p, new_p in zip(uv2p.values(), new_points):
+            new_p.links[:] = [new_uv2p[uv] for uv in old_p.links]
+
+        bags.append(UVBag(new_points))
+
+    return bags
+
+def get_selection_loops(bm):
+    bags = get_selection_bags(bm)
+    loops = []
+
+    for bag in bags:
+        ends = []
+        if len(bag) < 2:
+            # Too few points
+            continue
+        if any(len(point.links) > 2 for point in bag):
+            # Has manifold points, not a loop
+            continue
+
+        ends = [point for point in bag if len(point.links) == 1]
+        if len(ends) == 2:
+            # Open loop, pick the endpoint to start on based on bounds
+            current = ends[0] if (ends[0].uv[bag.axis] < ends[1].uv[bag.axis]) else ends[1]
+            end = None
+        else:
+            # Closed loop, begin anywhere
+            assert not ends
+            current = end = bag[0]
+
+        points = []
+        prev = None
+        while True:
+            points.append(current)
+            prev, current = current, next((p for p in current.links if p is not prev), None)
+            if current is end:
+                break
+        assert len(points) == len(bag)
+
+        is_closed = end is not None
+        loops.append((UVBag(points), is_closed))
+
+    return loops

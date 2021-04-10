@@ -2,7 +2,7 @@ import bmesh
 import bpy
 import itertools
 
-from gret.uv.helpers import get_selection_bags, UVBag
+from gret.uv.helpers import get_selection_loops, UVBag
 
 class GRET_OT_align_each(bpy.types.Operator):
     #tooltip
@@ -25,24 +25,17 @@ class GRET_OT_align_each(bpy.types.Operator):
         bm = bmesh.from_edit_mesh(obj.data)
         uv_layer = bm.loops.layers.uv.verify()
 
-        bags = []
-        for bag in get_selection_bags(bm):
-            bag = bag.to_chain()
-            if not bag:
-                self.report({'ERROR'}, "Works only on edge loops.")
-                return {'CANCELLED'}
-            bags.append(bag)
-        if len(bags) < 2:
-            self.report({'ERROR'}, "Select two or more edge loops.")
-            return {'CANCELLED'}
+        # TODO Shouldn't need loops, bag vertices by bounding boxes then sort by x/y before pairing
+        loops = get_selection_loops(bm)
 
         # Align each
-        for items in zip(*bags):
-            bag = UVBag(items)
-            center = bag.calc_center()
-            axis = 1 - bag.axis
-            for loop in itertools.chain.from_iterable(item.loops for item in items):
-                loop[uv_layer].uv[axis] = center[axis]
+        if len(loops) >= 2:
+            for points in zip(*loops):
+                row = UVBag(points)
+                center = row.calc_center()
+                axis = 1 - row.axis
+                for bmloop in itertools.chain.from_iterable(point.bmloops for point in points):
+                    bmloop[uv_layer].uv[axis] = center[axis]
 
         bmesh.update_edit_mesh(obj.data)
         return {'FINISHED'}
