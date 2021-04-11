@@ -32,10 +32,8 @@ class UVBag(tuple):
 
     def __mul__(self, value):
         return NotImplemented
-
     def calc_bounds(self):
         return calc_bounds_2d(point.uv for point in self)
-
     def calc_center(self):
         return calc_center_2d(point.uv for point in self)
 

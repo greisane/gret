@@ -6,7 +6,7 @@ import math
 import re
 
 from gret.helpers import remove_extra_data
-from gret.math import get_best_fit_line, get_point_dist_to_line, get_range_pct, get_sq_dist
+from gret.math import calc_best_fit_line, get_point_dist_to_line, get_range_pct, get_sq_dist
 
 # make_collision TODO:
 # - When creating collision from vertices, sometimes the result is offset
@@ -471,7 +471,7 @@ class GRET_OT_make_collision(bpy.types.Operator):
         if len(vert_cos) < 3:
             raise RuntimeError("Requires at least three vertices")
 
-        axis, center = get_best_fit_line(vert_cos)
+        axis, center = calc_best_fit_line(vert_cos)
         self.location = center
 
         corner1 = vert_cos[0].copy()

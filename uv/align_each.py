@@ -32,7 +32,7 @@ class GRET_OT_align_each(bpy.types.Operator):
         # Align each
         if len(loops) >= 2:
             for points in zip(*loops):
-                mn, mx, axis = calc_bounds_2d(points)
+                mn, mx, axis = calc_bounds_2d(point.uv for point in points)
                 center = (mn + mx) / 2
                 for bmloop in itertools.chain.from_iterable(point.bmloops for point in points):
                     bmloop[uv_layer].uv[1-axis] = center[1-axis]

@@ -37,10 +37,10 @@ def get_point_dist_to_line(point, direction, origin):
     Calculates the distance of a given point in world space to a given line.
     Assumes direction is normalized.
     """
-    closest_point = origin + (direction * ((point - origin).dot(direction)))
+    closest_point = origin + direction * (point - origin).dot(direction)
     return (closest_point - point).length
 
-def get_best_fit_line(points):
+def calc_best_fit_line(points):
     """
     Calculates the best fit line that minimizes distance from the line to each point.
     Returns two vectors: the direction of the line and a point it passes through.
@@ -55,7 +55,7 @@ def get_best_fit_line(points):
     U, s, Vh = np.linalg.svd(V)  # Singular value decomposition
     return Vector(U[:,0]), Vector(M)
 
-def fit_curve(points, num_segments, polydeg=3, max_iter=20):
+def calc_fit_curve(points, num_segments, polydeg=3, max_iter=20):
     """
     polydeg: Degree of polygons of parametric curve.
     max_iter: Max. number of iterations.
