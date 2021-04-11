@@ -195,8 +195,12 @@ All faces from all objects assigned to the active material are assumed to contri
         # Collect all the objects that share this material
         objs = [o for o in context.scene.objects if
             o.type == 'MESH' and o.data.uv_layers.active and mat.name in o.data.materials]
+        print(objs)
+        print(context.selected_objects)
+        assert len(objs)
         show_only(context, objs)
         select_only(context, objs)
+        print(context.selected_objects)
 
         log(f"Baking {mat.name} with {len(objs)} contributing objects")
         logger.indent += 1
@@ -211,6 +215,7 @@ All faces from all objects assigned to the active material are assumed to contri
         # Margin should be kept at a minimum to prevent bakes from overlapping
         context.scene.render.engine = 'CYCLES'
         context.scene.render.bake.margin = size // 128
+        context.scene.render.bake.use_selected_to_active = False
 
         bake_pixels = [SolidPixels(size, k) for k in (0.0, 0.0, 0.0, 1.0)]
         bake_srcs = [bake.r, bake.g, bake.b]
@@ -269,6 +274,7 @@ All faces from all objects assigned to the active material are assumed to contri
         saved_selection = save_selection()
         saved_render_engine = context.scene.render.engine
         saved_render_bake_margin = context.scene.render.bake.margin  # Don't mistake for bake_margin
+        saved_render_use_selected_to_active = context.scene.render.bake.use_selected_to_active
         saved_cycles_samples = context.scene.cycles.samples
         saved_use_global_undo = context.preferences.edit.use_global_undo
         context.preferences.edit.use_global_undo = False
@@ -299,6 +305,7 @@ All faces from all objects assigned to the active material are assumed to contri
             load_selection(saved_selection)
             context.scene.render.engine = saved_render_engine
             context.scene.render.bake.margin = saved_render_bake_margin
+            context.scene.render.bake.use_selected_to_active = saved_render_use_selected_to_active
             context.scene.cycles.samples = saved_cycles_samples
             context.preferences.edit.use_global_undo = saved_use_global_undo
             logger.end_logging()
