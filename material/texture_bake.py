@@ -4,6 +4,7 @@ from mathutils import Matrix
 import bpy
 import time
 
+from gret import prefs
 from gret.log import log, logger
 from gret.helpers import (
     beep,
@@ -195,12 +196,8 @@ All faces from all objects assigned to the active material are assumed to contri
         # Collect all the objects that share this material
         objs = [o for o in context.scene.objects if
             o.type == 'MESH' and o.data.uv_layers.active and mat.name in o.data.materials]
-        print(objs)
-        print(context.selected_objects)
-        assert len(objs)
         show_only(context, objs)
         select_only(context, objs)
-        print(context.selected_objects)
 
         log(f"Baking {mat.name} with {len(objs)} contributing objects")
         logger.indent += 1
@@ -325,8 +322,9 @@ class GRET_OT_quick_unwrap(bpy.types.Operator):
 
     uv_layer_name: bpy.props.StringProperty(
         name="UV Layer",
-        description="Name of the target UV layer",
-        default="UVMap",
+        description="Name of the target UV layer.\n"
+            "Defaults to the setting found in addon preferences if not specified",
+        default="",
     )
     angle_limit: bpy.props.FloatProperty(
         name="Angle Limit",
@@ -354,7 +352,7 @@ class GRET_OT_quick_unwrap(bpy.types.Operator):
         saved_selection = save_selection()
         saved_active_uv_layers = {}  # Object to UV layer
         margin = 1.0 / 128 * 2
-        self.uv_layer_name = self.uv_layer_name or "UVMap"
+        self.uv_layer_name = self.uv_layer_name or prefs.quick_unwrap_uv_layer_name
 
         try:
             # Select all faces of all objects that share the material

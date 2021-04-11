@@ -13,6 +13,15 @@ import bpy
 import importlib
 import sys
 
+# Names here will be accessible as imports from other modules
+class AddonPreferencesWrapper:
+    _preferences = None
+    def __getattr__(self, attr):
+        if not self._preferences:
+            self._preferences = bpy.context.preferences.addons[__package__].preferences
+        return getattr(self._preferences, attr)
+prefs = AddonPreferencesWrapper()
+
 def import_or_reload_modules(module_names, package_name):
     ensure_starts_with = lambda s, prefix: s if s.startswith(prefix) else prefix + s
     module_names = [ensure_starts_with(name, f'{package_name}.') for name in module_names]
@@ -72,13 +81,25 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         description="Show the texture bake panel",
         default=False,
     )
+    quick_unwrap_uv_layer_name: bpy.props.StringProperty(
+        name="Quick Unwrap UV Layer",
+        description="Name of the target UV layer for quick unwrap",
+        default="UVMap",
+    )
+    backwards_compat: bpy.props.BoolProperty(
+        name="Backwards Compatibility",
+        description="Restore settings from when the addon was called my_tools",
+        default=False,
+    )
 
     def draw(self, context):
         layout = self.layout
-        layout.prop(self, "mesh_panel_enable")
-        layout.prop(self, "rig_panel_enable")
-        layout.prop(self, "animation_panel_enable")
-        layout.prop(self, "jobs_panel_enable")
+        layout.prop(self, 'quick_unwrap_uv_layer_name')
+        layout.prop(self, 'backwards_compat')
+        # layout.prop(self, 'mesh_panel_enable')
+        # layout.prop(self, 'rig_panel_enable')
+        # layout.prop(self, 'animation_panel_enable')
+        # layout.prop(self, 'jobs_panel_enable')
 
 class GRET_PG_settings(bpy.types.PropertyGroup):
     @classmethod
@@ -129,22 +150,23 @@ classes = (
 )
 
 def register():
-    # On registering, each module can add its own settings to the main group via add_property()
+    # Register prefs first so that modules can access them through gret.prefs
+    bpy.utils.register_class(GretAddonPreferences)
+
+    # Each module adds its own settings to the main group via add_property()
     for module in modules:
         if hasattr(module, 'register'):
             module.register(GRET_PG_settings)
-
-    for cls in classes:
-        bpy.utils.register_class(cls)
+    bpy.utils.register_class(GRET_PG_settings)
 
     bpy.types.Scene.gret = bpy.props.PointerProperty(type=GRET_PG_settings)
 
-    if backwards_compat:
+    if prefs.backwards_compat:
         bpy.app.handlers.load_pre.append(load_pre)
         bpy.app.handlers.load_post.append(load_post)
 
 def unregister():
-    if backwards_compat:
+    if prefs.backwards_compat:
         bpy.app.handlers.load_pre.remove(load_pre)
         bpy.app.handlers.load_post.remove(load_post)
 
