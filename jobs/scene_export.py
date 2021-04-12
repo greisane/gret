@@ -14,11 +14,8 @@ from gret.helpers import (
     save_selection,
     select_only,
 )
-from gret.jobs.export import GRET_PG_export_job
 from gret.log import logger, log, logd
 from gret.mesh.helpers import merge_basis_shape_keys
-
-job_props = GRET_PG_export_job.__annotations__
 
 @intercept(error_result={'CANCELLED'})
 def export_fbx(context, filepath, actions):
@@ -68,10 +65,11 @@ class GRET_OT_scene_export(bpy.types.Operator):
     bl_context = 'objectmode'
     bl_options = {'REGISTER'}
 
-    export_path: job_props['scene_export_path']
-    export_collision: job_props['export_collision']
-    keep_transforms: job_props['keep_transforms']
-    material_name_prefix: job_props['material_name_prefix']
+    index: bpy.props.IntProperty(options={'HIDDEN'})
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'OBJECT'
 
     def copy_obj(self, obj, copy_data=True):
         new_obj = obj.copy()
@@ -96,8 +94,32 @@ class GRET_OT_scene_export(bpy.types.Operator):
         new_obj.hide_select = False
         return new_obj
 
-    def _execute(self, context):
+    def _execute(self, context, job):
         collision_prefixes = ("UCX", "UBX", "UCP", "USP")
+
+        def should_export(job_coll, what):
+            if job_coll is None or what is None:
+                return False
+            return (job_coll.export_viewport and not what.hide_viewport
+                or job_coll.export_render and not what.hide_render)
+        if not job.selection_only:
+            objs = set()
+            for job_coll in job.collections:
+                coll = job_coll.collection
+                if not coll and all(not jc.collection for jc in job.collections):
+                    # When no collections are set use the scene collection
+                    coll = scn.collection
+                if should_export(job_coll, coll):
+                    for obj in coll.objects:
+                        if obj not in objs and should_export(job_coll, obj):
+                            obj.hide_select = False
+                            obj.hide_viewport = False
+                            obj.hide_render = False
+                            objs.add(obj)
+            select_only(context, objs)
+        elif not context.selected_objects:
+            # Nothing to export
+            return
 
         export_groups = defaultdict(list)  # Filepath to object list
         for obj in context.selected_objects[:]:
@@ -124,14 +146,14 @@ class GRET_OT_scene_export(bpy.types.Operator):
                         log(f"Couldn't apply {modifier.type} modifier '{modifier.name}'")
 
             col_objs = []
-            if self.export_collision:
+            if job.export_collision:
                 # Extend selection with pertaining collision objects
                 pattern = r"^(?:%s)_%s_\d+$" % ('|'.join(collision_prefixes), obj.name)
                 col_objs = [o for o in context.scene.objects if re.match(pattern, o.name)]
             if col_objs:
                 log(f"Collected {len(col_objs)} collision primitives")
 
-            if not self.keep_transforms:
+            if not job.keep_transforms:
                 # Move main object to world center while keeping collision relative transforms
                 for col in col_objs:
                     self.saved_transforms[col] = col.matrix_world.copy()
@@ -139,12 +161,12 @@ class GRET_OT_scene_export(bpy.types.Operator):
                 obj.matrix_world.identity()
 
             # If set, ensure prefix for any exported materials
-            if self.material_name_prefix:
+            if job.material_name_prefix:
                 for mat_slot in obj.material_slots:
                     mat = mat_slot.material
-                    if not mat.name.startswith(self.material_name_prefix):
+                    if not mat.name.startswith(job.material_name_prefix):
                         self.saved_material_names[mat] = mat.name
-                        mat.name = self.material_name_prefix + mat.name
+                        mat.name = job.material_name_prefix + mat.name
 
             # Refresh vertex color and clear the mappings to avoid issues when meshes are merged
             # While in Blender it's more intuitive to author masks starting from black, however
@@ -158,7 +180,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
                 'object': obj.name,
                 'collection': orig_obj.users_collection[0].name,
             }
-            filepath = get_export_path(self.export_path, path_fields)
+            filepath = get_export_path(job.scene_export_path, path_fields)
             export_groups[filepath].append(obj)
             export_groups[filepath].extend(col_objs)
 
@@ -177,15 +199,19 @@ class GRET_OT_scene_export(bpy.types.Operator):
                 log(f"Failed to export {filename}")
 
     def execute(self, context):
+        job = context.scene.gret.export_jobs[self.index]
+        rig = job.rig
+        assert job.what == 'SCENE'
+
         # Check addon availability and export path
         try:
             fail_if_no_operator('vertex_color_mapping_refresh', submodule=bpy.ops.mesh)
-            fail_if_invalid_export_path(self.export_path, ['object', 'collection'])
+            fail_if_invalid_export_path(job.scene_export_path, ['object', 'collection'])
         except Exception as e:
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
 
-        saved_selection = save_selection()
+        saved_selection = save_selection(all_objects=True)
         saved_use_global_undo = context.preferences.edit.use_global_undo
         context.preferences.edit.use_global_undo = False
         self.exported_files = []
@@ -195,10 +221,11 @@ class GRET_OT_scene_export(bpy.types.Operator):
         self.saved_material_names = {}
         self.saved_transforms = {}
         logger.start_logging()
+        log(f"Beginning scene export job '{job.name}'")
 
         try:
             start_time = time.time()
-            self._execute(context)
+            self._execute(context, job)
             # Finished without errors
             elapsed = time.time() - start_time
             self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
@@ -223,6 +250,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
             context.preferences.edit.use_global_undo = saved_use_global_undo
             logger.end_logging()
 
+        log("Job complete")
         return {'FINISHED'}
 
 classes = (

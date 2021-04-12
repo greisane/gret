@@ -12,7 +12,6 @@ from gret.helpers import (
     get_children_recursive,
     get_export_path,
     get_nice_export_report,
-    intercept,
     load_properties,
     load_selection,
     save_properties,
@@ -29,11 +28,15 @@ from gret.mesh.helpers import (
     subdivide_verts_with_bevel_weight,
 )
 from gret import prefs
-from gret.jobs.export import GRET_PG_export_job
 from gret.log import logger, log, logd
-from gret.rig.helpers import clear_pose, is_object_arp, is_object_arp_humanoid
+from gret.rig.helpers import (
+    clear_pose,
+    export_autorig,
+    export_autorig_universal,
+    is_object_arp,
+    is_object_arp_humanoid,
+)
 
-job_props = GRET_PG_export_job.__annotations__
 ik_bone_names = [
     "ik_foot_root",
     "ik_foot.l",
@@ -43,118 +46,6 @@ ik_bone_names = [
     "ik_hand.l",
     "ik_hand.r"
 ]
-
-@intercept(error_result={'CANCELLED'})
-def export_autorig(context, filepath, actions):
-    scn = context.scene
-    rig = context.active_object
-    ik_bones_not_found = [s for s in ik_bone_names if
-        s not in rig.pose.bones or 'custom_bone' not in rig.pose.bones[s]]
-    if not ik_bones_not_found:
-        # All IK bones accounted for
-        add_ik_bones = False
-    elif len(ik_bones_not_found) == len(ik_bone_names):
-        # No IK bones present, let ARP create them
-        log("IK bones will be created")
-        add_ik_bones = True
-    else:
-        # Only some IK bones found. Probably a mistake
-        raise Exception("Some IK bones are missing or not marked for export: "
-            + ", ".join(ik_bones_not_found))
-
-    # Configure Auto-Rig and then finally export
-    scn.arp_engine_type = 'unreal'
-    scn.arp_export_rig_type = 'humanoid'
-    scn.arp_ge_sel_only = True
-
-    # Rig Definition
-    scn.arp_keep_bend_bones = False
-    scn.arp_push_bend = False
-    scn.arp_full_facial = True
-    scn.arp_export_twist = True
-    scn.arp_export_noparent = False
-
-    # Units
-    scn.arp_units_x100 = True
-
-    # Unreal Options
-    scn.arp_ue_root_motion = True
-    scn.arp_rename_for_ue = True
-    scn.arp_ue_ik = add_ik_bones
-    scn.arp_ue_ik_anim = False  # This only works with arp_ue_ik. I patched ARP to address this
-    scn.arp_mannequin_axes = True
-
-    # Animation
-    if not actions:
-        scn.arp_bake_actions = False
-    else:
-        scn.arp_bake_actions = True
-        scn.arp_bake_only_active = False
-        scn.arp_only_containing = True
-        scn.arp_frame_range_type = 'FULL'
-        scn.arp_export_name_string = ','.join(action.name for action in actions)
-        scn.arp_simplify_fac = 0.0
-
-    # Misc
-    scn.arp_global_scale = 1.0
-    scn.arp_mesh_smooth_type = 'EDGE'
-    scn.arp_use_tspace = False
-    scn.arp_fix_fbx_rot = True
-    scn.arp_fix_fbx_matrix = True
-    scn.arp_init_fbx_rot = False
-    scn.arp_init_fbx_rot_mesh = False
-    scn.arp_bone_axis_primary_export = 'Y'
-    scn.arp_bone_axis_secondary_export = 'X'
-    scn.arp_export_rig_name = 'root'
-
-    return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
-
-@intercept(error_result={'CANCELLED'})
-def export_autorig_universal(context, filepath, actions):
-    scn = context.scene
-    rig = context.active_object
-
-    # Configure Auto-Rig and then finally export
-    scn.arp_engine_type = 'unreal'
-    scn.arp_export_rig_type = 'mped'
-    scn.arp_ge_sel_only = True
-
-    # Rig Definition
-    scn.arp_keep_bend_bones = False
-    scn.arp_push_bend = False
-    scn.arp_export_twist = True
-    scn.arp_export_noparent = False
-
-    # Units
-    scn.arp_units_x100 = True
-
-    # Unreal Options
-    scn.arp_ue_root_motion = True
-
-    # Animation
-    if not actions:
-        scn.arp_bake_actions = False
-    else:
-        scn.arp_bake_actions = True
-        scn.arp_bake_only_active = False
-        scn.arp_only_containing = True
-        scn.arp_frame_range_type = 'FULL'
-        scn.arp_export_name_string = ','.join(action.name for action in actions)
-        scn.arp_simplify_fac = 0.0
-
-    # Misc
-    scn.arp_global_scale = 1.0
-    scn.arp_mesh_smooth_type = 'EDGE'
-    scn.arp_use_tspace = False
-    scn.arp_fix_fbx_rot = True
-    scn.arp_fix_fbx_matrix = True
-    scn.arp_init_fbx_rot = False
-    scn.arp_init_fbx_rot_mesh = False
-    scn.arp_bone_axis_primary_export = 'Y'
-    scn.arp_bone_axis_secondary_export = 'X'
-    scn.arp_export_rig_name = 'root'
-
-    return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})
 def export_fbx(context, filepath, actions):
@@ -204,19 +95,11 @@ class GRET_OT_rig_export(bpy.types.Operator):
     bl_context = 'objectmode'
     bl_options = {'INTERNAL'}
 
-    export_path: job_props['rig_export_path']
-    export_collection: bpy.props.StringProperty(
-        name="Export Collection",
-        description="Collection where to place export products",
-        default=""
-    )
-    merge_basis_shape_keys: job_props['merge_basis_shape_keys']
-    mirror_shape_keys: job_props['mirror_shape_keys']
-    side_vgroup_name: job_props['side_vgroup_name']
-    apply_modifiers: job_props['apply_modifiers']
-    modifier_tags: job_props['modifier_tags']
-    join_meshes: job_props['join_meshes']
-    material_name_prefix: job_props['material_name_prefix']
+    index: bpy.props.IntProperty(options={'HIDDEN'})
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'OBJECT'
 
     def copy_obj(self, obj, copy_data=True):
         new_obj = obj.copy()
@@ -283,11 +166,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 if not fc.driver.is_valid:
                     obj.animation_data.drivers.remove(fc)
 
-    @classmethod
-    def poll(cls, context):
-        return context.object and context.object.mode == 'OBJECT'
-
-    def _execute(self, context, rig):
+    def _execute(self, context, job, rig):
         rig_filepath = (rig.proxy.library.filepath if rig.proxy and rig.proxy.library
             else bpy.data.filepath)
         path_fields = {
@@ -297,6 +176,54 @@ class GRET_OT_rig_export(bpy.types.Operator):
         mesh_objs = []
         original_objs = []
         rig.data.pose_position = 'REST'
+
+        # Find all unique objects that should be considered for export
+        def should_export(job_coll, what):
+            if job_coll is None or what is None:
+                return False
+            return (job_coll.export_viewport and not what.hide_viewport
+                or job_coll.export_render and not what.hide_render)
+        all_objs = set()
+        for job_coll in job.collections:
+            coll = job_coll.collection
+            if not coll and all(not jc.collection for jc in job.collections):
+                # When no collections are set use the scene collection
+                coll = scn.collection
+            if should_export(job_coll, coll):
+                all_objs.update(obj for obj in coll.objects if should_export(job_coll, obj))
+
+        # Mark the objects that should be exported as render so they will be picked up
+        objs = set()
+        for obj in all_objs:
+            if obj.type == 'MESH':
+                saved_materials = []
+                for mat_idx, mat in enumerate(obj.data.materials):
+                    for remap_material in job.remap_materials:
+                        if mat and mat is remap_material.source:
+                            saved_materials.append((obj, mat_idx, mat))
+                            obj.data.materials[mat_idx] = remap_material.destination
+                            break
+                if all(not mat for mat in obj.data.materials):
+                    log(f"Not exporting '{obj.name}' because it has no materials")
+                    # Undo any remaps
+                    for obj, material_idx, material in saved_materials:
+                        obj.data.materials[material_idx] = material
+                    continue
+                self.saved_materials.extend(saved_materials)
+            obj.hide_select = False
+            obj.hide_render = False
+            objs.add(obj)
+
+        # Hide all objects that shouldn't be exported
+        for obj in get_children_recursive(job.rig):
+            obj.hide_render = obj not in objs
+
+        if job.to_collection and job.clean_collection:
+            # Clean the target collection first
+            # Currently not checking whether the rig is in here, it will probably explode
+            log(f"Cleaning target collection")
+            for obj in job.export_collection.objects:
+                bpy.data.objects.remove(obj, do_unlink=True)
 
         def has_custom_normals(obj):
             return obj.data.has_custom_normals or any(m.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL'
@@ -322,14 +249,14 @@ class GRET_OT_rig_export(bpy.types.Operator):
         ExportGroup = namedtuple('ExportGroup', ['suffix', 'objects'])
         export_groups = []
         if mesh_objs:
-            if self.join_meshes:
+            if job.join_meshes:
                 export_groups.append(ExportGroup(suffix="", objects=mesh_objs[:]))
             else:
                 # Each mesh exports to a different file
                 for obj, mesh_obj in zip(original_objs, mesh_objs):
                     export_groups.append(ExportGroup(suffix=f"_{obj.name}", objects=[mesh_obj]))
 
-        modifier_tags = self.modifier_tags.split(',')
+        modifier_tags = job.modifier_tags.split(',')
         kept_modifiers = []  # List of (object name, modifier index, modifier properties)
         wants_subsurf = {}  # Object name to subsurf level
         def should_enable_modifier(mo):
@@ -350,11 +277,11 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
                 delete_faces_with_no_material(obj)
 
-                if self.merge_basis_shape_keys:
+                if job.merge_basis_shape_keys:
                     merge_basis_shape_keys(obj)
 
-                if self.mirror_shape_keys:
-                    mirror_shape_keys(obj, self.side_vgroup_name)
+                if job.mirror_shape_keys:
+                    mirror_shape_keys(obj, job.side_vgroup_name)
 
                 # Only use modifiers enabled for render. Delete unused modifiers
                 context.view_layer.objects.active = obj
@@ -375,16 +302,16 @@ class GRET_OT_rig_export(bpy.types.Operator):
                         logd(f"Removed {modifier.type} modifier {modifier.name}")
                         bpy.ops.object.modifier_remove(modifier=modifier.name)
 
-                if self.apply_modifiers:
+                if job.apply_modifiers:
                     apply_modifiers(obj)
 
                 # If set, ensure prefix for any exported materials
-                if self.material_name_prefix:
+                if job.material_name_prefix:
                     for mat_slot in obj.material_slots:
                         mat = mat_slot.material
-                        if mat and not mat.name.startswith(self.material_name_prefix):
+                        if mat and not mat.name.startswith(job.material_name_prefix):
                             self.saved_material_names[mat] = mat.name
-                            mat.name = self.material_name_prefix + mat.name
+                            mat.name = job.material_name_prefix + mat.name
 
                 # Remove vertex group filtering from shapekeys
                 apply_shape_keys_with_vertex_groups(obj)
@@ -454,11 +381,40 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
             logger.indent -= 1
 
-        # Finally export
-        if self.export_path:
+        if job.to_collection:
+            # Keep new objects in the target collection
+            for obj in self.new_objs:
+                if len(self.new_objs) == 1:
+                    # If producing a single object, rename it to match the collection
+                    obj.name = job.export_collection.name
+                    obj.data.name = job.export_collection.name
+                job.export_collection.objects.link(obj)
+                context.scene.collection.objects.unlink(obj)
+                # Disable features on output meshes for performance
+                obj.data.use_auto_smooth = False
+                obj.data.use_customdata_vertex_bevel = False
+                obj.data.use_customdata_edge_bevel = False
+                obj.data.use_customdata_edge_crease = False
+            if kept_modifiers:
+                # Recreate modifiers that were stored
+                log(f"Restoring {len(kept_modifiers)} modifiers")
+                for obj_name, index, properties in kept_modifiers:
+                    obj = bpy.data.objects.get(obj_name) or merges.get(obj_name)
+                    if obj:
+                        mod = obj.modifiers.new(name=properties['name'], type=properties['type'])
+                        load_properties(mod, properties)
+
+                        new_index = min(index, len(obj.modifiers) - 1)
+                        ctx = {'object': obj}
+                        bpy.ops.object.modifier_move_to_index(ctx, modifier=mod.name, index=new_index)
+            # Don't delete the new stuff
+            self.new_objs.clear()
+            self.new_meshes.clear()
+        else:
+            # Finally export
             for export_group in export_groups:
                 path_fields['suffix'] = export_group.suffix
-                filepath = get_export_path(self.export_path, path_fields)
+                filepath = get_export_path(job.rig_export_path, path_fields)
                 filename = bpy.path.basename(filepath)
                 if filepath in self.exported_files:
                     log(f"Skipping {filename} as it would overwrite a file that was just exported")
@@ -495,54 +451,33 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 else:
                     log("Failed to export!")
 
-        # Keep new objects in the target collection
-        coll = bpy.data.collections.get(self.export_collection)
-        if coll:
-            for obj in self.new_objs:
-                if len(self.new_objs) == 1:
-                    # If producing a single object, rename it to match the collection
-                    obj.name = coll.name
-                    obj.data.name = coll.name
-                coll.objects.link(obj)
-                context.scene.collection.objects.unlink(obj)
-                # Disable features on output meshes for performance
-                obj.data.use_auto_smooth = False
-                obj.data.use_customdata_vertex_bevel = False
-                obj.data.use_customdata_edge_bevel = False
-                obj.data.use_customdata_edge_crease = False
-            if kept_modifiers:
-                # Recreate modifiers that were stored
-                log(f"Restoring {len(kept_modifiers)} modifiers")
-                for obj_name, index, properties in kept_modifiers:
-                    obj = bpy.data.objects.get(obj_name) or merges.get(obj_name)
-                    if obj:
-                        mod = obj.modifiers.new(name=properties['name'], type=properties['type'])
-                        load_properties(mod, properties)
-
-                        new_index = min(index, len(obj.modifiers) - 1)
-                        ctx = {'object': obj}
-                        bpy.ops.object.modifier_move_to_index(ctx, modifier=mod.name, index=new_index)
-            # Don't delete the new stuff
-            self.new_objs.clear()
-            self.new_meshes.clear()
-
     def execute(self, context):
-        rig = context.object
+        job = context.scene.gret.export_jobs[self.index]
+        rig = job.rig
+        assert job.what == 'RIG'
 
         if not rig or rig.type != 'ARMATURE':
-            self.report({'ERROR'}, "Armature must be the active object.")
+            self.report({'ERROR'}, "No armature selected.")
             return {'CANCELLED'}
+        if job.to_collection and not job.export_collection:
+            self.report({'ERROR'}, "No collection selected to export to.")
+            return {'CANCELLED'}
+        if not rig.visible_get():
+            self.report({'ERROR'}, "Currently the rig must be visible to export.")
+            return {'CANCELLED'}
+        context.view_layer.objects.active = rig
 
         # Check addon availability and export path
         try:
             fail_if_no_operator('shape_key_apply_modifiers')
             fail_if_no_operator('vertex_color_mapping_refresh', submodule=bpy.ops.mesh)
-            fail_if_invalid_export_path(self.export_path, ['rigfile', 'rig'])
+            if not job.to_collection:
+                fail_if_invalid_export_path(job.rig_export_path, ['rigfile', 'rig'])
         except Exception as e:
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
 
-        saved_selection = save_selection()
+        saved_selection = save_selection(all_objects=True)
         saved_pose_position = rig.data.pose_position
         saved_use_global_undo = context.preferences.edit.use_global_undo
         context.preferences.edit.use_global_undo = False
@@ -551,12 +486,14 @@ class GRET_OT_rig_export(bpy.types.Operator):
         self.new_meshes = set()
         self.saved_disabled_modifiers = set()
         self.saved_material_names = {}
+        self.saved_materials = []  # List of (obj, material_idx, material)
         self.saved_auto_smooth = {}
         logger.start_logging()
+        log(f"Beginning rig export job '{job.name}'")
 
         try:
             start_time = time.time()
-            self._execute(context, rig)
+            self._execute(context, job, rig)
             # Finished without errors
             elapsed = time.time() - start_time
             self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
@@ -571,9 +508,12 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 self.saved_disabled_modifiers.pop().show_viewport = False
             for mat, name in self.saved_material_names.items():
                 mat.name = name
+            for obj, material_idx, material in self.saved_materials:
+                obj.data.materials[material_idx] = material
             for obj, (value, angle) in self.saved_auto_smooth.items():
                 obj.data.use_auto_smooth = value
                 obj.data.auto_smooth_angle = angle
+            del self.saved_materials
             del self.saved_material_names
             del self.saved_auto_smooth
             rig.data.pose_position = saved_pose_position
@@ -581,15 +521,24 @@ class GRET_OT_rig_export(bpy.types.Operator):
             load_selection(saved_selection)
             logger.end_logging()
 
-        if self.export_collection:
+        if job.to_collection:
             # Crashes if undo is attempted right after a simulate export job
             # Pushing an undo step here seems to prevent that
             bpy.ops.ed.undo_push()
 
+        log("Job complete")
         return {'FINISHED'}
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
+
+def resolve_copy_property_source(cp):
+    try:
+        value = float(cp.source)
+        return ConstantCurve(value)
+    except ValueError:
+        pass
+    return next((fc for fc in action.fcurves if fc.data_path == cp.source), None)
 
 class GRET_OT_animation_export(bpy.types.Operator):
     bl_idname = 'gret.animation_export'
@@ -597,21 +546,13 @@ class GRET_OT_animation_export(bpy.types.Operator):
     bl_context = "objectmode"
     bl_options = {'INTERNAL'}
 
-    export_path: job_props['animation_export_path']
-    markers_export_path: job_props['markers_export_path']
-    disable_auto_eyelid: job_props['disable_auto_eyelid']
-    markers_export_path: job_props['markers_export_path']
-    actions: bpy.props.StringProperty(
-        name="Action Names",
-        description="Comma separated list of actions to export",
-        default=""
-    )
+    index: bpy.props.IntProperty(options={'HIDDEN'})
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.mode == "OBJECT"
+        return context.mode == 'OBJECT'
 
-    def _execute(self, context, rig):
+    def _execute(self, context, job, rig):
         start_time = time.time()
         rig_filepath = (rig.proxy.library.filepath if rig.proxy and rig.proxy.library
             else bpy.data.filepath)
@@ -620,10 +561,63 @@ class GRET_OT_animation_export(bpy.types.Operator):
             'rig': rig.name,
         }
 
-        ExportGroup = namedtuple('ExportGroup', ['suffix', 'action'])
-        export_groups = []
+        # Select actions to export
+        actions = set()
+        for job_action in job.actions:
+            if job_action:
+                if job_action.use_pattern:
+                    for action in bpy.data.actions:
+                        if not action.library and fnmatch(action.name, job_action.action):
+                            actions.add(action)
+                else:
+                    action = bpy.data.actions.get(job_action.action)
+                    if action and not action.library:
+                        actions.add(action)
 
-        if self.disable_auto_eyelid:
+        # One export group for each action
+        ExportGroup = namedtuple('ExportGroup', ('suffix', 'action'))
+        export_groups = [ExportGroup(suffix="", action=action) for action in actions]
+
+        # Process individual actions
+        for action in actions:
+            log(f"Processing {action.name}")
+            logger.indent += 1
+
+            for cp in job.copy_properties:
+                if not cp.source and not cp.destination:
+                    continue
+                desc = f"{cp.source}->{cp.destination}"
+
+                def resolve_source(source):
+                    try:
+                        value = float(source)
+                        return ConstantCurve(value)
+                    except ValueError:
+                        pass
+                    return next((fc for fc in action.fcurves if fc.data_path == cp.source), None)
+                src_fc = resolve_source(cp.source)
+                if not src_fc:
+                    log(f"Couldn't bake {desc}, invalid source")
+                    continue
+
+                dst_fc = next((fc for fc in action.fcurves if fc.data_path == cp.destination), None)
+                if dst_fc:
+                    # Currently baking to existing curves is not allowed
+                    # Would need to duplicate strips, although ARP already does that
+                    log(f"Couldn't bake {desc}, destination already exists")
+                    continue
+
+                dst_fc = action.fcurves.new(cp.destination)
+                self.new_fcurves.append((action, dst_fc))
+
+                log(f"Baking {desc}")
+                for frame_idx in range(0, int(action.frame_range[1]) + 1):
+                    val = src_fc.evaluate(frame_idx)
+                    dst_fc.keyframe_points.insert(frame_idx, val)
+
+            logger.indent -= 1
+
+        if job.disable_auto_eyelid:
             for bone_name in ('c_eyelid_base.l', 'c_eyelid_base.r'):
                 pb = rig.pose.bones.get('c_eyelid_base.l')
                 if pb:
@@ -633,6 +627,7 @@ class GRET_OT_animation_export(bpy.types.Operator):
 
         # Don't want shape keys animated as I'm using armature custom props to drive them
         # export_fbx_bin.py will skip over absolute shape keys so use that to disable them
+        # TODO this should be configurable
         no_shape_keys = True
         if no_shape_keys:
             for mesh in bpy.data.meshes:
@@ -640,97 +635,85 @@ class GRET_OT_animation_export(bpy.types.Operator):
                     self.saved_meshes_with_relative_shape_keys.append(mesh)
                     mesh.shape_keys.use_relative = False
 
-        # Add actions as export groups without meshes
-        action_names = set(self.actions.split(','))
-        for action_name in action_names:
-            action_name = action_name.strip()
-            if not action_name:
-                continue
-            if action_name not in bpy.data.actions:
-                continue
-            export_groups.append(ExportGroup(
-                suffix="",
-                action=bpy.data.actions[action_name],
-            ))
-
         # Finally export
-        if self.export_path:
-            for export_group in export_groups:
-                if not export_group.action:
-                    continue
+        for export_group in export_groups:
+            path_fields['action'] = export_group.action.name
+            path_fields['suffix'] = export_group.suffix
+            filepath = get_export_path(job.animation_export_path, path_fields)
+            filename = bpy.path.basename(filepath)
+            if filepath in self.exported_files:
+                log(f"Skipping {filename} as it would overwrite a file that was just exported")
+                continue
 
-                path_fields['action'] = export_group.action.name
-                path_fields['suffix'] = export_group.suffix
-                filepath = get_export_path(self.export_path, path_fields)
-                filename = bpy.path.basename(filepath)
-                if filepath in self.exported_files:
-                    log(f"Skipping {filename} as it would overwrite a file that was just exported")
-                    continue
+            rig.select_set(True)
+            context.view_layer.objects.active = rig
+            rig.data.pose_position = 'POSE'
+            clear_pose(rig)
 
-                rig.select_set(True)
-                context.view_layer.objects.active = rig
-                rig.data.pose_position = 'POSE'
-                clear_pose(rig)
+            rig.animation_data.action = export_group.action
+            context.scene.frame_preview_start = export_group.action.frame_range[0]
+            context.scene.frame_preview_end = export_group.action.frame_range[1]
+            context.scene.use_preview_range = True
+            context.scene.frame_current = export_group.action.frame_range[0]
+            bpy.context.evaluated_depsgraph_get().update()
 
-                rig.animation_data.action = export_group.action
-                context.scene.frame_preview_start = export_group.action.frame_range[0]
-                context.scene.frame_preview_end = export_group.action.frame_range[1]
-                context.scene.use_preview_range = True
-                context.scene.frame_current = export_group.action.frame_range[0]
-                bpy.context.evaluated_depsgraph_get().update()
-
-                markers = export_group.action.pose_markers
-                if markers and self.markers_export_path:
-                    # Export action markers as a comma separated list
-                    csv_filepath = get_export_path(self.markers_export_path, path_fields)
-                    csv_filename = bpy.path.basename(csv_filepath)
-                    csv_separator = ','
-                    fps = float(context.scene.render.fps)
-                    if csv_filepath not in self.exported_files:
-                        log(f"Writing markers to {csv_filename}")
-                        with open(csv_filepath, 'w') as fout:
-                            field_headers = ["Name", "Frame", "Time"]
-                            print(csv_separator.join(field_headers), file=fout)
-                            for marker in markers:
-                                fields = [marker.name, marker.frame, marker.frame / fps]
-                                print(csv_separator.join(str(field) for field in fields), file=fout)
-                    else:
-                        log(f"Skipping {csv_filename} as it would overwrite a file that was " \
-                            "just exported")
-
-                actions = [export_group.action]
-
-                if is_object_arp_humanoid(rig):
-                    log(f"Exporting {filename} via Auto-Rig export")
-                    result = export_autorig(context, filepath, actions)
-                elif is_object_arp(rig):
-                    log(f"Exporting {filename} via Auto-Rig export (universal)")
-                    result = export_autorig_universal(context, filepath, actions)
+            markers = export_group.action.pose_markers
+            if markers and job.export_markers:
+                # Export action markers as a comma separated list
+                csv_filepath = get_export_path(job.markers_export_path, path_fields)
+                csv_filename = bpy.path.basename(csv_filepath)
+                csv_separator = ','
+                fps = float(context.scene.render.fps)
+                if csv_filepath not in self.exported_files:
+                    log(f"Writing markers to {csv_filename}")
+                    with open(csv_filepath, 'w') as fout:
+                        field_headers = ["Name", "Frame", "Time"]
+                        print(csv_separator.join(field_headers), file=fout)
+                        for marker in markers:
+                            fields = [marker.name, marker.frame, marker.frame / fps]
+                            print(csv_separator.join(str(field) for field in fields), file=fout)
                 else:
-                    log(f"Exporting {filename}")
-                    result = export_fbx(context, filepath, actions)
+                    log(f"Skipping {csv_filename} as it would overwrite a file that was " \
+                        "just exported")
 
-                if result == {'FINISHED'}:
-                    self.exported_files.append(filepath)
-                else:
-                    log("Failed to export!")
+            if is_object_arp_humanoid(rig):
+                log(f"Exporting {filename} via Auto-Rig export")
+                result = export_autorig(context, filepath, [export_group.action])
+            elif is_object_arp(rig):
+                log(f"Exporting {filename} via Auto-Rig export (universal)")
+                result = export_autorig_universal(context, filepath, [export_group.action])
+            else:
+                log(f"Exporting {filename}")
+                result = export_fbx(context, filepath, [export_group.action])
+
+            if result == {'FINISHED'}:
+                self.exported_files.append(filepath)
+            else:
+                log("Failed to export!")
 
     def execute(self, context):
-        rig = context.object
+        job = context.scene.gret.export_jobs[self.index]
+        rig = job.rig
+        assert job.what == 'ANIMATION'
 
         if not rig or rig.type != 'ARMATURE':
-            self.report({'ERROR'}, "Armature must be the active object.")
+            self.report({'ERROR'}, "No armature selected.")
             return {'CANCELLED'}
+        if not rig.visible_get():
+            self.report({'ERROR'}, "Currently the rig must be visible to export.")
+            return {'CANCELLED'}
+        context.view_layer.objects.active = rig
 
+        # Check addon availability and export path
         try:
-            fail_if_invalid_export_path(self.export_path, ['action', 'rigfile', 'rig'])
-            if self.markers_export_path:
-                fail_if_invalid_export_path(self.markers_export_path, ['action', 'rigfile', 'rig'])
+            fail_if_invalid_export_path(job.animation_export_path, ['action', 'rigfile', 'rig'])
+            if job.export_markers:
+                fail_if_invalid_export_path(job.markers_export_path, ['action', 'rigfile', 'rig'])
         except Exception as e:
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
 
-        saved_selection = save_selection()
+        saved_selection = save_selection(all_objects=True)
         saved_pose_position = rig.data.pose_position
         saved_action = rig.animation_data.action
         saved_use_global_undo = context.preferences.edit.use_global_undo
@@ -739,11 +722,13 @@ class GRET_OT_animation_export(bpy.types.Operator):
         self.exported_files = []
         self.saved_unmuted_constraints = []
         self.saved_meshes_with_relative_shape_keys = []
+        self.new_fcurves = []  # List of (action, fcurve)
         logger.start_logging()
+        log(f"Beginning animation export job '{job.name}'")
 
         try:
             start_time = time.time()
-            self._execute(context, rig)
+            self._execute(context, job, rig)
             # Finished without errors
             elapsed = time.time() - start_time
             self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
@@ -759,14 +744,18 @@ class GRET_OT_animation_export(bpy.types.Operator):
                 mesh.shape_keys.use_relative = True
             for modifier in self.saved_unmuted_constraints:
                 modifier.mute = False
+            for action, fcurve in self.new_fcurves:
+                action.fcurves.remove(fcurve)
             del self.saved_meshes_with_relative_shape_keys
             del self.saved_unmuted_constraints
+            del self.new_fcurves
             rig.data.pose_position = saved_pose_position
             rig.animation_data.action = saved_action
             context.preferences.edit.use_global_undo = saved_use_global_undo
             load_selection(saved_selection)
             logger.end_logging()
 
+        log("Job complete")
         return {'FINISHED'}
 
     def invoke(self, context, event):

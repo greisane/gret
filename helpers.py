@@ -279,6 +279,9 @@ def get_export_path(path, fields):
 def fail_if_invalid_export_path(path, field_names):
     """Validates an export path and returns the reason it isn't valid."""
 
+    if not path:
+        raise Exception("Invalid export path.")
+
     if path.startswith("//") and not bpy.data.filepath:
         # While not technically wrong the file will likely end up at blender working directory
         raise Exception("Can't use a relative export path before the file is saved.")
