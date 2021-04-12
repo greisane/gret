@@ -152,7 +152,6 @@ class GRET_OT_export_job_run(bpy.types.Operator):
     bl_label = "Execute Export Job"
 
     index: bpy.props.IntProperty(options={'HIDDEN'})
-    debug: bpy.props.BoolProperty(options={'HIDDEN'})
     bl_options = {'INTERNAL'}
 
     @classmethod
@@ -196,7 +195,6 @@ class GRET_OT_export_job_run(bpy.types.Operator):
                 export_collision=job.export_collision,
                 keep_transforms=job.keep_transforms,
                 material_name_prefix=job.material_name_prefix,
-                debug=self.debug,
             )
 
         elif job.what == 'RIG':
@@ -268,7 +266,6 @@ class GRET_OT_export_job_run(bpy.types.Operator):
                 modifier_tags=job.modifier_tags,
                 join_meshes=job.join_meshes,
                 material_name_prefix=job.material_name_prefix,
-                debug=self.debug,
             )
 
         elif job.what == 'ANIMATION':
@@ -339,7 +336,6 @@ class GRET_OT_export_job_run(bpy.types.Operator):
                 markers_export_path=job.markers_export_path if job.export_markers else "",
                 actions=','.join(action_names),
                 disable_auto_eyelid=job.disable_auto_eyelid,
-                debug=self.debug,
             )
 
         log("Job complete")
@@ -492,14 +488,8 @@ class GRET_PT_export_jobs(bpy.types.Panel):
                     col = box.column(align=True)
                     col.prop(job, 'animation_export_path', text="")
 
-            row = col.row(align=True)
-            op = row.operator('gret.export_job_run', icon='INDIRECT_ONLY_ON', text="Execute")
+            op = col.operator('gret.export_job_run', icon='INDIRECT_ONLY_ON', text="Execute")
             op.index = job_idx
-            op.debug = False
-            op = row.operator('gret.export_job_run', icon='INDIRECT_ONLY_OFF', text="")
-            op.index = job_idx
-            op.debug = True
-
 
 def on_collection_updated(self, context):
     scn = context.scene

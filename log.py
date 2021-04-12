@@ -1,6 +1,8 @@
 import time
 from functools import partial
 
+from gret import prefs
+
 class Logger:
     """Simple logger. Can be used as a mixin."""
 
@@ -14,6 +16,8 @@ class Logger:
             self.indent = 0
             self.started = 0
             self.categories = []
+            if prefs.debug:
+                self.categories.append('DEBUG')
         self.started += 1
 
     def end_logging(self):
@@ -38,6 +42,8 @@ class Logger:
             print(*args, sep=sep)
             return
         message = sep.join(str(arg) for arg in args)
+        if self.category:
+            message = f"({str(category)}) {message}"
         if self.prefix:
             message = f"{str(self.prefix)} {message}"
         if self.indent > 0:
@@ -56,4 +62,4 @@ class Logger:
 # Singleton instance
 logger = Logger()
 log = logger.log
-logd = partial(log, category='debug')
+logd = partial(log, category='DEBUG')

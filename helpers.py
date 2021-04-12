@@ -6,6 +6,8 @@ import io
 import os
 import re
 
+from gret import prefs
+
 def select_only(context, objs):
     """Ensures only the given object or objects are selected."""
 
@@ -189,9 +191,7 @@ def intercept(_func=None, error_result=None):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            if kwargs.pop('no_intercept', False):
-                result = func(*args, **kwargs)
-            else:
+            if prefs.debug:
                 # Redirect output
                 stdout = io.StringIO()
                 try:
@@ -202,6 +202,8 @@ def intercept(_func=None, error_result=None):
                     # import traceback
                     # traceback.print_exc()
                     result = error_result
+            else:
+                result = func(*args, **kwargs)
             return result
         return wrapper
 

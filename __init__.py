@@ -91,6 +91,11 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         description="Restore settings from when the addon was called my_tools",
         default=False,
     )
+    debug: bpy.props.BoolProperty(
+        name="Debug Mode",
+        description="Enables verbose output",
+        default=False,
+    )
 
     def draw(self, context):
         layout = self.layout

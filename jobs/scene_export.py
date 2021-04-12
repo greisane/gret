@@ -72,11 +72,6 @@ class GRET_OT_scene_export(bpy.types.Operator):
     export_collision: job_props['export_collision']
     keep_transforms: job_props['keep_transforms']
     material_name_prefix: job_props['material_name_prefix']
-    debug: bpy.props.BoolProperty(
-        name="Debug",
-        description="Debug mode with verbose output. Exceptions are caught but not handled",
-        default=False,
-    )
 
     def copy_obj(self, obj, copy_data=True):
         new_obj = obj.copy()
@@ -174,7 +169,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
             select_only(context, objs)
 
             filename = bpy.path.basename(filepath)
-            result = export_fbx(context, filepath, [], no_intercept=self.debug)
+            result = export_fbx(context, filepath, [])
             if result == {'FINISHED'}:
                 log(f"Exported {filename} with {len(objs)} objects")
                 self.exported_files.append(filename)
@@ -200,8 +195,6 @@ class GRET_OT_scene_export(bpy.types.Operator):
         self.saved_material_names = {}
         self.saved_transforms = {}
         logger.start_logging()
-        if self.debug:
-            logger.categories.append('debug')
 
         try:
             start_time = time.time()

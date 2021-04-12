@@ -28,6 +28,7 @@ from gret.mesh.helpers import (
     mirror_shape_keys,
     subdivide_verts_with_bevel_weight,
 )
+from gret import prefs
 from gret.jobs.export import GRET_PG_export_job
 from gret.log import logger, log, logd
 from gret.rig.helpers import clear_pose, is_object_arp, is_object_arp_humanoid
@@ -216,11 +217,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
     modifier_tags: job_props['modifier_tags']
     join_meshes: job_props['join_meshes']
     material_name_prefix: job_props['material_name_prefix']
-    debug: bpy.props.BoolProperty(
-        name="Debug",
-        description="Debug mode with verbose output. Exceptions are caught but not handled",
-        default=False,
-    )
 
     def copy_obj(self, obj, copy_data=True):
         new_obj = obj.copy()
@@ -479,18 +475,18 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 if is_object_arp_humanoid(rig):
                     log(f"Exporting {filename} via Auto-Rig export")
                     logger.indent += 1
-                    result = export_autorig(context, filepath, [], no_intercept=self.debug)
+                    result = export_autorig(context, filepath, [])
                 elif is_object_arp(rig):
                     log(f"Exporting {filename} via Auto-Rig export (universal)")
                     logger.indent += 1
-                    result = export_autorig_universal(context, filepath, [], no_intercept=self.debug)
+                    result = export_autorig_universal(context, filepath, [])
                 else:
                     # Temporarily rename the armature as it's the root bone itself
                     saved_rig_name = rig.name
                     rig.name = "root"
                     log(f"Exporting {filename}")
                     logger.indent += 1
-                    result = export_fbx(context, filepath, [], no_intercept=self.debug)
+                    result = export_fbx(context, filepath, [])
                     rig.name = saved_rig_name
                 logger.indent -= 1
 
@@ -557,8 +553,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
         self.saved_material_names = {}
         self.saved_auto_smooth = {}
         logger.start_logging()
-        if self.debug:
-            logger.categories.append('debug')
 
         try:
             start_time = time.time()
@@ -611,11 +605,6 @@ class GRET_OT_animation_export(bpy.types.Operator):
         name="Action Names",
         description="Comma separated list of actions to export",
         default=""
-    )
-    debug: bpy.props.BoolProperty(
-        name="Debug",
-        description="Debug mode with verbose output. Exceptions are caught but not handled",
-        default=False,
     )
 
     @classmethod
@@ -713,13 +702,13 @@ class GRET_OT_animation_export(bpy.types.Operator):
 
                 if is_object_arp_humanoid(rig):
                     log(f"Exporting {filename} via Auto-Rig export")
-                    result = export_autorig(context, filepath, actions, no_intercept=self.debug)
+                    result = export_autorig(context, filepath, actions)
                 elif is_object_arp(rig):
                     log(f"Exporting {filename} via Auto-Rig export (universal)")
-                    result = export_autorig_universal(context, filepath, actions, no_intercept=self.debug)
+                    result = export_autorig_universal(context, filepath, actions)
                 else:
                     log(f"Exporting {filename}")
-                    result = export_fbx(context, filepath, actions, no_intercept=self.debug)
+                    result = export_fbx(context, filepath, actions)
 
                 if result == {'FINISHED'}:
                     self.exported_files.append(filepath)
@@ -751,8 +740,6 @@ class GRET_OT_animation_export(bpy.types.Operator):
         self.saved_unmuted_constraints = []
         self.saved_meshes_with_relative_shape_keys = []
         logger.start_logging()
-        if self.debug:
-            logger.categories.append('debug')
 
         try:
             start_time = time.time()
