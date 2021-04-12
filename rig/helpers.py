@@ -15,6 +15,15 @@ limb_bone_names = [
     ('neck_ref.', 1),
     ('ear_01_ref.', 2),
 ]
+ik_bone_names = [
+    "ik_foot_root",
+    "ik_foot.l",
+    "ik_foot.r",
+    "ik_hand_root",
+    "ik_hand_gun",
+    "ik_hand.l",
+    "ik_hand.r"
+]
 # Collected keys with `sorted(set(chain.from_iterable(pb.keys() for pb in C.object.pose.bones)))`
 arp_default_pose_values = {
     'auto_eyelid': 0.1,

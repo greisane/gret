@@ -253,14 +253,8 @@ class GRET_OT_scene_export(bpy.types.Operator):
         log("Job complete")
         return {'FINISHED'}
 
-classes = (
-    GRET_OT_scene_export,
-)
-
 def register(settings):
-    for cls in classes:
-        bpy.utils.register_class(cls)
+    bpy.utils.register_class(GRET_OT_scene_export)
 
 def unregister():
-    for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
+    bpy.utils.unregister_class(GRET_OT_scene_export)
