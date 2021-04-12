@@ -108,6 +108,7 @@ class GRET_PG_settings(bpy.types.PropertyGroup):
             cls.__annotations__ = {}
         cls.__annotations__[name] = annotation
 
+# Backwards compatibility if enabled in preferences
 @persistent
 def load_pre(dummy):
     bpy.types.Scene.my_tools = bpy.props.PointerProperty(type=GRET_PG_settings)
@@ -141,8 +142,6 @@ def load_post(dummy):
                         job.remap_materials.remove(index)
             del scene['my_tools']
     del bpy.types.Scene.my_tools
-
-backwards_compat = True
 
 classes = (
     GRET_PG_settings,

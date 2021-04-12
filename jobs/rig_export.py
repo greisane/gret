@@ -333,12 +333,17 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 for obj, mesh_obj in zip(original_objs, mesh_objs):
                     export_groups.append(ExportGroup(suffix=f"_{obj.name}", objects=[mesh_obj]))
 
-        any_modifier_tags = set(self.modifier_tags.split(','))
+        modifier_tags = self.modifier_tags.split(',')
         kept_modifiers = []  # List of (object name, modifier index, modifier properties)
         wants_subsurf = {}  # Object name to subsurf level
         def should_enable_modifier(mo):
-            tags = set(re.findall(r"g:(\S+)", mo.name))
-            return mo.show_render and (not tags or any(s in tags for s in any_modifier_tags))
+            no_tags = re.findall(r"g:!(\S+)", mo.name)
+            if no_tags and any(s in no_tags for s in modifier_tags):
+                return False
+            yes_tags = re.findall(r"g:(\S+)", mo.name)
+            if yes_tags and any(s in yes_tags for s in modifier_tags):
+                return True
+            return mo.show_render
 
         # Process individual meshes
         for export_group in export_groups:
@@ -361,7 +366,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
                     if should_enable_modifier(modifier):
                         if modifier.type == 'SUBSURF' and modifier.levels > 0 and num_objects > 1:
                             # Subsurf will be applied after merge, otherwise boundaries won't match up
-                            ogd(f"Removed {modifier.type} modifier {modifier.name}")
+                            logd(f"Removed {modifier.type} modifier {modifier.name}")
                             wants_subsurf[obj.name] = modifier.levels
                             bpy.ops.object.modifier_remove(modifier=modifier.name)
                         else:
