@@ -162,7 +162,7 @@ def draw_job(layout, jobs, job_index):
     sub = row.split()
     op = sub.operator('gret.export_job_move_down', icon='TRIA_DOWN', text="", emboss=False)
     op.index = job_index
-    sub.enabled = job_index < len(scn.gret.export_jobs) - 1
+    sub.enabled = job_index < len(jobs) - 1
     op = row.operator('gret.export_job_remove', icon='X', text="", emboss=False)
     op.index = job_index
     box = col_job.box()
@@ -514,13 +514,13 @@ Requires a mirror modifier""",
     )
     apply_modifiers: bpy.props.BoolProperty(
         name="Apply Modifiers",
-        description="Allows exporting of shape keys even if the meshes have generative modifiers",
+        description="Apply render modifiers",
         default=True,
     )
     modifier_tags: bpy.props.StringProperty(
         name="Modifier Tags",
         description="""Tagged modifiers are only applied if the tag is found in this list.
-Separate tags with commas. Tag modifiers with 'g:tag'""",
+Separate tags with a space. Tag modifiers with 'g:tag'""",
         default="",
     )
     join_meshes: bpy.props.BoolProperty(
@@ -589,6 +589,35 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
         default="//export/A_{rigfile}_{action}.fbx",
         subtype='FILE_PATH',
     )
+
+    def _get_export_collections(self, context):
+        if all(not job_cl.collection for job_cl in self.collections):
+            # When no collections are set return the scene collection
+            cl = context.scene.collection
+            return
+        for job_cl in self.collections:
+            cl = job_cl.collection
+            if not cl:
+                continue
+            if not (not cl.hide_viewport and job_cl.export_viewport
+                or not cl.hide_render and job_cl.export_render):
+                continue
+            yield job_cl
+
+    def get_export_objects(self, context, types={}, armature=None):
+        objs = []
+        for job_cl in self._get_export_collections(context):
+            for obj in job_cl.collection.objects:
+                if types and obj.type not in types:
+                    continue
+                if armature and obj.find_armature() != armature:
+                    continue
+                if not (not obj.hide_viewport and job_cl.export_viewport
+                    or not obj.hide_render and job_cl.export_render):
+                    continue
+                if obj not in objs:
+                    objs.append(obj)
+        return objs
 
 classes = (
     GRET_OT_export_job_add,

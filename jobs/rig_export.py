@@ -1,4 +1,5 @@
 from collections import namedtuple
+from itertools import chain
 from math import pi
 import bpy
 import os
@@ -33,51 +34,10 @@ from gret.rig.helpers import (
     clear_pose,
     export_autorig,
     export_autorig_universal,
+    export_fbx,
     is_object_arp,
     is_object_arp_humanoid,
 )
-
-@intercept(error_result={'CANCELLED'})
-def export_fbx(context, filepath, actions):
-    if actions:
-        # Needs to slap action strips in the NLA
-        raise NotImplementedError
-    return bpy.ops.export_scene.fbx(
-        filepath=filepath
-        , check_existing=False
-        , axis_forward='-Z'
-        , axis_up='Y'
-        , use_selection=True
-        , use_active_collection=False
-        , global_scale=1.0
-        , apply_unit_scale=True
-        , apply_scale_options='FBX_SCALE_NONE'
-        , object_types={'ARMATURE', 'MESH'}
-        , use_mesh_modifiers=True
-        , use_mesh_modifiers_render=False
-        , mesh_smooth_type='EDGE'
-        , bake_space_transform=True
-        , use_subsurf=False
-        , use_mesh_edges=False
-        , use_tspace=False
-        , use_custom_props=False
-        , add_leaf_bones=False
-        , primary_bone_axis='Y'
-        , secondary_bone_axis='X'
-        , use_armature_deform_only=True
-        , armature_nodetype='NULL'
-        , bake_anim=len(actions) > 0
-        , bake_anim_use_all_bones=False
-        , bake_anim_use_nla_strips=False
-        , bake_anim_use_all_actions=True
-        , bake_anim_force_startend_keying=True
-        , bake_anim_step=1.0
-        , bake_anim_simplify_factor=1.0
-        , path_mode='STRIP'
-        , embed_textures=False
-        , batch_mode='OFF'
-        , use_batch_own_dir=False
-    )
 
 class GRET_OT_rig_export(bpy.types.Operator):
     bl_idname = 'gret.rig_export'
@@ -164,49 +124,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
             'rig': rig.name,
         }
         mesh_objs = []
-        original_objs = []
         rig.data.pose_position = 'REST'
-
-        # Find all unique objects that should be considered for export
-        def should_export(job_coll, what):
-            if job_coll is None or what is None:
-                return False
-            return (job_coll.export_viewport and not what.hide_viewport
-                or job_coll.export_render and not what.hide_render)
-        all_objs = set()
-        for job_coll in job.collections:
-            coll = job_coll.collection
-            if not coll and all(not jc.collection for jc in job.collections):
-                # When no collections are set use the scene collection
-                coll = scn.collection
-            if should_export(job_coll, coll):
-                all_objs.update(obj for obj in coll.objects if should_export(job_coll, obj))
-
-        # Mark the objects that should be exported as render so they will be picked up
-        objs = set()
-        for obj in all_objs:
-            if obj.type == 'MESH':
-                saved_materials = []
-                for mat_idx, mat in enumerate(obj.data.materials):
-                    for remap_material in job.remap_materials:
-                        if mat and mat is remap_material.source:
-                            saved_materials.append((obj, mat_idx, mat))
-                            obj.data.materials[mat_idx] = remap_material.destination
-                            break
-                if all(not mat for mat in obj.data.materials):
-                    log(f"Not exporting '{obj.name}' because it has no materials")
-                    # Undo any remaps
-                    for obj, material_idx, material in saved_materials:
-                        obj.data.materials[material_idx] = material
-                    continue
-                self.saved_materials.extend(saved_materials)
-            obj.hide_select = False
-            obj.hide_render = False
-            objs.add(obj)
-
-        # Hide all objects that shouldn't be exported
-        for obj in get_children_recursive(rig):
-            obj.hide_render = obj not in objs
 
         if job.to_collection and job.clean_collection:
             # Clean the target collection first
@@ -215,12 +133,11 @@ class GRET_OT_rig_export(bpy.types.Operator):
             for obj in job.export_collection.objects:
                 bpy.data.objects.remove(obj, do_unlink=True)
 
-        def has_custom_normals(obj):
-            return obj.data.has_custom_normals or any(m.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL'
-                in m.data_types_loops for m in obj.modifiers)
+        # Find objects that should be considered for export
+        export_objs = job.get_export_objects(context, types={'MESH'}, armature=rig)
 
+        # Enable all render modifiers in the originals, except masks
         for obj in get_children_recursive(rig):
-            # Enable all render modifiers in the originals, except masks
             for modifier in obj.modifiers:
                 if modifier.type != 'MASK' and modifier.show_render and not modifier.show_viewport:
                     modifier.show_viewport = True
@@ -229,12 +146,16 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 self.saved_auto_smooth[obj] = (obj.data.use_auto_smooth, obj.data.auto_smooth_angle)
                 obj.data.use_auto_smooth = True
                 obj.data.auto_smooth_angle = pi
-                if not obj.hide_render and obj.find_armature() == rig:
-                    original_objs.append(obj)
-                    if not has_custom_normals(obj):
-                        mesh_objs.append(self.copy_obj_clone_normals(obj))
-                    else:
-                        mesh_objs.append(self.copy_obj(obj))
+
+        # Clone all objects to be exported and make export groups
+        def has_custom_normals(obj):
+            return obj.data.has_custom_normals or any(mod.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL'
+                in mod.data_types_loops for mod in obj.modifiers)
+        for obj in export_objs:
+            if not has_custom_normals(obj):
+                mesh_objs.append(self.copy_obj_clone_normals(obj))
+            else:
+                mesh_objs.append(self.copy_obj(obj))
 
         ExportGroup = namedtuple('ExportGroup', ['suffix', 'objects'])
         export_groups = []
@@ -243,27 +164,28 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 export_groups.append(ExportGroup(suffix="", objects=mesh_objs[:]))
             else:
                 # Each mesh exports to a different file
-                for obj, mesh_obj in zip(original_objs, mesh_objs):
+                for obj, mesh_obj in zip(export_objs, mesh_objs):
                     export_groups.append(ExportGroup(suffix=f"_{obj.name}", objects=[mesh_obj]))
 
-        modifier_tags = job.modifier_tags.split(',')
+        # Process individual meshes
         kept_modifiers = []  # List of (object name, modifier index, modifier properties)
         wants_subsurf = {}  # Object name to subsurf level
-        def should_enable_modifier(mo):
-            no_tags = re.findall(r"g:!(\S+)", mo.name)
-            if no_tags and any(s in no_tags for s in modifier_tags):
-                return False
-            yes_tags = re.findall(r"g:(\S+)", mo.name)
-            if yes_tags and any(s in yes_tags for s in modifier_tags):
-                return True
-            return mo.show_render
+        job_tags = job.modifier_tags.split(' ')
+        def should_enable_modifier(mod):
+            for tag in re.findall(r"g:(\S+)", mod.name):
+                if tag.startswith('!'):
+                    # Blacklisted tag
+                    return tag[1:] not in job_tags
+                else:
+                    return tag in job_tags
+            return mod.show_render
 
-        # Process individual meshes
+        log_indent = logger.indent
         for export_group in export_groups:
             num_objects = len(export_group.objects)
-            for obj in export_group.objects:
+            for obj in export_group.objects[:]:
                 log(f"Processing {obj.name}")
-                logger.indent += 1
+                logger.indent = log_indent + 1
 
                 if job.merge_basis_shape_keys:
                     merge_basis_shape_keys(obj)
@@ -294,19 +216,31 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 if job.apply_modifiers:
                     apply_modifiers(obj)
 
-                # Remap materials, remove any objects or faces with no material
+                # Remap materials, any objects or faces with no material won't be exported
                 for mat_idx, mat in enumerate(obj.data.materials):
                     for remap in job.remap_materials:
                         if mat and mat == remap.source:
-                            logd(f"Remapped material #{mat_idx} {mat.name} to {remap.destination}")
+                            logd(f"Remapped material {mat.name} to {remap.destination}")
                             obj.data.materials[mat_idx] = remap.destination
                             break
                 if all(not mat for mat in obj.data.materials):
                     log(f"Object has no materials and won't be exported")
+                    export_group.objects.remove(obj)
                     continue
                 delete_faces_with_no_material(obj)
+                if not obj.data.polygons:
+                    log(f"Object has no faces and won't be exported")
+                    export_group.objects.remove(obj)
+                    continue
 
-                # If set, ensure prefix for any exported materials
+                # Holes in the material list tend to mess everything up on joining objects
+                # Note this is not the same as bpy.ops.object.material_slot_remove_unused
+                for mat_idx in range(len(obj.data.materials) - 1, -1, -1):
+                    if not obj.data.materials[mat_idx]:
+                        logd(f"Popped empty material #{mat_idx}")
+                        obj.data.materials.pop(index=mat_idx)
+
+                # If set, ensure prefix for exported materials
                 if job.material_name_prefix:
                     for mat_slot in obj.material_slots:
                         mat = mat_slot.material
@@ -327,8 +261,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
                 # Ensure proper mesh state
                 self.sanitize_mesh(obj)
-
-                logger.indent -= 1
+        logger.indent = log_indent
 
         # Join meshes
         merges = {}
@@ -338,20 +271,21 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 continue
 
             # Pick the densest object to receive all the others
-            merged_obj = max(objs, key=lambda ob: len(ob.data.vertices))
+            merged_obj = max(objs, key=lambda o: len(o.data.vertices))
             merges.update({obj.name: merged_obj for obj in objs})
             log(f"Merging {', '.join(obj.name for obj in objs if obj is not merged_obj)} " \
                 f"into {merged_obj.name}")
             logger.indent += 1
 
+            # Mark vertices that belong to a subsurf mesh
             subsurf_levels = max(wants_subsurf.get(obj.name, 0) for obj in objs)
             for obj in objs:
                 if subsurf_levels:
-                    # Mark vertices that belong to a subsurf mesh
                     obj.data.use_customdata_vertex_bevel = True
                     for vert in obj.data.vertices:
                         vert.bevel_weight = obj.name in wants_subsurf
                 if obj is not merged_obj:
+                    # TODO Remove this after operator sanity rewrite
                     self.new_objs.discard(obj)
                     self.new_meshes.discard(obj.data)
 
@@ -361,10 +295,10 @@ class GRET_OT_rig_export(bpy.types.Operator):
             bpy.ops.object.join(ctx)
             objs[:] = [merged_obj]
 
-            # Joining objects won't copy drivers, so do that now
-            for original_obj in original_objs:
-                if original_obj.data.shape_keys and original_obj.data.shape_keys.animation_data:
-                    for fc in original_obj.data.shape_keys.animation_data.drivers:
+            # Joining objects loses drivers, restore them
+            for obj in export_objs:
+                if obj.data.shape_keys and obj.data.shape_keys.animation_data:
+                    for fc in obj.data.shape_keys.animation_data.drivers:
                         if merged_obj.data.shape_keys.animation_data is None:
                             merged_obj.data.shape_keys.animation_data_create()
                         merged_obj.data.shape_keys.animation_data.drivers.from_existing(src_driver=fc)
@@ -420,10 +354,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 if filepath in self.exported_files:
                     log(f"Skipping {filename} as it would overwrite a file that was just exported")
 
-                for obj in context.scene.objects:
-                    obj.select_set(False)
-                for obj in export_group.objects:
-                    obj.select_set(True)
+                select_only(context, export_group.objects)
                 rig.select_set(True)
                 context.view_layer.objects.active = rig
                 rig.data.pose_position = 'POSE'
@@ -498,6 +429,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
             # Finished without errors
             elapsed = time.time() - start_time
             self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
+            log("Job complete")
             beep(pitch=0)
         finally:
             # Clean up
@@ -527,7 +459,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
             # Pushing an undo step here seems to prevent that
             bpy.ops.ed.undo_push()
 
-        log("Job complete")
         return {'FINISHED'}
 
 def register(settings):

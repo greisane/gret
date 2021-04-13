@@ -16,6 +16,8 @@ def select_only(context, objs):
     for obj in context.selected_objects:
         obj.select_set(False)
     for obj in objs:
+        obj.hide_viewport = False
+        obj.hide_select = False
         obj.select_set(True)
     context.view_layer.objects.active = next(iter(objs), None)
 
@@ -191,7 +193,7 @@ def intercept(_func=None, error_result=None):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            if prefs.debug:
+            if not prefs.debug:
                 # Redirect output
                 stdout = io.StringIO()
                 try:

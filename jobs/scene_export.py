@@ -17,11 +17,7 @@ from gret.helpers import (
 from gret.log import logger, log, logd
 from gret.mesh.helpers import merge_basis_shape_keys
 
-@intercept(error_result={'CANCELLED'})
-def export_fbx(context, filepath, actions):
-    if actions:
-        # Needs to slap action strips in the NLA
-        raise NotImplementedError
+def export_fbx(context, filepath):
     return bpy.ops.export_scene.fbx(
         filepath=filepath
         , check_existing=False
@@ -41,18 +37,7 @@ def export_fbx(context, filepath, actions):
         , use_mesh_edges=False
         , use_tspace=False
         , use_custom_props=False
-        , add_leaf_bones=False
-        , primary_bone_axis='Y'
-        , secondary_bone_axis='X'
-        , use_armature_deform_only=True
-        , armature_nodetype='NULL'
-        , bake_anim=len(actions) > 0
-        , bake_anim_use_all_bones=False
-        , bake_anim_use_nla_strips=False
-        , bake_anim_use_all_actions=True
-        , bake_anim_force_startend_keying=True
-        , bake_anim_step=1.0
-        , bake_anim_simplify_factor=1.0
+        , bake_anim=False
         , path_mode='STRIP'
         , embed_textures=False
         , batch_mode='OFF'
@@ -97,35 +82,17 @@ class GRET_OT_scene_export(bpy.types.Operator):
     def _execute(self, context, job):
         collision_prefixes = ("UCX", "UBX", "UCP", "USP")
 
-        def should_export(job_coll, what):
-            if job_coll is None or what is None:
-                return False
-            return (job_coll.export_viewport and not what.hide_viewport
-                or job_coll.export_render and not what.hide_render)
+        # Find objects that should be considered for export
         if not job.selection_only:
-            objs = set()
-            for job_coll in job.collections:
-                coll = job_coll.collection
-                if not coll and all(not jc.collection for jc in job.collections):
-                    # When no collections are set use the scene collection
-                    coll = scn.collection
-                if should_export(job_coll, coll):
-                    for obj in coll.objects:
-                        if obj not in objs and should_export(job_coll, obj):
-                            obj.hide_select = False
-                            obj.hide_viewport = False
-                            obj.hide_render = False
-                            objs.add(obj)
-            select_only(context, objs)
-        elif not context.selected_objects:
+            export_objs = job.get_export_objects(context, types={'MESH'})
+        elif context.selected_objects:
+            export_objs = [obj for obj in context.selected_objects if obj.type == 'MESH']
+        else:
             # Nothing to export
             return
 
         export_groups = defaultdict(list)  # Filepath to object list
-        for obj in context.selected_objects[:]:
-            if obj.type != 'MESH':
-                # Only meshes
-                continue
+        for obj in export_objs:
             if any(obj.name.startswith(s) for s in collision_prefixes):
                 # Never export collision objects by themselves
                 continue
@@ -160,7 +127,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
                     col.matrix_world = obj.matrix_world.inverted() @ col.matrix_world
                 obj.matrix_world.identity()
 
-            # If set, ensure prefix for any exported materials
+            # If set, ensure prefix for exported materials
             if job.material_name_prefix:
                 for mat_slot in obj.material_slots:
                     mat = mat_slot.material
@@ -229,6 +196,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
             # Finished without errors
             elapsed = time.time() - start_time
             self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
+            log("Job complete")
             beep(pitch=2, num=1)
         finally:
             # Clean up
@@ -250,7 +218,6 @@ class GRET_OT_scene_export(bpy.types.Operator):
             context.preferences.edit.use_global_undo = saved_use_global_undo
             logger.end_logging()
 
-        log("Job complete")
         return {'FINISHED'}
 
 def register(settings):

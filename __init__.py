@@ -101,6 +101,7 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         layout = self.layout
         layout.prop(self, 'quick_unwrap_uv_layer_name')
         layout.prop(self, 'backwards_compat')
+        layout.prop(self, 'debug')
         # layout.prop(self, 'mesh_panel_enable')
         # layout.prop(self, 'rig_panel_enable')
         # layout.prop(self, 'animation_panel_enable')

@@ -2,6 +2,7 @@ import bpy
 
 module_names = [
     'export',
+    'anim_export',
     'rig_export',
     'scene_export',
 ]

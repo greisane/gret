@@ -313,7 +313,8 @@ def delete_faces_with_no_material(obj):
     bm.faces.ensure_lookup_table()
     delete_geom = [f for f in bm.faces if not obj.data.materials[f.material_index]]
     bmesh.ops.delete(bm, geom=delete_geom, context='FACES')
-    log(f"Deleted {len(delete_geom)} faces with no material")
+    if delete_geom:
+        log(f"Deleted {len(delete_geom)} faces with no material")
 
     # Finish and clean up
     bm.to_mesh(obj.data)

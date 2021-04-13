@@ -1,6 +1,8 @@
 from mathutils import Vector, Quaternion, Euler
+import bpy
 
 from gret.helpers import intercept
+from gret.log import log, logd
 
 non_humanoid_bone_names = [
     'thigh_b_ref.l',
@@ -221,3 +223,45 @@ def export_autorig_universal(context, filepath, actions):
     scn.arp_export_rig_name = 'root'
 
     return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
+
+@intercept(error_result={'CANCELLED'})
+def export_fbx(context, filepath, actions):
+    if actions:
+        # TODO Put action in the timeline
+        raise NotImplementedError
+    return bpy.ops.export_scene.fbx(
+        filepath=filepath
+        , check_existing=False
+        , axis_forward='-Z'
+        , axis_up='Y'
+        , use_selection=True
+        , use_active_collection=False
+        , global_scale=1.0
+        , apply_unit_scale=True
+        , apply_scale_options='FBX_SCALE_NONE'
+        , object_types={'ARMATURE', 'MESH'}
+        , use_mesh_modifiers=True
+        , use_mesh_modifiers_render=False
+        , mesh_smooth_type='EDGE'
+        , bake_space_transform=True
+        , use_subsurf=False
+        , use_mesh_edges=False
+        , use_tspace=False
+        , use_custom_props=False
+        , add_leaf_bones=False
+        , primary_bone_axis='Y'
+        , secondary_bone_axis='X'
+        , use_armature_deform_only=True
+        , armature_nodetype='NULL'
+        , bake_anim=len(actions) > 0
+        , bake_anim_use_all_bones=False
+        , bake_anim_use_nla_strips=False
+        , bake_anim_use_all_actions=True
+        , bake_anim_force_startend_keying=True
+        , bake_anim_step=1.0
+        , bake_anim_simplify_factor=1.0
+        , path_mode='STRIP'
+        , embed_textures=False
+        , batch_mode='OFF'
+        , use_batch_own_dir=False
+    )

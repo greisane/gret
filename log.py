@@ -42,7 +42,7 @@ class Logger:
             print(*args, sep=sep)
             return
         message = sep.join(str(arg) for arg in args)
-        if self.category:
+        if category:
             message = f"({str(category)}) {message}"
         if self.prefix:
             message = f"{str(self.prefix)} {message}"
