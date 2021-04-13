@@ -46,6 +46,24 @@ def is_valid(data_block):
         return False
     return True
 
+def get_context(active_obj=None, selected_objs=None):
+    """Returns context for single object operators."""
+
+    ctx = {}
+    if target_obj and selected_objs:
+        # Operate on all the objects, active object is specified
+        ctx['object'] = ctx['active_object'] = target_obj
+        ctx['selected_objects'] = ctx['selected_editable_objects'] = selected_objs
+    elif not target_obj and selected_objs:
+        # Operate on all the objects, it isn't important which one is active
+        ctx['object'] = ctx['active_object'] = next(iter(selected_objs))
+        ctx['selected_objects'] = ctx['selected_editable_objects'] = [target_obj]
+    elif target_obj and not selected_objs:
+        # Operate on a single object
+        ctx['object'] = ctx['active_object'] = target_obj
+        ctx['selected_objects'] = ctx['selected_editable_objects'] = [target_obj]
+    return ctx
+
 SelectionState = namedtuple('SelectionState', [
     'selected',
     'active',

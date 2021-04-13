@@ -4,7 +4,7 @@ import bmesh
 import bpy
 
 from gret.mesh.helpers import bmesh_blur_vertex_group, edit_mesh_elements
-from gret.helpers import link_properties, load_selection, save_selection
+from gret.helpers import get_context, link_properties, load_selection, save_selection
 
 class GRET_OT_graft(bpy.types.Operator):
     #tooltip
@@ -79,7 +79,7 @@ class GRET_OT_graft(bpy.types.Operator):
         modifier = obj.modifiers.get(name)
         if not modifier or modifier.type != type:
             modifier = obj.modifiers.new(type=type, name=name)
-        ctx = {'object': obj}
+        ctx = get_context(obj)
         bpy.ops.object.modifier_move_to_index(ctx, modifier=modifier.name, index=0)
         return modifier
 

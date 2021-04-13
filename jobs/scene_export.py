@@ -7,6 +7,7 @@ from gret.helpers import (
     beep,
     fail_if_invalid_export_path,
     fail_if_no_operator,
+    get_context,
     get_export_path,
     get_nice_export_report,
     intercept,
@@ -98,7 +99,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
                 continue
 
             log(f"Processing {obj.name}")
-            ctx = {'object': obj, 'selected_objects': [obj], 'selected_editable_objects': [obj]}
+            ctx = get_context(obj)
             logger.indent += 1
 
             orig_obj, obj = obj, self.copy_obj(obj)

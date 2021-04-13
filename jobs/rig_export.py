@@ -11,6 +11,7 @@ from gret.helpers import (
     fail_if_invalid_export_path,
     fail_if_no_operator,
     get_children_recursive,
+    get_context,
     get_export_path,
     get_nice_export_report,
     load_properties,
@@ -138,7 +139,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
             num_objects = len(export_group.objects)
             for obj in export_group.objects[:]:
                 log(f"Processing {obj.name}")
-                ctx = {'object': obj, 'selected_objects': [obj], 'selected_editable_objects': [obj]}
+                ctx = get_context(obj)
                 logger.indent += 1
 
                 # Ensure mesh has custom normals, it locks them so that they don't change on masking
@@ -250,9 +251,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
                     self.new_objs.discard(obj)
                     self.new_meshes.discard(obj.data)
 
-            ctx = {}
-            ctx['object'] = ctx['active_object'] = merged_obj
-            ctx['selected_objects'] = ctx['selected_editable_objects'] = objs
+            ctx = get_context(active_obj=merged_obj, selected_objs=objs)
             bpy.ops.object.join(ctx)
             objs[:] = [merged_obj]
 
@@ -280,7 +279,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
         if job.to_collection:
             # Keep new objects in the target collection
             for obj in self.new_objs:
-                ctx = {'object': obj}
+                ctx = get_context(obj)
                 if len(self.new_objs) == 1:
                     # If producing a single object, rename it to match the collection
                     obj.name = job.export_collection.name
