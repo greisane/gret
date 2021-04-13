@@ -318,25 +318,6 @@ def delete_faces_with_no_material(obj):
     bm.to_mesh(obj.data)
     bm.free()
 
-def subdivide_verts_with_bevel_weight(obj, levels):
-    saved_mode = bpy.context.mode
-
-    if edit_mesh_elements(obj, 'VERT', key=lambda v: v.bevel_weight):
-        bpy.ops.mesh.separate(type='SELECTED')
-
-        bpy.ops.object.mode_set(mode='OBJECT')
-        new_obj = bpy.context.selected_objects[-1]
-        new_obj.modifiers.clear()
-        modifier = new_obj.modifiers.new(name='Subdivision', type='SUBSURF')
-        modifier.levels = levels
-        modifier.use_custom_normals = True
-        log(f"Subdivision level {levels} for {len(new_obj.data.polygons)} faces")
-        apply_modifiers(new_obj)
-
-        bpy.ops.object.join()
-
-    bpy.ops.object.mode_set(mode=saved_mode)
-
 def bmesh_blur_vertex_group(bm, vertex_group_index, distance, power=1.0):
     if distance <= 0.0:
         return

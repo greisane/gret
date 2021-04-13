@@ -108,20 +108,13 @@ class GRET_OT_rig_export(bpy.types.Operator):
         # Find and clone objects to be exported
         origin_objs, job_cls = job.get_export_objects(context, types={'MESH'}, armature=rig)
         cloned_objs = [self.copy_obj(oobj) for oobj in origin_objs]
-
-        ExportGroup = namedtuple('ExportGroup', ['suffix', 'objects'])
-        groups = []
-        if cloned_objs:
-            if job.join_meshes:
-                groups.append(ExportGroup(suffix="", objects=cloned_objs[:]))
-            else:
-                # Each mesh exports to a different file
-                for oobj, cobj in zip(origin_objs, cloned_objs):
-                    groups.append(ExportGroup(suffix=f"_{oobj.name}", objects=[cobj]))
+        def remove_obj(obj_index):
+            origin_objs.pop(obj_index)
+            cloned_objs.pop(obj_index)
+            job_cls.pop(obj_index)
 
         # Process individual meshes
         kept_modifiers = []  # List of (object name, modifier index, modifier properties)
-        wants_subsurf = {}  # Object name to subsurf level
         job_tags = job.modifier_tags.split(' ')
         def should_enable_modifier(mod):
             for tag in re.findall(r"g:(\S+)", mod.name):
@@ -132,98 +125,98 @@ class GRET_OT_rig_export(bpy.types.Operator):
                     return tag in job_tags
             return mod.show_render
 
-        for group in groups:
-            num_objects = len(group.objects)
-            for obj in group.objects[:]:
-                log(f"Processing {obj.name}")
-                ctx = get_context(obj)
-                logger.indent += 1
+        for obj_index, obj in enumerate(cloned_objs[:]):
+            log(f"Processing {obj.name}")
+            ctx = get_context(obj)
+            logger.indent += 1
 
-                # Ensure mesh has custom normals, it locks them so that they don't change on masking
-                bpy.ops.mesh.customdata_custom_splitnormals_add(ctx)
-                obj.data.use_auto_smooth = True
-                obj.data.auto_smooth_angle = pi
+            # Ensure mesh has custom normals so that they won't be recalculated on masking
+            bpy.ops.mesh.customdata_custom_splitnormals_add(ctx)
+            obj.data.use_auto_smooth = True
+            obj.data.auto_smooth_angle = pi
 
-                if job.merge_basis_shape_keys:
-                    merge_basis_shape_keys(obj)
+            if job.merge_basis_shape_keys:
+                merge_basis_shape_keys(obj)
 
-                if job.mirror_shape_keys:
-                    mirror_shape_keys(obj, job.side_vgroup_name)
+            if job.mirror_shape_keys:
+                mirror_shape_keys(obj, job.side_vgroup_name)
 
-                # Only use modifiers enabled for render. Delete unused modifiers
-                context.view_layer.objects.active = obj
-                for mod_idx, mod in enumerate(obj.modifiers[:]):
-                    if should_enable_modifier(mod):
-                        if mod.type == 'SUBSURF' and mod.levels > 0 and num_objects > 1:
-                            # Subsurf will be applied after merge, otherwise boundaries won't match up
-                            # TODO They won't? Test
-                            logd(f"Removed {mod.type} modifier {mod.name}")
-                            wants_subsurf[obj.name] = mod.levels
-                            bpy.ops.object.modifier_remove(ctx, modifier=mod.name)
-                        else:
-                            logd(f"Enabled {mod.type} modifier {mod.name}")
-                            mod.show_viewport = True
-                    else:
-                        if "!keep" in mod.name:
-                            # Store the modifier to recreate it later
-                            logd(f"Storing {mod.type} modifier {mod.name}")
-                            kept_modifiers.append((obj.name, mod_idx, save_properties(mod)))
-                        logd(f"Removed {mod.type} modifier {mod.name}")
-                        bpy.ops.object.modifier_remove(ctx, modifier=mod.name)
+            # Only use modifiers enabled for render. Delete unused modifiers
+            context.view_layer.objects.active = obj
+            for mod_idx, mod in enumerate(obj.modifiers[:]):
+                if should_enable_modifier(mod):
+                    logd(f"Enabled {mod.type} modifier {mod.name}")
+                    mod.show_viewport = True
+                else:
+                    if "!keep" in mod.name:
+                        # Store the modifier to recreate it later
+                        logd(f"Storing {mod.type} modifier {mod.name}")
+                        kept_modifiers.append((obj.name, mod_idx, save_properties(mod)))
+                    logd(f"Removed {mod.type} modifier {mod.name}")
+                    bpy.ops.object.modifier_remove(ctx, modifier=mod.name)
 
-                if job.apply_modifiers:
-                    apply_modifiers(obj)
+            if job.apply_modifiers:
+                apply_modifiers(obj)
 
-                # Remap materials, any objects or faces with no material won't be exported
-                for mat_idx, mat in enumerate(obj.data.materials):
-                    for remap in job.remap_materials:
-                        if mat and mat == remap.source:
-                            logd(f"Remapped material {mat.name} to {remap.destination}")
-                            obj.data.materials[mat_idx] = remap.destination
-                            break
-                if all(not mat for mat in obj.data.materials):
-                    log(f"Object has no materials and won't be exported")
-                    group.objects.remove(obj)
-                    logger.indent -= 1
-                    continue
-                delete_faces_with_no_material(obj)
-                if not obj.data.polygons:
-                    log(f"Object has no faces and won't be exported")
-                    group.objects.remove(obj)
-                    logger.indent -= 1
-                    continue
-
-                # Holes in the material list tend to mess everything up on joining objects
-                # Note this is not the same as bpy.ops.object.material_slot_remove_unused
-                for mat_idx in range(len(obj.data.materials) - 1, -1, -1):
-                    if not obj.data.materials[mat_idx]:
-                        logd(f"Popped empty material #{mat_idx}")
-                        obj.data.materials.pop(index=mat_idx)
-
-                # If set, ensure prefix for exported materials
-                if job.material_name_prefix:
-                    for mat_slot in obj.material_slots:
-                        mat = mat_slot.material
-                        if mat and not mat.name.startswith(job.material_name_prefix):
-                            self.saved_material_names[mat] = mat.name
-                            mat.name = job.material_name_prefix + mat.name
-
-                # Remove vertex group filtering from shapekeys
-                apply_shape_keys_with_vertex_groups(obj)
-
-                # Refresh vertex color and clear the mappings to avoid issues when meshes are merged
-                # While in Blender it's more intuitive to author masks starting from black, however
-                # UE4 defaults to white. Materials should then use OneMinus to get the original value
-                if not obj.data.vertex_colors and not obj.vertex_color_mapping:
-                    bpy.ops.mesh.vertex_color_mapping_add(ctx)
-                bpy.ops.mesh.vertex_color_mapping_refresh(ctx, invert=True)
-                bpy.ops.mesh.vertex_color_mapping_clear(ctx)
-
-                # Ensure proper mesh state
-                self.sanitize_mesh(obj)
+            # Remap materials, any objects or faces with no material won't be exported
+            for mat_idx, mat in enumerate(obj.data.materials):
+                for remap in job.remap_materials:
+                    if mat and mat == remap.source:
+                        logd(f"Remapped material {mat.name} to {remap.destination}")
+                        obj.data.materials[mat_idx] = remap.destination
+                        break
+            if all(not mat for mat in obj.data.materials):
+                log(f"Object has no materials and won't be exported")
+                remove_obj(obj_index)
                 logger.indent -= 1
+                continue
+            delete_faces_with_no_material(obj)
+            if not obj.data.polygons:
+                log(f"Object has no faces and won't be exported")
+                remove_obj(obj_index)
+                logger.indent -= 1
+                continue
 
-        # Join meshes
+            # Holes in the material list tend to mess everything up on joining objects
+            # Note this is not the same as bpy.ops.object.material_slot_remove_unused
+            for mat_idx in range(len(obj.data.materials) - 1, -1, -1):
+                if not obj.data.materials[mat_idx]:
+                    logd(f"Popped empty material #{mat_idx}")
+                    obj.data.materials.pop(index=mat_idx)
+
+            # If set, ensure prefix for exported materials
+            if job.material_name_prefix:
+                for mat_slot in obj.material_slots:
+                    mat = mat_slot.material
+                    if mat and not mat.name.startswith(job.material_name_prefix):
+                        self.saved_material_names[mat] = mat.name
+                        mat.name = job.material_name_prefix + mat.name
+
+            # Remove vertex group filtering from shapekeys
+            apply_shape_keys_with_vertex_groups(obj)
+
+            # Refresh vertex color and clear the mappings to avoid issues when meshes are merged
+            # While in Blender it's more intuitive to author masks starting from black, however
+            # UE4 defaults to white. Materials should then use OneMinus to get the original value
+            if not obj.data.vertex_colors and not obj.vertex_color_mapping:
+                bpy.ops.mesh.vertex_color_mapping_add(ctx)
+            bpy.ops.mesh.vertex_color_mapping_refresh(ctx, invert=True)
+            bpy.ops.mesh.vertex_color_mapping_clear(ctx)
+
+            # Ensure proper mesh state
+            self.sanitize_mesh(obj)
+            logger.indent -= 1
+
+        # Create export groups. Meshes in each group are merged together
+        ExportGroup = namedtuple('ExportGroup', ['suffix', 'objects'])
+        groups = []
+        if job.join_meshes:
+            groups.append(ExportGroup(suffix="", objects=cloned_objs[:]))
+        else:
+            # Each mesh exports to a different file
+            for oobj, cobj in zip(origin_objs, cloned_objs):
+                groups.append(ExportGroup(suffix=f"_{oobj.name}", objects=[cobj]))
+
         merges = {}
         for group in groups:
             objs = group.objects
@@ -236,18 +229,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
             log(f"Merging {', '.join(obj.name for obj in objs if obj is not merged_obj)} " \
                 f"into {merged_obj.name}")
             logger.indent += 1
-
-            # Mark vertices that belong to a subsurf mesh
-            subsurf_levels = max(wants_subsurf.get(obj.name, 0) for obj in objs)
-            for obj in objs:
-                if subsurf_levels:
-                    obj.data.use_customdata_vertex_bevel = True
-                    for vert in obj.data.vertices:
-                        vert.bevel_weight = obj.name in wants_subsurf
-                if obj is not merged_obj:
-                    # TODO Remove this after operator sanity rewrite
-                    self.new_objs.discard(obj)
-                    self.new_meshes.discard(obj.data)
 
             ctx = get_context(active_obj=merged_obj, selected_objs=objs)
             bpy.ops.object.join(ctx)
@@ -267,11 +248,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
             num_verts_merged = merge_freestyle_edges(merged_obj)
             if num_verts_merged > 0:
                 log(f"Welded {num_verts_merged} verts (edges were marked freestyle)")
-
-            if subsurf_levels:
-                subdivide_verts_with_bevel_weight(merged_obj, levels=subsurf_levels)
-                merged_obj.data.use_customdata_vertex_bevel = False
-
             logger.indent -= 1
 
         if job.to_collection:
