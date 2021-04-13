@@ -265,8 +265,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 log(f"Processing {obj.name}")
                 logger.indent += 1
 
-                delete_faces_with_no_material(obj)
-
                 if job.merge_basis_shape_keys:
                     merge_basis_shape_keys(obj)
 
@@ -288,12 +286,25 @@ class GRET_OT_rig_export(bpy.types.Operator):
                     else:
                         if "!keep" in modifier.name:
                             # Store the modifier to recreate it later
+                            logd(f"Storing {modifier.type} modifier {modifier.name}")
                             kept_modifiers.append((obj.name, modifier_idx, save_properties(modifier)))
                         logd(f"Removed {modifier.type} modifier {modifier.name}")
                         bpy.ops.object.modifier_remove(modifier=modifier.name)
 
                 if job.apply_modifiers:
                     apply_modifiers(obj)
+
+                # Remap materials, remove any objects or faces with no material
+                for mat_idx, mat in enumerate(obj.data.materials):
+                    for remap in job.remap_materials:
+                        if mat and mat == remap.source:
+                            logd(f"Remapped material #{mat_idx} {mat.name} to {remap.destination}")
+                            obj.data.materials[mat_idx] = remap.destination
+                            break
+                if all(not mat for mat in obj.data.materials):
+                    log(f"Object has no materials and won't be exported")
+                    continue
+                delete_faces_with_no_material(obj)
 
                 # If set, ensure prefix for any exported materials
                 if job.material_name_prefix:
@@ -387,12 +398,12 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 obj.data.use_customdata_edge_crease = False
             if kept_modifiers:
                 # Recreate modifiers that were stored
-                log(f"Restoring {len(kept_modifiers)} modifiers")
-                for obj_name, index, properties in kept_modifiers:
+                for obj_name, index, props in kept_modifiers:
                     obj = bpy.data.objects.get(obj_name) or merges.get(obj_name)
                     if obj:
-                        mod = obj.modifiers.new(name=properties['name'], type=properties['type'])
-                        load_properties(mod, properties)
+                        logd(f"Restoring {props['type']} modifier {props['name']}")
+                        mod = obj.modifiers.new(name=props['name'], type=props['type'])
+                        load_properties(mod, props)
 
                         new_index = min(index, len(obj.modifiers) - 1)
                         ctx = {'object': obj}
