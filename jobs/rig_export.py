@@ -95,7 +95,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
             'rigfile': os.path.splitext(bpy.path.basename(rig_filepath))[0],
             'rig': rig.name,
         }
-        mesh_objs = []
+        cloned_objs = []
         rig.data.pose_position = 'REST'
 
         if job.to_collection and job.clean_collection:
@@ -105,22 +105,19 @@ class GRET_OT_rig_export(bpy.types.Operator):
             for obj in job.export_collection.objects:
                 bpy.data.objects.remove(obj, do_unlink=True)
 
-        # Find objects that should be considered for export
-        export_objs = job.get_export_objects(context, types={'MESH'}, armature=rig)
-
-        # Clone all objects to be exported and make export groups
-        for obj in export_objs:
-            mesh_objs.append(self.copy_obj(obj))
+        # Find and clone objects to be exported
+        origin_objs, job_cls = job.get_export_objects(context, types={'MESH'}, armature=rig)
+        cloned_objs = [self.copy_obj(oobj) for oobj in origin_objs]
 
         ExportGroup = namedtuple('ExportGroup', ['suffix', 'objects'])
-        export_groups = []
-        if mesh_objs:
+        groups = []
+        if cloned_objs:
             if job.join_meshes:
-                export_groups.append(ExportGroup(suffix="", objects=mesh_objs[:]))
+                groups.append(ExportGroup(suffix="", objects=cloned_objs[:]))
             else:
                 # Each mesh exports to a different file
-                for obj, mesh_obj in zip(export_objs, mesh_objs):
-                    export_groups.append(ExportGroup(suffix=f"_{obj.name}", objects=[mesh_obj]))
+                for oobj, cobj in zip(origin_objs, cloned_objs):
+                    groups.append(ExportGroup(suffix=f"_{oobj.name}", objects=[cobj]))
 
         # Process individual meshes
         kept_modifiers = []  # List of (object name, modifier index, modifier properties)
@@ -135,9 +132,9 @@ class GRET_OT_rig_export(bpy.types.Operator):
                     return tag in job_tags
             return mod.show_render
 
-        for export_group in export_groups:
-            num_objects = len(export_group.objects)
-            for obj in export_group.objects[:]:
+        for group in groups:
+            num_objects = len(group.objects)
+            for obj in group.objects[:]:
                 log(f"Processing {obj.name}")
                 ctx = get_context(obj)
                 logger.indent += 1
@@ -159,6 +156,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
                     if should_enable_modifier(mod):
                         if mod.type == 'SUBSURF' and mod.levels > 0 and num_objects > 1:
                             # Subsurf will be applied after merge, otherwise boundaries won't match up
+                            # TODO They won't? Test
                             logd(f"Removed {mod.type} modifier {mod.name}")
                             wants_subsurf[obj.name] = mod.levels
                             bpy.ops.object.modifier_remove(ctx, modifier=mod.name)
@@ -185,13 +183,13 @@ class GRET_OT_rig_export(bpy.types.Operator):
                             break
                 if all(not mat for mat in obj.data.materials):
                     log(f"Object has no materials and won't be exported")
-                    export_group.objects.remove(obj)
+                    group.objects.remove(obj)
                     logger.indent -= 1
                     continue
                 delete_faces_with_no_material(obj)
                 if not obj.data.polygons:
                     log(f"Object has no faces and won't be exported")
-                    export_group.objects.remove(obj)
+                    group.objects.remove(obj)
                     logger.indent -= 1
                     continue
 
@@ -227,8 +225,8 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
         # Join meshes
         merges = {}
-        for export_group in export_groups:
-            objs = export_group.objects
+        for group in groups:
+            objs = group.objects
             if len(objs) <= 1:
                 continue
 
@@ -256,9 +254,9 @@ class GRET_OT_rig_export(bpy.types.Operator):
             objs[:] = [merged_obj]
 
             # Joining objects loses drivers, restore them
-            for obj in export_objs:
-                if obj.data.shape_keys and obj.data.shape_keys.animation_data:
-                    for fc in obj.data.shape_keys.animation_data.drivers:
+            for oobj in origin_objs:
+                if oobj.data.shape_keys and oobj.data.shape_keys.animation_data:
+                    for fc in oobj.data.shape_keys.animation_data.drivers:
                         if merged_obj.data.shape_keys.animation_data is None:
                             merged_obj.data.shape_keys.animation_data_create()
                         merged_obj.data.shape_keys.animation_data.drivers.from_existing(src_driver=fc)
@@ -307,14 +305,14 @@ class GRET_OT_rig_export(bpy.types.Operator):
             self.new_meshes.clear()
         else:
             # Finally export
-            for export_group in export_groups:
-                path_fields['suffix'] = export_group.suffix
+            for group in groups:
+                path_fields['suffix'] = group.suffix
                 filepath = get_export_path(job.rig_export_path, path_fields)
                 filename = bpy.path.basename(filepath)
                 if filepath in self.exported_files:
                     log(f"Skipping {filename} as it would overwrite a file that was just exported")
 
-                select_only(context, export_group.objects)
+                select_only(context, group.objects)
                 rig.select_set(True)
                 context.view_layer.objects.active = rig
                 rig.data.pose_position = 'POSE'

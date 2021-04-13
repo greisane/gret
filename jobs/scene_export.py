@@ -85,14 +85,14 @@ class GRET_OT_scene_export(bpy.types.Operator):
 
         # Find objects that should be considered for export
         if not job.selection_only:
-            export_objs = job.get_export_objects(context, types={'MESH'})
+            export_objs, job_cls = job.get_export_objects(context, types={'MESH'})
         elif context.selected_objects:
             export_objs = [obj for obj in context.selected_objects if obj.type == 'MESH']
         else:
             # Nothing to export
             return
 
-        export_groups = defaultdict(list)  # Filepath to object list
+        groups = defaultdict(list)  # Filepath to object list
         for obj in export_objs:
             if any(obj.name.startswith(s) for s in collision_prefixes):
                 # Never export collision objects by themselves
@@ -150,13 +150,13 @@ class GRET_OT_scene_export(bpy.types.Operator):
                 'collection': orig_obj.users_collection[0].name,
             }
             filepath = get_export_path(job.scene_export_path, path_fields)
-            export_groups[filepath].append(obj)
-            export_groups[filepath].extend(col_objs)
+            groups[filepath].append(obj)
+            groups[filepath].extend(col_objs)
 
             logger.indent -= 1
 
         # Export each file
-        for filepath, objs in export_groups.items():
+        for filepath, objs in groups.items():
             select_only(context, objs)
 
             filename = bpy.path.basename(filepath)

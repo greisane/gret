@@ -87,8 +87,8 @@ class GRET_OT_export_job_add(bpy.types.Operator):
 def refresh_job_list(context):
     """Call after changing the job list, keeps job indices up to date"""
     for job_index, job in enumerate(context.scene.gret.export_jobs):
-        for coll in job.collections:
-            coll.job_index = job_index
+        for collection in job.collections:
+            collection.job_index = job_index
         for action in job.actions:
             action.job_index = job_index
         for copy_property in job.copy_properties:
@@ -170,11 +170,11 @@ def draw_job(layout, jobs, job_index):
 
     def add_collection_layout():
         col = box.column(align=True)
-        for coll in job.collections:
+        for job_cl in job.collections:
             row = col.row(align=True)
-            row.prop(coll, 'collection', text="")
-            row.prop(coll, 'export_viewport', icon='RESTRICT_VIEW_OFF', text="")
-            row.prop(coll, 'export_render', icon='RESTRICT_RENDER_OFF', text="")
+            row.prop(job_cl, 'collection', text="")
+            row.prop(job_cl, 'export_viewport', icon='RESTRICT_VIEW_OFF', text="")
+            row.prop(job_cl, 'export_render', icon='RESTRICT_RENDER_OFF', text="")
         return col
 
     if job.what == 'SCENE':
@@ -605,7 +605,7 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
             yield job_cl
 
     def get_export_objects(self, context, types={}, armature=None):
-        objs = []
+        objs, objs_job_cl = [], []
         for job_cl in self._get_export_collections(context):
             for obj in job_cl.collection.objects:
                 if types and obj.type not in types:
@@ -617,7 +617,8 @@ Tag modifiers with '!keep' to preserve them in the new meshes""",
                     continue
                 if obj not in objs:
                     objs.append(obj)
-        return objs
+                    objs_job_cl.append(job_cl)
+        return objs, objs_job_cl
 
 classes = (
     GRET_OT_export_job_add,
