@@ -138,10 +138,9 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
         # Enable all render modifiers in the originals, except masks
         for obj in get_children_recursive(rig):
-            for modifier in obj.modifiers:
-                if modifier.type != 'MASK' and modifier.show_render and not modifier.show_viewport:
-                    modifier.show_viewport = True
-                    self.saved_disabled_modifiers.add(modifier)
+            for mod in obj.modifiers:
+                self.saved_modifier_show_viewport.append((mod, mod.show_viewport))
+                mod.show_viewport = mod.type != 'MASK'# and should_enable_modifier(mod)
             if obj.type == 'MESH':
                 self.saved_auto_smooth[obj] = (obj.data.use_auto_smooth, obj.data.auto_smooth_angle)
                 obj.data.use_auto_smooth = True
@@ -180,12 +179,11 @@ class GRET_OT_rig_export(bpy.types.Operator):
                     return tag in job_tags
             return mod.show_render
 
-        log_indent = logger.indent
         for export_group in export_groups:
             num_objects = len(export_group.objects)
             for obj in export_group.objects[:]:
                 log(f"Processing {obj.name}")
-                logger.indent = log_indent + 1
+                logger.indent += 1
 
                 if job.merge_basis_shape_keys:
                     merge_basis_shape_keys(obj)
@@ -195,23 +193,23 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
                 # Only use modifiers enabled for render. Delete unused modifiers
                 context.view_layer.objects.active = obj
-                for modifier_idx, modifier in enumerate(obj.modifiers[:]):
-                    if should_enable_modifier(modifier):
-                        if modifier.type == 'SUBSURF' and modifier.levels > 0 and num_objects > 1:
+                for mod_idx, mod in enumerate(obj.modifiers[:]):
+                    if should_enable_modifier(mod):
+                        if mod.type == 'SUBSURF' and mod.levels > 0 and num_objects > 1:
                             # Subsurf will be applied after merge, otherwise boundaries won't match up
-                            logd(f"Removed {modifier.type} modifier {modifier.name}")
+                            logd(f"Removed {mod.type} modifier {mod.name}")
                             wants_subsurf[obj.name] = modifier.levels
-                            bpy.ops.object.modifier_remove(modifier=modifier.name)
+                            bpy.ops.object.modifier_remove(modifier=mod.name)
                         else:
-                            logd(f"Enabled {modifier.type} modifier {modifier.name}")
-                            modifier.show_viewport = True
+                            logd(f"Enabled {mod.type} modifier {mod.name}")
+                            mod.show_viewport = True
                     else:
-                        if "!keep" in modifier.name:
+                        if "!keep" in mod.name:
                             # Store the modifier to recreate it later
-                            logd(f"Storing {modifier.type} modifier {modifier.name}")
-                            kept_modifiers.append((obj.name, modifier_idx, save_properties(modifier)))
-                        logd(f"Removed {modifier.type} modifier {modifier.name}")
-                        bpy.ops.object.modifier_remove(modifier=modifier.name)
+                            logd(f"Storing {mod.type} modifier {mod.name}")
+                            kept_modifiers.append((obj.name, mod_idx, save_properties(mod)))
+                        logd(f"Removed {mod.type} modifier {mod.name}")
+                        bpy.ops.object.modifier_remove(modifier=mod.name)
 
                 if job.apply_modifiers:
                     apply_modifiers(obj)
@@ -226,11 +224,13 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 if all(not mat for mat in obj.data.materials):
                     log(f"Object has no materials and won't be exported")
                     export_group.objects.remove(obj)
+                    logger.indent -= 1
                     continue
                 delete_faces_with_no_material(obj)
                 if not obj.data.polygons:
                     log(f"Object has no faces and won't be exported")
                     export_group.objects.remove(obj)
+                    logger.indent -= 1
                     continue
 
                 # Holes in the material list tend to mess everything up on joining objects
@@ -261,7 +261,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
                 # Ensure proper mesh state
                 self.sanitize_mesh(obj)
-        logger.indent = log_indent
+                logger.indent -= 1
 
         # Join meshes
         merges = {}
@@ -416,7 +416,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
         self.exported_files = []
         self.new_objs = set()
         self.new_meshes = set()
-        self.saved_disabled_modifiers = set()
+        self.saved_modifier_show_viewport = []
         self.saved_material_names = {}
         self.saved_materials = []  # List of (obj, material_idx, material)
         self.saved_auto_smooth = {}
@@ -437,8 +437,8 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 bpy.data.objects.remove(self.new_objs.pop())
             while self.new_meshes:
                 bpy.data.meshes.remove(self.new_meshes.pop())
-            while self.saved_disabled_modifiers:
-                self.saved_disabled_modifiers.pop().show_viewport = False
+            for mod, show_viewport in self.saved_modifier_show_viewport:
+                mod.show_viewport = show_viewport
             for mat, name in self.saved_material_names.items():
                 mat.name = name
             for obj, material_idx, material in self.saved_materials:
@@ -446,6 +446,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
             for obj, (value, angle) in self.saved_auto_smooth.items():
                 obj.data.use_auto_smooth = value
                 obj.data.auto_smooth_angle = angle
+            del self.saved_modifier_show_viewport
             del self.saved_materials
             del self.saved_material_names
             del self.saved_auto_smooth
