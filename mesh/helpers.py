@@ -243,8 +243,6 @@ def apply_modifiers(obj):
             # Do nothing, just reenable
             pass
         else:
-            if modifier.name == "_Clone Normals":
-                log(f"Cloning normals from original")
             try:
                 bpy.ops.object.modifier_apply(modifier=modifier.name)
             except RuntimeError:

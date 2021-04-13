@@ -70,36 +70,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
         new_obj.hide_select = False
         return new_obj
 
-    def copy_obj_clone_normals(self, obj):
-        new_obj = self.copy_obj(obj, copy_data=True)
-        new_obj.data.use_auto_smooth = True  # Enable custom normals
-        new_obj.data.auto_smooth_angle = pi
-
-        # I don't see a way to check if topology mapping is working or not, so clone normals twice
-        data_transfer = new_obj.modifiers.new("_Clone Normals", 'DATA_TRANSFER')
-        data_transfer.object = obj
-        data_transfer.use_object_transform = False
-        data_transfer.use_loop_data = True
-        data_transfer.loop_mapping = 'NEAREST_POLYNOR'  # 'NEAREST_POLY' fails on sharp edges
-        data_transfer.data_types_loops = {'CUSTOM_NORMAL'}
-        data_transfer.max_distance = 1e-5
-        data_transfer.use_max_distance = True
-
-        data_transfer = new_obj.modifiers.new("_Clone Normals Topology", 'DATA_TRANSFER')
-        data_transfer.object = obj
-        data_transfer.use_object_transform = False
-        data_transfer.use_loop_data = True
-        data_transfer.loop_mapping = 'TOPOLOGY'
-        data_transfer.data_types_loops = {'CUSTOM_NORMAL'}
-        data_transfer.max_distance = 1e-5
-        data_transfer.use_max_distance = True
-        return new_obj
-
     def sanitize_mesh(self, obj):
-        # Enable autosmooth to allow custom normals
-        obj.data.use_auto_smooth = True
-        obj.data.auto_smooth_angle = pi
-
         # Ensure basis is selected
         obj.active_shape_key_index = 0
         obj.show_only_shape_key = False
@@ -136,25 +107,9 @@ class GRET_OT_rig_export(bpy.types.Operator):
         # Find objects that should be considered for export
         export_objs = job.get_export_objects(context, types={'MESH'}, armature=rig)
 
-        # Enable all render modifiers in the originals, except masks
-        for obj in get_children_recursive(rig):
-            for mod in obj.modifiers:
-                self.saved_modifier_show_viewport.append((mod, mod.show_viewport))
-                mod.show_viewport = mod.type != 'MASK'# and should_enable_modifier(mod)
-            if obj.type == 'MESH':
-                self.saved_auto_smooth[obj] = (obj.data.use_auto_smooth, obj.data.auto_smooth_angle)
-                obj.data.use_auto_smooth = True
-                obj.data.auto_smooth_angle = pi
-
         # Clone all objects to be exported and make export groups
-        def has_custom_normals(obj):
-            return obj.data.has_custom_normals or any(mod.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL'
-                in mod.data_types_loops for mod in obj.modifiers)
         for obj in export_objs:
-            if not has_custom_normals(obj):
-                mesh_objs.append(self.copy_obj_clone_normals(obj))
-            else:
-                mesh_objs.append(self.copy_obj(obj))
+            mesh_objs.append(self.copy_obj(obj))
 
         ExportGroup = namedtuple('ExportGroup', ['suffix', 'objects'])
         export_groups = []
@@ -186,6 +141,11 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 ctx = {'object': obj, 'selected_objects': [obj], 'selected_editable_objects': [obj]}
                 logger.indent += 1
 
+                # Ensure mesh has custom normals, it locks them so that they don't change on masking
+                bpy.ops.mesh.customdata_custom_splitnormals_add(ctx)
+                obj.data.use_auto_smooth = True
+                obj.data.auto_smooth_angle = pi
+
                 if job.merge_basis_shape_keys:
                     merge_basis_shape_keys(obj)
 
@@ -199,7 +159,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
                         if mod.type == 'SUBSURF' and mod.levels > 0 and num_objects > 1:
                             # Subsurf will be applied after merge, otherwise boundaries won't match up
                             logd(f"Removed {mod.type} modifier {mod.name}")
-                            wants_subsurf[obj.name] = modifier.levels
+                            wants_subsurf[obj.name] = mod.levels
                             bpy.ops.object.modifier_remove(ctx, modifier=mod.name)
                         else:
                             logd(f"Enabled {mod.type} modifier {mod.name}")
@@ -417,7 +377,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
         self.exported_files = []
         self.new_objs = set()
         self.new_meshes = set()
-        self.saved_modifier_show_viewport = []
         self.saved_material_names = {}
         self.saved_materials = []  # List of (obj, material_idx, material)
         self.saved_auto_smooth = {}
@@ -438,8 +397,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 bpy.data.objects.remove(self.new_objs.pop())
             while self.new_meshes:
                 bpy.data.meshes.remove(self.new_meshes.pop())
-            for mod, show_viewport in self.saved_modifier_show_viewport:
-                mod.show_viewport = show_viewport
             for mat, name in self.saved_material_names.items():
                 mat.name = name
             for obj, material_idx, material in self.saved_materials:
@@ -447,7 +404,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
             for obj, (value, angle) in self.saved_auto_smooth.items():
                 obj.data.use_auto_smooth = value
                 obj.data.auto_smooth_angle = angle
-            del self.saved_modifier_show_viewport
             del self.saved_materials
             del self.saved_material_names
             del self.saved_auto_smooth
