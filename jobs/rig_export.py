@@ -183,6 +183,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
             num_objects = len(export_group.objects)
             for obj in export_group.objects[:]:
                 log(f"Processing {obj.name}")
+                ctx = {'object': obj, 'selected_objects': [obj], 'selected_editable_objects': [obj]}
                 logger.indent += 1
 
                 if job.merge_basis_shape_keys:
@@ -199,7 +200,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
                             # Subsurf will be applied after merge, otherwise boundaries won't match up
                             logd(f"Removed {mod.type} modifier {mod.name}")
                             wants_subsurf[obj.name] = modifier.levels
-                            bpy.ops.object.modifier_remove(modifier=mod.name)
+                            bpy.ops.object.modifier_remove(ctx, modifier=mod.name)
                         else:
                             logd(f"Enabled {mod.type} modifier {mod.name}")
                             mod.show_viewport = True
@@ -209,7 +210,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
                             logd(f"Storing {mod.type} modifier {mod.name}")
                             kept_modifiers.append((obj.name, mod_idx, save_properties(mod)))
                         logd(f"Removed {mod.type} modifier {mod.name}")
-                        bpy.ops.object.modifier_remove(modifier=mod.name)
+                        bpy.ops.object.modifier_remove(ctx, modifier=mod.name)
 
                 if job.apply_modifiers:
                     apply_modifiers(obj)
@@ -255,9 +256,9 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 # While in Blender it's more intuitive to author masks starting from black, however
                 # UE4 defaults to white. Materials should then use OneMinus to get the original value
                 if not obj.data.vertex_colors and not obj.vertex_color_mapping:
-                    bpy.ops.mesh.vertex_color_mapping_add()
-                bpy.ops.mesh.vertex_color_mapping_refresh(invert=True)
-                bpy.ops.mesh.vertex_color_mapping_clear()
+                    bpy.ops.mesh.vertex_color_mapping_add(ctx)
+                bpy.ops.mesh.vertex_color_mapping_refresh(ctx, invert=True)
+                bpy.ops.mesh.vertex_color_mapping_clear(ctx)
 
                 # Ensure proper mesh state
                 self.sanitize_mesh(obj)
@@ -319,6 +320,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
         if job.to_collection:
             # Keep new objects in the target collection
             for obj in self.new_objs:
+                ctx = {'object': obj}
                 if len(self.new_objs) == 1:
                     # If producing a single object, rename it to match the collection
                     obj.name = job.export_collection.name
@@ -340,7 +342,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
                         load_properties(mod, props)
 
                         new_index = min(index, len(obj.modifiers) - 1)
-                        ctx = {'object': obj}
                         bpy.ops.object.modifier_move_to_index(ctx, modifier=mod.name, index=new_index)
             # Don't delete the new stuff
             self.new_objs.clear()

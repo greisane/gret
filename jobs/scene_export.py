@@ -98,6 +98,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
                 continue
 
             log(f"Processing {obj.name}")
+            ctx = {'object': obj, 'selected_objects': [obj], 'selected_editable_objects': [obj]}
             logger.indent += 1
 
             orig_obj, obj = obj, self.copy_obj(obj)
@@ -108,7 +109,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
             for modifier in obj.modifiers[:]:
                 if modifier.show_viewport:
                     try:
-                        bpy.ops.object.modifier_apply(modifier=modifier.name)
+                        bpy.ops.object.modifier_apply(ctx, modifier=modifier.name)
                     except RuntimeError:
                         log(f"Couldn't apply {modifier.type} modifier '{modifier.name}'")
 
@@ -139,9 +140,9 @@ class GRET_OT_scene_export(bpy.types.Operator):
             # While in Blender it's more intuitive to author masks starting from black, however
             # UE4 defaults to white. Materials should then use OneMinus to get the original value
             if not obj.data.vertex_colors and not obj.vertex_color_mapping:
-                bpy.ops.mesh.vertex_color_mapping_add()
-            bpy.ops.mesh.vertex_color_mapping_refresh(invert=True)
-            bpy.ops.mesh.vertex_color_mapping_clear()
+                bpy.ops.mesh.vertex_color_mapping_add(ctx)
+            bpy.ops.mesh.vertex_color_mapping_refresh(ctx, invert=True)
+            bpy.ops.mesh.vertex_color_mapping_clear(ctx)
 
             path_fields = {
                 'object': obj.name,
