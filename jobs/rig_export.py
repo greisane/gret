@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from itertools import chain
 from math import pi
 import bpy
@@ -91,10 +91,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
     def _execute(self, context, job, rig):
         rig_filepath = (rig.proxy.library.filepath if rig.proxy and rig.proxy.library
             else bpy.data.filepath)
-        path_fields = {
-            'rigfile': os.path.splitext(bpy.path.basename(rig_filepath))[0],
-            'rig': rig.name,
-        }
+        rig_basename = os.path.splitext(bpy.path.basename(rig_filepath))[0]
         rig.data.pose_position = 'REST'
 
         if job.to_collection and job.clean_collection:
@@ -106,19 +103,22 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
         # Find and clone objects to be exported
         # Original objects that aren't exported will be hidden for render, only for driver purposes
-        ExportItem = namedtuple('ExportObject', ['original', 'obj', 'job_collection', 'skip'])
-
-        items = []
         export_objs, job_cls = job.get_export_objects(context, types={'MESH'}, armature=rig)
-        for obj in get_children_recursive(rig):
+
+        ExportItem = namedtuple('ExportObject', ['original', 'obj', 'job_collection'])
+        items = []
+        groups = defaultdict(list)  # Filepath to item list
+        for obj in context.scene.objects:
             obj.hide_render = True
         for obj, job_cl in zip(export_objs, job_cls):
             obj.hide_render = False
-            items.append(ExportItem(obj, self.copy_obj(obj), job_cl, False))
+            items.append(ExportItem(obj, self.copy_obj(obj), job_cl))
 
         # Process individual meshes
         job_tags = job.modifier_tags.split(' ')
         def should_enable_modifier(mod):
+            if mod.type == 'ARMATURE':
+                return False
             for tag in re.findall(r"g:(\S+)", mod.name):
                 if tag.startswith('!'):
                     # Blacklisted tag
@@ -130,11 +130,12 @@ class GRET_OT_rig_export(bpy.types.Operator):
         for item in items:
             log(f"Processing {item.original.name}")
             obj = item.obj
+            job_cl = item.job_collection
             ctx = get_context(obj)
             logger.indent += 1
 
             # Simplify if specified in job collection
-            levels = item.job_collection.subdivision_levels
+            levels = job_cl.subdivision_levels
             if levels < 0:
                 unsubdivide_preserve_uvs(obj, -levels)
 
@@ -149,38 +150,30 @@ class GRET_OT_rig_export(bpy.types.Operator):
             if job.mirror_shape_keys:
                 mirror_shape_keys(obj, job.side_vgroup_name)
 
-            # Only use modifiers enabled for render. Delete unused modifiers
-            context.view_layer.objects.active = obj
-            for mod_idx, mod in enumerate(obj.modifiers[:]):
-                if should_enable_modifier(mod):
-                    logd(f"Enabled {mod.type} modifier {mod.name}")
-                    mod.show_viewport = True
-                else:
-                    logd(f"Removed {mod.type} modifier {mod.name}")
-                    bpy.ops.object.modifier_remove(ctx, modifier=mod.name)
-
             if job.apply_modifiers:
-                apply_modifiers(obj)
+                apply_modifiers(obj, key=should_enable_modifier, keep_armature=True)
 
             # Remap materials, any objects or faces with no material won't be exported
+            remapped_to_none = False
             for mat_idx, mat in enumerate(obj.data.materials):
                 for remap in job.remap_materials:
                     if mat and mat == remap.source:
                         logd(f"Remapped material {mat.name} to {remap.destination}")
                         obj.data.materials[mat_idx] = remap.destination
+                        remapped_to_none = remapped_to_none or not remap.destination
                         break
+
             if all(not mat for mat in obj.data.materials):
                 log(f"Object has no materials and won't be exported")
-                item.skip = True
                 logger.indent -= 1
                 continue
 
-            delete_faces_with_no_material(obj)
-            if not obj.data.polygons:
-                log(f"Object has no faces and won't be exported")
-                item.skip = True
-                logger.indent -= 1
-                continue
+            if remapped_to_none:
+                delete_faces_with_no_material(obj)
+                if not obj.data.polygons:
+                    log(f"Object has no faces and won't be exported")
+                    logger.indent -= 1
+                    continue
 
             # Holes in the material list tend to mess everything up on joining objects
             # Note this is not the same as bpy.ops.object.material_slot_remove_unused
@@ -210,23 +203,20 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
             # Ensure proper mesh state
             self.sanitize_mesh(obj)
+
+            # Put the objects in a group
+            path_fields = {
+                'rigfile': rig_basename,
+                'rig': rig.name,
+                'object': item.original.name,
+                'collection': job_cl.collection.name,
+            }
+            filepath = get_export_path(job.rig_export_path, path_fields)
+            groups[filepath].append(item)
             logger.indent -= 1
 
-        # Create export groups
-        ExportGroup = namedtuple('ExportGroup', ['suffix', 'items'])
-        ExportGroup.get_objects = lambda self: [item.obj for item in self.items]
-
-        groups = []
-        items = list(filter(lambda item: not item.skip, items))
-        if job.join_meshes:
-            groups.append(ExportGroup(suffix="", items=items[:]))
-        else:
-            for item in items:
-                groups.append(ExportGroup(suffix=f"_{item.original.name}", items=[item]))
-
         # Process groups. Meshes in each group are merged together
-        for group in groups:
-            items = group.items
+        for filepath, items in groups.items():
             if len(items) <= 1:
                 continue
 
@@ -241,7 +231,8 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 self.new_objs.discard(obj)
                 self.new_meshes.discard(obj.data)
             obj = merged_item.obj
-            ctx = get_context(active_obj=obj, selected_objs=group.get_objects())
+            objs = [item.obj for item in items]
+            ctx = get_context(active_obj=obj, selected_objs=objs)
             bpy.ops.object.join(ctx)
             items[:] = [merged_item]
 
@@ -263,38 +254,33 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
         if job.to_collection:
             # Keep new objects in the target collection
-            for group in groups:
-                for item in group.items:
-                    obj = item.obj
-                    if len(group.items) == 1:
-                        # If producing a single object, rename it to match the collection
-                        obj.name = job.export_collection.name
-                        obj.data.name = job.export_collection.name
-                    job.export_collection.objects.link(obj)
-                    context.scene.collection.objects.unlink(obj)
-                    # Disable features on output meshes for performance
-                    obj.data.use_auto_smooth = False
-                    obj.data.use_customdata_vertex_bevel = False
-                    obj.data.use_customdata_edge_bevel = False
-                    obj.data.use_customdata_edge_crease = False
-                    # Don't delete this
-                    self.new_objs.discard(obj)
-                    self.new_meshes.discard(obj.data)
+            for filepath, items in groups.items():
+                obj = item.obj
+                if len(items) == 1:
+                    # If producing a single object, rename it to match the collection
+                    obj.name = job.export_collection.name
+                    obj.data.name = job.export_collection.name
+                job.export_collection.objects.link(obj)
+                context.scene.collection.objects.unlink(obj)
+                # Disable features on output meshes for performance
+                obj.data.use_auto_smooth = False
+                obj.data.use_customdata_vertex_bevel = False
+                obj.data.use_customdata_edge_bevel = False
+                obj.data.use_customdata_edge_crease = False
+                # Don't delete this
+                self.new_objs.discard(obj)
+                self.new_meshes.discard(obj.data)
         else:
             # Finally export
-            for group in groups:
-                path_fields['suffix'] = group.suffix
-                filepath = get_export_path(job.rig_export_path, path_fields)
-                filename = bpy.path.basename(filepath)
-                if filepath in self.exported_files:
-                    log(f"Skipping {filename} as it would overwrite a file that was just exported")
-
-                select_only(context, group.get_objects())
+            for filepath, items in groups.items():
+                objs = [item.obj for item in items]
+                select_only(context, objs)
                 rig.select_set(True)
                 context.view_layer.objects.active = rig
                 rig.data.pose_position = 'POSE'
                 clear_pose(rig)
 
+                filename = bpy.path.basename(filepath)
                 if is_object_arp_humanoid(rig):
                     log(f"Exporting {filename} via Auto-Rig export")
                     logger.indent += 1
@@ -339,7 +325,8 @@ class GRET_OT_rig_export(bpy.types.Operator):
             fail_if_no_operator('shape_key_apply_modifiers')
             fail_if_no_operator('vertex_color_mapping_refresh', submodule=bpy.ops.mesh)
             if not job.to_collection:
-                fail_if_invalid_export_path(job.rig_export_path, ['rigfile', 'rig'])
+                field_names = ['rigfile', 'rig', 'object', 'collection']
+                fail_if_invalid_export_path(job.rig_export_path, field_names)
         except Exception as e:
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}

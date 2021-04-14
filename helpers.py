@@ -198,6 +198,12 @@ def get_flipped_name(name):
 
     return None
 
+def swap_object_names(obj1, obj2):
+    name1, name2 = obj1.name, obj2.name
+    obj1.name = name2
+    obj2.name = name1
+    obj1.name = name2
+
 def beep(pitch=0, num=2):
     try:
         import winsound

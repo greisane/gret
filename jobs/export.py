@@ -1,64 +1,8 @@
 from fnmatch import fnmatch
 import bpy
 
-from gret.helpers import (
-    get_children_recursive,
-    intercept,
-    load_selection,
-    save_selection,
-    select_only,
-)
 from gret.log import log, logger
 from gret.rig.helpers import is_object_arp
-
-class ConstantCurve:
-    """Mimics FCurve and always returns the same value on evaluation."""
-    def __init__(self, value=0.0):
-        self.value = value
-    def evaluate(self, frame_index):
-        return self.value
-
-@intercept(error_result={'CANCELLED'})
-def export_fbx(context, filepath, actions):
-    if actions:
-        # Needs to slap action strips in the NLA
-        raise NotImplementedError
-    return bpy.ops.export_scene.fbx(
-        filepath=filepath
-        , check_existing=False
-        , axis_forward='-Z'
-        , axis_up='Y'
-        , use_selection=True
-        , use_active_collection=False
-        , global_scale=1.0
-        , apply_unit_scale=True
-        , apply_scale_options='FBX_SCALE_NONE'
-        , object_types={'ARMATURE', 'MESH'}
-        , use_mesh_modifiers=True
-        , use_mesh_modifiers_render=False
-        , mesh_smooth_type='EDGE'
-        , bake_space_transform=True
-        , use_subsurf=False
-        , use_mesh_edges=False
-        , use_tspace=False
-        , use_custom_props=False
-        , add_leaf_bones=False
-        , primary_bone_axis='Y'
-        , secondary_bone_axis='X'
-        , use_armature_deform_only=True
-        , armature_nodetype='NULL'
-        , bake_anim=len(actions) > 0
-        , bake_anim_use_all_bones=False
-        , bake_anim_use_nla_strips=False
-        , bake_anim_use_all_actions=True
-        , bake_anim_force_startend_keying=True
-        , bake_anim_step=1.0
-        , bake_anim_simplify_factor=1.0
-        , path_mode='STRIP'
-        , embed_textures=False
-        , batch_mode='OFF'
-        , use_batch_own_dir=False
-    )
 
 class GRET_OT_export_job_add(bpy.types.Operator):
     #tooltip
@@ -186,8 +130,24 @@ def draw_job(layout, jobs, job_index):
             add_collection_layout().enabled = not job.selection_only
 
             col = box.column()
+            row = col.row(align=True)
+            row.prop(job, 'apply_modifiers')
+            sub = row.split(align=True)
+            sub.prop(job, 'modifier_tags', text="")
+            sub.enabled = job.apply_modifiers
+
+            col.prop(job, 'merge_basis_shape_keys')
+
             col.prop(job, 'export_collision')
             col.prop(job, 'keep_transforms')
+
+            col = box.column(align=True)
+            col.label(text="Remap Materials:")
+            for remap_material in job.remap_materials:
+                row = col.row(align=True)
+                row.prop(remap_material, 'source', text="")
+                row.label(text="", icon='FORWARD')
+                row.prop(remap_material, 'destination', text="")
             col.prop(job, 'material_name_prefix', text="M. Prefix")
 
             col = box.column(align=True)
@@ -202,21 +162,19 @@ def draw_job(layout, jobs, job_index):
             add_collection_layout()
 
             col = box.column()
+            row = col.row(align=True)
+            row.prop(job, 'apply_modifiers')
+            sub = row.split(align=True)
+            sub.prop(job, 'modifier_tags', text="")
+            sub.enabled = job.apply_modifiers
+
             col.prop(job, 'merge_basis_shape_keys')
 
             row = col.row(align=True)
             row.prop(job, 'mirror_shape_keys')
-            split = row.split(align=True)
-            split.prop(job, 'side_vgroup_name', text="")
-            split.enabled = job.mirror_shape_keys
-
-            row = col.row(align=True)
-            row.prop(job, 'apply_modifiers')
-            split = row.split(align=True)
-            split.prop(job, 'modifier_tags', text="")
-            split.enabled = job.apply_modifiers
-
-            col.prop(job, 'join_meshes')
+            sub = row.split(align=True)
+            sub.prop(job, 'side_vgroup_name', text="")
+            sub.enabled = job.mirror_shape_keys
 
             col = box.column(align=True)
             col.label(text="Remap Materials:")
@@ -257,9 +215,9 @@ def draw_job(layout, jobs, job_index):
                 col.prop(job, 'disable_auto_eyelid')
 
             col.prop(job, 'export_markers')
-            split = col.split(align=True)
-            split.prop(job, 'markers_export_path', text="")
-            split.enabled = job.export_markers
+            sub = col.split(align=True)
+            sub.prop(job, 'markers_export_path', text="")
+            sub.enabled = job.export_markers
 
             col = box.column(align=True)
             col.label(text="Bake Properties:")
@@ -498,7 +456,7 @@ class GRET_PG_export_job(bpy.types.PropertyGroup):
         description="""Export path relative to the current folder.
 {file} = Name of this .blend file without extension.
 {object} = Name of the object being exported.
-{collection} = Name of the first collection the object belongs to""",
+{collection} = Name of the collection the object belongs to""",
         default="//export/S_{object}.fbx",
         subtype='FILE_PATH',
     )
@@ -531,11 +489,6 @@ Requires a mirror modifier""",
 Separate tags with a space. Tag modifiers with 'g:tag'""",
         default="",
     )
-    join_meshes: bpy.props.BoolProperty(
-        name="Join Meshes",
-        description="Joins meshes before exporting, otherwise exports each mesh to a different file",
-        default=True,
-    )
     remap_materials: bpy.props.CollectionProperty(
         type=GRET_PG_remap_material,
     )
@@ -554,7 +507,9 @@ Separate tags with a space. Tag modifiers with 'g:tag'""",
         description="""Export path relative to the current folder.
 {file} = Name of this .blend file without extension.
 {rigfile} = Name of the .blend file the rig is linked from, without extension.
-{rig} = Name of the rig being exported""",
+{rig} = Name of the rig being exported.,
+{object} = Name of the object being exported.
+{collection} = Name of the collection the object belongs to""",
         default="//export/SK_{rigfile}.fbx",
         subtype='FILE_PATH',
     )

@@ -1,4 +1,5 @@
-from collections import defaultdict
+from collections import namedtuple, defaultdict
+from itertools import chain, zip_longest
 import bpy
 import re
 import time
@@ -14,9 +15,15 @@ from gret.helpers import (
     load_selection,
     save_selection,
     select_only,
+    swap_object_names,
 )
 from gret.log import logger, log, logd
-from gret.mesh.helpers import merge_basis_shape_keys
+from gret.mesh.helpers import (
+    apply_modifiers,
+    delete_faces_with_no_material,
+    merge_basis_shape_keys,
+    unsubdivide_preserve_uvs,
+)
 
 def export_fbx(context, filepath):
     return bpy.ops.export_scene.fbx(
@@ -59,11 +66,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
 
     def copy_obj(self, obj, copy_data=True):
         new_obj = obj.copy()
-        # New object takes the original name as a temporary measure to export collision
-        # new_obj.name = obj.name + "_"
-        self.saved_object_names[obj] = original_name = obj.name
-        obj.name = original_name + "_"
-        new_obj.name = original_name
+        new_obj.name = obj.name + "_"
         if copy_data:
             new_data = obj.data.copy()
             if isinstance(new_data, bpy.types.Mesh):
@@ -83,48 +86,101 @@ class GRET_OT_scene_export(bpy.types.Operator):
     def _execute(self, context, job):
         collision_prefixes = ("UCX", "UBX", "UCP", "USP")
 
-        # Find objects that should be considered for export
+        if job.to_collection and job.clean_collection:
+            # Clean the target collection first
+            log(f"Cleaning target collection")
+            for obj in job.export_collection.objects:
+                bpy.data.objects.remove(obj, do_unlink=True)
+
+        # Find and clone objects to be exported
+        # Original objects that aren't exported will be hidden for render, only for driver purposes
         if not job.selection_only:
             export_objs, job_cls = job.get_export_objects(context, types={'MESH'})
         elif context.selected_objects:
-            export_objs = [obj for obj in context.selected_objects if obj.type == 'MESH']
+            export_objs, job_cls = [o for o in context.selected_objects if o.type == 'MESH'], []
         else:
             # Nothing to export
             return
 
-        groups = defaultdict(list)  # Filepath to object list
-        for obj in export_objs:
-            if any(obj.name.startswith(s) for s in collision_prefixes):
+        ExportItem = namedtuple('ExportObject', ['original', 'obj', 'job_collection', 'col_objs'])
+        items = []
+        groups = defaultdict(list)  # Filepath to item list
+        for obj in context.scene.objects:
+            obj.hide_render = True
+        for obj, job_cl in zip_longest(export_objs, job_cls):
+            obj.hide_render = False
+            items.append(ExportItem(obj, self.copy_obj(obj), job_cl, []))
+
+        # Process individual meshes
+        job_tags = job.modifier_tags.split(' ')
+        def should_enable_modifier(mod):
+            for tag in re.findall(r"g:(\S+)", mod.name):
+                if tag.startswith('!'):
+                    # Blacklisted tag
+                    return tag[1:] not in job_tags
+                else:
+                    return tag in job_tags
+            return mod.show_render
+
+        for item in items:
+            if any(item.original.name.startswith(prefix) for prefix in collision_prefixes):
                 # Never export collision objects by themselves
+                item.skip = True
                 continue
 
-            log(f"Processing {obj.name}")
+            log(f"Processing {item.original.name}")
+            obj = item.obj
+            job_cl = item.job_collection
             ctx = get_context(obj)
             logger.indent += 1
 
-            orig_obj, obj = obj, self.copy_obj(obj)
-            select_only(context, obj)
+            # Simplify if specified in job collection
+            levels = job_cl.subdivision_levels if job_cl else 0
+            if levels < 0:
+                unsubdivide_preserve_uvs(obj, -levels)
 
-            merge_basis_shape_keys(obj)
+            if job.merge_basis_shape_keys:
+                merge_basis_shape_keys(obj)
 
-            for modifier in obj.modifiers[:]:
-                if modifier.show_viewport:
-                    try:
-                        bpy.ops.object.modifier_apply(ctx, modifier=modifier.name)
-                    except RuntimeError:
-                        log(f"Couldn't apply {modifier.type} modifier '{modifier.name}'")
+            obj.shape_key_clear()
 
-            col_objs = []
+            if job.apply_modifiers:
+                apply_modifiers(obj, key=should_enable_modifier)
+
+            # Remap materials, any objects or faces with no material won't be exported
+            remapped_to_none = False
+            for mat_idx, mat in enumerate(obj.data.materials):
+                for remap in job.remap_materials:
+                    if mat and mat == remap.source:
+                        logd(f"Remapped material {mat.name} to {remap.destination}")
+                        obj.data.materials[mat_idx] = remap.destination
+                        remapped_to_none = remapped_to_none or not remap.destination
+                        break
+
+            if all(not mat for mat in obj.data.materials):
+                log(f"Object has no materials and won't be exported")
+                logger.indent -= 1
+                continue
+
+            if remapped_to_none:
+                delete_faces_with_no_material(obj)
+                if not obj.data.polygons:
+                    log(f"Object has no faces and won't be exported")
+                    logger.indent -= 1
+                    continue
+
+            # If enabled, pick up UE4 collision objects
+            col_objs = item.col_objs
             if job.export_collision:
-                # Extend selection with pertaining collision objects
                 pattern = r"^(?:%s)_%s_\d+$" % ('|'.join(collision_prefixes), obj.name)
-                col_objs = [o for o in context.scene.objects if re.match(pattern, o.name)]
+                col_objs.extend(o for o in context.scene.objects if re.match(pattern, o.name))
             if col_objs:
                 log(f"Collected {len(col_objs)} collision primitives")
 
+            # If enabled, move main object to world center while keeping collision relative transforms
             if not job.keep_transforms:
-                # Move main object to world center while keeping collision relative transforms
                 for col in col_objs:
+                    logd(f"Moving collision {col.name}")
                     self.saved_transforms[col] = col.matrix_world.copy()
                     col.matrix_world = obj.matrix_world.inverted() @ col.matrix_world
                 obj.matrix_world.identity()
@@ -145,27 +201,35 @@ class GRET_OT_scene_export(bpy.types.Operator):
             bpy.ops.mesh.vertex_color_mapping_refresh(ctx, invert=True)
             bpy.ops.mesh.vertex_color_mapping_clear(ctx)
 
+            # Put the objects in a group
+            origin_collection = job_cl.collection if job_cl else item.original.users_collection[0]
             path_fields = {
-                'object': obj.name,
-                'collection': orig_obj.users_collection[0].name,
+                'object': item.original.name,
+                'collection': origin_collection.name,
             }
             filepath = get_export_path(job.scene_export_path, path_fields)
-            groups[filepath].append(obj)
-            groups[filepath].extend(col_objs)
-
+            groups[filepath].append(item)
             logger.indent -= 1
 
         # Export each file
-        for filepath, objs in groups.items():
+        for filepath, items in groups.items():
+            # Export with the original object names
+            for item in items:
+                swap_object_names(item.original, item.obj)
+
+            objs = list(chain.from_iterable([item.obj] + item.col_objs for item in items))
             select_only(context, objs)
 
             filename = bpy.path.basename(filepath)
-            result = export_fbx(context, filepath, [])
+            result = export_fbx(context, filepath)
             if result == {'FINISHED'}:
                 log(f"Exported {filename} with {len(objs)} objects")
                 self.exported_files.append(filename)
             else:
                 log(f"Failed to export {filename}")
+
+            for item in items:
+                swap_object_names(item.original, item.obj)
 
     def execute(self, context):
         job = context.scene.gret.export_jobs[self.index]
@@ -175,7 +239,8 @@ class GRET_OT_scene_export(bpy.types.Operator):
         # Check addon availability and export path
         try:
             fail_if_no_operator('vertex_color_mapping_refresh', submodule=bpy.ops.mesh)
-            fail_if_invalid_export_path(job.scene_export_path, ['object', 'collection'])
+            field_names = ['object', 'collection']
+            fail_if_invalid_export_path(job.scene_export_path, field_names)
         except Exception as e:
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}

@@ -2,7 +2,7 @@ import bmesh
 import bpy
 import re
 
-from gret.helpers import get_flipped_name, select_only
+from gret.helpers import get_flipped_name, get_context, select_only
 from gret.log import logger, log, logd
 
 def edit_mesh_elements(obj, type='VERT', indices=None, key=None):
@@ -217,41 +217,29 @@ def mirror_shape_keys(obj, side_vgroup_name):
 
             logger.indent -= 1
 
-def apply_modifiers(obj):
-    """Apply modifiers while preserving shape keys. Handles some modifiers specially."""
+def apply_modifiers(obj, key=None, keep_armature=False):
+    """Apply modifiers while preserving shape keys."""
 
-    modifiers = []
-    num_shape_keys = len(obj.data.shape_keys.key_blocks) if obj.data.shape_keys else 0
-    if num_shape_keys:
-        def should_disable_modifier(mod):
-            return (mod.type in {'ARMATURE', 'NORMAL_EDIT'}
-                or mod.type == 'DATA_TRANSFER' and 'CUSTOM_NORMAL' in mod.data_types_loops)
+    ctx = get_context(obj)
 
-        for modifier in obj.modifiers:
-            # Disable modifiers to be applied after mirror
-            if modifier.show_viewport and should_disable_modifier(modifier):
-                modifier.show_viewport = False
-                modifiers.append(modifier)
+    for mod in obj.modifiers:
+        enable = key(mod) if key else True
+        logd(f"{'Enabled' if enable else 'Disabled'} {mod.type} modifier {mod.name}")
+        mod.show_viewport = enable
 
-        log(f"Applying modifiers with {num_shape_keys} shape keys")
-        bpy.ops.gret.shape_key_apply_modifiers({'object': obj}, keep_modifiers=True)
-    else:
-        modifiers = [mod for mod in obj.modifiers if mod.show_viewport]
+    bpy.ops.gret.shape_key_apply_modifiers(ctx, keep_modifiers=True)
 
-    for modifier in modifiers:
-        modifier.show_viewport = True
-        if modifier.type == 'ARMATURE':
-            # Do nothing, just reenable
-            pass
+    for mod in obj.modifiers[:]:
+        if mod.type == 'ARMATURE' and keep_armature:
+            mod.show_viewport = True
         else:
-            try:
-                bpy.ops.object.modifier_apply(modifier=modifier.name)
-            except RuntimeError:
-                log(f"Couldn't apply {modifier.type} modifier '{modifier.name}'")
+            logd(f"Removed {mod.type} modifier {mod.name}")
+            bpy.ops.object.modifier_remove(ctx, modifier=mod.name)
 
 def apply_shape_keys_with_vertex_groups(obj):
     if not obj.data.shape_keys:
         return
+
     for sk in obj.data.shape_keys.key_blocks:
         if sk.vertex_group:
             vgroup = obj.vertex_groups[sk.vertex_group]

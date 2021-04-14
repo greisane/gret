@@ -22,6 +22,13 @@ from gret.rig.helpers import (
     is_object_arp_humanoid,
 )
 
+class ConstantCurve:
+    """Mimics FCurve and always returns the same value on evaluation."""
+    def __init__(self, value=0.0):
+        self.value = value
+    def evaluate(self, frame_index):
+        return self.value
+
 class GRET_OT_animation_export(bpy.types.Operator):
     bl_idname = 'gret.animation_export'
     bl_label = "Animation Export"
