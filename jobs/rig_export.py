@@ -95,7 +95,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
             'rigfile': os.path.splitext(bpy.path.basename(rig_filepath))[0],
             'rig': rig.name,
         }
-        cloned_objs = []
         rig.data.pose_position = 'REST'
 
         if job.to_collection and job.clean_collection:
@@ -106,12 +105,11 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 bpy.data.objects.remove(obj, do_unlink=True)
 
         # Find and clone objects to be exported
-        origin_objs, job_cls = job.get_export_objects(context, types={'MESH'}, armature=rig)
-        cloned_objs = [self.copy_obj(oobj) for oobj in origin_objs]
-        def remove_obj(obj_index):
-            origin_objs.pop(obj_index)
-            cloned_objs.pop(obj_index)
-            job_cls.pop(obj_index)
+        ExportItem = namedtuple('ExportObject', ['original', 'obj', 'job_collection', 'skip'])
+
+        items = []
+        for obj, job_cl in zip(*job.get_export_objects(context, types={'MESH'}, armature=rig)):
+            items.append(ExportItem(obj, self.copy_obj(obj), job_cl, False))
 
         # Process individual meshes
         job_tags = job.modifier_tags.split(' ')
@@ -124,13 +122,14 @@ class GRET_OT_rig_export(bpy.types.Operator):
                     return tag in job_tags
             return mod.show_render
 
-        for obj_index, obj in enumerate(cloned_objs[:]):
-            log(f"Processing {obj.name}")
+        for item in items:
+            log(f"Processing {item.original.name}")
+            obj = item.obj
             ctx = get_context(obj)
             logger.indent += 1
 
             # Simplify if specified in job collection
-            levels = job_cls[obj_index].subdivision_levels
+            levels = item.job_collection.subdivision_levels
             if levels < 0:
                 unsubdivide_preserve_uvs(obj, -levels)
 
@@ -167,13 +166,14 @@ class GRET_OT_rig_export(bpy.types.Operator):
                         break
             if all(not mat for mat in obj.data.materials):
                 log(f"Object has no materials and won't be exported")
-                remove_obj(obj_index)
+                item.skip = True
                 logger.indent -= 1
                 continue
+
             delete_faces_with_no_material(obj)
             if not obj.data.polygons:
                 log(f"Object has no faces and won't be exported")
-                remove_obj(obj_index)
+                item.skip = True
                 logger.indent -= 1
                 continue
 
@@ -207,50 +207,51 @@ class GRET_OT_rig_export(bpy.types.Operator):
             self.sanitize_mesh(obj)
             logger.indent -= 1
 
-        # Create export groups. Meshes in each group are merged together
-        ExportGroup = namedtuple('ExportGroup', ['suffix', 'objects'])
-        groups = []
-        if job.join_meshes:
-            groups.append(ExportGroup(suffix="", objects=cloned_objs[:]))
-        else:
-            # Each mesh exports to a different file
-            for oobj, cobj in zip(origin_objs, cloned_objs):
-                groups.append(ExportGroup(suffix=f"_{oobj.name}", objects=[cobj]))
+        # Create export groups
+        ExportGroup = namedtuple('ExportGroup', ['suffix', 'items'])
+        ExportGroup.get_objects = lambda self: [item.obj for item in self.items]
 
-        merges = {}
+        groups = []
+        items = list(filter(lambda item: not item.skip, items))
+        if job.join_meshes:
+            groups.append(ExportGroup(suffix="", items=items[:]))
+        else:
+            for item in items:
+                groups.append(ExportGroup(suffix=f"_{item.original.name}", items=[item]))
+
+        # Process groups. Meshes in each group are merged together
         for group in groups:
-            objs = group.objects
-            if len(objs) <= 1:
+            items = group.items
+            if len(items) <= 1:
                 continue
 
             # Pick the densest object to receive all the others
-            merged_obj = max(objs, key=lambda o: len(o.data.vertices))
-            merges.update({obj.name: merged_obj for obj in objs})
-            log(f"Merging {', '.join(obj.name for obj in objs if obj is not merged_obj)} " \
-                f"into {merged_obj.name}")
+            merged_item = max(items, key=lambda it: len(it.obj.data.vertices))
+            log(f"Merging {', '.join(it.original.name for it in items if it is not merged_item)} "
+                f"into {merged_item.original.name}")
             logger.indent += 1
 
             # TODO this sucks
-            for obj in objs:
-                if obj != merged_obj:
-                    self.new_objs.discard(obj)
-                    self.new_meshes.discard(obj.data)
-            ctx = get_context(active_obj=merged_obj, selected_objs=objs)
+            for obj in (it.obj for it in items if it is not merged_item):
+                self.new_objs.discard(obj)
+                self.new_meshes.discard(obj.data)
+            obj = merged_item.obj
+            ctx = get_context(active_obj=obj, selected_objs=group.get_objects())
             bpy.ops.object.join(ctx)
-            group.objects[:] = [merged_obj]
+            items[:] = [merged_item]
 
             # Joining objects loses drivers, restore them
-            for oobj in origin_objs:
-                if oobj.data.shape_keys and oobj.data.shape_keys.animation_data:
-                    for fc in oobj.data.shape_keys.animation_data.drivers:
-                        if merged_obj.data.shape_keys.animation_data is None:
-                            merged_obj.data.shape_keys.animation_data_create()
-                        merged_obj.data.shape_keys.animation_data.drivers.from_existing(src_driver=fc)
+            for item in items:
+                if item.original.data.shape_keys and item.original.data.shape_keys.animation_data:
+                    for fc in item.original.data.shape_keys.animation_data.drivers:
+                        if obj.data.shape_keys.animation_data is None:
+                            obj.data.shape_keys.animation_data_create()
+                        obj.data.shape_keys.animation_data.drivers.from_existing(src_driver=fc)
 
             # Ensure proper mesh state
-            self.sanitize_mesh(merged_obj)
+            self.sanitize_mesh(obj)
 
-            num_verts_merged = merge_freestyle_edges(merged_obj)
+            num_verts_merged = merge_freestyle_edges(obj)
             if num_verts_merged > 0:
                 log(f"Welded {num_verts_merged} verts (edges were marked freestyle)")
             logger.indent -= 1
@@ -258,8 +259,9 @@ class GRET_OT_rig_export(bpy.types.Operator):
         if job.to_collection:
             # Keep new objects in the target collection
             for group in groups:
-                for obj in group.objects:
-                    if len(group.objects) == 1:
+                for item in group.items:
+                    obj = item.obj
+                    if len(group.items) == 1:
                         # If producing a single object, rename it to match the collection
                         obj.name = job.export_collection.name
                         obj.data.name = job.export_collection.name
@@ -282,7 +284,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 if filepath in self.exported_files:
                     log(f"Skipping {filename} as it would overwrite a file that was just exported")
 
-                select_only(context, group.objects)
+                select_only(context, group.get_objects())
                 rig.select_set(True)
                 context.view_layer.objects.active = rig
                 rig.data.pose_position = 'POSE'
