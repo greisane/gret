@@ -114,7 +114,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
             job_cls.pop(obj_index)
 
         # Process individual meshes
-        kept_modifiers = []  # List of (object name, modifier index, modifier properties)
         job_tags = job.modifier_tags.split(' ')
         def should_enable_modifier(mod):
             for tag in re.findall(r"g:(\S+)", mod.name):
@@ -153,10 +152,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
                     logd(f"Enabled {mod.type} modifier {mod.name}")
                     mod.show_viewport = True
                 else:
-                    if "!keep" in mod.name:
-                        # Store the modifier to recreate it later
-                        logd(f"Storing {mod.type} modifier {mod.name}")
-                        kept_modifiers.append((obj.name, mod_idx, save_properties(mod)))
                     logd(f"Removed {mod.type} modifier {mod.name}")
                     bpy.ops.object.modifier_remove(ctx, modifier=mod.name)
 
@@ -278,18 +273,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
                     # Don't delete this
                     self.new_objs.discard(obj)
                     self.new_meshes.discard(obj.data)
-            if kept_modifiers:
-                # Recreate modifiers that were stored
-                for obj_name, index, props in kept_modifiers:
-                    obj = bpy.data.objects.get(obj_name) or merges.get(obj_name)
-                    if obj:
-                        ctx = get_context(obj)
-                        logd(f"Restoring {props['type']} modifier {props['name']}")
-                        mod = obj.modifiers.new(name=props['name'], type=props['type'])
-                        load_properties(mod, props)
-
-                        new_index = min(index, len(obj.modifiers) - 1)
-                        bpy.ops.object.modifier_move_to_index(ctx, modifier=mod.name, index=new_index)
         else:
             # Finally export
             for group in groups:

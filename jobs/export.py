@@ -541,8 +541,7 @@ Separate tags with a space. Tag modifiers with 'g:tag'""",
     )
     to_collection: bpy.props.BoolProperty(
         name="To Collection",
-        description="""Produced meshes are put in a collection instead of being exported.
-Tag modifiers with '!keep' to preserve them in the new meshes""",
+        description="Produced meshes are put in a collection instead of being exported"
         default=False,
     )
     clean_collection: bpy.props.BoolProperty(
