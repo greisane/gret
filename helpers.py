@@ -50,18 +50,18 @@ def get_context(active_obj=None, selected_objs=None):
     """Returns context for single object operators."""
 
     ctx = {}
-    if target_obj and selected_objs:
+    if active_obj and selected_objs:
         # Operate on all the objects, active object is specified
-        ctx['object'] = ctx['active_object'] = target_obj
+        ctx['object'] = ctx['active_object'] = active_obj
         ctx['selected_objects'] = ctx['selected_editable_objects'] = selected_objs
-    elif not target_obj and selected_objs:
+    elif not active_obj and selected_objs:
         # Operate on all the objects, it isn't important which one is active
         ctx['object'] = ctx['active_object'] = next(iter(selected_objs))
-        ctx['selected_objects'] = ctx['selected_editable_objects'] = [target_obj]
-    elif target_obj and not selected_objs:
+        ctx['selected_objects'] = ctx['selected_editable_objects'] = [active_obj]
+    elif active_obj and not selected_objs:
         # Operate on a single object
-        ctx['object'] = ctx['active_object'] = target_obj
-        ctx['selected_objects'] = ctx['selected_editable_objects'] = [target_obj]
+        ctx['object'] = ctx['active_object'] = active_obj
+        ctx['selected_objects'] = ctx['selected_editable_objects'] = [active_obj]
     return ctx
 
 SelectionState = namedtuple('SelectionState', [

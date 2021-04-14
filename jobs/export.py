@@ -173,6 +173,9 @@ def draw_job(layout, jobs, job_index):
         for job_cl in job.collections:
             row = col.row(align=True)
             row.prop(job_cl, 'collection', text="")
+            sub = row.split(align=True)
+            sub.prop(job_cl, 'subdivision_levels', text="")
+            sub.ui_units_x = 1.8
             row.prop(job_cl, 'export_viewport', icon='RESTRICT_VIEW_OFF', text="")
             row.prop(job_cl, 'export_render', icon='RESTRICT_RENDER_OFF', text="")
         return col
@@ -318,6 +321,11 @@ class GRET_PG_export_collection(bpy.types.PropertyGroup):
         name="Export Render",
         description="Include collections and objects that are visible in render",
         default=True,
+    )
+    subdivision_levels: bpy.props.IntProperty(
+        name="Subdivision Levels",
+        description="Subdivision levels to apply to the collection. Negative values will simplify",
+        default=0,
     )
 
 def on_action_updated(self, context):

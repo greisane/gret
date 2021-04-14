@@ -27,7 +27,7 @@ from gret.mesh.helpers import (
     merge_basis_shape_keys,
     merge_freestyle_edges,
     mirror_shape_keys,
-    subdivide_verts_with_bevel_weight,
+    unsubdivide_preserve_uvs,
 )
 from gret import prefs
 from gret.log import logger, log, logd
@@ -130,6 +130,11 @@ class GRET_OT_rig_export(bpy.types.Operator):
             ctx = get_context(obj)
             logger.indent += 1
 
+            # Simplify if specified in job collection
+            levels = job_cls[obj_index].subdivision_levels
+            if levels < 0:
+                unsubdivide_preserve_uvs(obj, -levels)
+
             # Ensure mesh has custom normals so that they won't be recalculated on masking
             bpy.ops.mesh.customdata_custom_splitnormals_add(ctx)
             obj.data.use_auto_smooth = True
@@ -230,9 +235,14 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 f"into {merged_obj.name}")
             logger.indent += 1
 
+            # TODO this sucks
+            for obj in objs:
+                if obj != merged_obj:
+                    self.new_objs.discard(obj)
+                    self.new_meshes.discard(obj.data)
             ctx = get_context(active_obj=merged_obj, selected_objs=objs)
             bpy.ops.object.join(ctx)
-            objs[:] = [merged_obj]
+            group.objects[:] = [merged_obj]
 
             # Joining objects loses drivers, restore them
             for oobj in origin_objs:
@@ -252,33 +262,34 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
         if job.to_collection:
             # Keep new objects in the target collection
-            for obj in self.new_objs:
-                ctx = get_context(obj)
-                if len(self.new_objs) == 1:
-                    # If producing a single object, rename it to match the collection
-                    obj.name = job.export_collection.name
-                    obj.data.name = job.export_collection.name
-                job.export_collection.objects.link(obj)
-                context.scene.collection.objects.unlink(obj)
-                # Disable features on output meshes for performance
-                obj.data.use_auto_smooth = False
-                obj.data.use_customdata_vertex_bevel = False
-                obj.data.use_customdata_edge_bevel = False
-                obj.data.use_customdata_edge_crease = False
+            for group in groups:
+                for obj in group.objects:
+                    if len(group.objects) == 1:
+                        # If producing a single object, rename it to match the collection
+                        obj.name = job.export_collection.name
+                        obj.data.name = job.export_collection.name
+                    job.export_collection.objects.link(obj)
+                    context.scene.collection.objects.unlink(obj)
+                    # Disable features on output meshes for performance
+                    obj.data.use_auto_smooth = False
+                    obj.data.use_customdata_vertex_bevel = False
+                    obj.data.use_customdata_edge_bevel = False
+                    obj.data.use_customdata_edge_crease = False
+                    # Don't delete this
+                    self.new_objs.discard(obj)
+                    self.new_meshes.discard(obj.data)
             if kept_modifiers:
                 # Recreate modifiers that were stored
                 for obj_name, index, props in kept_modifiers:
                     obj = bpy.data.objects.get(obj_name) or merges.get(obj_name)
                     if obj:
+                        ctx = get_context(obj)
                         logd(f"Restoring {props['type']} modifier {props['name']}")
                         mod = obj.modifiers.new(name=props['name'], type=props['type'])
                         load_properties(mod, props)
 
                         new_index = min(index, len(obj.modifiers) - 1)
                         bpy.ops.object.modifier_move_to_index(ctx, modifier=mod.name, index=new_index)
-            # Don't delete the new stuff
-            self.new_objs.clear()
-            self.new_meshes.clear()
         else:
             # Finally export
             for group in groups:

@@ -132,7 +132,7 @@ def merge_basis_shape_keys(obj):
         else:
             sk.mute = True
 
-    num_shape_keys = len([sk for sk in obj.data.shape_keys.key_blocks if not sk.mute])
+    num_shape_keys = sum([not sk.mute for sk in obj.data.shape_keys.key_blocks])
     if num_shape_keys:
         log(f"Merging {num_shape_keys} basis shape keys")
 
@@ -188,6 +188,7 @@ def mirror_shape_keys(obj, side_vgroup_name):
             new_sk = duplicate_shape_key(obj, sk.name, flipped_name)
             new_sk.vertex_group = other_vgroup_name
 
+            # Attempt to flip the driver, e.g if driven by Arm_L, make it driven by Arm_R instead.
             try:
                 flip_data_path = lambda match: f'["{get_flipped_name(match.group(1)) or match.group(1)}"]'
                 sk_data_path = f'key_blocks["{sk.name}"]'
@@ -313,6 +314,23 @@ def delete_faces_with_no_material(obj):
     bmesh.ops.delete(bm, geom=delete_geom, context='FACES')
     if delete_geom:
         log(f"Deleted {len(delete_geom)} faces with no material")
+
+    # Finish and clean up
+    bm.to_mesh(obj.data)
+    bm.free()
+
+def unsubdivide_preserve_uvs(obj, levels):
+    """Split by seams then subdivide, preserving UVs. Mesh is expected to be quads."""
+
+    assert levels > 0
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+
+    seams = [e for e in bm.edges if e.seam]
+    bmesh.ops.split_edges(bm, edges=seams, use_verts=False)
+    bmesh.ops.unsubdivide(bm, verts=bm.verts, iterations=levels*2)
+    seam_verts = [v for v in bm.verts if any(e.seam for e in v.link_edges)]
+    bmesh.ops.remove_doubles(bm, verts=seam_verts, dist=1e-5)
 
     # Finish and clean up
     bm.to_mesh(obj.data)
