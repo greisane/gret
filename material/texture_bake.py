@@ -19,7 +19,6 @@ from gret.helpers import (
 from gret.material.helpers import SolidPixels, Node
 
 # TODO
-# - Auto world align
 # - AO floor
 
 def remap_materials(objs, src_mat, dst_mat):
@@ -326,8 +325,8 @@ class GRET_OT_quick_unwrap(bpy.types.Operator):
 
     uv_layer_name: bpy.props.StringProperty(
         name="UV Layer",
-        description="Name of the target UV layer.\n"
-            "Defaults to the setting found in addon preferences if not specified",
+        description="""Name of the target UV layer.
+Defaults to the setting found in addon preferences if not specified""",
         default="",
     )
     angle_limit: bpy.props.FloatProperty(
@@ -345,6 +344,11 @@ class GRET_OT_quick_unwrap(bpy.types.Operator):
         min=0.0,
         max=1.0,
     )
+    align_with_world: bpy.props.BoolProperty(
+        name="Align With World",
+        description="Rotate UV islands to flow in the direction of gravity. Requires TexTools addon",
+        default=True,
+    )
 
     @classmethod
     def poll(cls, context):
@@ -352,6 +356,7 @@ class GRET_OT_quick_unwrap(bpy.types.Operator):
 
     def execute(self, context):
         mat = context.object.active_material
+        saved_area_ui_type = context.area.ui_type
         saved_use_uv_select_sync = context.scene.tool_settings.use_uv_select_sync
         saved_selection = save_selection()
         saved_active_uv_layers = {}  # Object to UV layer
@@ -385,9 +390,20 @@ class GRET_OT_quick_unwrap(bpy.types.Operator):
                 area_weight=self.area_weight,
                 correct_aspect=True,
                 scale_to_bounds=False)
+
+            # If set and TexTools is available, rotate islands
+            if self.align_with_world:
+                try:
+                    context.area.ui_type = 'UV'
+                    context.scene.tool_settings.use_uv_select_sync = False
+                    bpy.ops.uv.textools_island_align_world(steps=2)
+                except AttributeError:
+                    pass
+
+            # If available, pack using an addon
             try:
-                # Pack using an addon if available
                 context.scene.uvp2_props.margin = margin
+                context.scene.uvp2_props.rot_enable = not self.align_with_world
                 bpy.ops.uvpackmaster2.uv_pack()
             except AttributeError:
                 pass
@@ -396,6 +412,7 @@ class GRET_OT_quick_unwrap(bpy.types.Operator):
                 obj.data.uv_layers.active = uv_layer
             load_selection(saved_selection)
             context.scene.tool_settings.use_uv_select_sync = saved_use_uv_select_sync
+            context.area.ui_type = saved_area_ui_type
             # Exiting edit mode here causes uvpackmaster2 to break, it's doing some weird modal stuff
             # bpy.ops.object.mode_set(mode='OBJECT')
 

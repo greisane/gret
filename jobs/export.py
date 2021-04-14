@@ -507,7 +507,7 @@ Separate tags with a space. Tag modifiers with 'g:tag'""",
         description="""Export path relative to the current folder.
 {file} = Name of this .blend file without extension.
 {rigfile} = Name of the .blend file the rig is linked from, without extension.
-{rig} = Name of the rig being exported.,
+{rig} = Name of the rig being exported.
 {object} = Name of the object being exported.
 {collection} = Name of the collection the object belongs to""",
         default="//export/SK_{rigfile}.fbx",
