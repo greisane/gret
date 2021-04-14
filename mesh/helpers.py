@@ -320,7 +320,7 @@ def delete_faces_with_no_material(obj):
     bm.free()
 
 def unsubdivide_preserve_uvs(obj, levels):
-    """Split by seams then subdivide, preserving UVs. Mesh is expected to be quads."""
+    """Split by seams then unsubdivide, preserving UVs. Mesh is expected to be quads."""
 
     assert levels > 0
     bm = bmesh.new()

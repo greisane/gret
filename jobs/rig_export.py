@@ -105,10 +105,15 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 bpy.data.objects.remove(obj, do_unlink=True)
 
         # Find and clone objects to be exported
+        # Original objects that aren't exported will be hidden for render, only for driver purposes
         ExportItem = namedtuple('ExportObject', ['original', 'obj', 'job_collection', 'skip'])
 
         items = []
-        for obj, job_cl in zip(*job.get_export_objects(context, types={'MESH'}, armature=rig)):
+        export_objs, job_cls = job.get_export_objects(context, types={'MESH'}, armature=rig)
+        for obj in get_children_recursive(rig):
+            obj.hide_render = True
+        for obj, job_cl in zip(export_objs, job_cls):
+            obj.hide_render = False
             items.append(ExportItem(obj, self.copy_obj(obj), job_cl, False))
 
         # Process individual meshes
