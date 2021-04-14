@@ -3,6 +3,7 @@ import bmesh
 import bpy
 
 from gret.math import get_sq_dist
+from gret.log import log, logd
 
 # shape_key_apply_modifiers TODO:
 # - Specialcase more merging modifiers, solidify for example
@@ -50,6 +51,20 @@ def weld_mesh(mesh, weld_map):
     bm.to_mesh(mesh)
     bm.free()
 
+def apply_modifier(obj, name, keep_if_disabled=False):
+    ctx = {'object': obj}
+    modifier = obj.modifiers[name]
+
+    if modifier.show_viewport:
+        try:
+            bpy.ops.object.modifier_apply(ctx, modifier=name)
+        except RuntimeError:
+            logd(f"Couldn't apply {modifier.type} modifier {name}")
+            if not keep_if_disabled:
+                bpy.ops.object.modifier_remove(ctx, modifier=name)
+    elif not keep_if_disabled:
+        bpy.ops.object.modifier_remove(ctx, modifier=name)
+
 class ModifierHandler:
     """Subclass this to define special behavior when applying different modifiers."""
 
@@ -64,15 +79,7 @@ class ModifierHandler:
         return not cls.type or modifier.type == cls.type
 
     def apply(self, obj, keep_if_disabled=False):
-        modifier = obj.modifiers[self.name]
-        if modifier.show_viewport:
-            try:
-                bpy.ops.object.modifier_apply({'object': obj}, modifier=modifier.name)
-            except RuntimeError:
-                if not keep_if_disabled:
-                    bpy.ops.object.modifier_remove({'object': obj}, modifier=modifier.name)
-        elif not keep_if_disabled:
-            bpy.ops.object.modifier_remove({'object': obj}, modifier=modifier.name)
+        apply_modifier(obj, self.name, keep_if_disabled)
 
 class MirrorModifierHandler(ModifierHandler):
     type = 'MIRROR'
@@ -203,13 +210,21 @@ class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
         obj = context.object
 
         if not any(mod.show_viewport for mod in obj.modifiers):
-            # There are no modifiers to apply, don't do anything
+            # There are no modifiers to apply
             return {'FINISHED'}
 
         if obj.data.users > 1:
             # Make single user copy
             obj.data = obj.data.copy()
 
+        num_shape_keys = len(obj.data.shape_keys.key_blocks) if obj.data.shape_keys else 0
+        if not num_shape_keys:
+            # No shape keys, just apply the modifiers
+            for modifier in obj.modifiers[:]:
+                apply_modifier(obj, modifier.name, self.keep_modifiers)
+            return {'FINISHED'}
+
+        log(f"Applying modifiers with {num_shape_keys} shape keys")
         mesh_copy = obj.data.copy()  # Copy for convenience, to be able to call from_existing(fcurve)
         shape_keys = obj.data.shape_keys.key_blocks if obj.data.shape_keys else []
         shape_key_infos = []
