@@ -194,8 +194,8 @@ class GRET_OT_rig_export(bpy.types.Operator):
             apply_shape_keys_with_vertex_groups(obj)
 
             # Refresh vertex color and clear the mappings to avoid issues when meshes are merged
-            # While in Blender it's more intuitive to author masks starting from black, however
-            # UE4 defaults to white. Materials should then use OneMinus to get the original value
+            # It's more intuitive to author masks starting from black, however UE4 defaults to white
+            # Invert vertex colors, materials should use OneMinus to get the original value
             if not obj.data.vertex_colors and not obj.vertex_color_mapping:
                 bpy.ops.mesh.vertex_color_mapping_add(ctx)
             bpy.ops.mesh.vertex_color_mapping_refresh(ctx, invert=True)

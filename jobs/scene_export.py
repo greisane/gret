@@ -193,9 +193,14 @@ class GRET_OT_scene_export(bpy.types.Operator):
                         self.saved_material_names[mat] = mat.name
                         mat.name = job.material_name_prefix + mat.name
 
-            # Refresh vertex color and clear the mappings to avoid issues when meshes are merged
-            # While in Blender it's more intuitive to author masks starting from black, however
-            # UE4 defaults to white. Materials should then use OneMinus to get the original value
+            # Ensure UV layer, Substance Painter complains. Zero coords to avoid all kinds of problems
+            if not obj.data.uv_layers:
+                log("Created empty UV layer")
+                for uvloop in obj.data.uv_layers.new(name="UVMap").data:
+                    uvloop.uv = (0.0, 0.0)
+
+            # It's more intuitive to author masks starting from black, however UE4 defaults to white
+            # Invert vertex colors, materials should use OneMinus to get the original value
             if not obj.data.vertex_colors and not obj.vertex_color_mapping:
                 bpy.ops.mesh.vertex_color_mapping_add(ctx)
             bpy.ops.mesh.vertex_color_mapping_refresh(ctx, invert=True)
