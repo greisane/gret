@@ -211,7 +211,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 'object': item.original.name,
                 'collection': job_cl.collection.name,
             }
-            filepath = get_export_path(job.rig_export_path, path_fields)
+            filepath = None if job.to_collection else get_export_path(job.rig_export_path, path_fields)
             groups[filepath].append(item)
             logger.indent -= 1
 
@@ -254,9 +254,9 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
         if job.to_collection:
             # Keep new objects in the target collection
-            for filepath, items in groups.items():
-                obj = item.obj
-                if len(items) == 1:
+            objs = [item.obj for item in chain.from_iterable(groups.values())]
+            for obj in objs:
+                if len(objs) == 1:
                     # If producing a single object, rename it to match the collection
                     obj.name = job.export_collection.name
                     obj.data.name = job.export_collection.name
