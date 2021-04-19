@@ -20,6 +20,7 @@ from gret.material.helpers import SolidPixels, Node
 
 # TODO
 # - AO floor
+# - Make it a collection like vertex color mapping, add UVMap name to it
 
 def remap_materials(objs, src_mat, dst_mat):
     for obj in objs:
@@ -150,6 +151,12 @@ All faces from all objects assigned to the active material are assumed to contri
     bl_label = "Bake"
     bl_options = {'INTERNAL'}
 
+    uv_layer_name: bpy.props.StringProperty(
+        name="UV Layer",
+        description="""Name of the target UV layer.
+Defaults to the setting found in addon preferences if not specified""",
+        default="",
+    )
     debug: bpy.props.BoolProperty(
         name="Debug",
         description="Debug mode with verbose output. Keeps intermediate materials and textures",
@@ -195,6 +202,7 @@ All faces from all objects assigned to the active material are assumed to contri
         mat = context.object.active_material
         bake = mat.texture_bake
         size = bake.size
+        self.uv_layer_name = self.uv_layer_name or prefs.quick_unwrap_uv_layer_name
 
         # Collect all the objects that share this material
         objs = [o for o in context.scene.objects if
@@ -209,6 +217,12 @@ All faces from all objects assigned to the active material are assumed to contri
         for obj_idx, obj in enumerate(objs):
             self.saved_transforms[obj] = obj.matrix_world.copy()
             obj.matrix_world = Matrix.Translation((100.0 * obj_idx, 0.0, 0.0))
+
+            uv = obj.data.uv_layers.get(self.uv_layer_name)
+            if not uv:
+                log(f"UV layer {self.uv_layer_name} not found in {obj.name}")
+                return {'CANCELLED'}
+            uv.active = True
 
         # Setup common to all bakers
         # Note that dilation happens before the bake results from multiple objects are merged
