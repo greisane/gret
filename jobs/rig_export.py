@@ -234,10 +234,11 @@ class GRET_OT_rig_export(bpy.types.Operator):
             objs = [item.obj for item in items]
             ctx = get_context(active_obj=obj, selected_objs=objs)
             bpy.ops.object.join(ctx)
-            items[:] = [merged_item]
+            groups[filepath] = [merged_item]
 
             # Joining objects loses drivers, restore them
             for item in items:
+                logd(f"Copying drivers from {item.original.name}")
                 if item.original.data.shape_keys and item.original.data.shape_keys.animation_data:
                     for fc in item.original.data.shape_keys.animation_data.drivers:
                         if obj.data.shape_keys.animation_data is None:
