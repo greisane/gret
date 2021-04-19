@@ -300,7 +300,9 @@ def get_export_path(path, fields):
         path, ext = os.path.splitext(path)
         path = path + fields['suffix'] + ext
 
-    return bpy.path.abspath(path)
+    path = bpy.path.abspath(path)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    return path
 
 def fail_if_invalid_export_path(path, field_names):
     """Validates an export path and returns the reason it isn't valid."""
