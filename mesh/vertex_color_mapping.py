@@ -124,18 +124,18 @@ class GRET_OT_vertex_color_mapping_refresh(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type == 'MESH'
+        return context.active_object and context.active_object.type == 'MESH'
 
     def execute(self, context):
-        for obj in context.selected_objects:
-            if obj.type == 'MESH':
-                update_vcols(obj, invert=self.invert)
+        obj = context.active_object
+        if obj.vertex_color_mapping:
+            update_vcols(obj, invert=self.invert)
 
         return {'FINISHED'}
 
 class GRET_OT_vertex_color_mapping_set(bpy.types.Operator):
     #tooltip
-    """Set vertex color mapping"""
+    """Set vertex color mapping for multiple objects"""
 
     bl_idname = 'mesh.vertex_color_mapping_set'
     bl_label = "Set Vertex Color Mapping"
@@ -178,7 +178,7 @@ class GRET_OT_vertex_color_mapping_set(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type == 'MESH'
+        return bool(context.selected_objects)
 
     def execute(self, context):
         for obj in context.selected_objects:
@@ -230,11 +230,15 @@ class GRET_OT_vertex_color_mapping_add(bpy.types.Operator):
     bl_label = "Add Vertex Color Mapping"
     bl_options = {'INTERNAL', 'UNDO'}
 
-    def execute(self, context):
-        obj = context.object
+    @classmethod
+    def poll(cls, context):
+        return context.active_object and context.active_object.type == 'MESH'
 
+    def execute(self, context):
+        obj = context.active_object
         if obj.vertex_color_mapping:
             return {'CANCELLED'}
+
         mapping = obj.vertex_color_mapping.add()
         mapping.r = mapping.g = mapping.b = mapping.a = 'ZERO'
 
@@ -250,15 +254,12 @@ class GRET_OT_vertex_color_mapping_clear(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type == 'MESH'
+        return context.active_object and context.active_object.type == 'MESH'
 
     def execute(self, context):
-        for obj in context.selected_objects:
-            if obj.type == 'MESH':
-                if not obj.vertex_color_mapping:
-                    continue
-
-                obj.vertex_color_mapping.clear()
+        obj = context.active_object
+        if obj.vertex_color_mapping:
+            obj.vertex_color_mapping.clear()
 
         return {'FINISHED'}
 
