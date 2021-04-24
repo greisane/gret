@@ -176,6 +176,8 @@ def draw_job(layout, jobs, job_index):
             sub.prop(job, 'side_vgroup_name', text="")
             sub.enabled = job.mirror_shape_keys
 
+            col.prop(job, 'minimize_bones')
+
             col = box.column(align=True)
             col.label(text="Remap Materials:")
             for remap_material in job.remap_materials:
@@ -494,8 +496,10 @@ Requires a mirror modifier""",
         description="Name of the vertex group that will be created on mirroring shape keys",
         default="_side.l",
     )
-    remap_materials: bpy.props.CollectionProperty(
-        type=GRET_PG_remap_material,
+    minimize_bones: bpy.props.BoolProperty(
+        name="Minimize Bone Hierarchy",
+        description="Only export bones that the meshes are weighted to",
+        default=False,
     )
     to_collection: bpy.props.BoolProperty(
         name="To Collection",

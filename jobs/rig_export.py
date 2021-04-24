@@ -272,10 +272,31 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 self.new_objs.discard(obj)
                 self.new_meshes.discard(obj.data)
         else:
+            if job.minimize_bones:
+                self.saved_deform_bone_names = [b.name for b in rig.data.bones if b.use_deform]
+
             # Finally export
             for filepath, items in groups.items():
                 filename = bpy.path.basename(filepath)
                 objs = [item.obj for item in items]
+
+                if job.minimize_bones:
+                    # Only relevant bones and their parents will be marked deform
+                    bones = rig.data.bones
+                    for bone_name in self.saved_deform_bone_names:
+                        bones[bone_name].use_deform = False
+                    vgroup_names = set()
+                    for obj in objs:
+                        vgroup_names.update(vg.name for vg in obj.vertex_groups)
+                    num_deform = 0
+                    for vgroup_name in vgroup_names:
+                        bone = bones.get(vgroup_name)
+                        while bone:
+                            if not bone.use_deform:
+                                num_deform += 1
+                                bone.use_deform = True
+                            bone = bone.parent
+                    logd(f"Enabled {num_deform} deform bones out of {len(self.saved_deform_bone_names)}")
 
                 if is_object_arp_humanoid(rig):
                     log(f"Exporting {filename} via Auto-Rig export")
@@ -335,6 +356,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
         self.new_objs = set()
         self.new_meshes = set()
         self.saved_material_names = {}
+        self.saved_deform_bone_names = []
         logger.start_logging()
         log(f"Beginning rig export job '{job.name}'")
 
@@ -354,7 +376,10 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 bpy.data.meshes.remove(self.new_meshes.pop())
             for mat, name in self.saved_material_names.items():
                 mat.name = name
+            for bone_name in self.saved_deform_bone_names:
+                rig.data.bones[bone_name].use_deform = True
             del self.saved_material_names
+            del self.saved_deform_bone_names
             rig.data.pose_position = saved_pose_position
             context.preferences.edit.use_global_undo = saved_use_global_undo
             load_selection(saved_selection)
