@@ -335,8 +335,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
         self.new_objs = set()
         self.new_meshes = set()
         self.saved_material_names = {}
-        self.saved_materials = []  # List of (obj, material_idx, material)
-        self.saved_auto_smooth = {}
         logger.start_logging()
         log(f"Beginning rig export job '{job.name}'")
 
@@ -356,14 +354,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 bpy.data.meshes.remove(self.new_meshes.pop())
             for mat, name in self.saved_material_names.items():
                 mat.name = name
-            for obj, material_idx, material in self.saved_materials:
-                obj.data.materials[material_idx] = material
-            for obj, (value, angle) in self.saved_auto_smooth.items():
-                obj.data.use_auto_smooth = value
-                obj.data.auto_smooth_angle = angle
-            del self.saved_materials
             del self.saved_material_names
-            del self.saved_auto_smooth
             rig.data.pose_position = saved_pose_position
             context.preferences.edit.use_global_undo = saved_use_global_undo
             load_selection(saved_selection)

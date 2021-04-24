@@ -255,7 +255,6 @@ class GRET_OT_scene_export(bpy.types.Operator):
         self.exported_files = []
         self.new_objs = []
         self.new_meshes = []
-        self.saved_object_names = {}
         self.saved_material_names = {}
         self.saved_transforms = {}
         logger.start_logging()
@@ -277,12 +276,9 @@ class GRET_OT_scene_export(bpy.types.Operator):
                 bpy.data.meshes.remove(self.new_meshes.pop())
             for obj, matrix_world in self.saved_transforms.items():
                 obj.matrix_world = matrix_world
-            for obj, name in self.saved_object_names.items():
-                obj.name = name
             for mat, name in self.saved_material_names.items():
                 mat.name = name
             del self.saved_transforms
-            del self.saved_object_names
             del self.saved_material_names
 
             load_selection(saved_selection)
