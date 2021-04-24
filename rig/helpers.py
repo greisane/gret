@@ -237,13 +237,24 @@ def export_autorig_universal(filepath, context, rig, objects=[], actions=[]):
     rig.select_set(True)
     context.view_layer.objects.active = rig
     # ctx = get_context(active_obj=rig, selected_objs=objects)
-    return bpy.ops.id.arp_export_fbx_panel(ctx, filepath=filepath)
+    return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})
 def export_fbx(filepath, context, rig, objects=[], actions=[]):
     if actions:
         # TODO Put action in the timeline
         raise NotImplementedError
+
+    # Temporarily rename the armature since it will become the root bone
+    root_bone_name = "root"
+    existing_obj_named_root = bpy.data.objects.get(root_bone_name)
+    if existing_obj_named_root:
+        existing_obj_named_root.name = root_bone_name + "_"
+    saved_rig_name = rig.name
+    rig.name = root_bone_name
+
+    rig.data.pose_position = 'POSE'
+    clear_pose(rig)
 
     ctx = get_context(active_obj=rig, selected_objs=objects)
     return bpy.ops.export_scene.fbx(ctx
@@ -282,3 +293,7 @@ def export_fbx(filepath, context, rig, objects=[], actions=[]):
         , batch_mode='OFF'
         , use_batch_own_dir=False
     )
+
+    rig.name = saved_rig_name
+    if existing_obj_named_root:
+        existing_obj_named_root.name = root_bone_name

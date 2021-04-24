@@ -104,7 +104,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
         # Original objects that aren't exported will be hidden for render, only for driver purposes
         export_objs, job_cls = job.get_export_objects(context, types={'MESH'}, armature=rig)
 
-        ExportItem = namedtuple('ExportObject', ['original', 'obj', 'job_collection'])
+        ExportItem = namedtuple('ExportItem', ['original', 'obj', 'job_collection'])
         items = []
         groups = defaultdict(list)  # Filepath to item list
         for obj in context.scene.objects:
@@ -202,6 +202,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
             # Ensure proper mesh state
             self.sanitize_mesh(obj)
+            bpy.ops.gret.vertex_group_remove_unused(ctx)
 
             # Put the objects in a group
             path_fields = {
@@ -280,8 +281,21 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 filename = bpy.path.basename(filepath)
                 objs = [item.obj for item in items]
 
+                if is_object_arp_humanoid(rig):
+                    log(f"Exporting {filename} via Auto-Rig export")
+                    exporter = export_autorig
+                elif is_object_arp(rig):
+                    log(f"Exporting {filename} via Auto-Rig export (universal)")
+                    exporter = export_autorig_universal
+                else:
+                    log(f"Exporting {filename}")
+                    exporter = export_fbx
+                logger.indent += 1
+                logd(f"{len(objs)} objects in group")
+
                 if job.minimize_bones:
                     # Only relevant bones and their parents will be marked deform
+                    # ARP mostly ignores this if exporting as humanoid...
                     bones = rig.data.bones
                     for bone_name in self.saved_deform_bone_names:
                         bones[bone_name].use_deform = False
@@ -298,28 +312,12 @@ class GRET_OT_rig_export(bpy.types.Operator):
                             bone = bone.parent
                     logd(f"Enabled {num_deform} deform bones out of {len(self.saved_deform_bone_names)}")
 
-                if is_object_arp_humanoid(rig):
-                    log(f"Exporting {filename} via Auto-Rig export")
-                    logger.indent += 1
-                    result = export_autorig(filepath, context, rig, objects=objs)
-                elif is_object_arp(rig):
-                    log(f"Exporting {filename} via Auto-Rig export (universal)")
-                    logger.indent += 1
-                    result = export_autorig_universal(filepath, context, rig, objects=objs)
-                else:
-                    # Temporarily rename the armature as it's the root bone itself
-                    saved_rig_name = rig.name
-                    rig.name = "root"
-                    log(f"Exporting {filename}")
-                    logger.indent += 1
-                    result = export_fbx(filepath, context, rig, objects=objs)
-                    rig.name = saved_rig_name
-                logger.indent -= 1
-
+                result = exporter(filepath, context, rig, objects=objs)
                 if result == {'FINISHED'}:
                     self.exported_files.append(filepath)
                 else:
                     log("Failed to export!")
+                logger.indent -= 1
 
     def execute(self, context):
         job = context.scene.gret.export_jobs[self.index]

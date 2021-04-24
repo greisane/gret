@@ -294,7 +294,7 @@ class GRET_PG_export_collection(bpy.types.PropertyGroup):
             # When no collections are set for this job, use the scene collection
             return context.scene.collection
         else:
-            return job_cl.collection
+            return self.collection
 
 def on_action_updated(self, context):
     jobs = context.scene.gret.export_jobs

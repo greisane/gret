@@ -134,11 +134,18 @@ class GRET_OT_animation_export(bpy.types.Operator):
                 log(f"Skipping {filename} as it would overwrite a file that was just exported")
                 continue
 
-            rig.select_set(True)
-            context.view_layer.objects.active = rig
-            rig.data.pose_position = 'POSE'
-            clear_pose(rig)
+            if is_object_arp_humanoid(rig):
+                log(f"Exporting {filename} via Auto-Rig export")
+                exporter = export_autorig
+            elif is_object_arp(rig):
+                log(f"Exporting {filename} via Auto-Rig export (universal)")
+                exporter = export_autorig_universal
+            else:
+                log(f"Exporting {filename}")
+                exporter = export_fbx
+            logger.indent += 1
 
+            # TODO save this
             rig.animation_data.action = export_group.action
             context.scene.frame_preview_start = export_group.action.frame_range[0]
             context.scene.frame_preview_end = export_group.action.frame_range[1]
@@ -165,23 +172,12 @@ class GRET_OT_animation_export(bpy.types.Operator):
                     log(f"Skipping {csv_filename} as it would overwrite a file that was " \
                         "just exported")
 
-            # Finally export
-            actions = [export_group.action]
-
-            if is_object_arp_humanoid(rig):
-                log(f"Exporting {filename} via Auto-Rig export")
-                result = export_autorig(filepath, context, rig, actions=actions)
-            elif is_object_arp(rig):
-                log(f"Exporting {filename} via Auto-Rig export (universal)")
-                result = export_autorig_universal(filepath, context, rig, actions=actions)
-            else:
-                log(f"Exporting {filename}")
-                result = export_fbx(filepath, context, rig, actions=actions)
-
+            result = exporter(filepath, context, rig, actions=[export_group.action])
             if result == {'FINISHED'}:
                 self.exported_files.append(filepath)
             else:
                 log("Failed to export!")
+            logger.indent -= 1
 
     def execute(self, context):
         job = context.scene.gret.export_jobs[self.index]
