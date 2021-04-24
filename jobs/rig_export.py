@@ -18,7 +18,6 @@ from gret.helpers import (
     load_selection,
     save_properties,
     save_selection,
-    select_only,
 )
 from gret.mesh.helpers import (
     apply_modifiers,
@@ -256,6 +255,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
         if job.to_collection:
             # Keep new objects in the target collection
             objs = [item.obj for item in chain.from_iterable(groups.values())]
+
             for obj in objs:
                 if len(objs) == 1:
                     # If producing a single object, rename it to match the collection
@@ -274,29 +274,24 @@ class GRET_OT_rig_export(bpy.types.Operator):
         else:
             # Finally export
             for filepath, items in groups.items():
-                objs = [item.obj for item in items]
-                select_only(context, objs)
-                rig.select_set(True)
-                context.view_layer.objects.active = rig
-                rig.data.pose_position = 'POSE'
-                clear_pose(rig)
-
                 filename = bpy.path.basename(filepath)
+                objs = [item.obj for item in items]
+
                 if is_object_arp_humanoid(rig):
                     log(f"Exporting {filename} via Auto-Rig export")
                     logger.indent += 1
-                    result = export_autorig(context, filepath, [])
+                    result = export_autorig(filepath, context, rig, objects=objs)
                 elif is_object_arp(rig):
                     log(f"Exporting {filename} via Auto-Rig export (universal)")
                     logger.indent += 1
-                    result = export_autorig_universal(context, filepath, [])
+                    result = export_autorig_universal(filepath, context, rig, objects=objs)
                 else:
                     # Temporarily rename the armature as it's the root bone itself
                     saved_rig_name = rig.name
                     rig.name = "root"
                     log(f"Exporting {filename}")
                     logger.indent += 1
-                    result = export_fbx(context, filepath, [])
+                    result = export_fbx(filepath, context, rig, objects=objs)
                     rig.name = saved_rig_name
                 logger.indent -= 1
 

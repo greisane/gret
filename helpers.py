@@ -51,8 +51,9 @@ def get_context(active_obj=None, selected_objs=None):
 
     ctx = {}
     if active_obj and selected_objs:
-        # Operate on all the objects, active object is specified
+        # Operate on all the objects, active object is specified. Selected should include active
         ctx['object'] = ctx['active_object'] = active_obj
+        selected_objs = selected_objs if active_obj in selected_objs else selected_objs + [active_obj]
         ctx['selected_objects'] = ctx['selected_editable_objects'] = selected_objs
     elif not active_obj and selected_objs:
         # Operate on all the objects, it isn't important which one is active

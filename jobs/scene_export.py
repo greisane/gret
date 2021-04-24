@@ -14,7 +14,6 @@ from gret.helpers import (
     intercept,
     load_selection,
     save_selection,
-    select_only,
     swap_object_names,
 )
 from gret.log import logger, log, logd
@@ -25,9 +24,10 @@ from gret.mesh.helpers import (
     unsubdivide_preserve_uvs,
 )
 
-def export_fbx(context, filepath):
-    return bpy.ops.export_scene.fbx(
-        filepath=filepath
+def export_fbx(filepath, context, objects):
+    ctx = get_context(selected_objs=objects)
+    return bpy.ops.export_scene.fbx(ctx
+        , filepath=filepath
         , check_existing=False
         , axis_forward='-Z'
         , axis_up='Y'
@@ -222,11 +222,10 @@ class GRET_OT_scene_export(bpy.types.Operator):
             for item in items:
                 swap_object_names(item.original, item.obj)
 
-            objs = list(chain.from_iterable([item.obj] + item.col_objs for item in items))
-            select_only(context, objs)
-
             filename = bpy.path.basename(filepath)
-            result = export_fbx(context, filepath)
+            objs = list(chain.from_iterable([item.obj] + item.col_objs for item in items))
+
+            result = export_fbx(filepath, context, objs)
             if result == {'FINISHED'}:
                 log(f"Exported {filename} with {len(objs)} objects")
                 self.exported_files.append(filename)

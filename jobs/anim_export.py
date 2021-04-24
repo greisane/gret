@@ -165,15 +165,18 @@ class GRET_OT_animation_export(bpy.types.Operator):
                     log(f"Skipping {csv_filename} as it would overwrite a file that was " \
                         "just exported")
 
+            # Finally export
+            actions = [export_group.action]
+
             if is_object_arp_humanoid(rig):
                 log(f"Exporting {filename} via Auto-Rig export")
-                result = export_autorig(context, filepath, [export_group.action])
+                result = export_autorig(filepath, context, rig, actions=actions)
             elif is_object_arp(rig):
                 log(f"Exporting {filename} via Auto-Rig export (universal)")
-                result = export_autorig_universal(context, filepath, [export_group.action])
+                result = export_autorig_universal(filepath, context, rig, actions=actions)
             else:
                 log(f"Exporting {filename}")
-                result = export_fbx(context, filepath, [export_group.action])
+                result = export_fbx(filepath, context, rig, actions=actions)
 
             if result == {'FINISHED'}:
                 self.exported_files.append(filepath)

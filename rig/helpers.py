@@ -1,7 +1,7 @@
 from mathutils import Vector, Quaternion, Euler
 import bpy
 
-from gret.helpers import intercept
+from gret.helpers import intercept, get_context, select_only
 from gret.log import log, logd
 
 non_humanoid_bone_names = [
@@ -113,9 +113,9 @@ def try_key(obj, prop_path, frame=0):
         return False
 
 @intercept(error_result={'CANCELLED'})
-def export_autorig(context, filepath, actions):
+def export_autorig(filepath, context, rig, objects=[], actions=[]):
     scn = context.scene
-    rig = context.active_object
+
     ik_bones_not_found = [s for s in ik_bone_names if
         s not in rig.pose.bones or 'custom_bone' not in rig.pose.bones[s]]
     if not ik_bones_not_found:
@@ -175,12 +175,19 @@ def export_autorig(context, filepath, actions):
     scn.arp_bone_axis_secondary_export = 'X'
     scn.arp_export_rig_name = 'root'
 
+    rig.data.pose_position = 'POSE'
+    clear_pose(rig)
+
+    # ARP doesn't respect context unfortunately
+    select_only(context, objects)
+    rig.select_set(True)
+    context.view_layer.objects.active = rig
+    # ctx = get_context(active_obj=rig, selected_objs=objects)
     return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})
-def export_autorig_universal(context, filepath, actions):
+def export_autorig_universal(filepath, context, rig, objects=[], actions=[]):
     scn = context.scene
-    rig = context.active_object
 
     # Configure Auto-Rig and then finally export
     scn.arp_engine_type = 'unreal'
@@ -222,15 +229,25 @@ def export_autorig_universal(context, filepath, actions):
     scn.arp_bone_axis_secondary_export = 'X'
     scn.arp_export_rig_name = 'root'
 
-    return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
+    rig.data.pose_position = 'POSE'
+    clear_pose(rig)
+
+    # ARP doesn't respect context unfortunately
+    select_only(context, objects)
+    rig.select_set(True)
+    context.view_layer.objects.active = rig
+    # ctx = get_context(active_obj=rig, selected_objs=objects)
+    return bpy.ops.id.arp_export_fbx_panel(ctx, filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})
-def export_fbx(context, filepath, actions):
+def export_fbx(filepath, context, rig, objects=[], actions=[]):
     if actions:
         # TODO Put action in the timeline
         raise NotImplementedError
-    return bpy.ops.export_scene.fbx(
-        filepath=filepath
+
+    ctx = get_context(active_obj=rig, selected_objs=objects)
+    return bpy.ops.export_scene.fbx(ctx
+        , filepath=filepath
         , check_existing=False
         , axis_forward='-Z'
         , axis_up='Y'
