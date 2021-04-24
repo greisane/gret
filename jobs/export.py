@@ -370,7 +370,7 @@ class GRET_PG_remap_material(bpy.types.PropertyGroup):
     )
     destination: bpy.props.PointerProperty(
         name="Destination",
-        description="Destination material",
+        description="Destination material. Faces with no material will be deleted from the mesh",
         type=bpy.types.Material,
         update=on_remap_material_updated,
     )
@@ -440,6 +440,27 @@ class GRET_PG_export_job(bpy.types.PropertyGroup):
         default="MI_",
     )
 
+    # Shared scene and export rig options
+    apply_modifiers: bpy.props.BoolProperty(
+        name="Apply Modifiers",
+        description="Apply render modifiers",
+        default=True,
+    )
+    modifier_tags: bpy.props.StringProperty(
+        name="Modifier Tags",
+        description="""Tagged modifiers are only applied if the tag is found in this list.
+Separate tags with a space. Tag modifiers with 'g:tag'""",
+        default="",
+    )
+    merge_basis_shape_keys: bpy.props.BoolProperty(
+        name="Merge Basis Shape Keys",
+        description="Blends 'Key' and 'b_' shapekeys into the basis shape",
+        default=True,
+    )
+    remap_materials: bpy.props.CollectionProperty(
+        type=GRET_PG_remap_material,
+    )
+
     # Scene export options
     export_collision: bpy.props.BoolProperty(
         name="Export Collision",
@@ -462,11 +483,6 @@ class GRET_PG_export_job(bpy.types.PropertyGroup):
     )
 
     # Rig export options
-    merge_basis_shape_keys: bpy.props.BoolProperty(
-        name="Merge Basis Shape Keys",
-        description="Blends 'Key' and 'b_' shapekeys into the basis shape",
-        default=True,
-    )
     mirror_shape_keys: bpy.props.BoolProperty(
         name="Mirror Shape Keys",
         description="""Creates mirrored versions of shape keys that have side suffixes.
@@ -475,19 +491,8 @@ Requires a mirror modifier""",
     )
     side_vgroup_name: bpy.props.StringProperty(
         name="Side Vertex Group Name",
-        description="Name of the vertex groups that will be created on mirroring shape keys",
+        description="Name of the vertex group that will be created on mirroring shape keys",
         default="_side.l",
-    )
-    apply_modifiers: bpy.props.BoolProperty(
-        name="Apply Modifiers",
-        description="Apply render modifiers",
-        default=True,
-    )
-    modifier_tags: bpy.props.StringProperty(
-        name="Modifier Tags",
-        description="""Tagged modifiers are only applied if the tag is found in this list.
-Separate tags with a space. Tag modifiers with 'g:tag'""",
-        default="",
     )
     remap_materials: bpy.props.CollectionProperty(
         type=GRET_PG_remap_material,
