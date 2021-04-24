@@ -5,8 +5,10 @@ import bpy
 import io
 import os
 import re
+import sys
 
 from gret import prefs
+from gret.log import logd
 
 def select_only(context, objs):
     """Ensures only the given object or objects are selected."""
@@ -238,6 +240,47 @@ def intercept(_func=None, error_result=None):
         return decorator
     else:
         return decorator(_func)
+
+class Patcher(dict):
+    """
+    Allows patching functionality in foreign modules.
+    Example usage:
+
+    def override(base, *args, **kwargs):
+        del kwargs['some_extra_argument']
+        return base(*args, **kwargs)
+    with Patcher('math', 'pow', override) as patcher:
+        patcher['some_extra_argument'] = 1
+        math.pow(2, 2)
+    """
+
+    def __init__(self, module_name, function_name, func):
+        self.module_name = module_name
+        self.function_name = function_name
+        self.func = func
+
+    def __enter__(self):
+        module = sys.modules.get(self.module_name)
+        if module:
+            base_func = getattr(module, self.function_name, None)
+            if base_func:
+                @wraps(base_func)
+                def wrapper(*args, **kwargs):
+                    kwargs.update(self)
+                    return self.func(base_func, *args, **kwargs)
+                setattr(module, self.function_name, wrapper)
+            else:
+                logd(f"Couldn't patch {self.module_name}.{self.function_name}, function not found")
+        else:
+            logd(f"Couldn't patch {self.module_name}.{self.function_name}, module not found")
+        return self
+
+    def __exit__(self, type, value, traceback):
+        module = sys.modules.get(self.module_name)
+        if module:
+            wrapper = getattr(module, self.function_name, None)
+            if wrapper and hasattr(wrapper, '__wrapped__'):
+                setattr(module, self.function_name, wrapper.__wrapped__)
 
 def set_collection_viewport_visibility(context, collection_name, visibility=True):
     # Based on https://blenderartists.org/t/1141768

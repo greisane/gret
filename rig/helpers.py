@@ -1,7 +1,7 @@
 from mathutils import Vector, Quaternion, Euler
 import bpy
 
-from gret.helpers import intercept, get_context, select_only
+from gret.helpers import intercept, get_context, select_only, Patcher
 from gret.log import log, logd
 
 non_humanoid_bone_names = [
@@ -112,6 +112,34 @@ def try_key(obj, prop_path, frame=0):
     except TypeError:
         return False
 
+def unmark_unused_bones(rig, objs):
+    """Unmarks deform for all bones that aren't relevant to the given meshes."""
+
+    bones = rig.data.bones
+    for bone in bones:
+        bone.use_deform = False
+    vgroup_names = set()
+    for obj in objs:
+        if obj.type == 'MESH':
+            vgroup_names.update(vg.name for vg in obj.vertex_groups)
+    num_deform = 0
+    for vgroup_name in vgroup_names:
+        bone = bones.get(vgroup_name)
+        while bone:
+            if not bone.use_deform:
+                num_deform += 1
+                bone.use_deform = True
+            bone = bone.parent
+    log(f"{num_deform} bones for export out of {len(bones)}")
+
+def arp_save(base, *args, **kwargs):
+    options = kwargs.pop('options')
+    op, context = args
+    logd(f"arp_save overriden with options: {options}")
+    if options.get('minimize_bones'):
+        unmark_unused_bones(context.active_object, context.selected_objects)
+    return base(*args, **kwargs)
+
 @intercept(error_result={'CANCELLED'})
 def export_autorig(filepath, context, rig, objects=[], actions=[], options={}):
     scn = context.scene
@@ -182,8 +210,9 @@ def export_autorig(filepath, context, rig, objects=[], actions=[], options={}):
     select_only(context, objects)
     rig.select_set(True)
     context.view_layer.objects.active = rig
-    # ctx = get_context(active_obj=rig, selected_objs=objects)
-    return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
+    with Patcher('auto_rig_pro.export_fbx.export_fbx_bin', 'arp_save', arp_save) as patcher:
+        patcher['options'] = options
+        return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})
 def export_autorig_universal(filepath, context, rig, objects=[], actions=[], options={}):
@@ -236,14 +265,18 @@ def export_autorig_universal(filepath, context, rig, objects=[], actions=[], opt
     select_only(context, objects)
     rig.select_set(True)
     context.view_layer.objects.active = rig
-    # ctx = get_context(active_obj=rig, selected_objs=objects)
-    return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
+    with Patcher('auto_rig_pro.export_fbx.export_fbx_bin', 'arp_save', arp_save) as patcher:
+        patcher['options'] = options
+        return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})
 def export_fbx(filepath, context, rig, objects=[], actions=[], options={}):
     if actions:
         # TODO Put action in the timeline
         raise NotImplementedError
+
+    if options.get('minimize_bones'):
+        unmark_unused_bones(rig, objects)
 
     # Temporarily rename the armature since it will become the root bone
     root_bone_name = "root"

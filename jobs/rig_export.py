@@ -293,26 +293,8 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 logger.indent += 1
                 logd(f"{len(objs)} objects in group")
 
-                if job.minimize_bones:
-                    # Only relevant bones and their parents will be marked deform
-                    # ARP mostly ignores this if exporting as humanoid...
-                    bones = rig.data.bones
-                    for bone_name in self.saved_deform_bone_names:
-                        bones[bone_name].use_deform = False
-                    vgroup_names = set()
-                    for obj in objs:
-                        vgroup_names.update(vg.name for vg in obj.vertex_groups)
-                    num_deform = 0
-                    for vgroup_name in vgroup_names:
-                        bone = bones.get(vgroup_name)
-                        while bone:
-                            if not bone.use_deform:
-                                num_deform += 1
-                                bone.use_deform = True
-                            bone = bone.parent
-                    logd(f"Enabled {num_deform} deform bones out of {len(self.saved_deform_bone_names)}")
-
-                result = exporter(filepath, context, rig, objects=objs)
+                options = {'minimize_bones': job.minimize_bones}
+                result = exporter(filepath, context, rig, objects=objs, options=options)
                 if result == {'FINISHED'}:
                     self.exported_files.append(filepath)
                 else:

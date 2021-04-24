@@ -36,8 +36,8 @@ def import_or_reload_modules(module_names, package_name):
     return modules
 
 module_names = [
-    'helpers',
     'log',
+    'helpers',
     'math',
     'rbf',
     # 'stringcase',  # Third party, no need to register or reload
