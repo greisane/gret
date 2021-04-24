@@ -207,10 +207,10 @@ class GRET_OT_scene_export(bpy.types.Operator):
             bpy.ops.mesh.vertex_color_mapping_clear(ctx)
 
             # Put the objects in a group
-            origin_collection = job_cl.collection if job_cl else item.original.users_collection[0]
+            cl = job_cl.get_collection(context) if job_cl else item.original.users_collection[0]
             path_fields = {
                 'object': item.original.name,
-                'collection': origin_collection.name,
+                'collection': cl.name,
             }
             filepath = get_export_path(job.scene_export_path, path_fields)
             groups[filepath].append(item)

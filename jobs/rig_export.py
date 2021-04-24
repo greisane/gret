@@ -208,7 +208,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 'rigfile': rig_basename,
                 'rig': rig.name,
                 'object': item.original.name,
-                'collection': job_cl.collection.name,
+                'collection': job_cl.get_collection(context).name,
             }
             filepath = None if job.to_collection else get_export_path(job.rig_export_path, path_fields)
             groups[filepath].append(item)

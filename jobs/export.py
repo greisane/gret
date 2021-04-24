@@ -288,6 +288,14 @@ class GRET_PG_export_collection(bpy.types.PropertyGroup):
         default=0,
     )
 
+    def get_collection(self, context):
+        job = context.scene.gret.export_jobs[self.job_index]
+        if all(not job_cl.collection for job_cl in job.collections):
+            # When no collections are set for this job, use the scene collection
+            return context.scene.collection
+        else:
+            return job_cl.collection
+
 def on_action_updated(self, context):
     jobs = context.scene.gret.export_jobs
     job = jobs[self.job_index]
@@ -561,24 +569,16 @@ Requires a mirror modifier""",
         subtype='FILE_PATH',
     )
 
-    def _get_export_collections(self, context):
-        if all(not job_cl.collection for job_cl in self.collections):
-            # When no collections are set return the scene collection
-            cl = context.scene.collection
-            return
+    def get_export_objects(self, context, types={}, armature=None):
+        objs, objs_job_cl = [], []
         for job_cl in self.collections:
-            cl = job_cl.collection
+            cl = job_cl.get_collection(context)
             if not cl:
                 continue
             if not (not cl.hide_viewport and job_cl.export_viewport
                 or not cl.hide_render and job_cl.export_render):
                 continue
-            yield job_cl
-
-    def get_export_objects(self, context, types={}, armature=None):
-        objs, objs_job_cl = [], []
-        for job_cl in self._get_export_collections(context):
-            for obj in job_cl.collection.objects:
+            for obj in cl.objects:
                 if types and obj.type not in types:
                     continue
                 if armature and obj.find_armature() != armature:
