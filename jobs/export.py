@@ -215,6 +215,7 @@ def draw_job(layout, jobs, job_index):
             col = box.column()
             if is_object_arp(job.rig):
                 col.prop(job, 'disable_auto_eyelid')
+                col.prop(job, 'disable_twist_bones')
 
             col.prop(job, 'export_markers')
             sub = col.split(align=True)
@@ -537,7 +538,12 @@ Requires a mirror modifier""",
     )
     disable_auto_eyelid: bpy.props.BoolProperty(
         name="Disable Auto-Eyelid",
-        description="Disables Auto-Eyelid (ARP only)",
+        description="Disables Auto-Eyelid. ARP only",
+        default=True,
+    )
+    disable_twist_bones: bpy.props.BoolProperty(
+        name="Disable Twist Bones",
+        description="Don't export twist bone animation. ARP only",
         default=True,
     )
     export_markers: bpy.props.BoolProperty(

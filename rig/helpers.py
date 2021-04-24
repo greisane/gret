@@ -113,7 +113,7 @@ def try_key(obj, prop_path, frame=0):
         return False
 
 @intercept(error_result={'CANCELLED'})
-def export_autorig(filepath, context, rig, objects=[], actions=[]):
+def export_autorig(filepath, context, rig, objects=[], actions=[], options={}):
     scn = context.scene
 
     ik_bones_not_found = [s for s in ik_bone_names if
@@ -139,7 +139,7 @@ def export_autorig(filepath, context, rig, objects=[], actions=[]):
     scn.arp_keep_bend_bones = False
     scn.arp_push_bend = False
     scn.arp_full_facial = True
-    scn.arp_export_twist = True
+    scn.arp_export_twist = options.get('export_twist', True)
     scn.arp_export_noparent = False
 
     # Units
@@ -186,7 +186,7 @@ def export_autorig(filepath, context, rig, objects=[], actions=[]):
     return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})
-def export_autorig_universal(filepath, context, rig, objects=[], actions=[]):
+def export_autorig_universal(filepath, context, rig, objects=[], actions=[], options={}):
     scn = context.scene
 
     # Configure Auto-Rig and then finally export
@@ -197,7 +197,7 @@ def export_autorig_universal(filepath, context, rig, objects=[], actions=[]):
     # Rig Definition
     scn.arp_keep_bend_bones = False
     scn.arp_push_bend = False
-    scn.arp_export_twist = True
+    scn.arp_export_twist = options.get('export_twist', True)
     scn.arp_export_noparent = False
 
     # Units
@@ -240,7 +240,7 @@ def export_autorig_universal(filepath, context, rig, objects=[], actions=[]):
     return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})
-def export_fbx(filepath, context, rig, objects=[], actions=[]):
+def export_fbx(filepath, context, rig, objects=[], actions=[], options={}):
     if actions:
         # TODO Put action in the timeline
         raise NotImplementedError

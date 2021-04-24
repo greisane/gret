@@ -172,7 +172,8 @@ class GRET_OT_animation_export(bpy.types.Operator):
                     log(f"Skipping {csv_filename} as it would overwrite a file that was " \
                         "just exported")
 
-            result = exporter(filepath, context, rig, actions=[export_group.action])
+            options = {'export_twist': not job.disable_twist_bones}
+            result = exporter(filepath, context, rig, actions=[export_group.action], options=options)
             if result == {'FINISHED'}:
                 self.exported_files.append(filepath)
             else:
