@@ -1,7 +1,9 @@
+from math import ceil
 import bmesh
 import bpy
 import numpy as np
 
+from gret.log import log, logd, logger
 import gret.rbf as rbf
 
 rbf_kernels = {
@@ -12,6 +14,9 @@ rbf_kernels = {
     'INV_BIHARMONIC': rbf.inv_multi_quadratic_biharmonic,
     'C2': rbf.beckert_wendland_c2_basis,
 }
+
+# TODO
+# - Investigate the mesh state where new shape keys are broken, see if it can be detected
 
 class GRET_OT_retarget_mesh(bpy.types.Operator):
     #tooltip
@@ -56,11 +61,15 @@ The meshes are expected to share topology and vertex order"""
         default=0.5,
         min=0.0,
     )
-    stride: bpy.props.IntProperty(
-        name="Stride",
-        description="Increase vertex sampling stride to speed up calculation (reduces accuracy)",
-        default=1,
-        min=1,
+    only_selection: bpy.props.BoolProperty(
+        name="Only Vertex Selection",
+        description="Sample only the current vertex selection of the source mesh",
+        default=False,
+    )
+    high_quality: bpy.props.BoolProperty(
+        name="High Quality",
+        description="Sample as many vertices as possible for higher accuracy",
+        default=False,
     )
     as_shape_key: bpy.props.BoolProperty(
         name="As Shape Key",
@@ -79,19 +88,32 @@ The meshes are expected to share topology and vertex order"""
         dst_obj = bpy.data.objects.get(self.destination[2:]) if not dst_is_shape_key else src_obj
         dst_shape_key = self.destination[2:] if dst_is_shape_key else None
         assert src_obj and dst_obj and src_obj.type == 'MESH' and dst_obj.type == 'MESH'
+        src_mesh = src_obj.data
+        dst_mesh = dst_obj.data
 
-        if len(src_obj.data.vertices) != len(dst_obj.data.vertices):
+        num_vertices = len(src_mesh.vertices)
+        if num_vertices == 0:
+            self.report({'ERROR'}, "Source mesh has no vertices.")
+            return {'CANCELLED'}
+        if num_vertices != len(dst_mesh.vertices):
             self.report({'ERROR'}, "Source and destination meshes must have equal amount of vertices.")
             return {'CANCELLED'}
-        if (len(src_obj.data.vertices) // self.stride) > 5000:
-            # Should stride be automatically determined?
-            self.report({'ERROR'}, "With too many vertices, retargeting may take a long time or crash.\n"
-                "Increase stride then try again.")
+
+        # Increase vertex sampling stride to speed up calculation (reduces accuracy)
+        # A cap is still necessary since growth is not linear and it will take forever. Parallelize?
+        # In practice sampling many vertices in a dense mesh doesn't change the result that much
+        vertex_cap = 5000 if self.high_quality else 1000
+        mask = [v.select for v in src_mesh.vertices] if self.only_selection else None
+        num_masked = sum(mask) if mask else num_vertices
+        stride = ceil(num_masked / vertex_cap)
+        if num_masked == 0:
+            self.report({'ERROR'}, "Source mesh has no vertices selected.")
             return {'CANCELLED'}
+        logd(f"num_verts={num_masked}/{num_vertices} stride={stride} total={num_masked//stride}")
 
         rbf_kernel = rbf_kernels.get(self.function, rbf.linear)
-        src_pts = rbf.get_mesh_points(src_obj.data, stride=self.stride)
-        dst_pts = rbf.get_mesh_points(dst_obj.data, shape_key=dst_shape_key, stride=self.stride)
+        src_pts = rbf.get_mesh_points(src_mesh, mask=mask, stride=stride)
+        dst_pts = rbf.get_mesh_points(dst_mesh, shape_key=dst_shape_key, mask=mask, stride=stride)
         try:
             weights = rbf.get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius)
         except np.linalg.LinAlgError:
@@ -144,18 +166,21 @@ def draw_panel(self, context):
     settings = context.scene.gret
     obj = context.object
 
-    col = layout.column(align=True)
-    col.label(text="Retarget Mesh:")
-    col.prop(settings, 'retarget_function', text="")
-    row = col.row(align=True)
-    row.prop(settings, 'retarget_radius')
-    row.prop(settings, 'retarget_stride')
-    col.separator()
+    box = layout.box()
+    box.label(text="Retarget Mesh", icon='MOD_MESHDEFORM')
+    col = box.column(align=False)
 
     row = col.row(align=True)
     row.prop(settings, 'retarget_src', text="")
     row.label(text="", icon='FORWARD')
     row.prop(settings, 'retarget_dst', text="")
+
+    row = col.row(align=True)
+    row.prop(settings, 'retarget_function', text="")
+    row.prop(settings, 'retarget_radius', text="")
+
+    col.prop(settings, 'retarget_only_selection')
+    col.prop(settings, 'retarget_high_quality')
 
     row = col.row(align=True)
     op1 = row.operator('gret.retarget_mesh', icon='CHECKMARK', text="Retarget")
@@ -165,7 +190,8 @@ def draw_panel(self, context):
         op1.destination = op2.destination = settings.retarget_dst
         op1.function = op2.function = settings.retarget_function
         op1.radius = op2.radius = settings.retarget_radius
-        op1.stride = op2.stride = settings.retarget_stride
+        op1.only_selection = op2.only_selection = settings.retarget_only_selection
+        op1.high_quality = op2.high_quality = settings.retarget_high_quality
         op1.as_shape_key = False
         op2.as_shape_key = True
     else:
@@ -188,11 +214,12 @@ def retarget_dst_items(self, context):
     items.clear()
     items.append(('NONE', "", ""))
     if src_obj:
+        src_mesh = src_obj.data
         for o in context.scene.objects:
-            if o.type == 'MESH' and o != src_obj and len(o.data.vertices) == len(src_obj.data.vertices):
+            if o.type == 'MESH' and o != src_obj and len(o.data.vertices) == len(src_mesh.vertices):
                 items.append(('o_' + o.name, o.name, f"Object '{o.name}'", 'OBJECT_DATA', len(items)))
-        if src_obj.data.shape_keys:
-            for sk in src_obj.data.shape_keys.key_blocks:
+        if src_mesh.shape_keys:
+            for sk in src_mesh.shape_keys.key_blocks:
                 items.append(('s_' + sk.name, sk.name, f"Shape Key '{sk.name}'", 'SHAPEKEY_DATA', len(items)))
     return items
 
@@ -215,7 +242,8 @@ def register(settings):
     retarget_props = GRET_OT_retarget_mesh.__annotations__
     settings.add_property('retarget_function', retarget_props['function'])
     settings.add_property('retarget_radius', retarget_props['radius'])
-    settings.add_property('retarget_stride', retarget_props['stride'])
+    settings.add_property('retarget_only_selection', retarget_props['only_selection'])
+    settings.add_property('retarget_high_quality', retarget_props['high_quality'])
 
 def unregister():
     for cls in reversed(classes):

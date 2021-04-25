@@ -67,7 +67,7 @@ def get_distance_matrix(v1, v2, rbf, radius):
     matrix = np.linalg.norm(matrix, axis=-1)
     return rbf(matrix, radius)
 
-def get_mesh_points(mesh, shape_key=None, matrix=None, stride=1):
+def get_mesh_points(mesh, shape_key=None, matrix=None, mask=None, stride=1):
     """Return vertex coordinates of a mesh as a numpy array with shape (?, 3)."""
     # Moving the mesh seems to be faster. See https://blender.stackexchange.com/questions/139511
 
@@ -78,7 +78,10 @@ def get_mesh_points(mesh, shape_key=None, matrix=None, stride=1):
     vertices = mesh.vertices if shape_key is None else mesh.shape_keys.key_blocks[shape_key].data
     points = np.zeros(len(vertices)*3, dtype=np.float)
     vertices.foreach_get('co', points)
-    points = points.reshape((-1, 3))[::stride]
+    points = points.reshape((-1, 3))
+    if mask is not None:
+        points = points[mask]
+    points = points[::stride]
 
     if matrix is not None:
         bpy.data.meshes.remove(mesh)
