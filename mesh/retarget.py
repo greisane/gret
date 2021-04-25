@@ -118,7 +118,7 @@ The meshes are expected to share topology and vertex order"""
             weights = rbf.get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius)
         except np.linalg.LinAlgError:
             # Solving for C2 kernel may throw 'SVD did not converge' sometimes
-            self.report({'ERROR'}, "Failed to retarget. Try a different function or change the radius.")
+            self.report({'ERROR'}, "Failed to retarget. Try a different function or radius.")
             return {'CANCELLED'}
 
         for obj in objs:

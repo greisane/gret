@@ -21,6 +21,7 @@ from gret.material.helpers import SolidPixels, Node
 # TODO
 # - AO floor
 # - Make it a collection like vertex color mapping, add UVMap name to it
+# - Allow Quick Unwrap from object mode
 
 def remap_materials(objs, src_mat, dst_mat):
     for obj in objs:

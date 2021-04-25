@@ -4,6 +4,10 @@ import json
 
 from gret.helpers import get_flipped_name
 
+# TODO
+# - Add button to create set from the current selection
+# - Add a configuration toggle that shows a delete button for each set
+
 class GRET_OT_selection_set_toggle(bpy.types.Operator):
     #tooltip
     """Toggle this bone selection set. Shift-click to extend selection"""
