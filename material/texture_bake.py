@@ -633,7 +633,7 @@ def register(settings):
     )
 
 def unregister():
-    del bpy.types.Material.texture_bake
+    del bpy.types.Material.texture_bakes
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

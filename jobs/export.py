@@ -1,6 +1,7 @@
 from fnmatch import fnmatch
 import bpy
 
+from gret import prefs
 from gret.log import log, logger
 from gret.rig.helpers import is_object_arp
 
@@ -241,6 +242,10 @@ class GRET_PT_export_jobs(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = "Jobs"
     bl_label = "Export Jobs"
+
+    @classmethod
+    def poll(cls, context):
+        return prefs.jobs_panel_enable
 
     def draw(self, context):
         layout = self.layout

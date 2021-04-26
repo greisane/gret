@@ -36,6 +36,8 @@ def register(settings):
 def unregister():
     bpy.utils.unregister_class(GRET_PT_anim)
 
+    GRET_PT_anim.draw_funcs.clear()
+
     for module in reversed(modules):
         if hasattr(module, 'unregister'):
             module.unregister()

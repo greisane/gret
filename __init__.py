@@ -15,11 +15,8 @@ import sys
 
 # Names here will be accessible as imports from other modules
 class AddonPreferencesWrapper:
-    _preferences = None
     def __getattr__(self, attr):
-        if not self._preferences:
-            self._preferences = bpy.context.preferences.addons[__package__].preferences
-        return getattr(self._preferences, attr)
+        return getattr(bpy.context.preferences.addons[__package__].preferences, attr)
 prefs = AddonPreferencesWrapper()
 
 def import_or_reload_modules(module_names, package_name):
@@ -56,33 +53,13 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
     # when defining this in a submodule of a python package.
     bl_idname = __name__
 
-    mesh_panel_enable: bpy.props.BoolProperty(
-        name="Mesh Panel",
-        description="Show the mesh panel",
-        default=True,
-    )
-    rig_panel_enable: bpy.props.BoolProperty(
-        name="Rig Panel",
-        description="Show the rig panel",
-        default=True,
-    )
-    animation_panel_enable: bpy.props.BoolProperty(
-        name="Animation Panel",
-        description="Show the animation panel",
-        default=True,
-    )
     jobs_panel_enable: bpy.props.BoolProperty(
-        name="Export Jobs Panel",
+        name="Enable Jobs Panel",
         description="Show the export jobs panel",
         default=False,
     )
-    bake_panel_enable: bpy.props.BoolProperty(
-        name="Texture Bake",
-        description="Show the texture bake panel",
-        default=False,
-    )
     texture_bake_uv_layer_name: bpy.props.StringProperty(
-        name="Texture Bake UV Layer",
+        name="Default UV Layer",
         description="Name of the default UV layer for texture bakes",
         default="UVMap",
     )
@@ -99,13 +76,16 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
 
     def draw(self, context):
         layout = self.layout
-        layout.prop(self, 'quick_unwrap_uv_layer_name')
-        layout.prop(self, 'backwards_compat')
-        layout.prop(self, 'debug')
-        # layout.prop(self, 'mesh_panel_enable')
-        # layout.prop(self, 'rig_panel_enable')
-        # layout.prop(self, 'animation_panel_enable')
-        # layout.prop(self, 'jobs_panel_enable')
+        col = layout.column(align=True)
+
+        col.prop(self, 'jobs_panel_enable')
+        col.prop(self, 'backwards_compat')
+        col.prop(self, 'debug')
+        col.separator()
+
+        col.label(text='Texture Bake:')
+        col.prop(self, 'texture_bake_uv_layer_name')
+        col.separator()
 
 class GRET_PG_settings(bpy.types.PropertyGroup):
     @classmethod

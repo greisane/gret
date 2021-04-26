@@ -243,7 +243,7 @@ def intercept(_func=None, error_result=None):
 
 class Patcher(dict):
     """
-    Allows patching functionality in foreign modules.
+    Allows patching functionality in foreign modules. The module must be already imported.
     Example usage:
 
     def override(base, *args, **kwargs):
