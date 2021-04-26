@@ -2,10 +2,17 @@ from mathutils import Vector
 from math import sin, cos, pi
 import bpy
 
+def get_selected_active_object(context, types=set()):
+    if not context.active_object or not context.active_object.select_get():
+        return None
+    if types and not context.active_object.type not in types:
+        return None
+    return context.active_object
+
 class GRET_OT_wall_add(bpy.types.Operator):
     #tooltip
     """Construct a flat wall mesh.
-A collection is created where meshes can be added to create openings."""
+A collection is created where meshes can be put to create openings."""
 
     bl_idname = 'gret.wall_add'
     bl_label = "Add Wall"
@@ -149,7 +156,7 @@ class GRET_OT_strap_add(bpy.types.Operator):
     )
 
     def execute(self, context):
-        target_obj = context.active_object
+        target_obj = get_selected_active_object(context)
 
         mesh = bpy.data.meshes.new("Strap")
         v = Vector((0.1, 0.0, 0.0))
@@ -163,13 +170,14 @@ class GRET_OT_strap_add(bpy.types.Operator):
         context.collection.objects.link(obj)
         context.view_layer.objects.active = obj
 
-        mod = obj.modifiers.new(type='SHRINKWRAP', name="Shrinkwrap")
-        mod.wrap_method = 'TARGET_PROJECT'
-        mod.wrap_mode = 'OUTSIDE_SURFACE' if self.use_snap_to_surface else 'OUTSIDE'
-        mod.target = target_obj
-        mod.offset = self.thickness + self.offset
-        mod.show_in_editmode = True
-        mod.show_on_cage = True
+        if target_obj:
+            mod = obj.modifiers.new(type='SHRINKWRAP', name="Shrinkwrap")
+            mod.wrap_method = 'TARGET_PROJECT'
+            mod.wrap_mode = 'OUTSIDE_SURFACE' if self.use_snap_to_surface else 'OUTSIDE'
+            mod.target = target_obj
+            mod.offset = self.thickness + self.offset
+            mod.show_in_editmode = True
+            mod.show_on_cage = True
 
         mod = obj.modifiers.new(type='SUBSURF', name="Subdivision")
         mod.levels = self.subdivisions
@@ -187,7 +195,7 @@ class GRET_OT_strap_add(bpy.types.Operator):
             skin_vert.radius = (self.thickness, self.width)
 
         # Ideally there would be a weld modifier here when thickness is 0
-        # However it isn't consistent about the resulting normals and the faces get flipped around
+        # Weld modifier isn't consistent about normals in this case, causing faces to get flipped
         # mod = obj.modifiers.new(type='WELD', name="Weld")
 
         return {'FINISHED'}
@@ -253,7 +261,7 @@ class GRET_OT_rope_add(bpy.types.Operator):
     )
 
     def execute(self, context):
-        target_obj = context.object if context.object and context.object.type == 'CURVE' else None
+        target_obj = get_selected_active_object(context, types={'CURVE'})
 
         mesh = bpy.data.meshes.new("Rope")
         theta = pi/4 * (1.0 - self.spread)  # [45..0] degrees for spread [0..1]
@@ -311,14 +319,15 @@ class GRET_OT_rope_add(bpy.types.Operator):
         mod.use_merge_vertices = True
         mod.merge_threshold = 1e-5
 
-        mod = obj.modifiers.new(type='CURVE', name="Curve")
-        mod.object = target_obj
-        mod.deform_axis = 'POS_Z'
+        if target_obj:
+            mod = obj.modifiers.new(type='CURVE', name="Curve")
+            mod.object = target_obj
+            mod.deform_axis = 'POS_Z'
 
-        mod = obj.modifiers.new(type='WELD', name="Weld")
-        mod.show_viewport = mod.show_render = bool(target_obj and target_obj.data.splines.active
-            and target_obj.data.splines.active.use_cyclic_u)  # Only weld if it's a cyclic curve
-        mod.merge_threshold = 1e-5
+            if target_obj.data.splines.active and target_obj.data.splines.active.use_cyclic_u:
+                # Only weld if it's a cyclic curve
+                mod = obj.modifiers.new(type='WELD', name="Weld")
+                mod.merge_threshold = 1e-5
 
         mod = obj.modifiers.new(type='SUBSURF', name="Subdivision")
         mod.levels = self.subdivisions

@@ -575,7 +575,7 @@ Requires a mirror modifier""",
         subtype='FILE_PATH',
     )
 
-    def get_export_objects(self, context, types={}, armature=None):
+    def get_export_objects(self, context, types=set(), armature=None):
         objs, objs_job_cl = [], []
         for job_cl in self.collections:
             cl = job_cl.get_collection(context)

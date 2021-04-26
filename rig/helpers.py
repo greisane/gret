@@ -130,7 +130,7 @@ def unmark_unused_bones(rig, objs):
                 num_deform += 1
                 bone.use_deform = True
             bone = bone.parent
-    log(f"{num_deform} bones for export out of {len(bones)}")
+    log(f"{num_deform} bones out of {len(bones)} marked for export")
 
 def arp_save(base, *args, **kwargs):
     options = kwargs.pop('options')
