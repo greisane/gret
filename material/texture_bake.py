@@ -28,105 +28,108 @@ def remap_materials(objs, src_mat, dst_mat):
         for mat_idx, mat in enumerate(obj.data.materials):
             obj.data.materials[mat_idx] = dst_mat if mat == src_mat else None
 
+nodes_ao = (Node('OutputMaterial')
+.link('Surface', None,
+    Node('Emission')
+    .link('Color', 0,
+        Node('AmbientOcclusion', samples=16, only_local=True)
+        .set('Distance', 2.0)
+    )
+))
+
+nodes_bevel = (Node('OutputMaterial')
+.link('Surface', None,
+    Node('Emission')
+    .link('Color', 0,
+        Node('Math', operation='SMOOTH_MIN')
+        .set(1, 0.6)  # Value2
+        .set(2, 2.0)  # Distance
+        .link(0, None,
+            Node('VectorMath', operation='LENGTH')
+            .link('Vector', None,
+                Node('VectorMath', operation='CROSS_PRODUCT')
+                .link(0, 'Normal',
+                    Node('NewGeometry')
+                )
+                .link(1, 'Normal',
+                    Node('Bevel', samples=2)
+                    .set('Radius', 0.1)
+                )
+            )
+        )
+    )
+))
+
+nodes_curvature_cavity = (Node('Math', operation='SUBTRACT', use_clamp=True)
+.set(0, 1.0)
+.link(1, 'AO',
+    Node('AmbientOcclusion', samples=16, only_local=True)
+    .set('Distance', 0.05)
+    .link('Normal', None,
+        Node('Bevel', samples=8)
+        .set('Radius', 0.2)
+    )
+))
+nodes_curvature_edge = (Node('Math', operation='SMOOTH_MIN', use_clamp=True)
+.set(1, 0.5)  # Value2
+.set(2, 1.0)  # Distance
+.link(0, None,
+    Node('Math', operation='SUBTRACT', use_clamp=True)
+    .set(0, 1.0)  # One minus AO
+    .link(1, 'AO',
+        Node('AmbientOcclusion', samples=16, inside=True, only_local=True)
+        .set('Distance', 0.1)
+        .link('Normal', None,
+            Node('Bevel', samples=8)
+            .set('Radius', 0.1)
+        )
+    )
+))
+nodes_curvature = (Node('OutputMaterial')
+.link('Surface', None,
+    Node('Emission')
+    .link('Color', 0,
+        Node('Math', operation='SUBTRACT', use_clamp=True)
+        .link(1, None,
+            Node('Math', operation='MULTIPLY', use_clamp=True)
+            .set(1, 4.0)  # Value2
+            .link(0, None,
+                Node('Math', operation='MAXIMUM', use_clamp=True)
+                .link(0, None,
+                    Node('Math', operation='SUBTRACT', use_clamp=True)
+                    .link(0, None, nodes_curvature_cavity)
+                    .link(1, None, nodes_curvature_edge)
+                )
+                .link(1, None,
+                    Node('Math', operation='MULTIPLY', use_clamp=True)
+                    .link(0, None, nodes_curvature_cavity)
+                    .link(1, None, nodes_curvature_edge)
+                )
+            )
+        )
+        .link(0, None,
+            Node('Math', operation='ADD', use_clamp=True)
+            .set(0, 0.5)  # Value1
+            .link(1, None, nodes_curvature_edge)
+        )
+    )
+))
+
 def bake_ao(scene, node_tree):
     # scene.cycles.samples = 128
     # bpy.ops.object.bake(type='AO')
     # Ambient occlusion node seems to produce less artifacts
-    main = (Node('OutputMaterial')
-    .link('Surface', None,
-        Node('Emission')
-        .link('Color', 0,
-            Node('AmbientOcclusion', samples=16, only_local=True)
-            .set('Distance', 2.0)
-        )
-    ))
-    main.build(node_tree)
+    nodes_ao.build(node_tree)
     scene.cycles.samples = 16
     bpy.ops.object.bake(type='EMIT')
 
 def bake_bevel(scene, node_tree):
-    main = (Node('OutputMaterial')
-    .link('Surface', None,
-        Node('Emission')
-        .link('Color', 0,
-            Node('Math', operation='SMOOTH_MIN')
-            .set(1, 0.6)  # Value2
-            .set(2, 2.0)  # Distance
-            .link(0, None,
-                Node('VectorMath', operation='LENGTH')
-                .link('Vector', None,
-                    Node('VectorMath', operation='CROSS_PRODUCT')
-                    .link(0, 'Normal',
-                        Node('NewGeometry')
-                    )
-                    .link(1, 'Normal',
-                        Node('Bevel', samples=2)
-                        .set('Radius', 0.1)
-                    )
-                )
-            )
-        )
-    ))
-    main.build(node_tree)
+    nodes_bevel.build(node_tree)
     scene.cycles.samples = 16
     bpy.ops.object.bake(type='EMIT')
 
 def bake_curvature(scene, node_tree):
-    cavity = (Node('Math', operation='SUBTRACT', use_clamp=True)
-    .set(0, 1.0)
-    .link(1, 'AO',
-        Node('AmbientOcclusion', samples=16, only_local=True)
-        .set('Distance', 0.05)
-        .link('Normal', None,
-            Node('Bevel', samples=8)
-            .set('Radius', 0.2)
-        )
-    ))
-    edge = (Node('Math', operation='SMOOTH_MIN', use_clamp=True)
-    .set(1, 0.5)  # Value2
-    .set(2, 1.0)  # Distance
-    .link(0, None,
-        Node('Math', operation='SUBTRACT', use_clamp=True)
-        .set(0, 1.0)  # One minus AO
-        .link(1, 'AO',
-            Node('AmbientOcclusion', samples=16, inside=True, only_local=True)
-            .set('Distance', 0.1)
-            .link('Normal', None,
-                Node('Bevel', samples=8)
-                .set('Radius', 0.1)
-            )
-        )
-    ))
-    main = (Node('OutputMaterial')
-    .link('Surface', None,
-        Node('Emission')
-        .link('Color', 0,
-            Node('Math', operation='SUBTRACT', use_clamp=True)
-            .link(1, None,
-                Node('Math', operation='MULTIPLY', use_clamp=True)
-                .set(1, 4.0)  # Value2
-                .link(0, None,
-                    Node('Math', operation='MAXIMUM', use_clamp=True)
-                    .link(0, None,
-                        Node('Math', operation='SUBTRACT', use_clamp=True)
-                        .link(0, None, cavity)
-                        .link(1, None, edge)
-                    )
-                    .link(1, None,
-                        Node('Math', operation='MULTIPLY', use_clamp=True)
-                        .link(0, None, cavity)
-                        .link(1, None, edge)
-                    )
-                )
-            )
-            .link(0, None,
-                Node('Math', operation='ADD', use_clamp=True)
-                .set(0, 0.5)  # Value1
-                .link(1, None, edge)
-            )
-        )
-    ))
-    main.build(node_tree)
+    nodes_curvature.build(node_tree)
     scene.cycles.samples = 16
     bpy.ops.object.bake(type='EMIT')
 
@@ -134,6 +137,12 @@ bakers = {
     'AO': bake_ao,
     'BEVEL': bake_bevel,
     'CURVATURE': bake_curvature,
+}
+
+node_trees = {
+    'AO': nodes_ao,
+    'BEVEL': nodes_bevel,
+    'CURVATURE': nodes_curvature,
 }
 
 bake_items = [
@@ -236,7 +245,7 @@ Defaults to the setting found in addon preferences if not specified""",
         bake_srcs = [bake.r, bake.g, bake.b]
         for bake_src in bake_srcs:
             if bake_src != 'NONE':
-                # Avoid doing extra work and bake only once for all channels with the same source
+                # Avoid doing extra work and bake only once for all channels with the same baker
                 channel_idxs = [idx for idx, src in enumerate(bake_srcs) if src == bake_src]
                 channel_names = ""
                 for channel_idx in channel_idxs:
@@ -433,6 +442,70 @@ Defaults to the setting found in addon preferences if not specified""",
 
         return {'FINISHED'}
 
+class GRET_OT_bake_preview(bpy.types.Operator):
+    #tooltip
+    """Preview bake result"""
+    # This is a modal operator because it would be far too messy to revert the changes otherwise
+
+    bl_idname = 'gret.bake_preview'
+    bl_label = "Preview Bake"
+    bl_options = {'INTERNAL'}
+
+    baker: bpy.props.EnumProperty(
+        name="Source",
+        description="Mask type to preview",
+        items=bake_items,
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.active_material
+
+    def modal(self, context, event):
+        if event.type in {'LEFTMOUSE', 'RIGHTMOUSE', 'ESC', 'RET', 'SPACE'}:
+            # Revert changes
+            obj = context.object
+            preview_mat = next((mat for mat in obj.data.materials if mat), None)
+            for mat_idx, mat in enumerate(self.saved_materials):
+                obj.data.materials[mat_idx] = mat
+            if preview_mat:
+                bpy.data.materials.remove(preview_mat)
+            del self.saved_materials
+
+            context.area.header_text_set(None)
+            context.scene.render.engine = self.saved_render_engine
+            context.scene.cycles.preview_samples = self.saved_cycles_samples
+            return {'CANCELLED'}
+
+        elif event.type in {'MOUSEMOVE', 'INBETWEEN_MOUSEMOVE', 'MIDDLEMOUSE', 'WHEELDOWNMOUSE',
+            'WHEELUPMOUSE', 'LEFT_CTRL', 'LEFT_SHIFT', 'LEFT_ALT'}:
+            # Only allow navigation keys. Kind of sucks, see https://developer.blender.org/T37427
+            return {'PASS_THROUGH'}
+
+        return {'RUNNING_MODAL'}
+
+    def invoke(self, context, event):
+        scn = context.scene
+        obj = context.object
+        node_tree = node_trees.get(self.baker)
+        if not node_tree:
+            self.report({'ERROR'}, "Invalid baker type.")
+            return {'CANCELLED'}
+
+        self.saved_materials = obj.data.materials[:]
+        preview_mat = bpy.data.materials.new(name=f"_preview_{self.baker}")
+        preview_mat.use_nodes = True
+        preview_mat.node_tree.nodes.clear()
+        node_tree.build(preview_mat.node_tree)
+        remap_materials([obj], context.object.active_material, preview_mat)
+
+        self.saved_render_engine, scn.render.engine = scn.render.engine, 'CYCLES'
+        self.saved_cycles_samples, scn.cycles.preview_samples = scn.cycles.preview_samples, 8
+
+        context.area.header_text_set(f"Previewing {self.baker} baker")
+        context.window_manager.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
+
 class GRET_PT_texture_bake(bpy.types.Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
@@ -450,8 +523,14 @@ class GRET_PT_texture_bake(bpy.types.Panel):
 
         row = layout.row(align=True)
         row.prop(bake, 'r', icon='COLOR_RED', text="")
+        op = row.operator('gret.bake_preview', icon='HIDE_OFF', text="")
+        op.baker = bake.r
         row.prop(bake, 'g', icon='COLOR_GREEN', text="")
+        op = row.operator('gret.bake_preview', icon='HIDE_OFF', text="")
+        op.baker = bake.g
         row.prop(bake, 'b', icon='COLOR_BLUE', text="")
+        op = row.operator('gret.bake_preview', icon='HIDE_OFF', text="")
+        op.baker = bake.b
         row.prop(bake, 'size', text="")
 
         col = layout.column(align=True)
@@ -471,19 +550,19 @@ class GRET_PG_texture_bake(bpy.types.PropertyGroup):
         min=8,
     )
     r: bpy.props.EnumProperty(
-        name="Texture R Source",
+        name="Texture R Baker",
         description="Mask to bake into the texture's red channel",
         items=bake_items,
         default='AO',
     )
     g: bpy.props.EnumProperty(
-        name="Texture G Source",
+        name="Texture G Baker",
         description="Mask to bake into the texture's green channel",
         items=bake_items,
         default='CURVATURE',  # Curvature in green for RGB565
     )
     b: bpy.props.EnumProperty(
-        name="Texture B Source",
+        name="Texture B Baker",
         description="Mask to bake into the texture's blue channel",
         items=bake_items,
         default='BEVEL',
@@ -499,6 +578,7 @@ class GRET_PG_texture_bake(bpy.types.PropertyGroup):
 
 classes = (
     GRET_OT_bake,
+    GRET_OT_bake_preview,
     GRET_OT_quick_unwrap,
     GRET_PG_texture_bake,
     GRET_PT_texture_bake,
