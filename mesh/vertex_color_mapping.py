@@ -228,7 +228,7 @@ class GRET_OT_vertex_color_mapping_add(bpy.types.Operator):
 
     bl_idname = 'gret.vertex_color_mapping_add'
     bl_label = "Add Vertex Color Mapping"
-    bl_options = {'INTERNAL', 'UNDO'}
+    bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -258,8 +258,7 @@ class GRET_OT_vertex_color_mapping_clear(bpy.types.Operator):
 
     def execute(self, context):
         obj = context.active_object
-        if obj.vertex_color_mapping:
-            obj.vertex_color_mapping.clear()
+        obj.vertex_color_mapping.clear()
 
         return {'FINISHED'}
 

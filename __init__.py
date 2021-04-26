@@ -81,9 +81,9 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         description="Show the texture bake panel",
         default=False,
     )
-    quick_unwrap_uv_layer_name: bpy.props.StringProperty(
-        name="Quick Unwrap UV Layer",
-        description="Name of the target UV layer for quick unwrap",
+    texture_bake_uv_layer_name: bpy.props.StringProperty(
+        name="Texture Bake UV Layer",
+        description="Name of the default UV layer for texture bakes",
         default="UVMap",
     )
     backwards_compat: bpy.props.BoolProperty(

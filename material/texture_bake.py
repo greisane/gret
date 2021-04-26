@@ -20,7 +20,6 @@ from gret.material.helpers import SolidPixels, Node
 
 # TODO
 # - AO floor
-# - Make it a collection like vertex color mapping, add UVMap name to it
 # - Allow Quick Unwrap from object mode
 
 def remap_materials(objs, src_mat, dst_mat):
@@ -158,14 +157,10 @@ class GRET_OT_quick_unwrap(bpy.types.Operator):
 
     bl_idname = 'gret.quick_unwrap'
     bl_label = "Quick Unwrap"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'INTERNAL', 'UNDO'}
 
-    uv_layer_name: bpy.props.StringProperty(
-        name="UV Layer",
-        description="""Name of the target UV layer.
-Defaults to the setting found in addon preferences if not specified""",
-        default="",
-    )
+    index: bpy.props.IntProperty(options={'HIDDEN'})
+
     angle_limit: bpy.props.FloatProperty(
         name="Angle Limit",
         description="Lower for more projection groups, higher for less distortion",
@@ -193,12 +188,12 @@ Defaults to the setting found in addon preferences if not specified""",
 
     def execute(self, context):
         mat = context.object.active_material
+        bake = mat.texture_bakes[self.index]
         saved_area_ui_type = context.area.ui_type
         saved_use_uv_select_sync = context.scene.tool_settings.use_uv_select_sync
         saved_selection = save_selection()
         saved_active_uv_layers = {}  # Object to UV layer
         margin = 1.0 / 128 * 2
-        self.uv_layer_name = self.uv_layer_name or prefs.quick_unwrap_uv_layer_name
 
         try:
             # Select all faces of all objects that share the material
@@ -212,9 +207,9 @@ Defaults to the setting found in addon preferences if not specified""",
             bpy.ops.object.editmode_toggle()
             for obj in objs:
                 saved_active_uv_layers[obj] = obj.data.uv_layers.active
-                uv = obj.data.uv_layers.get(self.uv_layer_name)
+                uv = obj.data.uv_layers.get(bake.uv_layer_name)
                 if not uv:
-                    uv = obj.data.uv_layers.new(name=self.uv_layer_name)
+                    uv = obj.data.uv_layers.new(name=bake.uv_layer_name)
                 uv.active = True
                 for face in obj.data.polygons:
                     face.select = obj.data.materials[face.material_index] == mat
@@ -255,21 +250,16 @@ Defaults to the setting found in addon preferences if not specified""",
 
         return {'FINISHED'}
 
-class GRET_OT_bake(bpy.types.Operator):
+class GRET_OT_texture_bake(bpy.types.Operator):
     #tooltip
     """Bake and export the texture.
 All faces from all objects assigned to the active material are assumed to contribute"""
 
-    bl_idname = 'gret.bake'
-    bl_label = "Bake"
+    bl_idname = 'gret.texture_bake'
+    bl_label = "Bake Textures"
     bl_options = {'INTERNAL'}
 
-    uv_layer_name: bpy.props.StringProperty(
-        name="UV Layer",
-        description="""Name of the target UV layer.
-Defaults to the setting found in addon preferences if not specified""",
-        default="",
-    )
+    index: bpy.props.IntProperty(options={'HIDDEN'})
 
     def new_image(self, name, size):
         image = bpy.data.images.new(name=name, width=size, height=size)
@@ -298,29 +288,26 @@ Defaults to the setting found in addon preferences if not specified""",
         # See https://developer.blender.org/T57143 and https://developer.blender.org/D4162
 
         mat = context.object.active_material
-        bake = mat.texture_bake
+        bake = mat.texture_bakes[self.index]
         size = bake.size
-        self.uv_layer_name = self.uv_layer_name or prefs.quick_unwrap_uv_layer_name
 
         # Collect all the objects that share this material
-        objs = [o for o in context.scene.objects if
-            o.type == 'MESH' and o.data.uv_layers.active and mat.name in o.data.materials]
-        show_only(context, objs)
-        select_only(context, objs)
+        objs = [o for o in context.scene.objects if o.type == 'MESH' and mat.name in o.data.materials]
+        for obj in objs:
+            if bake.uv_layer_name not in obj.data.uv_layers:
+                self.report({'ERROR'}, f"{obj.name} has no UV layer named '{bake.uv_layer_name}'")
+                return {'CANCELLED'}
 
         log(f"Baking {mat.name} with {len(objs)} contributing objects")
         logger.indent += 1
+        show_only(context, objs)
+        select_only(context, objs)
 
         # Explode objects. Not strictly necessary anymore since AO node has only_local flag
         for obj_idx, obj in enumerate(objs):
             self.saved_transforms[obj] = obj.matrix_world.copy()
             obj.matrix_world = Matrix.Translation((100.0 * obj_idx, 0.0, 0.0))
-
-            uv = obj.data.uv_layers.get(self.uv_layer_name)
-            if not uv:
-                log(f"UV layer {self.uv_layer_name} not found in {obj.name}")
-                return {'CANCELLED'}
-            uv.active = True
+            obj.data.uv_layers[bake.uv_layer_name].active = True
 
         # Setup common to all bakers
         # Note that dilation happens before the bake results from multiple objects are merged
@@ -375,7 +362,7 @@ Defaults to the setting found in addon preferences if not specified""",
         logger.indent -= 1
 
     def execute(self, context):
-        bake = context.object.active_material.texture_bake
+        bake = context.object.active_material.texture_bakes[self.index]
 
         try:
             fail_if_invalid_export_path(bake.export_path, ['material'])
@@ -423,12 +410,12 @@ Defaults to the setting found in addon preferences if not specified""",
 
         return {'FINISHED'}
 
-class GRET_OT_bake_preview(bpy.types.Operator):
+class GRET_OT_texture_bake_preview(bpy.types.Operator):
     #tooltip
-    """Preview bake result"""
+    """Preview this baker in the viewport. Click anywhere to stop previewing"""
     # This is a modal operator because it would be far too messy to revert the changes otherwise
 
-    bl_idname = 'gret.bake_preview'
+    bl_idname = 'gret.texture_bake_preview'
     bl_label = "Preview Bake"
     bl_options = {'INTERNAL'}
 
@@ -444,7 +431,19 @@ class GRET_OT_bake_preview(bpy.types.Operator):
 
     def modal(self, context, event):
         if event.type in {'LEFTMOUSE', 'RIGHTMOUSE', 'ESC', 'RET', 'SPACE'}:
-            # Revert changes
+            # Revert screen changes
+            for area in context.screen.areas:
+                if area.type == 'VIEW_3D':
+                    area.header_text_set(None)
+                for space in area.spaces:
+                    if space.type == 'VIEW_3D':
+                        space.shading.type = space.shading.pop('saved_type', space.shading.type)
+
+            # Revert scene changes
+            context.scene.render.engine = self.saved_render_engine
+            context.scene.cycles.preview_samples = self.saved_cycles_samples
+
+            # Revert object changes
             obj = context.object
             preview_mat = next((mat for mat in obj.data.materials if mat), None)
             for mat_idx, mat in enumerate(self.saved_materials):
@@ -453,9 +452,6 @@ class GRET_OT_bake_preview(bpy.types.Operator):
                 bpy.data.materials.remove(preview_mat)
             del self.saved_materials
 
-            context.area.header_text_set(None)
-            context.scene.render.engine = self.saved_render_engine
-            context.scene.cycles.preview_samples = self.saved_cycles_samples
             return {'CANCELLED'}
 
         elif event.type in {'MOUSEMOVE', 'INBETWEEN_MOUSEMOVE', 'MIDDLEMOUSE', 'WHEELDOWNMOUSE',
@@ -470,7 +466,7 @@ class GRET_OT_bake_preview(bpy.types.Operator):
         obj = context.object
         node_tree = node_trees.get(self.baker)
         if not node_tree:
-            self.report({'ERROR'}, "Invalid baker type.")
+            self.report({'ERROR'}, "Select a baker type.")
             return {'CANCELLED'}
 
         self.saved_materials = obj.data.materials[:]
@@ -483,9 +479,52 @@ class GRET_OT_bake_preview(bpy.types.Operator):
         self.saved_render_engine, scn.render.engine = scn.render.engine, 'CYCLES'
         self.saved_cycles_samples, scn.cycles.preview_samples = scn.cycles.preview_samples, 8
 
-        context.area.header_text_set(f"Previewing {self.baker} baker")
+        # Set all 3D views to rendered shading
+        for area in context.screen.areas:
+            if area.type == 'VIEW_3D':
+                area.header_text_set(f"Previewing {self.baker} baker")
+            for space in area.spaces:
+                if space.type == 'VIEW_3D':
+                    space.shading['saved_type'], space.shading.type = space.shading.type, 'RENDERED'
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
+
+class GRET_OT_texture_bake_add(bpy.types.Operator):
+    #tooltip
+    """Add vertex color mapping"""
+
+    bl_idname = 'gret.texture_bake_add'
+    bl_label = "Add Texture Bake"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object and context.active_object.active_material
+
+    def execute(self, context):
+        mat = context.active_object.active_material
+        bake = mat.texture_bakes.add()
+        bake.uv_layer_name = prefs.texture_bake_uv_layer_name
+
+        return {'FINISHED'}
+
+class GRET_OT_texture_bake_clear(bpy.types.Operator):
+    #tooltip
+    """Clear vertex color mapping"""
+
+    bl_idname = 'gret.texture_bake_clear'
+    bl_label = "Clear Texture Bake"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object and context.active_object.active_material
+
+    def execute(self, context):
+        mat = context.active_object.active_material
+        mat.texture_bakes.clear()
+
+        return {'FINISHED'}
 
 class GRET_PT_texture_bake(bpy.types.Panel):
     bl_space_type = 'PROPERTIES'
@@ -500,27 +539,48 @@ class GRET_PT_texture_bake(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         mat = context.object.active_material
-        bake = mat.texture_bake
 
-        row = layout.row(align=True)
-        row.prop(bake, 'r', icon='COLOR_RED', text="")
-        op = row.operator('gret.bake_preview', icon='HIDE_OFF', text="")
-        op.baker = bake.r
-        row.prop(bake, 'g', icon='COLOR_GREEN', text="")
-        op = row.operator('gret.bake_preview', icon='HIDE_OFF', text="")
-        op.baker = bake.g
-        row.prop(bake, 'b', icon='COLOR_BLUE', text="")
-        op = row.operator('gret.bake_preview', icon='HIDE_OFF', text="")
-        op.baker = bake.b
-        row.prop(bake, 'size', text="")
+        if not mat.texture_bakes:
+            layout.operator('gret.texture_bake_add', icon='ADD')
+        else:
+            layout.operator('gret.texture_bake_clear', icon='X')
 
-        col = layout.column(align=True)
-        col.prop(bake, 'export_path', text="")
-        row = col.row(align=True)
-        row.operator('gret.quick_unwrap', icon='UV')
-        op = row.operator('gret.bake', icon='INDIRECT_ONLY_ON', text="Bake")
+        for bake_idx, bake in enumerate(mat.texture_bakes):
+            box = layout
+            col = box.column(align=True)
+
+            row = col.row(align=True)
+            row.prop(bake, 'uv_layer_name', icon='UV', text="")
+            op = row.operator('gret.quick_unwrap', icon='MOD_UVPROJECT')
+            op.index = bake_idx
+            col.separator()
+
+            row = col.row(align=True)
+            row.prop(bake, 'r', icon='COLOR_RED', text="")
+            op = row.operator('gret.texture_bake_preview', icon='HIDE_OFF', text="")
+            op.baker = bake.r
+            row = col.row(align=True)
+            row.prop(bake, 'g', icon='COLOR_GREEN', text="")
+            op = row.operator('gret.texture_bake_preview', icon='HIDE_OFF', text="")
+            op.baker = bake.g
+            row = col.row(align=True)
+            row.prop(bake, 'b', icon='COLOR_BLUE', text="")
+            op = row.operator('gret.texture_bake_preview', icon='HIDE_OFF', text="")
+            op.baker = bake.b
+            col.prop(bake, 'size')
+            col.separator()
+
+            col.prop(bake, 'export_path', text="")
+            row = col.row(align=True)
+            op = row.operator('gret.texture_bake', icon='INDIRECT_ONLY_ON', text="Bake")
+            op.index = bake_idx
 
 class GRET_PG_texture_bake(bpy.types.PropertyGroup):
+    uv_layer_name: bpy.props.StringProperty(
+        name="UV Layer",
+        description="Name of the UV layer used when baking",
+        default="UVMap",
+    )
     size: bpy.props.IntProperty(
         name="Texture Size",
         description="Size of the exported texture",
@@ -555,9 +615,11 @@ class GRET_PG_texture_bake(bpy.types.PropertyGroup):
     )
 
 classes = (
-    GRET_OT_bake,
-    GRET_OT_bake_preview,
     GRET_OT_quick_unwrap,
+    GRET_OT_texture_bake,
+    GRET_OT_texture_bake_add,
+    GRET_OT_texture_bake_clear,
+    GRET_OT_texture_bake_preview,
     GRET_PG_texture_bake,
     GRET_PT_texture_bake,
 )
@@ -566,7 +628,9 @@ def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    bpy.types.Material.texture_bake = bpy.props.PointerProperty(type=GRET_PG_texture_bake)
+    bpy.types.Material.texture_bakes = bpy.props.CollectionProperty(
+        type=GRET_PG_texture_bake,
+    )
 
 def unregister():
     del bpy.types.Material.texture_bake

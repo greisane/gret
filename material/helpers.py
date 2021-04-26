@@ -46,7 +46,7 @@ class Node:
             return next(s for s in self._node.outputs if s.type == id_)
         return self._node.outputs[id_]
 
-    def build(self, node_tree, location=(0, 0)):
+    def _build(self, node_tree, location=(0, 0)):
         if self._node:
             return
 
@@ -69,13 +69,22 @@ class Node:
             # Rudimentary arrangement
             other_x = self._node.location.x - 200.0
             other_y = self._node.location.y - height
-            other.build(node_tree, (other_x, other_y))
+            other._build(node_tree, (other_x, other_y))
             height += other.branch_height
 
             this_input_socket = self.find_input_socket(this_input)
             other_output = this_input_socket.type if other_output is None else other_output
             other_output_socket = other.find_output_socket(other_output)
             node_tree.links.new(this_input_socket, other_output_socket)
+
+    def _clear(self):
+        self._node = None
+        for _, _, other in self.links:
+            other._clear()
+
+    def build(self, node_tree, location=(0, 0)):
+        self._build(node_tree, location)
+        self._clear()
 
     def __repr__(self):
         return f"{__class__.__name__}({repr(self.type)})"
