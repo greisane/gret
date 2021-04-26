@@ -106,13 +106,13 @@ def vcol_src_update(self, context):
     obj = context.active_object
     if obj and obj.type == 'MESH' and obj.data.vertex_colors:
         # Automatically refresh mappings only if it wouldn't create a vcol layer
-        bpy.ops.mesh.vertex_color_mapping_refresh()
+        bpy.ops.gret.vertex_color_mapping_refresh()
 
 class GRET_OT_vertex_color_mapping_refresh(bpy.types.Operator):
     #tooltip
     """Creates or refreshes the active vertex color layer from source mappings"""
 
-    bl_idname = 'mesh.vertex_color_mapping_refresh'
+    bl_idname = 'gret.vertex_color_mapping_refresh'
     bl_label = "Refresh Vertex Color Mapping"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -137,7 +137,7 @@ class GRET_OT_vertex_color_mapping_set(bpy.types.Operator):
     #tooltip
     """Set vertex color mapping for multiple objects"""
 
-    bl_idname = 'mesh.vertex_color_mapping_set'
+    bl_idname = 'gret.vertex_color_mapping_set'
     bl_label = "Set Vertex Color Mapping"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -226,7 +226,7 @@ class GRET_OT_vertex_color_mapping_add(bpy.types.Operator):
     #tooltip
     """Add vertex color mapping"""
 
-    bl_idname = 'mesh.vertex_color_mapping_add'
+    bl_idname = 'gret.vertex_color_mapping_add'
     bl_label = "Add Vertex Color Mapping"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -248,7 +248,7 @@ class GRET_OT_vertex_color_mapping_clear(bpy.types.Operator):
     #tooltip
     """Clear vertex color mapping"""
 
-    bl_idname = 'mesh.vertex_color_mapping_clear'
+    bl_idname = 'gret.vertex_color_mapping_clear'
     bl_label = "Clear Vertex Color Mapping"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -305,17 +305,17 @@ def vcol_panel_draw(self, context):
     mapping = obj.vertex_color_mapping[0] if obj.vertex_color_mapping else None
 
     if not mapping:
-        layout.operator('mesh.vertex_color_mapping_add', icon='ADD')
+        layout.operator('gret.vertex_color_mapping_add', icon='ADD')
     else:
         col = layout.column(align=True)
-        col.operator('mesh.vertex_color_mapping_clear', icon='X')
+        col.operator('gret.vertex_color_mapping_clear', icon='X')
         row = col.row(align=True)
         row.prop(mapping, 'r', icon='COLOR_RED', text="")
         row.prop(mapping, 'g', icon='COLOR_GREEN', text="")
         row.prop(mapping, 'b', icon='COLOR_BLUE', text="")
         row.prop(mapping, 'a', icon='OUTLINER_DATA_FONT', text="")
         row.prop(mapping, 'invert', icon='REMOVE', text="")
-        row.operator('mesh.vertex_color_mapping_refresh', icon='FILE_REFRESH', text="")
+        row.operator('gret.vertex_color_mapping_refresh', icon='FILE_REFRESH', text="")
         if any(src in {'PIVOTLOC', 'VERTEX'} for src in (mapping.r, mapping.g, mapping.b, mapping.a)):
             col.prop(mapping, 'extents')
 
