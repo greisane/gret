@@ -560,10 +560,12 @@ class GRET_OT_make_collision(bpy.types.Operator):
 def draw_panel(self, context):
     layout = self.layout
 
-    col = layout.column(align=True)
-    col.label(text="Collision:")
+    box = layout.box()
+    col = box.column(align=False)
+    col.label(text="Collision", icon='MESH_CUBE')
+
     row = col.row(align=True)
-    row.operator('gret.make_collision', icon='MESH_CUBE', text="Make")
+    row.operator('gret.make_collision', text="Make")
     row.operator('gret.assign_collision', text="Assign")
 
 classes = (
