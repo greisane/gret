@@ -86,7 +86,7 @@ The meshes are expected to share topology and vertex order"""
         src_obj = bpy.data.objects.get(self.source)
         dst_is_shape_key = self.destination.startswith('s_')
         dst_obj = bpy.data.objects.get(self.destination[2:]) if not dst_is_shape_key else src_obj
-        dst_shape_key = self.destination[2:] if dst_is_shape_key else None
+        dst_shape_key_name = self.destination[2:] if dst_is_shape_key else None
         assert src_obj and dst_obj and src_obj.type == 'MESH' and dst_obj.type == 'MESH'
         src_mesh = src_obj.data
         dst_mesh = dst_obj.data
@@ -113,7 +113,7 @@ The meshes are expected to share topology and vertex order"""
 
         rbf_kernel = rbf_kernels.get(self.function, rbf.linear)
         src_pts = rbf.get_mesh_points(src_mesh, mask=mask, stride=stride)
-        dst_pts = rbf.get_mesh_points(dst_mesh, shape_key=dst_shape_key, mask=mask, stride=stride)
+        dst_pts = rbf.get_mesh_points(dst_mesh, shape_key=dst_shape_key_name, mask=mask, stride=stride)
         try:
             weights = rbf.get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius)
         except np.linalg.LinAlgError:
@@ -142,7 +142,10 @@ The meshes are expected to share topology and vertex order"""
                 # Result to new shape key
                 if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:
                     obj.shape_key_add(name="Basis")
-                shape_key = obj.shape_key_add(name=f"Retarget_{dst_obj.name}")
+                shape_key_name = f"Retarget_{dst_obj.name}"
+                if dst_is_shape_key:
+                    shape_key_name += f"_{dst_shape_key_name}"
+                shape_key = obj.shape_key_add(name=shape_key_name)
                 shape_key.data.foreach_set('co', new_mesh_pts.ravel())
                 shape_key.value = 1.0
             elif obj.data.shape_keys and obj.data.shape_keys.key_blocks:
