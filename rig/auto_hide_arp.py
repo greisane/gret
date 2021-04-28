@@ -1,6 +1,8 @@
 from bpy.app.handlers import persistent
 import bpy
 
+from gret import prefs
+
 saved_unhidden_collections = set()
 @persistent
 def save_pre(dummy):
@@ -28,11 +30,15 @@ def load_post(dummy):
             coll.hide_viewport = False
 
 def register(settings):
-    bpy.app.handlers.save_pre.append(save_pre)
-    bpy.app.handlers.save_post.append(save_post)
-    bpy.app.handlers.load_post.append(load_post)
+    if prefs.auto_hide_arp_enable:
+        bpy.app.handlers.save_pre.append(save_pre)
+        bpy.app.handlers.save_post.append(save_post)
+        bpy.app.handlers.load_post.append(load_post)
 
 def unregister():
-    bpy.app.handlers.save_pre.remove(save_pre)
-    bpy.app.handlers.save_post.remove(save_post)
-    bpy.app.handlers.load_post.remove(load_post)
+    try:
+        bpy.app.handlers.save_pre.remove(save_pre)
+        bpy.app.handlers.save_post.remove(save_post)
+        bpy.app.handlers.load_post.remove(load_post)
+    except ValueError:
+        pass

@@ -54,7 +54,7 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
     bl_idname = __name__
 
     jobs_panel_enable: bpy.props.BoolProperty(
-        name="Enable Jobs Panel",
+        name="Jobs Panel",
         description="Show the export jobs panel",
         default=False,
     )
@@ -62,6 +62,11 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         name="Default UV Layer",
         description="Name of the default UV layer for texture bakes",
         default="UVMap",
+    )
+    auto_hide_arp_enable: bpy.props.BoolProperty(
+        name="Auto Hide ARP",
+        description="Automatically hide the ARP armature collection on saving",
+        default=False,
     )
     backwards_compat: bpy.props.BoolProperty(
         name="Backwards Compatibility",
@@ -80,6 +85,7 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
 
         col.prop(self, 'jobs_panel_enable')
         col.prop(self, 'backwards_compat')
+        col.prop(self, 'auto_hide_arp_enable')
         col.prop(self, 'debug')
         col.separator()
 
