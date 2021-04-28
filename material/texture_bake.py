@@ -1,3 +1,4 @@
+from collections import namedtuple
 from itertools import chain
 from math import radians
 from mathutils import Matrix
@@ -132,7 +133,7 @@ def bake_curvature(scene, node_tree, values):
     scene.cycles.samples = 16
     bpy.ops.object.bake(type='EMIT')
 
-bakers = {
+bake_funcs = {
     'AO': bake_ao,
     'BEVEL': bake_bevel,
     'CURVATURE': bake_curvature,
@@ -317,32 +318,41 @@ All faces from all objects assigned to the active material are assumed to contri
         context.scene.render.bake.use_selected_to_active = False
 
         bake_pixels = [SolidPixels(size, k) for k in (0.0, 0.0, 0.0, 1.0)]
-        bake_srcs = [bake.r, bake.g, bake.b]
-        bake_scales = [bake.r_scale, bake.g_scale, bake.b_scale]
-        for bake_src, bake_scale in zip(bake_srcs, bake_scales):
-            if bake_src != 'NONE':
-                # Avoid doing extra work and bake only once for all channels with the same baker
-                channel_idxs = [idx for idx, src in enumerate(bake_srcs) if src == bake_src]
-                channel_names = ""
-                for channel_idx in channel_idxs:
-                    bake_srcs[channel_idx] = 'NONE'
-                    channel_names += ("R", "G", "B")[channel_idx]
-                log(f"Baking {bake_src} for channel {channel_names}")
-                bake_img = self.new_image(f"_{mat.name}_{bake_src}", size)
-                bake_mat = self.new_bake_material(bake_img)
+        ChannelBakeInfo = namedtuple('ChannelBakeInfo', ['src', 'scale'])
+        ChannelBakeInfo.__bool__ = lambda self: self.src != 'NONE'
+        channels = [
+            ChannelBakeInfo(bake.r, bake.r_scale),
+            ChannelBakeInfo(bake.g, bake.g_scale),
+            ChannelBakeInfo(bake.b, bake.b_scale),
+        ]
+        for channel in channels:
+            if not channel:
+                continue
 
-                # Switch to the bake material, bake then restore
-                saved_materials = {obj: obj.data.materials[:] for obj in objs}
-                remap_materials(objs, mat, bake_mat)
-                bakers[bake_src](context.scene, bake_mat.node_tree, {'scale': bake_scale})
-                for obj, saved_mats in saved_materials.items():
-                    for mat_idx, saved_mat in enumerate(saved_mats):
-                        obj.data.materials[mat_idx] = saved_mat
+            # Avoid doing extra work and bake only once for all channels with the same baker
+            channel_idxs = []
+            for channel_idx, other_channel in enumerate(channels):
+                if channel == other_channel:
+                    channels[channel_idx] = None
+                    channel_idxs.append(channel_idx)
 
-                # Store the result
-                pixels = bake_img.pixels[:]
-                for channel_idx in channel_idxs:
-                    bake_pixels[channel_idx] = pixels
+            channel_names = ''.join(("R", "G", "B")[idx] for idx in channel_idxs)
+            log(f"Baking {channel.src} for channel {channel_names}")
+            bake_img = self.new_image(f"_{mat.name}_{channel.src}", size)
+            bake_mat = self.new_bake_material(bake_img)
+
+            # Switch to the bake material, bake then restore
+            saved_materials = {obj: obj.data.materials[:] for obj in objs}
+            remap_materials(objs, mat, bake_mat)
+            bake_funcs[channel.src](context.scene, bake_mat.node_tree, {'scale': channel.scale})
+            for obj, saved_mats in saved_materials.items():
+                for mat_idx, saved_mat in enumerate(saved_mats):
+                    obj.data.materials[mat_idx] = saved_mat
+
+            # Store the result
+            pixels = bake_img.pixels[:]
+            for channel_idx in channel_idxs:
+                bake_pixels[channel_idx] = pixels
 
         # Composite and write file to disk
         path_fields = {
