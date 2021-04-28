@@ -33,7 +33,7 @@ nodes_ao = (Node('OutputMaterial')
     Node('Emission')
     .link('Color', 0,
         Node('AmbientOcclusion', samples=16, only_local=True)
-        .set('Distance', "scale*2.0")
+        .set('Distance', "scale*1.0")
     )
 ))
 
@@ -53,7 +53,7 @@ nodes_bevel = (Node('OutputMaterial')
                 )
                 .link(1, 'Normal',
                     Node('Bevel', samples=2)
-                    .set('Radius', "scale*0.1")
+                    .set('Radius', "scale*0.05")
                 )
             )
         )
@@ -64,10 +64,10 @@ nodes_curvature_cavity = (Node('Math', operation='SUBTRACT', use_clamp=True)
 .set(0, 1.0)
 .link(1, 'AO',
     Node('AmbientOcclusion', samples=16, only_local=True)
-    .set('Distance', "scale*0.05")
+    .set('Distance', "scale*0.025")
     .link('Normal', None,
         Node('Bevel', samples=8)
-        .set('Radius', "scale*0.2")
+        .set('Radius', "scale*0.1")
     )
 ))
 nodes_curvature_edge = (Node('Math', operation='SMOOTH_MIN', use_clamp=True)
@@ -78,10 +78,10 @@ nodes_curvature_edge = (Node('Math', operation='SMOOTH_MIN', use_clamp=True)
     .set(0, 1.0)  # One minus AO
     .link(1, 'AO',
         Node('AmbientOcclusion', samples=16, inside=True, only_local=True)
-        .set('Distance', "scale*0.1")
+        .set('Distance', "scale*0.05")
         .link('Normal', None,
             Node('Bevel', samples=8)
-            .set('Radius', "scale*0.1")
+            .set('Radius', "scale*0.05")
         )
     )
 ))
