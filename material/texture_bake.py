@@ -444,13 +444,13 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
             context.scene.cycles.preview_samples = self.saved_cycles_samples
 
             # Revert object changes
-            obj = context.object
-            preview_mat = next((mat for mat in obj.data.materials if mat), None)
-            for mat_idx, mat in enumerate(self.saved_materials):
-                obj.data.materials[mat_idx] = mat
-            if preview_mat:
-                bpy.data.materials.remove(preview_mat)
+            for obj, saved_mats in self.saved_materials.items():
+                for mat_idx, saved_mat in enumerate(saved_mats):
+                    obj.data.materials[mat_idx] = saved_mat
             del self.saved_materials
+
+            bpy.data.materials.remove(self.preview_mat)
+            del self.preview_mat
 
             return {'CANCELLED'}
 
@@ -463,18 +463,19 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
 
     def invoke(self, context, event):
         scn = context.scene
-        obj = context.object
+        mat = context.object.active_material
         node_tree = node_trees.get(self.baker)
         if not node_tree:
             self.report({'ERROR'}, "Select a baker type.")
             return {'CANCELLED'}
 
-        self.saved_materials = obj.data.materials[:]
-        preview_mat = bpy.data.materials.new(name=f"_preview_{self.baker}")
+        objs = [o for o in context.scene.objects if o.type == 'MESH' and mat.name in o.data.materials]
+        self.saved_materials = {obj: obj.data.materials[:] for obj in objs}
+        self.preview_mat = preview_mat = bpy.data.materials.new(name=f"_preview_{self.baker}")
         preview_mat.use_nodes = True
         preview_mat.node_tree.nodes.clear()
         node_tree.build(preview_mat.node_tree)
-        remap_materials([obj], context.object.active_material, preview_mat)
+        remap_materials(objs, mat, preview_mat)
 
         self.saved_render_engine, scn.render.engine = scn.render.engine, 'CYCLES'
         self.saved_cycles_samples, scn.cycles.preview_samples = scn.cycles.preview_samples, 8
