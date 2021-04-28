@@ -7,12 +7,12 @@ from gret.log import log, logd, logger
 import gret.rbf as rbf
 
 rbf_kernels = {
-    'LINEAR': rbf.linear,
-    'GAUSSIAN': rbf.gaussian,
-    'PLATE': rbf.thin_plate,
-    'BIHARMONIC': rbf.multi_quadratic_biharmonic,
-    'INV_BIHARMONIC': rbf.inv_multi_quadratic_biharmonic,
-    'C2': rbf.beckert_wendland_c2_basis,
+    'LINEAR': (rbf.linear, 1.0),
+    'GAUSSIAN': (rbf.gaussian, 0.01),
+    'PLATE': (rbf.thin_plate, 0.001),
+    'BIHARMONIC': (rbf.multi_quadratic_biharmonic, 0.01),
+    'INV_BIHARMONIC': (rbf.inv_multi_quadratic_biharmonic, 0.01),
+    'C2': (rbf.beckert_wendland_c2_basis, 1.0),
 }
 
 # TODO
@@ -96,7 +96,7 @@ The meshes are expected to share topology and vertex order"""
             self.report({'ERROR'}, "Source mesh has no vertices.")
             return {'CANCELLED'}
         if num_vertices != len(dst_mesh.vertices):
-            self.report({'ERROR'}, "Source and destination meshes must have equal amount of vertices.")
+            self.report({'ERROR'}, "Source and destination meshes must have equal number of vertices.")
             return {'CANCELLED'}
 
         # Increase vertex sampling stride to speed up calculation (reduces accuracy)
@@ -111,11 +111,11 @@ The meshes are expected to share topology and vertex order"""
             return {'CANCELLED'}
         logd(f"num_verts={num_masked}/{num_vertices} stride={stride} total={num_masked//stride}")
 
-        rbf_kernel = rbf_kernels.get(self.function, rbf.linear)
+        rbf_kernel, scale = rbf_kernels.get(self.function, (rbf.linear, 1.0))
         src_pts = rbf.get_mesh_points(src_mesh, mask=mask, stride=stride)
         dst_pts = rbf.get_mesh_points(dst_mesh, shape_key=dst_shape_key_name, mask=mask, stride=stride)
         try:
-            weights = rbf.get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius)
+            weights = rbf.get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius * scale)
         except np.linalg.LinAlgError:
             # Solving for C2 kernel may throw 'SVD did not converge' sometimes
             self.report({'ERROR'}, "Failed to retarget. Try a different function or radius.")
@@ -124,15 +124,17 @@ The meshes are expected to share topology and vertex order"""
         for obj in objs:
             if obj.type != 'MESH' or obj == src_obj or obj == dst_obj:
                 continue
+            # Get the mesh points in retarget destination space
             dst_to_obj = obj.matrix_world.inverted() @ dst_obj.matrix_world
             obj_to_dst = dst_to_obj.inverted()
             mesh_pts = rbf.get_mesh_points(obj.data, matrix=obj_to_dst)
             num_mesh_pts = mesh_pts.shape[0]
 
-            dist = rbf.get_distance_matrix(mesh_pts, src_pts, rbf_kernel, self.radius)
+            dist = rbf.get_distance_matrix(mesh_pts, src_pts, rbf_kernel, self.radius * scale)
             identity = np.ones((num_mesh_pts, 1))
             h = np.bmat([[dist, identity, mesh_pts]])
             new_mesh_pts = np.asarray(np.dot(h, weights))
+
             # Result back to local space
             new_mesh_pts = np.c_[new_mesh_pts, identity]
             new_mesh_pts = np.einsum('ij,aj->ai', dst_to_obj, new_mesh_pts)

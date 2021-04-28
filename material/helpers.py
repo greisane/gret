@@ -64,9 +64,6 @@ class Node:
         for k, v in self.default_values.items():
             if isinstance(v, str):
                 try:
-                    # Dump the values dictionary to give expressions easy access to it
-                    # Allows e.g. "distance*0.5" instead of "self['distance']*0.5"
-                    # locals().update(self)
                     v = float(eval(v, values))
                 except Exception as e:
                     log(f"Couldn't evaluate expression '{v}' ({e})")
