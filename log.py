@@ -6,12 +6,13 @@ from gret import prefs
 class Logger:
     """Simple logger. Can be used as a mixin."""
 
-    def start_logging(self, filepath=None, defer_print=True):
+    def start_logging(self, filepath=None, defer_print=True, timestamps=True):
         if not self.is_logging():
             self.logs = []
             self.start_time = time.time()
             self.file = open(filepath, 'w') if filepath else None
             self.defer_print = defer_print
+            self.timestamps = timestamps
             self.prefix = ""
             self.indent = 0
             self.started = 0
@@ -54,7 +55,10 @@ class Logger:
 
     def _print_log(self, timestamp, message, category):
         if not category or category in self.categories:
-            line = f"{timestamp - self.start_time:6.2f}s | {message}"
+            if self.timestamps:
+                line = f"{timestamp - self.start_time:6.2f}s | {message}"
+            else:
+                line = message
             print(line)
             if self.file:
                 print(line, file=self.file)

@@ -32,7 +32,7 @@ nodes_ao = (Node('OutputMaterial')
     Node('Emission')
     .link('Color', 0,
         Node('AmbientOcclusion', samples=16, only_local=True)
-        .set('Distance', 2.0)
+        .set('Distance', "scale*2.0")
     )
 ))
 
@@ -52,7 +52,7 @@ nodes_bevel = (Node('OutputMaterial')
                 )
                 .link(1, 'Normal',
                     Node('Bevel', samples=2)
-                    .set('Radius', 0.1)
+                    .set('Radius', "scale*0.1")
                 )
             )
         )
@@ -63,10 +63,10 @@ nodes_curvature_cavity = (Node('Math', operation='SUBTRACT', use_clamp=True)
 .set(0, 1.0)
 .link(1, 'AO',
     Node('AmbientOcclusion', samples=16, only_local=True)
-    .set('Distance', 0.05)
+    .set('Distance', "scale*0.05")
     .link('Normal', None,
         Node('Bevel', samples=8)
-        .set('Radius', 0.2)
+        .set('Radius', "scale*0.2")
     )
 ))
 nodes_curvature_edge = (Node('Math', operation='SMOOTH_MIN', use_clamp=True)
@@ -77,10 +77,10 @@ nodes_curvature_edge = (Node('Math', operation='SMOOTH_MIN', use_clamp=True)
     .set(0, 1.0)  # One minus AO
     .link(1, 'AO',
         Node('AmbientOcclusion', samples=16, inside=True, only_local=True)
-        .set('Distance', 0.1)
+        .set('Distance', "scale*0.1")
         .link('Normal', None,
             Node('Bevel', samples=8)
-            .set('Radius', 0.1)
+            .set('Radius', "scale*0.1")
         )
     )
 ))
@@ -114,21 +114,21 @@ nodes_curvature = (Node('OutputMaterial')
     )
 ))
 
-def bake_ao(scene, node_tree):
+def bake_ao(scene, node_tree, values):
     # scene.cycles.samples = 128
     # bpy.ops.object.bake(type='AO')
     # Ambient occlusion node seems to produce less artifacts
-    nodes_ao.build(node_tree)
+    nodes_ao.build(node_tree, values)
     scene.cycles.samples = 16
     bpy.ops.object.bake(type='EMIT')
 
-def bake_bevel(scene, node_tree):
-    nodes_bevel.build(node_tree)
+def bake_bevel(scene, node_tree, values):
+    nodes_bevel.build(node_tree, values)
     scene.cycles.samples = 16
     bpy.ops.object.bake(type='EMIT')
 
-def bake_curvature(scene, node_tree):
-    nodes_curvature.build(node_tree)
+def bake_curvature(scene, node_tree, values):
+    nodes_curvature.build(node_tree, values)
     scene.cycles.samples = 16
     bpy.ops.object.bake(type='EMIT')
 
@@ -318,7 +318,8 @@ All faces from all objects assigned to the active material are assumed to contri
 
         bake_pixels = [SolidPixels(size, k) for k in (0.0, 0.0, 0.0, 1.0)]
         bake_srcs = [bake.r, bake.g, bake.b]
-        for bake_src in bake_srcs:
+        bake_scales = [bake.r_scale, bake.g_scale, bake.b_scale]
+        for bake_src, bake_scale in zip(bake_srcs, bake_scales):
             if bake_src != 'NONE':
                 # Avoid doing extra work and bake only once for all channels with the same baker
                 channel_idxs = [idx for idx, src in enumerate(bake_srcs) if src == bake_src]
@@ -333,7 +334,7 @@ All faces from all objects assigned to the active material are assumed to contri
                 # Switch to the bake material, bake then restore
                 saved_materials = {obj: obj.data.materials[:] for obj in objs}
                 remap_materials(objs, mat, bake_mat)
-                bakers[bake_src](context.scene, bake_mat.node_tree)
+                bakers[bake_src](context.scene, bake_mat.node_tree, {'scale': bake_scale})
                 for obj, saved_mats in saved_materials.items():
                     for mat_idx, saved_mat in enumerate(saved_mats):
                         obj.data.materials[mat_idx] = saved_mat
@@ -424,6 +425,12 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
         description="Mask type to preview",
         items=bake_items,
     )
+    scale: bpy.props.FloatProperty(
+        name="Scale",
+        description="Baker-specific scaling factor",
+        default=1.0,
+        min=0.0,
+    )
 
     @classmethod
     def poll(cls, context):
@@ -452,6 +459,9 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
             bpy.data.materials.remove(self.preview_mat)
             del self.preview_mat
 
+            load_selection(self.saved_selection)
+            del self.saved_selection
+
             return {'CANCELLED'}
 
         elif event.type in {'MOUSEMOVE', 'INBETWEEN_MOUSEMOVE', 'MIDDLEMOUSE', 'WHEELDOWNMOUSE',
@@ -465,16 +475,24 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
         scn = context.scene
         mat = context.object.active_material
         node_tree = node_trees.get(self.baker)
-        if not node_tree:
+        if node_tree is None:
             self.report({'ERROR'}, "Select a baker type.")
             return {'CANCELLED'}
 
         objs = [o for o in context.scene.objects if o.type == 'MESH' and mat.name in o.data.materials]
+
+        logger.start_logging(timestamps=False)
+        log(f"Previewing {self.baker} baker with {len(objs)} objects")
+        logger.indent += 1
+
+        self.saved_selection = save_selection()
+        show_only(context, objs)
+
         self.saved_materials = {obj: obj.data.materials[:] for obj in objs}
         self.preview_mat = preview_mat = bpy.data.materials.new(name=f"_preview_{self.baker}")
         preview_mat.use_nodes = True
         preview_mat.node_tree.nodes.clear()
-        node_tree.build(preview_mat.node_tree)
+        node_tree.build(preview_mat.node_tree, {'scale': self.scale})
         remap_materials(objs, mat, preview_mat)
 
         self.saved_render_engine, scn.render.engine = scn.render.engine, 'CYCLES'
@@ -488,6 +506,8 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
                 if space.type == 'VIEW_3D':
                     space.shading['saved_type'], space.shading.type = space.shading.type, 'RENDERED'
         context.window_manager.modal_handler_add(self)
+
+        logger.end_logging()
         return {'RUNNING_MODAL'}
 
 class GRET_OT_texture_bake_add(bpy.types.Operator):
@@ -558,16 +578,28 @@ class GRET_PT_texture_bake(bpy.types.Panel):
 
             row = col.row(align=True)
             row.prop(bake, 'r', icon='COLOR_RED', text="")
+            sub = row.split(align=True)
+            sub.prop(bake, 'r_scale', text="")
+            sub.scale_x = 0.4
             op = row.operator('gret.texture_bake_preview', icon='HIDE_OFF', text="")
             op.baker = bake.r
+            op.scale = bake.r_scale
             row = col.row(align=True)
             row.prop(bake, 'g', icon='COLOR_GREEN', text="")
+            sub = row.split(align=True)
+            sub.prop(bake, 'g_scale', text="")
+            sub.scale_x = 0.4
             op = row.operator('gret.texture_bake_preview', icon='HIDE_OFF', text="")
             op.baker = bake.g
+            op.scale = bake.g_scale
             row = col.row(align=True)
             row.prop(bake, 'b', icon='COLOR_BLUE', text="")
+            sub = row.split(align=True)
+            sub.prop(bake, 'b_scale', text="")
+            sub.scale_x = 0.4
             op = row.operator('gret.texture_bake_preview', icon='HIDE_OFF', text="")
             op.baker = bake.b
+            op.scale = bake.b_scale
             col.prop(bake, 'size')
             col.separator()
 
@@ -594,17 +626,35 @@ class GRET_PG_texture_bake(bpy.types.PropertyGroup):
         items=bake_items,
         default='AO',
     )
+    r_scale: bpy.props.FloatProperty(
+        name="Texture R Baker Scale",
+        description="Baker-specific scaling factor",
+        default=1.0,
+        min=0.0,
+    )
     g: bpy.props.EnumProperty(
         name="Texture G Baker",
         description="Mask to bake into the texture's green channel",
         items=bake_items,
         default='CURVATURE',  # Curvature in green for RGB565
     )
+    g_scale: bpy.props.FloatProperty(
+        name="Texture G Baker Scale",
+        description="Baker-specific scaling factor",
+        default=1.0,
+        min=0.0,
+    )
     b: bpy.props.EnumProperty(
         name="Texture B Baker",
         description="Mask to bake into the texture's blue channel",
         items=bake_items,
         default='BEVEL',
+    )
+    b_scale: bpy.props.FloatProperty(
+        name="Texture B Baker Scale",
+        description="Baker-specific scaling factor",
+        default=1.0,
+        min=0.0,
     )
     export_path: bpy.props.StringProperty(
         name="Export Path",

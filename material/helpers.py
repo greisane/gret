@@ -30,7 +30,7 @@ class Node:
         return self
 
     def set(self, this_input, value):
-        """Sets the default value of the input."""
+        """Sets the default value of the input. If value is a string it will be evaluated."""
         self.default_values[this_input] = value
         return self
 
@@ -46,7 +46,7 @@ class Node:
             return next(s for s in self._node.outputs if s.type == id_)
         return self._node.outputs[id_]
 
-    def _build(self, node_tree, location=(0, 0)):
+    def _build(self, node_tree, values, location):
         if self._node:
             return
 
@@ -60,16 +60,28 @@ class Node:
             try:
                 setattr(self._node, k, v)
             except (AttributeError, TypeError) as e:
-                log(f"Couldn't set option {k} for node {self._node.name}: {e}")
+                log(f"Couldn't set option '{k}' for node '{self._node.name}' ({e})")
         for k, v in self.default_values.items():
-            self.find_input_socket(k).default_value = v
+            if isinstance(v, str):
+                try:
+                    # Dump the values dictionary to give expressions easy access to it
+                    # Allows e.g. "distance*0.5" instead of "self['distance']*0.5"
+                    # locals().update(self)
+                    v = float(eval(v, values))
+                except Exception as e:
+                    log(f"Couldn't evaluate expression '{v}' ({e})")
+                    v = 0.0
+            try:
+                self.find_input_socket(k).default_value = v
+            except (AttributeError, TypeError) as e:
+                log(f"Couldn't set default value '{k}' for node '{self._node.name}' ({e})")
 
         height = 0.0
         for link_idx, (this_input, other_output, other) in enumerate(self.links):
             # Rudimentary arrangement
             other_x = self._node.location.x - 200.0
             other_y = self._node.location.y - height
-            other._build(node_tree, (other_x, other_y))
+            other._build(node_tree, values, (other_x, other_y))
             height += other.branch_height
 
             this_input_socket = self.find_input_socket(this_input)
@@ -82,8 +94,8 @@ class Node:
         for _, _, other in self.links:
             other._clear()
 
-    def build(self, node_tree, location=(0, 0)):
-        self._build(node_tree, location)
+    def build(self, node_tree, values={}, location=(0, 0)):
+        self._build(node_tree, values, location)
         self._clear()
 
     def __repr__(self):
