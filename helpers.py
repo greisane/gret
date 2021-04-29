@@ -472,7 +472,7 @@ def remove_subsequence(seq, subseq):
         if j == len(subseq) - 1:
             del seq[i:i+len(subseq)]
             break
-    return seqray_origin_obj
+    return seq
 
 def get_visible_objects_and_duplis(context):
     """Loop over (object, matrix) pairs."""
