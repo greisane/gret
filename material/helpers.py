@@ -57,16 +57,23 @@ class Node:
         self.branch_height = node_height + 20.0
 
         for k, v in self.options.items():
+            if k.endswith('_eval'):
+                k = k[:-len('_eval')]
+                try:
+                    v = eval(v, values)
+                except Exception as e:
+                    log(f"Couldn't evaluate option expression '{v}' ({e})")
             try:
                 setattr(self._node, k, v)
             except (AttributeError, TypeError) as e:
                 log(f"Couldn't set option '{k}' for node '{self._node.name}' ({e})")
+
         for k, v in self.default_values.items():
             if isinstance(v, str):
                 try:
                     v = float(eval(v, values))
                 except Exception as e:
-                    log(f"Couldn't evaluate expression '{v}' ({e})")
+                    log(f"Couldn't evaluate default value expression '{v}' ({e})")
                     v = 0.0
             try:
                 self.find_input_socket(k).default_value = v

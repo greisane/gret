@@ -63,6 +63,11 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         description="Name of the default UV layer for texture bakes",
         default="UVMap",
     )
+    palette_uv_layer_name: bpy.props.StringProperty(
+        name="Default UV Layer",
+        description="Name of the default UV layer for palette paint",
+        default="UVMap",
+    )
     auto_hide_arp_enable: bpy.props.BoolProperty(
         name="Auto Hide ARP",
         description="Automatically hide the ARP armature collection on saving",
@@ -91,6 +96,10 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
 
         col.label(text='Texture Bake:')
         col.prop(self, 'texture_bake_uv_layer_name')
+        col.separator()
+
+        col.label(text='Palette Paint:')
+        col.prop(self, 'palette_uv_layer_name')
         col.separator()
 
 class GRET_PG_settings(bpy.types.PropertyGroup):

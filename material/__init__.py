@@ -2,6 +2,7 @@ import bpy
 
 module_names = [
     'helpers',
+    'palette_paint',
     'texture_bake',
 ]
 from gret import import_or_reload_modules

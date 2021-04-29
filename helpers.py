@@ -1,3 +1,4 @@
+from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
 from collections import namedtuple
 from functools import wraps, lru_cache
 from mathutils import Vector, Quaternion, Euler
@@ -458,6 +459,42 @@ def link_properties(from_obj, from_data_path, to_obj, to_data_path, invert=False
     tgt = var.targets[0]
     tgt.data_path = from_data_path
     tgt.id = from_obj
+
+def remove_subsequence(seq, subseq):
+    """Removes the first instance of a subsequence from another sequence."""
+
+    for i in range(0, len(seq) - len(subseq) + 1):
+        j = -1
+        for j, el in enumerate(subseq):
+            if seq[i+j] != el:
+                j = -1
+                break
+        if j == len(subseq) - 1:
+            del seq[i:i+len(subseq)]
+            break
+    return seqray_origin_obj
+
+def get_visible_objects_and_duplis(context):
+    """Loop over (object, matrix) pairs."""
+
+    dg = context.evaluated_depsgraph_get()
+    for dup in dg.object_instances:
+        if dup.is_instance:
+            obj = dup.instance_object
+            yield obj, dup.matrix_world
+        else:
+            obj = dup.object
+            yield obj, obj.matrix_world
+
+def get_tools_from_space_and_mode(space_type, context_mode):
+    return ToolSelectPanelHelper._tool_class_from_space_type(space_type)._tools[context_mode]
+
+def keymap_view3d_empty(km_name):
+    return (
+        km_name,
+        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
+        {"items": []},
+    )
 
 def make_annotations(cls):
     """Converts class fields to annotations if running Blender 2.8."""

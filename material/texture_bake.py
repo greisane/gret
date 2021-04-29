@@ -621,7 +621,7 @@ class GRET_PT_texture_bake(bpy.types.Panel):
 class GRET_PG_texture_bake(bpy.types.PropertyGroup):
     uv_layer_name: bpy.props.StringProperty(
         name="UV Layer",
-        description="Name of the UV layer used when baking",
+        description="Name of the target UV layer. Can change the default in addon preferences",
         default="UVMap",
     )
     size: bpy.props.IntProperty(
