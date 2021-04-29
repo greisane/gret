@@ -209,7 +209,7 @@ def get_ray_hit(context, mouse_x, mouse_y):
     hit_obj = None
 
     for obj in context.scene.objects:
-        if obj.type != 'MESH':
+        if obj.type != 'MESH' or not obj.visible_get():
             continue
         # Move ray to object local space
         obj_to_world = obj.matrix_world
