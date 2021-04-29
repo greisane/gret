@@ -192,6 +192,7 @@ def set_tile(mesh, face, tile, uv_layer_name):
         uv_layer = mesh.uv_layers.new(name=uv_layer_name)
         do_fill = True
     uv_layer.active = True
+    uv_layer.active_render = True
     uvs = uv_layer.data
 
     # Apply UVs
