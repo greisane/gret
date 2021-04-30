@@ -299,6 +299,19 @@ class GRET_OT_palette_draw(bpy.types.Operator):
         ),
         default='DRAW',
     )
+    delimit: bpy.props.EnumProperty(
+        name="Fill Mode",
+        description="Delimit fill region",
+        items = (
+            ('NORMAL', "Normal", "Delimit by face directions"),
+            ('MATERIAL', "Material", "Delimit by material"),
+            ('SEAM', "Seam", "Delimit by edge seams"),
+            ('SHARP', "Sharp", "Delimit by sharp edges"),
+            ('UV', "UVs", "Delimit by UV coordinates"),
+        ),
+        options={'ENUM_FLAG'},
+        default={'MATERIAL', 'SEAM', 'SHARP', 'UV'},
+    )
 
     def do_draw(self, context, mesh, face, rotation=0):
         new_tile = Tile(palettes.get(self.palette), self.index, rotation)
@@ -322,13 +335,12 @@ class GRET_OT_palette_draw(bpy.types.Operator):
         if not new_tile:
             return
 
-        delimit = ({'UV', 'MATERIAL', 'SEAM', 'SHARP'} if new_tile.palette.solid
-            else {'MATERIAL', 'SEAM', 'SHARP'})
         bpy.ops.object.editmode_toggle()
         bpy.ops.mesh.select_mode(type='FACE')
         bpy.ops.mesh.select_all(action='DESELECT')
         index = len(mesh.vertices) + len(mesh.edges) + face.index
-        bpy.ops.mesh.select_linked_pick(deselect=False, delimit=delimit, index=index, object_index=0)
+        bpy.ops.mesh.select_linked_pick(deselect=False, delimit=self.delimit,
+            index=index, object_index=0)
         bpy.ops.object.editmode_toggle()
         for face in mesh.polygons:
             if face.select:
@@ -454,6 +466,7 @@ def tool_paint():
             if palette:
                 palettes[name] = palette
 
+        layout.use_property_split = True
         col = layout.column(align=False)
         row = col.row(align=True)
         sub = row.split(align=True)
@@ -461,7 +474,9 @@ def tool_paint():
         sub.enabled = image is not None
         row.operator('gret.palette_reload', icon='FILE_REFRESH', text="")
         row.operator('gret.palette_new', icon='ADD', text="")
-        col.prop(props, 'uv_layer_name', icon='UV', text="")
+        col.separator()
+        col.prop(props, 'uv_layer_name', icon='UV')
+        col.prop(props, 'delimit')
         if not palette:
             return
 
