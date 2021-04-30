@@ -10,6 +10,7 @@ module_names = [
     'sculpt_selection',
     'shape_key_apply_modifiers',
     'shape_key_normalize',
+    'uv_texture_sync',
     'vertex_color_mapping',
 ]
 from gret import import_or_reload_modules
