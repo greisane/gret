@@ -324,7 +324,7 @@ def unsubdivide_preserve_uvs(obj, levels):
     bm.to_mesh(obj.data)
     bm.free()
 
-def bmesh_blur_vertex_group(bm, vertex_group_index, distance, power=1.0):
+def bmesh_blur_vertex_group(bm, vertex_group_index, distance, power=1.0, only_tagged=False):
     if distance <= 0.0:
         return
 
@@ -335,12 +335,18 @@ def bmesh_blur_vertex_group(bm, vertex_group_index, distance, power=1.0):
     def set_weight(vert, value):
         vert[deform_layer][vertex_group_index] = value
 
-    openset = [v for v in bm.verts if get_weight(v)]
+    if only_tagged:
+        openset = [v for v in bm.verts if v.tag and get_weight(v)]
+    else:
+        openset = [v for v in bm.verts if get_weight(v)]
+
     while openset:
         vert = openset.pop()
         w = get_weight(vert)
         for edge in vert.link_edges:
             other_vert = edge.other_vert(vert)
+            if only_tagged and not other_vert.tag:
+                continue
             other_vert_w = w - edge.calc_length() / distance
             if other_vert_w > 0.0:
                 other_vert_w **= power

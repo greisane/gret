@@ -12,6 +12,7 @@ module_names = [
     'shape_key_normalize',
     'uv_texture_sync',
     'vertex_color_mapping',
+    'vertex_group_smooth_loops',
 ]
 from gret import import_or_reload_modules
 modules = import_or_reload_modules(module_names, __name__)
