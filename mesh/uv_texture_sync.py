@@ -63,7 +63,7 @@ class GRET_OT_uv_texture_move(bpy.types.Operator):
 
 class GRET_OT_uv_texture_sync(bpy.types.Operator):
     #tooltip
-    """Sync active object UV maps with other selected objects"""
+    """Sync UV maps from the active object to other selected objects"""
 
     bl_idname = 'gret.uv_texture_sync'
     bl_label = "Sync UV Maps"

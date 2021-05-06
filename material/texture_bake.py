@@ -52,7 +52,7 @@ nodes_bevel = (Node('OutputMaterial')
                     Node('NewGeometry')
                 )
                 .link(1, 'Normal',
-                    Node('Bevel', samples=2)
+                    Node('Bevel', samples=4)
                     .set('Radius', "scale*0.05")
                 )
             )
@@ -306,8 +306,9 @@ All faces from all objects assigned to the active material are assumed to contri
 
         # Explode objects. Not strictly necessary anymore since AO node has only_local flag
         for obj_idx, obj in enumerate(objs):
-            self.saved_transforms[obj] = obj.matrix_world.copy()
-            obj.matrix_world = Matrix.Translation((100.0 * obj_idx, 0.0, 0.0))
+            # TODO Can only explode meshes that are frozen! Otherwise modifiers can change
+            # self.saved_transforms[obj] = obj.matrix_world.copy()
+            # obj.matrix_world = Matrix.Translation((100.0 * obj_idx, 0.0, 0.0))
             obj.data.uv_layers[bake.uv_layer_name].active = True
 
         # Setup common to all bakers
