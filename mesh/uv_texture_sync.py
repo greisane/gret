@@ -56,8 +56,10 @@ class GRET_OT_uv_texture_move(bpy.types.Operator):
 
         if self.direction == 'UP' and index > 0:
             move_uv_layer_to_index(uv_layers, index, index - 1)
+            uv_layers.active_index -= 1
         elif self.direction == 'DOWN' and index < len(uv_layers) - 1:
             move_uv_layer_to_index(uv_layers, index, index + 1)
+            uv_layers.active_index += 1
 
         return {'FINISHED'}
 
