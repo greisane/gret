@@ -14,6 +14,7 @@ from gret.helpers import (
     intercept,
     load_selection,
     save_selection,
+    select_only,
     swap_object_names,
 )
 from gret.log import logger, log, logd
@@ -25,9 +26,9 @@ from gret.mesh.helpers import (
 )
 
 def export_fbx(filepath, context, objects):
-    ctx = get_context(selected_objs=objects)
-    return bpy.ops.export_scene.fbx(ctx
-        , filepath=filepath
+    select_only(context, objects)
+    return bpy.ops.export_scene.fbx(
+        filepath=filepath
         , check_existing=False
         , axis_forward='-Z'
         , axis_up='Y'

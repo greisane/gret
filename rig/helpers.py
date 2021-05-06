@@ -289,9 +289,10 @@ def export_fbx(filepath, context, rig, objects=[], actions=[], options={}):
     rig.data.pose_position = 'POSE'
     clear_pose(rig)
 
-    ctx = get_context(active_obj=rig, selected_objs=objects)
-    return bpy.ops.export_scene.fbx(ctx
-        , filepath=filepath
+    select_only(context, objects)
+    rig.select_set(True)
+    return bpy.ops.export_scene.fbx(
+        filepath=filepath
         , check_existing=False
         , axis_forward='-Z'
         , axis_up='Y'
