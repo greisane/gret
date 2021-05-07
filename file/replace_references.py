@@ -1,8 +1,5 @@
 import bpy
 
-def obj_name_items(self, context):
-    return [(o.name, o.name, "") for o in bpy.data.objects]
-
 class GRET_OT_replace_references(bpy.types.Operator):
     #tooltip
     """Replaces references to an object with a different object. Use with care.
@@ -14,16 +11,14 @@ Currently only handles objects and modifiers, and no nested properties"""
 
     dry_run: bpy.props.BoolProperty(
         name="Dry Run",
-        description="List the names of the properties that would be affected without making changes",
-        default=True,
+        description="Print the properties that would be replaced, without making any changes",
+        default=False,
     )
-    src_obj_name: bpy.props.EnumProperty(
-        items=obj_name_items,
+    src_obj_name: bpy.props.StringProperty(
         name="Source Object",
         description="Object to be replaced",
     )
-    dst_obj_name: bpy.props.EnumProperty(
-        items=obj_name_items,
+    dst_obj_name: bpy.props.StringProperty(
         name="Destination Object",
         description="Object to be used in its place",
     )
@@ -31,6 +26,12 @@ Currently only handles objects and modifiers, and no nested properties"""
     @classmethod
     def poll(cls, context):
         return context.mode == 'OBJECT'
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop_search(self, 'src_obj_name', bpy.data, 'objects', text="From")
+        layout.prop_search(self, 'dst_obj_name', bpy.data, 'objects', text="To")
+        layout.prop(self, 'dry_run')
 
     def execute(self, context):
         src_obj = bpy.data.objects.get(self.src_obj_name)
@@ -55,7 +56,7 @@ Currently only handles objects and modifiers, and no nested properties"""
                 if obj.is_property_readonly(prop.identifier):
                     continue
                 if getattr(obj, prop.identifier) == src_obj:
-                    path = " -> ".join(s for s in [path, obj.name, prop.identifier] if s)
+                    path = "->".join(s for s in [path, obj.name, prop.identifier] if s)
                     verb = "would be" if self.dry_run else "was"
                     if not self.dry_run:
                         try:
@@ -78,9 +79,11 @@ Currently only handles objects and modifiers, and no nested properties"""
         if num_found == 0:
             self.report({'INFO'}, f"No references found.")
         elif self.dry_run:
-            self.report({'INFO'}, f"{num_found} references found, see the console for details.")
+            self.report({'INFO'}, f"{num_found} references found, see console for details.")
+        elif num_replaced < num_found:
+            self.report({'INFO'}, f"{num_found} references found, only {num_replaced} were replaced.")
         else:
-            self.report({'INFO'}, f"{num_found} references found, {num_replaced} replaced.")
+            self.report({'INFO'}, f"{num_replaced} references replaced.")
 
         return {'FINISHED'}
 
