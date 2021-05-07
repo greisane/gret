@@ -22,15 +22,15 @@ TODO
 
 Connects boundaries of selected objects to the active object. I wrote it to deal with stylised fur in a non-destructive way that allows normals to be lifted from the body.
 
-
-
 ![Demo](../readme/graft-demo.gif?raw=true)
 
 ## Mesh: Retarget Mesh
 
-Warps a mesh fit on a source mesh to fit a shape key or deformed version of the source mesh.
+Refit clothing meshes to a modified version of the character mesh.
 
-If retargeting to another mesh, make sure they share topology and vertex order. If the retargeted mesh becomes polygon soup then it's probably the vertex order. Try using an addon like [Transfer Vert Order](https://gumroad.com/l/copy_verts_ids) to fix it.
+![Demo](../readme/retargetmesh-demo.gif?raw=true)
+
+If retargeting to a different mesh, make sure they share topology and vertex order. If the retargeted mesh becomes polygon soup then it's probably the vertex order. Try using an addon like [Transfer Vert Order](https://gumroad.com/l/copy_verts_ids) to fix it.
 
 ## Mesh: Make Collision
 
@@ -40,37 +40,31 @@ Intended for use with UE4, generates collision shapes for selected geometry. For
 2. Click *Make Collision* and select an appropriate shape, e.g. capsules for the posts, a box for the backrest and cylinder for the seat.
 3. Repeat for every piece.
 
-
-
 ![Demo](../readme/makecollision-demo.gif?raw=true)
 
 ## Mesh: Vertex Color Mapping
 
-Builds vertex colors from various sources, usually vertex groups. Useful for exporting per-vertex information to game engines.
+Procedurally generates vertex colors from various sources. Sources can be vertex groups, object or vertex position, or a random value. Useful for exporting masks to game engines.
 
-Other procedural sources are also available, e.g. select *Random* to give each blade of grass an unique value, which can be used in animated materials.
+![Panel](../readme/vcolmapping.png?raw=true)
 
 ## Mesh: Apply Modifiers with Shape Keys
 
-The much needed ability to apply modifiers on a mesh with shape keys. Mirrors are specially handled to fix shape keys that move vertices off the center axis.
+The much needed ability to apply modifiers on a mesh with shape keys. Mirrors are specially handled to fix shape keys that move vertices off the center axis. Found in Shape Keys → Specials Menu → Apply Modifiers with Shape Keys.
 
 ## Mesh: Add Strap
 
-Similar in function to an extruded curve. It behaves better (in my opinion) and mesh operators can be used to edit it. If another mesh is selected when adding the strap, it will automatically get a shrinkwrap modifier. Useful for adding belts to characters.
+Similar in function to an extruded curve. Since it's mesh and not curve based, typical mesh operators can be used to edit it. Typical use case is adding belts to characters.
 
 ## Mesh: Add Rope
 
-Actually a helicoid generator, useful to make ropes. Can edit the base shape once created.
+Helicoid generator useful to make ropes. Can edit the base shape once created.
 
 ## Animation: Pose Blender
 
 Allows blending poses together, similar to the UE4 [AnimGraph node](https://docs.unrealengine.com/en-US/AnimatingObjects/SkeletalMeshAnimation/AnimPose/PoseBlenderNode/index.html). Works on bones, not shape keys.
 
-
-
 ![Demo](../readme/poseblender-demo.gif?raw=true)
-
-
 
 Has a performance cost, I'll try to optimize it further at some point.
 
@@ -88,11 +82,13 @@ Gives quick access to selection sets as well as a way to copy and paste sets bet
 
 ## Material: Texture Bake
 
-One-click bake and export. Intended for quickly baking out curvature and AO masks.
+One-click bake and export. Intended for quickly baking out curvature and AO masks. 
+
+![Panel](../readme/texturebake.png?raw=true)
 
 ## UV: Relax Loops
 
-Relaxes selected UV edge loops to their respective length on the mesh. Can be used to rectify non-grid meshes that TexTools Rectify won't work on.
+Relaxes selected UV edge loops to their respective length on the mesh. Can be used to rectify non-grid meshes that TexTools Rectify won't work on. Found in UV Editor → UV → Relax Loops.
 
 ![Demo](../readme/uvrelax-demo.gif?raw=true)
 
@@ -100,11 +96,11 @@ Relaxes selected UV edge loops to their respective length on the mesh. Can be us
 
 **Sculpt Selection**: Sets the sculpt mask from the current edit-mode vertex selection. Found in the Select menu in edit mode.  
 
-**Normalize Shape Key Range**: Resets min/max of shape keys while keeping the range of motion. A shape key with range [-1..3] becomes [0..1], neutral at 0.25. Some game engines don't allow extrapolation of shape keys.  
+**Normalize Shape Key Range**: Resets min/max of shape keys while keeping the range of motion. A shape key with range [-1..3] becomes [0..1], neutral at 0.25. Some game engines don't allow extrapolation of shape keys. Found in Shape Keys → Specials Menu → Normalize Shape Key.  
 
-**Merge Shape Keys to Basis**: Mixes active shape keys into the basis shape. It's possible to filter shape keys by name.  
+~~**Merge Shape Keys to Basis**: Mixes active shape keys into the basis shape. It's possible to filter shape keys by name~~.  
 
-**Remove Unused Vertex Groups**: Originally an addon by CoDEmanX, this operator respects L/R pairs of vertex groups.  
+**Remove Unused Vertex Groups**: Originally an addon by CoDEmanX, this operator respects L/R pairs of vertex groups. Found in Vertex Groups → Specials Menu → Remove Unused Vertex Groups.  
 
 **Deduplicate Materials**: Deletes duplicate materials and fixes meshes that reference them. Easy way to squash all those "Skin.002", "Skin.003" duplicates. Found in File → Clean Up.  
 
