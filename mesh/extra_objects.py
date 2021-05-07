@@ -5,7 +5,7 @@ import bpy
 def get_selected_active_object(context, types=set()):
     if not context.active_object or not context.active_object.select_get():
         return None
-    if types and not context.active_object.type not in types:
+    if types and context.active_object.type not in types:
         return None
     return context.active_object
 
