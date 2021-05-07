@@ -92,6 +92,7 @@ class GRET_OT_graft(bpy.types.Operator):
         eval_obj = context.active_object.evaluated_get(dg)
         dst_mesh = bpy.data.meshes.new_from_object(eval_obj)
         dst_obj = bpy.data.objects.new(eval_obj.name, dst_mesh)
+        dst_obj.matrix_world = eval_obj.matrix_world
         context.scene.collection.objects.link(dst_obj)
 
         for obj in objs:
