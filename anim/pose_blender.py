@@ -7,7 +7,7 @@ import bpy
 import json
 import re
 
-from gret.helpers import get_flipped_name
+from ..helpers import get_flipped_name
 
 ZERO_ANIMWEIGHT_THRESH = 0.00001
 DELTA = 0.00001

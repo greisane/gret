@@ -2,8 +2,8 @@ from collections import namedtuple, defaultdict
 import bmesh
 import bpy
 
-from gret.math import get_sq_dist
-from gret.log import log, logd
+from ..math import get_sq_dist
+from ..log import log, logd
 
 # shape_key_apply_modifiers TODO:
 # - Specialcase more merging modifiers, solidify for example

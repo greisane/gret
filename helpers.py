@@ -8,8 +8,8 @@ import os
 import re
 import sys
 
-from gret import prefs
-from gret.log import logd
+from . import prefs
+from .log import logd
 
 def select_only(context, objs):
     """Ensures only the given object or objects are selected."""

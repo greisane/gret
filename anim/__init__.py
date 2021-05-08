@@ -4,7 +4,7 @@ module_names = [
     'actions',
     'pose_blender',
 ]
-from gret import import_or_reload_modules
+from .. import import_or_reload_modules
 modules = import_or_reload_modules(module_names, __name__)
 
 class GRET_PT_anim(bpy.types.Panel):

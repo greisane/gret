@@ -2,7 +2,7 @@ from collections import defaultdict, namedtuple
 import bmesh
 import bpy
 
-from gret.mesh.helpers import bmesh_blur_vertex_group
+from .helpers import bmesh_blur_vertex_group
 
 class EdgeKey(namedtuple("EdgeKey", ['a', 'b'])):
     @classmethod

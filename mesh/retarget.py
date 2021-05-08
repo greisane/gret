@@ -3,16 +3,16 @@ import bmesh
 import bpy
 import numpy as np
 
-from gret.log import log, logd, logger
-import gret.rbf as rbf
+from ..log import log, logd, logger
+from ..rbf import *
 
 rbf_kernels = {
-    'LINEAR': (rbf.linear, 1.0),
-    'GAUSSIAN': (rbf.gaussian, 0.01),
-    'PLATE': (rbf.thin_plate, 0.001),
-    'BIHARMONIC': (rbf.multi_quadratic_biharmonic, 0.01),
-    'INV_BIHARMONIC': (rbf.inv_multi_quadratic_biharmonic, 0.01),
-    'C2': (rbf.beckert_wendland_c2_basis, 1.0),
+    'LINEAR': (linear, 1.0),
+    'GAUSSIAN': (gaussian, 0.01),
+    'PLATE': (thin_plate, 0.001),
+    'BIHARMONIC': (multi_quadratic_biharmonic, 0.01),
+    'INV_BIHARMONIC': (inv_multi_quadratic_biharmonic, 0.01),
+    'C2': (beckert_wendland_c2_basis, 1.0),
 }
 
 # TODO
@@ -111,11 +111,11 @@ The meshes are expected to share topology and vertex order"""
             return {'CANCELLED'}
         logd(f"num_verts={num_masked}/{num_vertices} stride={stride} total={num_masked//stride}")
 
-        rbf_kernel, scale = rbf_kernels.get(self.function, (rbf.linear, 1.0))
-        src_pts = rbf.get_mesh_points(src_mesh, mask=mask, stride=stride)
-        dst_pts = rbf.get_mesh_points(dst_mesh, shape_key=dst_shape_key_name, mask=mask, stride=stride)
+        rbf_kernel, scale = rbf_kernels.get(self.function, (linear, 1.0))
+        src_pts = get_mesh_points(src_mesh, mask=mask, stride=stride)
+        dst_pts = get_mesh_points(dst_mesh, shape_key=dst_shape_key_name, mask=mask, stride=stride)
         try:
-            weights = rbf.get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius * scale)
+            weights = get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius * scale)
         except np.linalg.LinAlgError:
             # Solving for C2 kernel may throw 'SVD did not converge' sometimes
             self.report({'ERROR'}, "Failed to retarget. Try a different function or radius.")
@@ -127,10 +127,10 @@ The meshes are expected to share topology and vertex order"""
             # Get the mesh points in retarget destination space
             dst_to_obj = obj.matrix_world.inverted() @ dst_obj.matrix_world
             obj_to_dst = dst_to_obj.inverted()
-            mesh_pts = rbf.get_mesh_points(obj.data, matrix=obj_to_dst)
+            mesh_pts = get_mesh_points(obj.data, matrix=obj_to_dst)
             num_mesh_pts = mesh_pts.shape[0]
 
-            dist = rbf.get_distance_matrix(mesh_pts, src_pts, rbf_kernel, self.radius * scale)
+            dist = get_distance_matrix(mesh_pts, src_pts, rbf_kernel, self.radius * scale)
             identity = np.ones((num_mesh_pts, 1))
             h = np.bmat([[dist, identity, mesh_pts]])
             new_mesh_pts = np.asarray(np.dot(h, weights))

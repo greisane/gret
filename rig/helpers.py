@@ -1,8 +1,8 @@
 from mathutils import Vector, Quaternion, Euler
 import bpy
 
-from gret.helpers import intercept, get_context, select_only, Patcher
-from gret.log import log, logd
+from ..helpers import intercept, get_context, select_only, Patcher
+from ..log import log, logd
 
 non_humanoid_bone_names = [
     'thigh_b_ref.l',

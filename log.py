@@ -1,7 +1,7 @@
 import time
 from functools import partial
 
-from gret import prefs
+from . import prefs
 
 class Logger:
     """Simple logger. Can be used as a mixin."""

@@ -2,7 +2,7 @@ from collections import namedtuple
 from mathutils import Vector
 import bmesh
 
-from gret.math import calc_bounds_2d, calc_center_2d
+from ..math import calc_bounds_2d, calc_center_2d
 
 class UVVector(Vector):
     """Vector with an extra component used to separately identify face corners."""

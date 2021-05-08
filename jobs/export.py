@@ -1,9 +1,9 @@
 from fnmatch import fnmatch
 import bpy
 
-from gret import prefs
-from gret.log import log, logger
-from gret.rig.helpers import is_object_arp
+from .. import prefs
+from ..log import log, logger
+from ..rig.helpers import is_object_arp
 
 class GRET_OT_export_job_add(bpy.types.Operator):
     #tooltip

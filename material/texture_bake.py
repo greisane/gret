@@ -5,9 +5,9 @@ from mathutils import Matrix
 import bpy
 import time
 
-from gret import prefs
-from gret.log import log, logger
-from gret.helpers import (
+from .. import prefs
+from ..log import log, logger
+from ..helpers import (
     beep,
     fail_if_invalid_export_path,
     get_export_path,
@@ -17,7 +17,7 @@ from gret.helpers import (
     select_only,
     show_only,
 )
-from gret.material.helpers import SolidPixels, Node
+from .helpers import SolidPixels, Node
 
 # TODO
 # - AO floor

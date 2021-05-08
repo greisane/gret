@@ -5,7 +5,7 @@ module_names = [
     'palette_paint',
     'texture_bake',
 ]
-from gret import import_or_reload_modules
+from .. import import_or_reload_modules
 modules = import_or_reload_modules(module_names, __name__)
 
 def register(settings):

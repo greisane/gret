@@ -1,7 +1,7 @@
 import bpy
 import re
 
-from gret.stringcase import titlecase
+from ..stringcase import titlecase
 
 custom_prop_re = re.compile(r'(.+)?\["([^"]+)"\]$')
 prop_re = re.compile(r'(.+)\.([^"\.]+)$')

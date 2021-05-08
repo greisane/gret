@@ -7,7 +7,7 @@ module_names = [
     'properties',
     'selection_sets',
 ]
-from gret import import_or_reload_modules
+from .. import import_or_reload_modules
 modules = import_or_reload_modules(module_names, __name__)
 
 class GRET_PT_rig(bpy.types.Panel):

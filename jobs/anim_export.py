@@ -3,7 +3,7 @@ import bpy
 import os
 import time
 
-from gret.helpers import (
+from ..helpers import (
     beep,
     fail_if_invalid_export_path,
     get_export_path,
@@ -11,9 +11,9 @@ from gret.helpers import (
     load_selection,
     save_selection,
 )
-from gret import prefs
-from gret.log import logger, log, logd
-from gret.rig.helpers import (
+from .. import prefs
+from ..log import logger, log, logd
+from ..rig.helpers import (
     clear_pose,
     export_autorig,
     export_autorig_universal,

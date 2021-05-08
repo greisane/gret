@@ -118,7 +118,7 @@ def load_pre(dummy):
 def load_post(dummy):
     if not hasattr(bpy.types.Scene, 'my_tools'):
         return
-    from gret.helpers import is_defaulted, save_properties, load_properties
+    from .helpers import is_defaulted, save_properties, load_properties
     for scene in bpy.data.scenes:
         if 'my_tools' in scene and not is_defaulted(scene.my_tools):
             print("Found old gret settings in file, restoring")

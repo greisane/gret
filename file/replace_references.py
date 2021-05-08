@@ -1,6 +1,6 @@
 import bpy
 
-from gret.log import log, logger
+from ..log import log, logger
 
 class GRET_OT_replace_references(bpy.types.Operator):
     #tooltip

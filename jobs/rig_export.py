@@ -6,7 +6,7 @@ import os
 import re
 import time
 
-from gret.helpers import (
+from ..helpers import (
     beep,
     fail_if_invalid_export_path,
     fail_if_no_operator,
@@ -19,7 +19,7 @@ from gret.helpers import (
     save_properties,
     save_selection,
 )
-from gret.mesh.helpers import (
+from ..mesh.helpers import (
     apply_modifiers,
     apply_shape_keys_with_vertex_groups,
     delete_faces_with_no_material,
@@ -28,9 +28,9 @@ from gret.mesh.helpers import (
     mirror_shape_keys,
     unsubdivide_preserve_uvs,
 )
-from gret import prefs
-from gret.log import logger, log, logd
-from gret.rig.helpers import (
+from .. import prefs
+from ..log import logger, log, logd
+from ..rig.helpers import (
     clear_pose,
     export_autorig,
     export_autorig_universal,

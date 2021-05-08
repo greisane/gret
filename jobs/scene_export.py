@@ -4,7 +4,7 @@ import bpy
 import re
 import time
 
-from gret.helpers import (
+from ..helpers import (
     beep,
     fail_if_invalid_export_path,
     fail_if_no_operator,
@@ -17,8 +17,8 @@ from gret.helpers import (
     select_only,
     swap_object_names,
 )
-from gret.log import logger, log, logd
-from gret.mesh.helpers import (
+from ..log import logger, log, logd
+from ..mesh.helpers import (
     apply_modifiers,
     delete_faces_with_no_material,
     merge_basis_shape_keys,

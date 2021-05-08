@@ -8,14 +8,14 @@ from random import randrange
 import bpy
 import re
 
-from gret.helpers import (
+from ..helpers import (
     get_tools_from_space_and_mode,
     keymap_view3d_empty,
     remove_subsequence,
     select_only,
 )
-from gret.material.helpers import Node
-from gret import prefs
+from .helpers import Node
+from .. import prefs
 
 tool_id = 'gret.palette_paint'
 km_tool_paint_name = "3D View Tool: Palette Paint"

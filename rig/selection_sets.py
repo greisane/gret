@@ -2,7 +2,7 @@ from collections import OrderedDict
 import bpy
 import json
 
-from gret.helpers import get_flipped_name
+from ..helpers import get_flipped_name
 
 # TODO
 # - Add button to create set from the current selection

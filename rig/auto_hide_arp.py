@@ -1,7 +1,7 @@
 from bpy.app.handlers import persistent
 import bpy
 
-from gret import prefs
+from .. import prefs
 
 saved_unhidden_collections = set()
 @persistent

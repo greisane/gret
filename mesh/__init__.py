@@ -14,7 +14,7 @@ module_names = [
     'vertex_color_mapping',
     'vertex_group_smooth_loops',
 ]
-from gret import import_or_reload_modules
+from .. import import_or_reload_modules
 modules = import_or_reload_modules(module_names, __name__)
 
 class GRET_PT_mesh(bpy.types.Panel):

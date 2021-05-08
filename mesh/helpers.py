@@ -2,8 +2,8 @@ import bmesh
 import bpy
 import re
 
-from gret.helpers import get_flipped_name, get_context, select_only
-from gret.log import logger, log, logd
+from ..helpers import get_flipped_name, get_context, select_only
+from ..log import logger, log, logd
 
 def edit_mesh_elements(obj, type='VERT', indices=None, key=None):
     """

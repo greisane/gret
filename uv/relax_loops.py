@@ -2,7 +2,7 @@ from mathutils import Vector
 import bmesh
 import bpy
 
-from gret.uv.helpers import get_selection_loops
+from .helpers import get_selection_loops
 
 def calculate_t(bag, knots):
     """Calculate relative positions compared to first knot."""
