@@ -54,11 +54,11 @@ The much needed ability to apply modifiers on a mesh with shape keys. Mirrors ar
 
 ## Mesh: Add Strap
 
-Similar in function to an extruded curve. Since it's mesh and not curve based, typical mesh operators can be used to edit it. Typical use case is adding belts to characters.
+Similar in function to an extruded curve. Since it's mesh and not curve based, typical mesh operators can be used to edit it. Use case is adding belts to characters.
 
 ## Mesh: Add Rope
 
-Helicoid generator useful to make ropes. Can edit the base shape once created.
+Generates helicoid meshes, mostly useful as ropes. Can edit the base shape once created.
 
 ## Animation: Pose Blender
 
@@ -70,19 +70,21 @@ Has a performance cost, I'll try to optimize it further at some point.
 
 ## Animation: Actions Panel
 
-A panel for quick access to actions and working with pose libraries.
+A panel for quick access to actions and working with pose libraries. Pose libraries are simply actions where each frame has a named marker, and normally they're very annoying to work with. A pose library is necessary to use the Pose Blender tool.
 
-## Rig: Properties
+![Demo](../readme/actions-panel.png?raw=True)
+
+## Animation: Rig Panel
 
 Add any frequently used rig or bone properties here. To find the data path of a property, right click it then select *Copy Data Path*.
 
-## Rig: Selection Sets
+The addon [Bone Selection Sets](https://docs.blender.org/manual/en/latest/addons/animation/bone_selection_sets.html) must be enabled for the second panel to show. I don't find bone pickers to be comfortable to use, and this is a workable alternative. Add and delete buttons make it easy to create temporary sets while animating.
 
-Gives quick access to selection sets as well as a way to copy and paste sets between armatures.
+![Panel](../readme/rig-panel.png?raw=True)
 
 ## Material: Texture Bake
 
-One-click bake and export. Intended for quickly baking out curvature and AO masks. 
+One-click bake and export. Intended for quickly baking out curvature and AO masks.
 
 ![Panel](../readme/texturebake.png?raw=true)
 
@@ -94,17 +96,17 @@ Relaxes selected UV edge loops to their respective length on the mesh. Can be us
 
 ## Other
 
-**Sculpt Selection**: Sets the sculpt mask from the current edit-mode vertex selection. Found in the Select menu in edit mode.  
+**Sculpt Selection**: Sets the sculpt mask from the current edit-mode vertex selection. Found in the Select menu in edit mode.
 
-**Normalize Shape Key Range**: Resets min/max of shape keys while keeping the range of motion. A shape key with range [-1..3] becomes [0..1], neutral at 0.25. Some game engines don't allow extrapolation of shape keys. Found in Shape Keys → Specials Menu → Normalize Shape Key.  
+**Normalize Shape Key**: Resets min/max of shape keys while keeping the range of motion. A shape key with range [-1..3] becomes [0..1], neutral at 0.25. Some game engines don't allow extrapolation of shape keys. Found in Shape Keys → Specials Menu → Normalize Shape Key.
 
-~~**Merge Shape Keys to Basis**: Mixes active shape keys into the basis shape. It's possible to filter shape keys by name~~.  
+~~**Merge Shape Keys to Basis**: Mixes active shape keys into the basis shape. It's possible to filter shape keys by name~~.
 
-**Remove Unused Vertex Groups**: Originally an addon by CoDEmanX, this operator respects L/R pairs of vertex groups. Found in Vertex Groups → Specials Menu → Remove Unused Vertex Groups.  
+**Remove Unused Vertex Groups**: Originally an addon by CoDEmanX, this operator respects L/R pairs of vertex groups. Found in Vertex Groups → Specials Menu → Remove Unused Vertex Groups.
 
-**Deduplicate Materials**: Deletes duplicate materials and fixes meshes that reference them. Easy way to squash all those "Skin.002", "Skin.003" duplicates. Found in File → Clean Up.  
+**Deduplicate Materials**: Squashes duplicate materials, like "Skin.002", "Skin.003", etc. Found in File → Clean Up.
 
-**Replace References**: Replaces all references to a specific object. Currently only handles objects and modifiers, and no nested properties. Found in File → Clean Up.  
+**Replace References**: Replaces object references in modifiers. I use it to swap meshes that are shrinkwrap targets and such. Found in File → Clean Up.
 
 # Export Jobs
 

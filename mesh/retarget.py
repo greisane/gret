@@ -63,17 +63,18 @@ The meshes are expected to share topology and vertex order"""
     )
     only_selection: bpy.props.BoolProperty(
         name="Only Vertex Selection",
-        description="Sample only the current vertex selection of the source mesh",
+        description="""Sample only the current vertex selection of the source mesh.
+Use to speed up retargeting by selecting only the areas of importance""",
         default=False,
     )
     high_quality: bpy.props.BoolProperty(
         name="High Quality",
-        description="Sample as many vertices as possible for higher accuracy",
+        description="Sample more vertices for higher accuracy. Slow on dense meshes",
         default=False,
     )
     as_shape_key: bpy.props.BoolProperty(
         name="As Shape Key",
-        description="Save the result as a shape key on the mesh",
+        description="Save the result as a shape key",
         default=False,
     )
 
