@@ -1,9 +1,10 @@
 import bpy
 
+from gret.log import log, logger
+
 class GRET_OT_replace_references(bpy.types.Operator):
     #tooltip
-    """Replaces references to an object with a different object. Use with care.
-Currently only handles objects and modifiers, and no nested properties"""
+    """Replaces object references in modifiers"""
 
     bl_idname = 'gret.replace_references'
     bl_label = "Replace References"
@@ -64,10 +65,16 @@ Currently only handles objects and modifiers, and no nested properties"""
                             num_replaced += 1
                         except:
                             verb = "couldn't be"
-                    print(f"{path} {verb} replaced")
+                    log(f"{path} {verb} replaced")
                     num_found += 1
 
-        print(f"Searching for '{src_obj.name}' to replace with '{dst_obj.name}'")
+        logger.start_logging(timestamps=False)
+        if self.dry_run:
+            log(f"Searching for references to {src_obj.name} to replace with {dst_obj.name}")
+        else:
+            log(f"Replacing references to {src_obj.name} with {dst_obj.name}")
+        logger.indent += 1
+
         for obj in bpy.data.objects:
             if obj.library:
                 # Linked objects are not handled currently, though it might just work
@@ -85,6 +92,7 @@ Currently only handles objects and modifiers, and no nested properties"""
         else:
             self.report({'INFO'}, f"{num_replaced} references replaced.")
 
+        logger.end_logging()
         return {'FINISHED'}
 
     def invoke(self, context, event):
