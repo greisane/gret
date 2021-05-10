@@ -52,6 +52,12 @@ Procedurally generates vertex colors from various sources. Sources can be vertex
 
 The much needed ability to apply modifiers on a mesh with shape keys. Mirrors are specially handled to fix shape keys that move vertices off the center axis. Found in Shape Keys → Specials Menu → Apply Modifiers with Shape Keys.
 
+## Mesh: Sync UV Maps
+
+Adds a few buttons to the UV map panel. The first two allow reordering of layers, and *Sync UV Maps* works on the current object selection to ensure UV layers are consistent with the active object. Sync can also be used to simply switch the current layer for multiple objects.
+
+![Buttons](../readme/syncuvmaps.png?raw=true)
+
 ## Mesh: Add Strap
 
 Similar in function to an extruded curve. Since it's mesh and not curve based, typical mesh operators can be used to edit it. Use case is adding belts to characters.
@@ -72,7 +78,7 @@ Has a performance cost, I'll try to optimize it further at some point.
 
 A panel for quick access to actions and working with pose libraries. Pose libraries are simply actions where each frame has a named marker, and normally they're very annoying to work with. A pose library is necessary to use the Pose Blender tool.
 
-![Demo](../readme/actions-panel.png?raw=True)
+![Panel](../readme/actions-panel.png?raw=True)
 
 ## Animation: Rig Panel
 
@@ -87,6 +93,12 @@ The addon [Bone Selection Sets](https://docs.blender.org/manual/en/latest/addons
 One-click bake and export. Intended for quickly baking out curvature and AO masks.
 
 ![Panel](../readme/texturebake.png?raw=true)
+
+## Material: Tile Paint
+
+Rudimentary tool to create tile-based UV maps. For anything more complicated use [Sprytile](https://github.com/Sprytile/Sprytile) instead.
+
+![Demo](../readme/tilepaint-demo.gif?raw=true)
 
 ## UV: Relax Loops
 
