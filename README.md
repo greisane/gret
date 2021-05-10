@@ -54,7 +54,7 @@ The much needed ability to apply modifiers on a mesh with shape keys. Mirrors ar
 
 ## Mesh: Sync UV Maps
 
-Adds a few buttons to the UV map panel. The first two allow reordering of layers, and *Sync UV Maps* works on the current object selection to ensure UV layers are consistent with the active object. Sync can also be used to simply switch the current layer for multiple objects.
+Adds a few buttons that allow reordering UV maps. *Sync UV Maps* works on all selected objects to ensure UV layer names and order are consistent with the active object. It can also be used to simply switch the active UV layer for multiple objects.
 
 ![Buttons](../readme/syncuvmaps.png?raw=true)
 

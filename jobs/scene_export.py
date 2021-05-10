@@ -173,7 +173,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
             # If enabled, pick up UE4 collision objects
             col_objs = item.col_objs
             if job.export_collision:
-                pattern = r"^(?:%s)_%s_\d+$" % ('|'.join(collision_prefixes), obj.name)
+                pattern = r"^(?:%s)_%s_\d+$" % ('|'.join(collision_prefixes), item.original.name)
                 col_objs.extend(o for o in context.scene.objects if re.match(pattern, o.name))
             if col_objs:
                 log(f"Collected {len(col_objs)} collision primitives")
