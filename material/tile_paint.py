@@ -17,13 +17,13 @@ from ..helpers import (
 from .helpers import Node
 from .. import prefs
 
-tool_id = 'gret.palette_paint'
-km_tool_paint_name = "3D View Tool: Palette Paint"
+tool_id = 'gret.tileset_paint'
+km_tool_paint_name = "3D View Tool: Tile Paint"
 generative_modifier_types = {'MULTIRES', 'BEVEL', 'BOOLEAN', 'BUILD', 'DECIMATE', 'NODES', 'MASK',
     'REMESH', 'SCREW', 'SKIN', 'SOLIDIFY', 'SUBSURF', 'TRIANGULATE', 'WIREFRAME'}
-palettes = {}  # Image name to Palette
+tilesets = {}  # Image name to Tileset
 
-nodes_palette = (Node('OutputMaterial')
+nodes_tileset = (Node('OutputMaterial')
 .link('Surface', None,
     Node('BsdfDiffuse')
     .set('Roughness', 1.0)
@@ -32,11 +32,11 @@ nodes_palette = (Node('OutputMaterial')
     )
 ))
 
-Tile = namedtuple('Tile', ['palette', 'index', 'rotation'])
-Tile.__bool__ = lambda self: self.palette is not None
+Tile = namedtuple('Tile', ['tileset', 'index', 'rotation'])
+Tile.__bool__ = lambda self: self.tileset is not None
 Tile.invalid = Tile(None, -1, 0)
 
-class Palette(namedtuple('Palette', ['name', 'dims', 'solid', 'pcoll', 'icon_ids'])):
+class Tileset(namedtuple('Tileset', ['name', 'dims', 'solid', 'pcoll', 'icon_ids'])):
     @classmethod
     def from_image(cls, image):
         if not image:
@@ -94,21 +94,21 @@ class Palette(namedtuple('Palette', ['name', 'dims', 'solid', 'pcoll', 'icon_ids
                 icon.icon_pixels_float = icon_pixels
                 icon_ids.append(icon.icon_id)
 
-        return Palette(name, (tiles_x, tiles_y), is_solid, pcoll, icon_ids)
+        return Tileset(name, (tiles_x, tiles_y), is_solid, pcoll, icon_ids)
 
-def get_palette_from_material(mat):
+def get_tileset_from_material(mat):
     if mat and mat.use_nodes:
         image = next((node.image for node in mat.node_tree.nodes if node.type == 'TEX_IMAGE'), None)
         if image:
-            return palettes.get(image.name)
+            return tilesets.get(image.name)
     return None
 
 def set_face_tile_uvs(face, uvs, tile):
-    palette = tile.palette
-    tiles_x, tiles_y = palette.dims
+    tileset = tile.tileset
+    tiles_x, tiles_y = tileset.dims
     tile_x = tile.index % tiles_x
     tile_y = tiles_y - tile.index // tiles_x - 1
-    if palette.solid:
+    if tileset.solid:
         x1 = x2 = (tile_x + 0.5) / tiles_x
         y1 = y2 = (tile_y + 0.5) / tiles_y
     else:
@@ -117,7 +117,7 @@ def set_face_tile_uvs(face, uvs, tile):
         x2 = (tile_x + 1.0) / tiles_x
         y2 = (tile_y + 1.0) / tiles_y
 
-    if palette.solid or len(face.loop_indices) != 4:
+    if tileset.solid or len(face.loop_indices) != 4:
         for loop_idx in face.loop_indices:
             uvs[loop_idx].uv[:] = (x1, y1)
     else:
@@ -134,9 +134,9 @@ def get_tile(mesh, face, uv_layer_name):
         # No such material
         return Tile.invalid
 
-    palette = get_palette_from_material(mesh.materials[face.material_index])
-    if not palette:
-        # Not a palette material
+    tileset = get_tileset_from_material(mesh.materials[face.material_index])
+    if not tileset:
+        # Not a tileset material
         return Tile.invalid
 
     uv_layer = mesh.uv_layers.get(uv_layer_name)
@@ -145,7 +145,7 @@ def get_tile(mesh, face, uv_layer_name):
         return Tile.invalid
     uvs = uv_layer.data
 
-    tiles_x, tiles_y = palette.dims
+    tiles_x, tiles_y = tileset.dims
     uv_avg = sum((uvs[loop_idx].uv for loop_idx in face.loop_indices), Vector((0.0, 0.0)))
     uv_avg /= len(face.loop_indices)
     tile_x = int(uv_avg.x * tiles_x)
@@ -165,26 +165,26 @@ def get_tile(mesh, face, uv_layer_name):
     else:
         rotation = 0
 
-    return Tile(palette, tile_idx, rotation)
+    return Tile(tileset, tile_idx, rotation)
 
 def set_tile(mesh, face, tile, uv_layer_name):
     if not tile:
         return
-    palette = tile.palette
+    tileset = tile.tileset
 
     # Ensure material and UV state
     if not mesh.materials:
-        mat = bpy.data.materials.new(name=palette.name)
+        mat = bpy.data.materials.new(name=tileset.name)
         mesh.materials.append(mat)
     else:
         mat = mesh.materials[face.material_index]
 
     do_fill = False
-    if get_palette_from_material(mat) != palette:
-        # Convert the material to use this palette
+    if get_tileset_from_material(mat) != tileset:
+        # Convert the material to use this tileset
         mat.use_nodes = True
         mat.node_tree.nodes.clear()
-        nodes_palette.build(mat.node_tree, {'image': bpy.data.images.get(palette.name)})
+        nodes_tileset.build(mat.node_tree, {'image': bpy.data.images.get(tileset.name)})
         do_fill = True
 
     uv_layer = mesh.uv_layers.get(uv_layer_name)
@@ -258,10 +258,10 @@ def get_ray_hit(context, mouse_x, mouse_y):
     v = hit_local - face.center
     x = v.dot(v_east)
     y = v.dot(v_north)
-    quadrant = round(atan2(y, -x) / pi * 0.5) - 1
+    quadrant = (round(atan2(y, -x) / (pi * 0.5)) + 1) % 4
     return hit_obj, face, quadrant
 
-def palette_items(self, context):
+def tileset_items(self, context):
     items = []
     for image in bpy.data.images:
         if re.search(r"(\d+)x(\d+)", image.name):
@@ -270,15 +270,15 @@ def palette_items(self, context):
         items.append(("NONE", "None", ""))
     return items
 
-class GRET_OT_palette_draw(bpy.types.Operator):
-    bl_idname = 'gret.palette_draw'
+class GRET_OT_tileset_draw(bpy.types.Operator):
+    bl_idname = 'gret.tileset_draw'
     bl_label = "Paint Face"
     bl_options = {'INTERNAL', 'UNDO'}
 
-    palette: bpy.props.EnumProperty(
-        name="Palette",
-        description="Selects the palette used to paint",
-        items=palette_items,
+    tileset: bpy.props.EnumProperty(
+        name="Tileset",
+        description="Selects the tileset used to paint",
+        items=tileset_items,
     )
     uv_layer_name: bpy.props.StringProperty(
         name="UV Layer",
@@ -295,7 +295,7 @@ class GRET_OT_palette_draw(bpy.types.Operator):
             ('DRAW', "Paint", "Paint face"),
             ('SAMPLE', "Sample", "Sample tile"),
             ('FILL', "Fill", "Paint floodfill"),
-            ('REPLACE', "Replace", "Replace faces with the same paint"),
+            ('REPLACE', "Replace", "Replace faces with the same tile"),
         ),
         default='DRAW',
     )
@@ -314,7 +314,7 @@ class GRET_OT_palette_draw(bpy.types.Operator):
     )
 
     def do_draw(self, context, mesh, face, rotation=0):
-        new_tile = Tile(palettes.get(self.palette), self.index, rotation)
+        new_tile = Tile(tilesets.get(self.tileset), self.index, rotation)
         if not new_tile:
             return
         set_tile(mesh, face, new_tile, self.uv_layer_name)
@@ -326,12 +326,12 @@ class GRET_OT_palette_draw(bpy.types.Operator):
 
         tool = context.workspace.tools.get(tool_id)
         if tool:
-            props = tool.operator_properties(GRET_OT_palette_draw.bl_idname)
-            props.palette = tile.palette.name
+            props = tool.operator_properties(GRET_OT_tileset_draw.bl_idname)
+            props.tileset = tile.tileset.name
             props.index = tile.index
 
     def do_fill(self, context, mesh, face):
-        new_tile = Tile(palettes.get(self.palette), self.index, -1)
+        new_tile = Tile(tilesets.get(self.tileset), self.index, -1)
         if not new_tile:
             return
 
@@ -348,13 +348,13 @@ class GRET_OT_palette_draw(bpy.types.Operator):
 
     def do_replace(self, context, mesh, face):
         tile = get_tile(mesh, face, self.uv_layer_name)
-        new_tile = Tile(palettes.get(self.palette), self.index, -1)
+        new_tile = Tile(tilesets.get(self.tileset), self.index, -1)
         if not tile or not new_tile:
             return
 
         for other_face in mesh.polygons:
             other_tile = get_tile(mesh, other_face, self.uv_layer_name)
-            if tile.palette == other_tile.palette and tile.index == other_tile.index:
+            if tile.tileset == other_tile.tileset and tile.index == other_tile.index:
                 set_tile(mesh, other_face, new_tile, self.uv_layer_name)
 
     def invoke(self, context, event):
@@ -378,12 +378,12 @@ class GRET_OT_palette_draw(bpy.types.Operator):
             self.do_replace(context, obj.data, hit_face)
         return {'FINISHED'}
 
-class GRET_OT_palette_new(bpy.types.Operator):
+class GRET_OT_tileset_new(bpy.types.Operator):
     #tooltip
-    """Creates a new palette material. Tile size is taken from the filename, e.g. Palette8x8.png"""
+    """Creates a new tileset material. Tile size is taken from the filename, e.g. Tileset8x8.png"""
 
-    bl_idname = 'gret.palette_new'
-    bl_label = "New Palette"
+    bl_idname = 'gret.tileset_new'
+    bl_label = "New Tileset"
     bl_options = {'INTERNAL', 'UNDO'}
 
     filter_glob: bpy.props.StringProperty(
@@ -392,7 +392,7 @@ class GRET_OT_palette_new(bpy.types.Operator):
     )
     filepath: bpy.props.StringProperty(
         name="Image Path",
-        description="Path to the palette image",
+        description="Path to the tileset image",
         subtype='FILE_PATH',
     )
     filename: bpy.props.StringProperty(
@@ -407,39 +407,39 @@ class GRET_OT_palette_new(bpy.types.Operator):
             self.report({'ERROR'}, "Couldn't load image.")
             return {'CANCELLED'}
 
-        palette = Palette.from_image(image)
-        if not palette:
-            self.report({'ERROR'}, "Filename must specify the tile size, for example Palette8x8.png")
+        tileset = Tileset.from_image(image)
+        if not tileset:
+            self.report({'ERROR'}, "Filename must specify the tile size, for example Tileset8x8.png")
             return {'CANCELLED'}
 
-        palettes[image.name] = palette
+        tilesets[image.name] = tileset
         return {'FINISHED'}
 
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
-class GRET_OT_palette_reload(bpy.types.Operator):
+class GRET_OT_tileset_reload(bpy.types.Operator):
     #tooltip
-    """Reload palette images from disk"""
+    """Reload tileset images from disk"""
 
-    bl_idname = 'gret.palette_reload'
-    bl_label = "Reload Palettes"
+    bl_idname = 'gret.tileset_reload'
+    bl_label = "Reload Tilesets"
     bl_options = {'INTERNAL'}
 
     def execute(self, context):
-        for name in palettes.keys():
+        for name in tilesets.keys():
             image = bpy.data.images.get(name)
             if image:
                 image.reload()
-        clear_palettes()
+        clear_tilesets()
         return {'FINISHED'}
 
-class GRET_OT_palette_select(bpy.types.Operator):
+class GRET_OT_tileset_select(bpy.types.Operator):
     #tooltip
     """Selects the current tile"""
 
-    bl_idname = 'gret.palette_select'
+    bl_idname = 'gret.tileset_select'
     bl_label = "Select Tile"
     bl_options = {'INTERNAL'}
 
@@ -450,55 +450,55 @@ class GRET_OT_palette_select(bpy.types.Operator):
         if not tool:
             return {'CANCELLED'}
 
-        props = tool.operator_properties(GRET_OT_palette_draw.bl_idname)
+        props = tool.operator_properties(GRET_OT_tileset_draw.bl_idname)
         props.index = self.index
         return {'FINISHED'}
 
 @ToolDef.from_fn
 def tool_paint():
     def draw_settings(context, layout, tool):
-        props = tool.operator_properties(GRET_OT_palette_draw.bl_idname)
-        name = props.palette
+        props = tool.operator_properties(GRET_OT_tileset_draw.bl_idname)
+        name = props.tileset
         image = bpy.data.images.get(name)
-        palette = palettes.get(name)
-        if not palette:
-            palette = Palette.from_image(image)
-            if palette:
-                palettes[name] = palette
+        tileset = tilesets.get(name)
+        if not tileset:
+            tileset = Tileset.from_image(image)
+            if tileset:
+                tilesets[name] = tileset
 
         layout.use_property_split = True
         col = layout.column(align=False)
         row = col.row(align=True)
         sub = row.split(align=True)
-        sub.prop(props, 'palette', text="")
+        sub.prop(props, 'tileset', text="")
         sub.enabled = image is not None
-        row.operator('gret.palette_reload', icon='FILE_REFRESH', text="")
-        row.operator('gret.palette_new', icon='ADD', text="")
+        row.operator('gret.tileset_reload', icon='FILE_REFRESH', text="")
+        row.operator('gret.tileset_new', icon='ADD', text="")
         col.separator()
         col.prop(props, 'uv_layer_name', icon='UV')
         col.prop(props, 'delimit')
-        if not palette:
+        if not tileset:
             return
 
         # Draw tile grid
-        tiles_x, tiles_y = palette.dims
+        tiles_x, tiles_y = tileset.dims
         layout.separator()
         col = layout.column(align=True)
         scale = 1.2
         col.scale_x = scale
-        for tile_idx, icon_id in enumerate(palette.icon_ids):
+        for tile_idx, icon_id in enumerate(tileset.icon_ids):
             if tile_idx % tiles_x == 0:
                 row = col.row(align=True)
                 row.scale_y = scale
                 row.alignment = 'CENTER'
             selected = (tile_idx == props.index)
-            op = row.operator('gret.palette_select', text="", depress=selected, icon_value=icon_id)
+            op = row.operator('gret.tileset_select', text="", depress=selected, icon_value=icon_id)
             op.index = tile_idx
 
     return dict(
         idname=tool_id,
-        label="Palette Paint",
-        description="""Paint faces using the palette selected in the Active Tool panel.
+        label="Tile Paint",
+        description="""Paint faces using the tileset selected in the Active Tool panel.
 \u2022 Left click to paint.
 \u2022 Ctrl+Left to sample.
 \u2022 Shift+Left to fill.
@@ -515,22 +515,22 @@ km_tool_paint = (
     {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
     {"items": [
         (
-            GRET_OT_palette_draw.bl_idname,
+            GRET_OT_tileset_draw.bl_idname,
             {"type": 'LEFTMOUSE', "value": 'PRESS'},
             None
         ),
         (
-            GRET_OT_palette_draw.bl_idname,
+            GRET_OT_tileset_draw.bl_idname,
             {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True},
             {"properties": [("mode", 'SAMPLE')]}
         ),
         (
-            GRET_OT_palette_draw.bl_idname,
+            GRET_OT_tileset_draw.bl_idname,
             {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
             {"properties": [("mode", 'FILL')]}
         ),
         (
-            GRET_OT_palette_draw.bl_idname,
+            GRET_OT_tileset_draw.bl_idname,
             {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True, "ctrl": True},
             {"properties": [("mode", 'REPLACE')]}
         ),
@@ -561,31 +561,31 @@ def unregister_keymaps():
         addonmap.remove(keymap)
         defaultmap.remove(defaultmap.find(km_name, **km_args))
 
-def clear_palettes():
-    for palette in palettes.values():
-        bpy.utils.previews.remove(palette.pcoll)
-    palettes.clear()
+def clear_tilesets():
+    for tileset in tilesets.values():
+        bpy.utils.previews.remove(tileset.pcoll)
+    tilesets.clear()
 
 classes = (
-    GRET_OT_palette_draw,
-    GRET_OT_palette_new,
-    GRET_OT_palette_reload,
-    GRET_OT_palette_select,
+    GRET_OT_tileset_draw,
+    GRET_OT_tileset_new,
+    GRET_OT_tileset_reload,
+    GRET_OT_tileset_select,
 )
 
 def register(settings):
     # Don't know a better way of changing the default
-    GRET_OT_palette_draw.__annotations__['uv_layer_name'][1]['default'] = prefs.palette_uv_layer_name
+    GRET_OT_tileset_draw.__annotations__['uv_layer_name'][1]['default'] = prefs.tileset_uv_layer_name
 
     for cls in classes:
         bpy.utils.register_class(cls)
 
     get_tools_from_space_and_mode('VIEW_3D', 'OBJECT').extend((None, tool_paint))
     register_keymaps()
-    clear_palettes()
+    clear_tilesets()
 
 def unregister():
-    clear_palettes()
+    clear_tilesets()
     unregister_keymaps()
     remove_subsequence(get_tools_from_space_and_mode('VIEW_3D', 'OBJECT'), (None, tool_paint))
 

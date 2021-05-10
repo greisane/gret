@@ -178,9 +178,9 @@ def draw_panel(self, context):
     row.label(text="Bone Selection Sets", icon='GROUP_BONE')
     row = row.row(align=True)
     if settings.selection_sets_show_edit:
-        row.operator('gret.selection_set_add', icon='ADD', text="")
         row.operator('gret.selection_set_copy', icon='COPYDOWN', text="")
         row.operator('gret.selection_set_paste', icon='PASTEDOWN', text="")
+        row.operator('gret.selection_set_add', icon='ADD', text="")
     row.prop(settings, 'selection_sets_show_edit', icon='SETTINGS', text="")
 
     def draw_sel_set_item(layout, sel_set):

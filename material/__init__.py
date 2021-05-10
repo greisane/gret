@@ -2,8 +2,8 @@ import bpy
 
 module_names = [
     'helpers',
-    'palette_paint',
     'texture_bake',
+    'tile_paint',
 ]
 from .. import import_or_reload_modules
 modules = import_or_reload_modules(module_names, __name__)

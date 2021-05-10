@@ -63,9 +63,9 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         description="Name of the default UV layer for texture bakes",
         default="UVMap",
     )
-    palette_uv_layer_name: bpy.props.StringProperty(
+    tileset_uv_layer_name: bpy.props.StringProperty(
         name="Default UV Layer",
-        description="Name of the default UV layer for palette paint",
+        description="Name of the default UV layer for tileset paint",
         default="UVMap",
     )
     auto_hide_arp_enable: bpy.props.BoolProperty(
@@ -98,8 +98,8 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         col.prop(self, 'texture_bake_uv_layer_name')
         col.separator()
 
-        col.label(text='Palette Paint:')
-        col.prop(self, 'palette_uv_layer_name')
+        col.label(text='Tile Paint:')
+        col.prop(self, 'tileset_uv_layer_name')
         col.separator()
 
 class GRET_PG_settings(bpy.types.PropertyGroup):
