@@ -84,12 +84,13 @@ class GRET_OT_graft(bpy.types.Operator):
         return modifier
 
     def _execute(self, context):
-        objs = [o for o in context.selected_objects if o.type == 'MESH' and o != context.active_object]
+        orig_dst_obj = context.active_object
+        objs = [o for o in context.selected_objects if o.type == 'MESH' and o != orig_dst_obj]
 
         # Get an evaluated version of the destination object
         # Can't use to_mesh because we will need to enter edit mode on it
         dg = context.evaluated_depsgraph_get()
-        eval_obj = context.active_object.evaluated_get(dg)
+        eval_obj = orig_dst_obj.evaluated_get(dg)
         dst_mesh = bpy.data.meshes.new_from_object(eval_obj)
         dst_obj = bpy.data.objects.new(eval_obj.name, dst_mesh)
         dst_obj.matrix_world = eval_obj.matrix_world
@@ -247,15 +248,15 @@ class GRET_OT_graft(bpy.types.Operator):
 
             # If requested, create a mask modifier that will hide the intersection's inner verts
             if self.create_mask:
-                mask_vg = self.new_vgroup(dst_obj, f"_mask_{obj.name}")
+                mask_vg = self.new_vgroup(orig_dst_obj, f"_mask_{obj.name}")
                 intersecting_verts = (dst_mesh.vertices[i] for i in intersecting_vert_indices)
                 mask_vg.add([v.index for v in intersecting_verts if not v.select], 1.0, 'REPLACE')
-                mask_mod = self.new_modifier(dst_obj, name=mask_vg.name, type='MASK')
+                mask_mod = self.new_modifier(orig_dst_obj, name=mask_vg.name, type='MASK')
                 mask_mod.vertex_group = mask_vg.name
                 mask_mod.invert_vertex_group = True
                 mod_dp = f'modifiers["{mask_mod.name}"]'
                 # Can't create a hide_viewport driver for reasons
-                link_properties(obj, 'hide_render', dst_obj, mod_dp + '.show_render', invert=True)
+                link_properties(obj, 'hide_render', orig_dst_obj, mod_dp + '.show_render', invert=True)
 
         obj.vertex_groups.remove(boundary_vg)
         bpy.data.objects.remove(dst_obj)
