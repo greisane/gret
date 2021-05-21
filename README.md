@@ -102,7 +102,7 @@ Rudimentary tool to create tile-based UV maps. For anything more complicated use
 
 ## UV: Relax Loops
 
-Relaxes selected UV edge loops to their respective length on the mesh. Can be used to rectify non-grid meshes that TexTools Rectify won't work on. Found in UV Editor → UV → Relax Loops.
+Relaxes selected UV edge loops to their respective length on the mesh. Together with pins it can be used to rectify non-grid meshes that TexTools Rectify won't work on. Found in UV Editor → UV → Relax Loops.
 
 ![Demo](../readme/uvrelax-demo.gif?raw=true)
 

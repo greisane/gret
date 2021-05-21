@@ -177,7 +177,7 @@ def export_autorig(filepath, context, rig, objects=[], actions=[], options={}):
     scn.arp_ue_root_motion = True
     scn.arp_rename_for_ue = True
     scn.arp_ue_ik = add_ik_bones
-    scn.arp_ue_ik_anim = False  # This only works with arp_ue_ik. I patched ARP to address this
+    scn.arp_ue_ik_anim = True  # This only works with arp_ue_ik. I patched ARP to address this
     scn.arp_mannequin_axes = True
 
     # Animation
