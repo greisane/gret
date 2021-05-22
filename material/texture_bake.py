@@ -462,6 +462,11 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
             context.scene.cycles.preview_samples = self.saved_cycles_samples
 
             # Revert object changes
+            for obj, show_viewports in self.saved_modifier_show_viewport.items():
+                for modifier, show_viewport in zip(obj.modifiers, show_viewports):
+                    modifier.show_viewport = show_viewport
+            del self.saved_modifier_show_viewport
+
             for obj, saved_mats in self.saved_materials.items():
                 for mat_idx, saved_mat in enumerate(saved_mats):
                     obj.data.materials[mat_idx] = saved_mat
@@ -499,6 +504,11 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
         self.saved_selection = save_selection()
         show_only(context, objs)
 
+        self.saved_modifier_show_viewport = {}
+        for obj in objs:
+            self.saved_modifier_show_viewport[obj] = [mod.show_viewport for mod in obj.modifiers]
+            for modifier in obj.modifiers:
+                modifier.show_viewport = modifier.show_render
         self.saved_materials = {obj: obj.data.materials[:] for obj in objs}
         self.preview_mat = preview_mat = bpy.data.materials.new(name=f"_preview_{self.baker}")
         preview_mat.use_nodes = True
