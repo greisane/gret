@@ -40,9 +40,14 @@ class GRET_OT_action_set(bpy.types.Operator):
                 clear_pose(obj)
                 obj.animation_data.action = action
 
-                # Set preview range
+                # Set preview range. Use start and end markers if they exist
                 context.scene.frame_preview_start = action.frame_range[0]
                 context.scene.frame_preview_end = action.frame_range[1] #- 1
+                for marker in action.pose_markers:
+                    if marker.name.lower() == "start":
+                        context.scene.frame_preview_start = marker.frame
+                    elif marker.name.lower() == "end":
+                        context.scene.frame_preview_end = marker.frame
                 context.scene.use_preview_range = True
 
                 if self.play:

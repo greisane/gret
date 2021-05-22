@@ -187,7 +187,7 @@ def export_autorig(filepath, context, rig, objects=[], actions=[], options={}):
         scn.arp_bake_actions = True
         scn.arp_bake_only_active = False
         scn.arp_only_containing = True
-        scn.arp_frame_range_type = 'FULL'
+        scn.arp_frame_range_type = 'MARKERS'
         scn.arp_export_name_string = ','.join(action.name for action in actions)
         scn.arp_simplify_fac = 0.0
 
