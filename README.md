@@ -64,6 +64,12 @@ Procedurally generates vertex colors from various sources. Sources can be vertex
 
 ![Panel](../readme/vcolmapping.png?raw=true)
 
+## Mesh: Vertex Group Smooth Loops
+
+Skinning tool to separately smooth weights on parallel loops. Belts and such should deform lengthwise without compressing and regular Smooth isn't too good at this. Found in Weights → Smooth Loops while in Weight Paint mode, vertex selection must be enabled to use.
+
+![Demo](../readme/smoothloops-demo.gif?raw=true)
+
 ## Mesh: Apply Modifiers with Shape Keys
 
 The much needed ability to apply modifiers on a mesh with shape keys. Mirrors are specially handled to fix shape keys that move vertices off the center axis. Found in Shape Keys → Specials Menu → Apply Modifiers with Shape Keys.
