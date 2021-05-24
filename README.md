@@ -6,7 +6,23 @@ A collection of Blender tools I've written for myself over the years. I use thes
 
 # Installation
 
-TODO
+Blender 2.92 or later required.
+
+1. Download the [latest release](https://github.com/greisane/gret/releases/latest).
+
+2. In Blender, go to Edit → Preferences → Add-ons → Install.
+
+   ![Step 2](../readme/installation-02.png?raw=true)
+
+3. Find and select the downloaded zip file, then click *Install Add-on*.
+
+4. Enable the add-on by clicking the checkbox. It should be listed as *gret*. 
+
+   ![Step 4](../readme/installation-04.png?raw=true)
+
+5. Typing `gret` in the search bar should ensure it's working. Other tools and operators will show up depending on context.
+
+   ![Step 5](../readme/installation-05.png?raw=true)
 
 
 
