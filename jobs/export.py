@@ -1,4 +1,3 @@
-from fnmatch import fnmatch
 import bpy
 
 from .. import prefs

@@ -1,4 +1,5 @@
 from collections import namedtuple
+from fnmatch import fnmatch
 import bpy
 import os
 import time
