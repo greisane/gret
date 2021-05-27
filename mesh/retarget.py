@@ -89,14 +89,12 @@ Use to speed up retargeting by selecting only the areas of importance""",
         dst_obj = bpy.data.objects.get(self.destination[2:]) if not dst_is_shape_key else src_obj
         dst_shape_key_name = self.destination[2:] if dst_is_shape_key else None
         assert src_obj and dst_obj and src_obj.type == 'MESH' and dst_obj.type == 'MESH'
-        src_mesh = src_obj.data
-        dst_mesh = dst_obj.data
 
-        num_vertices = len(src_mesh.vertices)
+        num_vertices = len(src_obj.data.vertices)
         if num_vertices == 0:
             self.report({'ERROR'}, "Source mesh has no vertices.")
             return {'CANCELLED'}
-        if num_vertices != len(dst_mesh.vertices):
+        if num_vertices != len(dst_obj.data.vertices):
             self.report({'ERROR'}, "Source and destination meshes must have equal number of vertices.")
             return {'CANCELLED'}
 
@@ -104,7 +102,7 @@ Use to speed up retargeting by selecting only the areas of importance""",
         # A cap is still necessary since growth is not linear and it will take forever. Parallelize?
         # In practice sampling many vertices in a dense mesh doesn't change the result that much
         vertex_cap = 5000 if self.high_quality else 1000
-        mask = [v.select for v in src_mesh.vertices] if self.only_selection else None
+        mask = [v.select for v in src_obj.data.vertices] if self.only_selection else None
         num_masked = sum(mask) if mask else num_vertices
         stride = ceil(num_masked / vertex_cap)
         if num_masked == 0:
@@ -113,8 +111,8 @@ Use to speed up retargeting by selecting only the areas of importance""",
         logd(f"num_verts={num_masked}/{num_vertices} stride={stride} total={num_masked//stride}")
 
         rbf_kernel, scale = rbf_kernels.get(self.function, (linear, 1.0))
-        src_pts = get_mesh_points(src_mesh, mask=mask, stride=stride)
-        dst_pts = get_mesh_points(dst_mesh, shape_key=dst_shape_key_name, mask=mask, stride=stride)
+        src_pts = get_mesh_points(src_obj, mask=mask, stride=stride)
+        dst_pts = get_mesh_points(dst_obj, shape_key=dst_shape_key_name, mask=mask, stride=stride)
         try:
             weights = get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius * scale)
         except np.linalg.LinAlgError:
@@ -128,7 +126,7 @@ Use to speed up retargeting by selecting only the areas of importance""",
             # Get the mesh points in retarget destination space
             dst_to_obj = obj.matrix_world.inverted() @ dst_obj.matrix_world
             obj_to_dst = dst_to_obj.inverted()
-            mesh_pts = get_mesh_points(obj.data, matrix=obj_to_dst)
+            mesh_pts = get_mesh_points(obj, matrix=obj_to_dst)
             num_mesh_pts = mesh_pts.shape[0]
 
             dist = get_distance_matrix(mesh_pts, src_pts, rbf_kernel, self.radius * scale)

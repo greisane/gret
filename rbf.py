@@ -1,3 +1,4 @@
+import bmesh
 import bpy
 import numpy as np
 
@@ -67,17 +68,33 @@ def get_distance_matrix(v1, v2, rbf, radius):
     matrix = np.linalg.norm(matrix, axis=-1)
     return rbf(matrix, radius)
 
-def get_mesh_points(mesh, shape_key=None, matrix=None, mask=None, stride=1):
+def get_mesh_points(obj, shape_key=None, matrix=None, mask=None, stride=1):
     """Return vertex coordinates of a mesh as a numpy array with shape (?, 3)."""
     # Moving the mesh seems to be faster. See https://blender.stackexchange.com/questions/139511
 
+    mesh = obj.data
     if matrix is not None:
         mesh = mesh.copy()
         mesh.transform(matrix)
 
-    vertices = mesh.vertices if shape_key is None else mesh.shape_keys.key_blocks[shape_key].data
-    points = np.zeros(len(vertices)*3, dtype=np.float)
-    vertices.foreach_get('co', points)
+    shape_key = mesh.shape_keys.key_blocks[shape_key] if shape_key else None
+    points = np.zeros(len(mesh.vertices)*3, dtype=np.float)
+    if shape_key and shape_key.vertex_group:
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        bm.verts.layers.deform.verify()
+        bm.verts.layers.shape.verify()
+        deform_layer = bm.verts.layers.deform.active
+        base_shape_layer = bm.verts.layers.shape[shape_key.relative_key.name]
+        shape_layer = bm.verts.layers.shape[shape_key.name]
+        vertex_group_index = obj.vertex_groups[shape_key.vertex_group].index
+        for vert_idx, vert in enumerate(bm.verts):
+            w = vert[deform_layer].get(vertex_group_index, 0.0)
+            points[vert_idx*3:vert_idx*3+3] = vert[base_shape_layer].lerp(vert[shape_layer], w)
+        bm.free()
+    else:
+        vertices = mesh.vertices if shape_key is None else shape_key.data
+        vertices.foreach_get('co', points)
     points = points.reshape((-1, 3))
     if mask is not None:
         points = points[mask]
