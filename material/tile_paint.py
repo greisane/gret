@@ -283,7 +283,7 @@ class GRET_OT_tileset_draw(bpy.types.Operator):
     uv_layer_name: bpy.props.StringProperty(
         name="UV Layer",
         description="Name of the target UV layer. Can change the default in addon preferences",
-        default="UVMap",
+        default="",
     )
     index: bpy.props.IntProperty(
         options={'HIDDEN'},
@@ -458,6 +458,8 @@ class GRET_OT_tileset_select(bpy.types.Operator):
 def tool_paint():
     def draw_settings(context, layout, tool):
         props = tool.operator_properties(GRET_OT_tileset_draw.bl_idname)
+        if not props.uv_layer_name and prefs.tileset_uv_layer_name:
+            props.uv_layer_name = prefs.tileset_uv_layer_name
         name = props.tileset
         image = bpy.data.images.get(name)
         tileset = tilesets.get(name)
@@ -574,9 +576,6 @@ classes = (
 )
 
 def register(settings):
-    # Don't know a better way of changing the default
-    GRET_OT_tileset_draw.__annotations__['uv_layer_name'][1]['default'] = prefs.tileset_uv_layer_name
-
     for cls in classes:
         bpy.utils.register_class(cls)
 
