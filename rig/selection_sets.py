@@ -152,7 +152,6 @@ class GRET_OT_selection_set_remove(bpy.types.Operator):
     bl_options = {'INTERNAL', 'UNDO'}
 
     name: bpy.props.StringProperty(options={'HIDDEN'})
-    extend: bpy.props.BoolProperty(options={'HIDDEN'}, default=False)
 
     @classmethod
     def poll(cls, context):
@@ -163,6 +162,33 @@ class GRET_OT_selection_set_remove(bpy.types.Operator):
         index = obj.selection_sets.find(self.name)
         if index > -1:
             obj.selection_sets.remove(index)
+        return {'FINISHED'}
+
+class GRET_OT_selection_set_overwrite(bpy.types.Operator):
+    #tooltip
+    """Overwrite this selection set with the currently selected bones"""
+
+    bl_idname = 'gret.selection_set_overwrite'
+    bl_label = "Overwrite Selection Set"
+    bl_options = {'INTERNAL', 'UNDO'}
+
+    name: bpy.props.StringProperty(options={'HIDDEN'})
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+    def execute(self, context):
+        obj = context.active_object
+        sel_set = obj.selection_sets.get(self.name, None)
+        if not sel_set:
+            return {'CANCELLED'}
+
+        sel_set.bone_ids.clear()
+        for bone in context.selected_pose_bones:
+            if bone.name not in sel_set.bone_ids:
+                bone_id = sel_set.bone_ids.add()
+                bone_id.name = bone.name
         return {'FINISHED'}
 
 def draw_panel(self, context):
@@ -188,8 +214,8 @@ def draw_panel(self, context):
         op = layout.operator('gret.selection_set_toggle', text=name, depress=sel_set.is_selected)
         op.name = name
         if settings.selection_sets_show_edit:
-            op = layout.operator('gret.selection_set_remove', icon='X', text="")
-            op.name = name
+            layout.operator('gret.selection_set_overwrite', icon='ADD', text="").name = name
+            layout.operator('gret.selection_set_remove', icon='X', text="").name = name
 
     selection_sets = OrderedDict(reversed(obj.selection_sets.items()))
     if selection_sets:
@@ -202,11 +228,14 @@ def draw_panel(self, context):
             row = col.row(align=True)
             if other_sel_set:
                 draw_sel_set_item(row, other_sel_set)
+                if settings.selection_sets_show_edit:
+                    row.separator()
             draw_sel_set_item(row, sel_set)
 
 classes = (
     GRET_OT_selection_set_add,
     GRET_OT_selection_set_copy,
+    GRET_OT_selection_set_overwrite,
     GRET_OT_selection_set_paste,
     GRET_OT_selection_set_remove,
     GRET_OT_selection_set_toggle,
