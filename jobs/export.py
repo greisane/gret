@@ -139,6 +139,7 @@ def draw_job(layout, jobs, job_index):
             col.prop(job, 'merge_basis_shape_keys')
 
             col.prop(job, 'export_collision')
+            col.prop(job, 'export_sockets')
             col.prop(job, 'keep_transforms')
 
             col = box.column(align=True)
@@ -480,6 +481,11 @@ Separate tags with a space. Tag modifiers with 'g:tag'""",
     export_collision: bpy.props.BoolProperty(
         name="Export Collision",
         description="Exports collision objects that follow the UE4 naming pattern",
+        default=True,
+    )
+    export_sockets: bpy.props.BoolProperty(
+        name="Export Sockets",
+        description="Export any Empty parented to an object as a UE4 static mesh socket",
         default=True,
     )
     keep_transforms: bpy.props.BoolProperty(

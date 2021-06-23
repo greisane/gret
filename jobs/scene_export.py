@@ -1,5 +1,6 @@
 from collections import namedtuple, defaultdict
 from itertools import chain, zip_longest
+from math import pi
 import bpy
 import re
 import time
@@ -37,7 +38,7 @@ def export_fbx(filepath, context, objects):
         , global_scale=1.0
         , apply_unit_scale=True
         , apply_scale_options='FBX_SCALE_NONE'
-        , object_types={'MESH'}
+        , object_types={'MESH', 'EMPTY'}
         , use_mesh_modifiers=True
         , use_mesh_modifiers_render=False
         , mesh_smooth_type='EDGE'
@@ -103,14 +104,15 @@ class GRET_OT_scene_export(bpy.types.Operator):
             # Nothing to export
             return
 
-        ExportItem = namedtuple('ExportObject', ['original', 'obj', 'job_collection', 'col_objs'])
+        ExportItem = namedtuple('ExportObject', ['original', 'obj', 'job_collection',
+            'col_objs', 'socket_objs'])
         items = []
         groups = defaultdict(list)  # Filepath to item list
         for obj in context.scene.objects:
             obj.hide_render = True
         for obj, job_cl in zip_longest(export_objs, job_cls):
             obj.hide_render = False
-            items.append(ExportItem(obj, self.copy_obj(obj), job_cl, []))
+            items.append(ExportItem(obj, self.copy_obj(obj), job_cl, [], []))
 
         # Process individual meshes
         job_tags = job.modifier_tags.split(' ')
@@ -171,19 +173,21 @@ class GRET_OT_scene_export(bpy.types.Operator):
                     continue
 
             # If enabled, pick up UE4 collision objects
-            col_objs = item.col_objs
             if job.export_collision:
                 pattern = r"^(?:%s)_%s_\d+$" % ('|'.join(collision_prefixes), item.original.name)
-                col_objs.extend(o for o in context.scene.objects if re.match(pattern, o.name))
-            if col_objs:
-                log(f"Collected {len(col_objs)} collision primitives")
+                item.col_objs.extend(o for o in context.scene.objects if re.match(pattern, o.name))
+            if item.col_objs:
+                log(f"Collected {len(item.col_objs)} collision primitives")
+
+            if job.export_sockets:
+                item.socket_objs.extend(o for o in item.original.children if o.type == 'EMPTY')
 
             # If enabled, move main object to world center while keeping collision relative transforms
             if not job.keep_transforms:
-                for col in col_objs:
-                    logd(f"Moving collision {col.name}")
-                    self.saved_transforms[col] = col.matrix_world.copy()
-                    col.matrix_world = obj.matrix_world.inverted() @ col.matrix_world
+                for other_obj in chain(item.col_objs, item.socket_objs):
+                    logd(f"Moving object {other_obj.name}")
+                    self.saved_transforms[other_obj] = other_obj.matrix_world.copy()
+                    other_obj.matrix_world = obj.matrix_world.inverted() @ other_obj.matrix_world
                 obj.matrix_world.identity()
 
             # If set, ensure prefix for exported materials
@@ -222,9 +226,12 @@ class GRET_OT_scene_export(bpy.types.Operator):
             # Export with the original object names
             for item in items:
                 swap_object_names(item.original, item.obj)
+                for socket_obj in item.socket_objs:
+                    socket_obj.name = "SOCKET_" + socket_obj.name
 
             filename = bpy.path.basename(filepath)
-            objs = list(chain.from_iterable([item.obj] + item.col_objs for item in items))
+            objs = list(chain.from_iterable([item.obj] + item.col_objs + item.socket_objs
+                for item in items))
 
             result = export_fbx(filepath, context, objs)
             if result == {'FINISHED'}:
@@ -235,6 +242,8 @@ class GRET_OT_scene_export(bpy.types.Operator):
 
             for item in items:
                 swap_object_names(item.original, item.obj)
+                for socket_obj in item.socket_objs:
+                    socket_obj.name = socket_obj.name[len("SOCKET_"):]
 
     def execute(self, context):
         job = context.scene.gret.export_jobs[self.index]
