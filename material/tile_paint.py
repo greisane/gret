@@ -550,18 +550,18 @@ def register_keymaps():
 
 def unregister_keymaps():
     keyconfigs = bpy.context.window_manager.keyconfigs
-    defaultmap = keyconfigs.get('blender').keymaps
-    addonmap = keyconfigs.get('blender addon').keymaps
+    kc_defaultconf = keyconfigs.default
+    kc_addonconf = keyconfigs.addon
 
     for km_name, km_args, km_content in [km_tool_paint]:
-        keymap = addonmap.find(km_name, **km_args)
+        keymap = kc_addonconf.find(km_name, **km_args)
         keymap_items = keymap.keymap_items
         for item in km_content['items']:
             item_id = keymap_items.find(item[0])
             if item_id != -1:
                 keymap_items.remove(keymap_items[item_id])
-        addonmap.remove(keymap)
-        defaultmap.remove(defaultmap.find(km_name, **km_args))
+        kc_addonconf.remove(keymap)
+        kc_defaultconf.remove(kc_defaultconf.find(km_name, **km_args))
 
 def clear_tilesets():
     for tileset in tilesets.values():
