@@ -16,7 +16,6 @@ from ..helpers import (
     load_selection,
     save_selection,
     select_only,
-    swap_object_names,
 )
 from ..log import logger, log, logd
 from ..mesh.helpers import (
@@ -84,6 +83,23 @@ class GRET_OT_scene_export(bpy.types.Operator):
         new_obj.hide_viewport = False
         new_obj.hide_select = False
         return new_obj
+
+    def restore_saved_object_names(self):
+        for n, obj in enumerate(self.saved_object_names.keys()):
+            obj.name = f"___{n}"
+        for obj, name in self.saved_object_names.items():
+            obj.name = name
+        self.saved_object_names.clear()
+
+    def swap_object_names(self, obj1, obj2):
+        assert obj1 not in self.saved_object_names
+        assert obj2 not in self.saved_object_names
+        name1, name2 = obj1.name, obj2.name
+        self.saved_object_names[obj1] = name1
+        self.saved_object_names[obj2] = name2
+        obj1.name = name2
+        obj2.name = name1
+        obj1.name = name2
 
     def _execute(self, context, job):
         collision_prefixes = ("UCX", "UBX", "UCP", "USP")
@@ -223,11 +239,26 @@ class GRET_OT_scene_export(bpy.types.Operator):
 
         # Export each file
         for filepath, items in groups.items():
-            # Export with the original object names
             for item in items:
-                swap_object_names(item.original, item.obj)
+                self.swap_object_names(item.original, item.obj)
+                # Rename sockets to lose the .001 .002 suffix while avoiding name collisions
+                # Normally it's not possible to have two objects with the same name in Blender
+                # That's unwieldy when you want e.g. a socket named "Pivot" in every mesh
                 for socket_obj in item.socket_objs:
-                    socket_obj.name = "SOCKET_" + socket_obj.name
+                    name_base = "SOCKET_" + re.sub(r"\.\d\d\d$", "", socket_obj.name)
+                    name_number = 0
+                    while True:
+                        new_name = name_base if name_number == 0 else f"{name_base}{name_number}"
+                        existing_obj = context.scene.objects.get(new_name)
+                        if existing_obj and existing_obj in saved_object_names:
+                            name_number += 1
+                        elif existing_obj:
+                            self.swap_object_names(existing_obj, socket_obj)
+                            break
+                        else:
+                            self.saved_object_names[socket_obj] = socket_obj.name
+                            socket_obj.name = new_name
+                            break
 
             filename = bpy.path.basename(filepath)
             objs = list(chain.from_iterable([item.obj] + item.col_objs + item.socket_objs
@@ -240,10 +271,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
             else:
                 log(f"Failed to export {filename}")
 
-            for item in items:
-                swap_object_names(item.original, item.obj)
-                for socket_obj in item.socket_objs:
-                    socket_obj.name = socket_obj.name[len("SOCKET_"):]
+            self.restore_saved_object_names()
 
     def execute(self, context):
         job = context.scene.gret.export_jobs[self.index]
@@ -265,6 +293,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
         self.exported_files = []
         self.new_objs = []
         self.new_meshes = []
+        self.saved_object_names = {}
         self.saved_material_names = {}
         self.saved_transforms = {}
         logger.start_logging()
@@ -280,16 +309,18 @@ class GRET_OT_scene_export(bpy.types.Operator):
             beep(pitch=2, num=1)
         finally:
             # Clean up
+            self.restore_saved_object_names()
             while self.new_objs:
                 bpy.data.objects.remove(self.new_objs.pop())
             while self.new_meshes:
                 bpy.data.meshes.remove(self.new_meshes.pop())
-            for obj, matrix_world in self.saved_transforms.items():
-                obj.matrix_world = matrix_world
             for mat, name in self.saved_material_names.items():
                 mat.name = name
-            del self.saved_transforms
+            for obj, matrix_world in self.saved_transforms.items():
+                obj.matrix_world = matrix_world
+            del self.saved_object_names
             del self.saved_material_names
+            del self.saved_transforms
 
             load_selection(saved_selection)
             context.preferences.edit.use_global_undo = saved_use_global_undo
