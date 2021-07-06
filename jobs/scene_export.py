@@ -127,6 +127,9 @@ class GRET_OT_scene_export(bpy.types.Operator):
         for obj in context.scene.objects:
             obj.hide_render = True
         for obj, job_cl in zip_longest(export_objs, job_cls):
+            if any(obj.name.startswith(prefix) for prefix in collision_prefixes):
+                # Never export collision objects by themselves
+                continue
             obj.hide_render = False
             items.append(ExportItem(obj, self.copy_obj(obj), job_cl, [], []))
 
@@ -142,11 +145,6 @@ class GRET_OT_scene_export(bpy.types.Operator):
             return mod.show_render
 
         for item in items:
-            if any(item.original.name.startswith(prefix) for prefix in collision_prefixes):
-                # Never export collision objects by themselves
-                item.skip = True
-                continue
-
             log(f"Processing {item.original.name}")
             obj = item.obj
             job_cl = item.job_collection
