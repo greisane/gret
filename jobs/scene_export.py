@@ -8,7 +8,6 @@ import time
 from ..helpers import (
     beep,
     fail_if_invalid_export_path,
-    fail_if_no_operator,
     get_context,
     get_export_path,
     get_nice_export_report,
@@ -248,7 +247,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
                     while True:
                         new_name = name_base if name_number == 0 else f"{name_base}{name_number}"
                         existing_obj = context.scene.objects.get(new_name)
-                        if existing_obj and existing_obj in saved_object_names:
+                        if existing_obj and existing_obj in self.saved_object_names:
                             name_number += 1
                         elif existing_obj:
                             self.swap_object_names(existing_obj, socket_obj)
@@ -278,7 +277,6 @@ class GRET_OT_scene_export(bpy.types.Operator):
 
         # Check addon availability and export path
         try:
-            fail_if_no_operator('vertex_color_mapping_refresh', submodule=bpy.ops.mesh)
             field_names = ['object', 'collection']
             fail_if_invalid_export_path(job.scene_export_path, field_names)
         except Exception as e:

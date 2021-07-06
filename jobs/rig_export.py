@@ -9,7 +9,6 @@ import time
 from ..helpers import (
     beep,
     fail_if_invalid_export_path,
-    fail_if_no_operator,
     get_children_recursive,
     get_context,
     get_export_path,
@@ -319,8 +318,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
         # Check addon availability and export path
         try:
-            fail_if_no_operator('shape_key_apply_modifiers')
-            fail_if_no_operator('vertex_color_mapping_refresh', submodule=bpy.ops.mesh)
             if not job.to_collection:
                 field_names = ['rigfile', 'rig', 'object', 'collection']
                 fail_if_invalid_export_path(job.rig_export_path, field_names)
