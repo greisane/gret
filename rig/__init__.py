@@ -5,6 +5,7 @@ module_names = [
     'auto_hide_arp',
     'propagate_bone_inherit_scale',
     'properties',
+    'rename_bone_chain',
     'selection_sets',
 ]
 from .. import import_or_reload_modules
