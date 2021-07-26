@@ -324,7 +324,11 @@ def unsubdivide_preserve_uvs(obj, levels):
     bm.to_mesh(obj.data)
     bm.free()
 
-def bmesh_blur_vertex_group(bm, vertex_group_index, distance, power=1.0, only_tagged=False):
+def bmesh_vertex_group_expand(bm, vertex_group_index, distance, power=1.0, only_tagged=False):
+    # TODO Rewrite
+    # - Algorithm does too much redundant work. Sort starting set by weight?
+    # - Power as a parameter isn't very intuitive
+
     if distance <= 0.0:
         return
 
