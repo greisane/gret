@@ -271,15 +271,15 @@ class GRET_OT_vertex_group_smooth_loops(bpy.types.Operator):
         description="Subset of vertex groups to modify",
         default='ACTIVE',
     )
-    distance: bpy.props.FloatProperty(
-        name="Distance",
-        description="Smoothing distance",
-        default=0.1,
+    factor: bpy.props.FloatProperty(
+        name="Factor",
+        description="Distance factor",
+        default=1.0,
         min=0.0,
     )
     power: bpy.props.FloatProperty(
         name="Power",
-        description="Smoothing power",
+        description="Power",
         default=1.0,
         min=1.0,
     )
@@ -321,7 +321,7 @@ class GRET_OT_vertex_group_smooth_loops(bpy.types.Operator):
                 for vert_idx in vert_idxs:
                     bm.verts[vert_idx].tag = True
                 for vg_idx in vg_idxs:
-                    bmesh_vertex_group_expand(bm, vg_idx, distance=self.distance, power=self.power,
+                    bmesh_vertex_group_expand(bm, vg_idx, distance=self.factor / 100, power=self.power,
                         only_tagged=True)
 
         bm.to_mesh(obj.data)

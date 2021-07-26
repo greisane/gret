@@ -7,8 +7,8 @@ class GRET_OT_vertex_group_expand(bpy.types.Operator):
     #tooltip
     """Expand weights for selected vertices"""
 
-    bl_idname = 'gret.vertex_group_blur'
-    bl_label = "Blur"
+    bl_idname = 'gret.vertex_group_expand'
+    bl_label = "Expand"
     bl_options = {'REGISTER', 'UNDO'}
 
     group_select_mode: bpy.props.EnumProperty(
@@ -21,15 +21,15 @@ class GRET_OT_vertex_group_expand(bpy.types.Operator):
         description="Subset of vertex groups to modify",
         default='ACTIVE',
     )
-    distance: bpy.props.FloatProperty(
-        name="Distance",
-        description="Smoothing distance",
-        default=0.1,
+    factor: bpy.props.FloatProperty(
+        name="Factor",
+        description="Distance factor",
+        default=1.0,
         min=0.0,
     )
     power: bpy.props.FloatProperty(
         name="Power",
-        description="Smoothing power",
+        description="Power",
         default=1.0,
         min=1.0,
     )
@@ -63,7 +63,7 @@ class GRET_OT_vertex_group_expand(bpy.types.Operator):
             for vert in bm.verts:
                 vert.tag = vert.select
             for vg_idx in vg_idxs:
-                bmesh_vertex_group_expand(bm, vg_idx, distance=self.distance, power=self.power,
+                bmesh_vertex_group_expand(bm, vg_idx, distance=self.factor / 100, power=self.power,
                     only_tagged=True)
 
         bm.to_mesh(obj.data)
