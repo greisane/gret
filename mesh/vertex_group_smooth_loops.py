@@ -274,7 +274,7 @@ class GRET_OT_vertex_group_smooth_loops(bpy.types.Operator):
     distance: bpy.props.FloatProperty(
         name="Distance",
         description="Smoothing distance",
-        default=0.0,
+        default=0.1,
         min=0.0,
     )
     power: bpy.props.FloatProperty(
@@ -326,6 +326,7 @@ class GRET_OT_vertex_group_smooth_loops(bpy.types.Operator):
 
         bm.to_mesh(obj.data)
         bm.free()
+        context.area.tag_redraw()
 
         return{'FINISHED'}
 
