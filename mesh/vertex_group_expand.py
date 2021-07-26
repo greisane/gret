@@ -37,8 +37,7 @@ class GRET_OT_vertex_group_expand(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         obj = context.active_object
-        return (obj and obj.type == 'MESH'
-            and context.mode == 'PAINT_WEIGHT' and obj.data.use_paint_mask_vertex)
+        return obj and obj.type == 'MESH' and context.mode == 'PAINT_WEIGHT'
 
     def execute(self, context):
         obj = context.active_object
@@ -59,12 +58,12 @@ class GRET_OT_vertex_group_expand(bpy.types.Operator):
         elif self.group_select_mode == 'ALL':
             vg_idxs = list(range(len(obj.vertex_groups)))
 
-        if vg_idxs:
+        if obj.data.use_paint_mask_vertex:
             for vert in bm.verts:
                 vert.tag = vert.select
-            for vg_idx in vg_idxs:
-                bmesh_vertex_group_expand(bm, vg_idx, distance=self.factor / 100, power=self.power,
-                    only_tagged=True)
+        for vg_idx in vg_idxs:
+            bmesh_vertex_group_expand(bm, vg_idx, distance=self.factor / 100, power=self.power,
+                only_tagged=obj.data.use_paint_mask_vertex)
 
         bm.to_mesh(obj.data)
         bm.free()
