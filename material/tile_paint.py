@@ -542,26 +542,26 @@ km_tool_paint_empty = keymap_view3d_empty(km_tool_paint_name)
 
 def register_keymaps():
     keyconfigs = bpy.context.window_manager.keyconfigs
-    kc_defaultconf = keyconfigs.default
-    kc_addonconf = keyconfigs.addon
+    kc_default = keyconfigs.default
+    kc_addon = keyconfigs.addon
 
-    keyconfig_init_from_data(kc_defaultconf, [km_tool_paint_empty])
-    keyconfig_init_from_data(kc_addonconf, [km_tool_paint])
+    keyconfig_init_from_data(kc_default, [km_tool_paint_empty])
+    keyconfig_init_from_data(kc_addon, [km_tool_paint])
 
 def unregister_keymaps():
     keyconfigs = bpy.context.window_manager.keyconfigs
-    kc_defaultconf = keyconfigs.default
-    kc_addonconf = keyconfigs.addon
+    kc_default_keymaps = keyconfigs.default.keymaps
+    kc_addon_keymaps = keyconfigs.addon.keymaps
 
     for km_name, km_args, km_content in [km_tool_paint]:
-        keymap = kc_addonconf.find(km_name, **km_args)
+        keymap = kc_addon_keymaps.find(km_name, **km_args)
         keymap_items = keymap.keymap_items
         for item in km_content['items']:
             item_id = keymap_items.find(item[0])
             if item_id != -1:
                 keymap_items.remove(keymap_items[item_id])
-        kc_addonconf.remove(keymap)
-        kc_defaultconf.remove(kc_defaultconf.find(km_name, **km_args))
+        kc_addon_keymaps.remove(keymap)
+        kc_default_keymaps.remove(kc_default_keymaps.find(km_name, **km_args))
 
 def clear_tilesets():
     for tileset in tilesets.values():
