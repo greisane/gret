@@ -97,7 +97,7 @@ class MirrorModifierHandler(ModifierHandler):
     def apply(self, obj, keep_if_disabled=False):
         modifier = obj.modifiers[self.name]
         if not modifier.show_viewport:
-            super().apply(self, obj, keep_if_disabled)
+            super().apply(obj, keep_if_disabled)
         else:
             modifier.use_mirror_merge = False
             bpy.ops.object.modifier_apply({'object': obj}, modifier=modifier.name)
@@ -156,7 +156,7 @@ class WeldModifierHandler(ModifierHandler):
     def apply(self, obj, keep_if_disabled=False):
         modifier = obj.modifiers[self.name]
         if not modifier.show_viewport:
-            super().apply(self, obj, keep_if_disabled)
+            super().apply(obj, keep_if_disabled)
         else:
             bpy.ops.object.modifier_remove({'object': obj}, modifier=modifier.name)
             if not self.weld_map:
