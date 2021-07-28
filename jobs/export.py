@@ -137,6 +137,7 @@ def draw_job(layout, jobs, job_index):
             sub.enabled = job.apply_modifiers
 
             col.prop(job, 'merge_basis_shape_keys')
+            col.prop(job, 'encode_shape_keys')
 
             col.prop(job, 'export_collision')
             col.prop(job, 'export_sockets')
@@ -170,6 +171,7 @@ def draw_job(layout, jobs, job_index):
             sub.enabled = job.apply_modifiers
 
             col.prop(job, 'merge_basis_shape_keys')
+            col.prop(job, 'encode_shape_keys')
 
             row = col.row(align=True)
             row.prop(job, 'mirror_shape_keys')
@@ -472,6 +474,12 @@ Separate tags with a space. Tag modifiers with 'g:tag'""",
         name="Merge Basis Shape Keys",
         description="Blends 'Key' and 'b_' shapekeys into the basis shape",
         default=True,
+    )
+    encode_shape_keys: bpy.props.BoolProperty(
+        name="Encode Shape Keys",
+        description="""Shape keys suffixed '_UV' are encoded in UV channels instead of being exported.
+UVn+1: deltaXY, UVn+2: deltaZnormalX, UVn+3: normalYZ. All values are remapped to a [0..1] UV range""",
+        default=False,
     )
     remap_materials: bpy.props.CollectionProperty(
         type=GRET_PG_remap_material,

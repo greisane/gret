@@ -20,6 +20,7 @@ from ..log import logger, log, logd
 from ..mesh.helpers import (
     apply_modifiers,
     delete_faces_with_no_material,
+    encode_shape_key,
     merge_basis_shape_keys,
     unsubdivide_preserve_uvs,
 )
@@ -122,7 +123,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
         ExportItem = namedtuple('ExportObject', ['original', 'obj', 'job_collection',
             'col_objs', 'socket_objs'])
         items = []
-        groups = defaultdict(list)  # Filepath to item list
+        groups = defaultdict(list)  # Filepath to list of ExportItems
         for obj in context.scene.objects:
             obj.hide_render = True
         for obj, job_cl in zip_longest(export_objs, job_cls):
@@ -157,6 +158,17 @@ class GRET_OT_scene_export(bpy.types.Operator):
 
             if job.merge_basis_shape_keys:
                 merge_basis_shape_keys(obj)
+
+            # Shape keys suffixed "_UV" are encoded and removed
+            if job.encode_shape_keys:
+                sk_to_remove = []
+                for sk_idx, sk in enumerate(obj.data.shape_keys.key_blocks):
+                    if sk_idx > 0 and sk.name.endswith("_UV"):
+                        sk.name = sk.name[:-len("_UV")]
+                        encode_shape_key(obj, sk_idx)
+                        sk_to_remove.append(sk)
+                for sk in sk_to_remove:
+                    obj.shape_key_remove(sk)
 
             obj.shape_key_clear()
 

@@ -22,6 +22,7 @@ from ..mesh.helpers import (
     apply_modifiers,
     apply_shape_keys_with_vertex_groups,
     delete_faces_with_no_material,
+    encode_shape_key,
     merge_basis_shape_keys,
     merge_freestyle_edges,
     mirror_shape_keys,
@@ -86,6 +87,10 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 if not fc.driver.is_valid:
                     obj.animation_data.drivers.remove(fc)
 
+        # Prefer no shape keys at all if only basis is left
+        if obj.data.shape_keys and len(obj.data.shape_keys.key_blocks) == 1:
+            obj.shape_key_clear()
+
     def _execute(self, context, job, rig):
         rig_filepath = (rig.proxy.library.filepath if rig.proxy and rig.proxy.library
             else bpy.data.filepath)
@@ -105,7 +110,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
         ExportItem = namedtuple('ExportItem', ['original', 'obj', 'job_collection'])
         items = []
-        groups = defaultdict(list)  # Filepath to item list
+        groups = defaultdict(list)  # Filepath to list of ExportItems
         for obj in context.scene.objects:
             obj.hide_render = True
         for obj, job_cl in zip(export_objs, job_cls):
@@ -213,6 +218,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
             filepath = None if job.to_collection else get_export_path(job.rig_export_path, path_fields)
             groups[filepath].append(item)
             logger.indent -= 1
+        del items  # These objects might become invalid soon
 
         # Process groups. Meshes in each group are merged together
         for filepath, items in groups.items():
@@ -244,12 +250,30 @@ class GRET_OT_rig_export(bpy.types.Operator):
                             obj.data.shape_keys.animation_data_create()
                         obj.data.shape_keys.animation_data.drivers.from_existing(src_driver=fc)
 
-            # Ensure proper mesh state
-            self.sanitize_mesh(obj)
-
             num_verts_merged = merge_freestyle_edges(obj)
             if num_verts_merged > 0:
                 log(f"Welded {num_verts_merged} verts (edges were marked freestyle)")
+            logger.indent -= 1
+
+        # Post-process
+        for item in chain.from_iterable(groups.values()):
+            log(f"Post-processing merged mesh {item.original.name}")
+            obj = item.obj
+            logger.indent += 1
+
+            # Shape keys suffixed "_UV" are encoded and removed
+            if job.encode_shape_keys:
+                sk_to_remove = []
+                for sk_idx, sk in enumerate(obj.data.shape_keys.key_blocks):
+                    if sk_idx > 0 and sk.name.endswith("_UV"):
+                        sk.name = sk.name[:-len("_UV")]
+                        encode_shape_key(obj, sk_idx)
+                        sk_to_remove.append(sk)
+                for sk in sk_to_remove:
+                    obj.shape_key_remove(sk)
+
+            # Ensure proper mesh state
+            self.sanitize_mesh(obj)
             logger.indent -= 1
 
         if job.to_collection:

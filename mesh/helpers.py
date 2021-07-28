@@ -1,9 +1,13 @@
+from mathutils import Vector
 import bmesh
 import bpy
 import re
 
 from ..helpers import get_flipped_name, get_context, select_only
 from ..log import logger, log, logd
+
+one_vector = Vector((1, 1, 1))
+half_vector = Vector((0.5, 0.5, 0.5))
 
 def edit_mesh_elements(obj, type='VERT', indices=None, key=None):
     """
@@ -216,6 +220,39 @@ def mirror_shape_keys(obj, side_vgroup_name):
                 log(f"Couldn't mirror driver: {e}")
 
             logger.indent -= 1
+
+def encode_shape_key(obj, shape_key_index):
+    mesh = obj.data
+    sk = mesh.shape_keys.key_blocks[shape_key_index]
+    ensure_uv_map = lambda name: mesh.uv_layers.get(name) or mesh.uv_layers.new(name=name)
+    uv_map_names = (
+        ensure_uv_map(f"{sk.name}_WPOxy").name,
+        ensure_uv_map(f"{sk.name}_WPOzNORx").name,
+        ensure_uv_map(f"{sk.name}_NORyz").name,
+    )
+    log(f"Encoding shape key {sk.name} to UV channels " +
+        ", ".join(str(mesh.uv_layers.find(name)) for name in uv_map_names))
+
+    bm = bmesh.new()
+    bm.from_mesh(mesh, use_shape_key=True, shape_key_index=shape_key_index)
+    uv_layers = tuple(bm.loops.layers.uv[name] for name in uv_map_names)
+    basis_layer = bm.verts.layers.shape[0]
+    def set_vert_uvs(vert, co, uv_layer):
+        for bmloop in vert.link_loops:
+            bmloop[uv_layer].uv = co
+
+    for vert in bm.verts:
+        # Importing to UE4, UV precision degrades very quickly even with "Use Full Precision UVs"
+        # Remapping location deltas so that (0,0) is at the center of the UV sheet seems to help
+        delta = (vert.co - vert[basis_layer]) * 10.0 + half_vector  # [-10..10]->[0..1]
+        normal = (vert.normal + one_vector) * 0.5  # [-1..1]->[0..1]
+        set_vert_uvs(vert, (delta.x, delta.y), uv_layers[0])
+        set_vert_uvs(vert, (delta.z, 1-normal.x), uv_layers[1])
+        set_vert_uvs(vert, (1-normal.y, 1-normal.z), uv_layers[2])
+
+    bm.to_mesh(mesh)
+    bm.free()
+    obj.data.update()
 
 def apply_modifiers(obj, key=None, keep_armature=False):
     """Apply modifiers while preserving shape keys."""
