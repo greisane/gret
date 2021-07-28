@@ -1,3 +1,4 @@
+from fnmatch import fnmatch
 from mathutils import Vector
 import bmesh
 import bpy
@@ -115,20 +116,18 @@ def duplicate_shape_key(obj, name, new_name):
 
     return new_shape_key
 
-def merge_basis_shape_keys(obj):
-    shape_key_name_prefixes = ("Key ", "b_")
-
-    if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:
+def merge_basis_shape_keys(obj, shape_key_names=["*"]):
+    mesh = obj.data
+    if not mesh.shape_keys or not mesh.shape_keys.key_blocks:
         # No shape keys
         return
 
     # Store state
-    saved_unmuted_shape_keys = [sk for sk in obj.data.shape_keys.key_blocks if not sk.mute]
+    saved_unmuted_shape_keys = [sk for sk in mesh.shape_keys.key_blocks if not sk.mute]
 
     # Mute all but the ones to be merged
-    obj.data.shape_keys.key_blocks[0].name = "Basis"  # Rename to make sure it won't be picked up
-    for sk in obj.data.shape_keys.key_blocks[:]:
-        if any(sk.name.startswith(s) for s in shape_key_name_prefixes):
+    for sk in mesh.shape_keys.key_blocks[1:]:
+        if any(fnmatch(sk.name, s) for s in shape_key_names):
             if sk.mute:
                 # Delete candidate shapekeys that won't be used
                 # This ensures muted shapekeys don't unexpectedly return when objects are merged
@@ -136,22 +135,22 @@ def merge_basis_shape_keys(obj):
         else:
             sk.mute = True
 
-    num_shape_keys = sum([not sk.mute for sk in obj.data.shape_keys.key_blocks])
+    num_shape_keys = sum([not sk.mute for sk in mesh.shape_keys.key_blocks])
     if num_shape_keys:
         log(f"Merging {num_shape_keys} basis shape keys")
 
         # Replace basis with merged
         new_basis = obj.shape_key_add(name="New Basis", from_mix=True)
         bm = bmesh.new()
-        bm.from_mesh(obj.data)
+        bm.from_mesh(mesh)
         new_basis_layer = bm.verts.layers.shape[new_basis.name]
         for vert in bm.verts:
             vert.co[:] = vert[new_basis_layer]
-        bm.to_mesh(obj.data)
+        bm.to_mesh(mesh)
         bm.free()
 
         # Remove the merged shapekeys
-        for sk in obj.data.shape_keys.key_blocks[:]:
+        for sk in mesh.shape_keys.key_blocks[:]:
             if not sk.mute:
                 obj.shape_key_remove(sk)
 
@@ -160,7 +159,7 @@ def merge_basis_shape_keys(obj):
         sk.mute = False
 
     # Only basis left? Remove it so applying modifiers has less issues
-    if obj.data.shape_keys and len(obj.data.shape_keys.key_blocks) == 1:
+    if mesh.shape_keys and len(mesh.shape_keys.key_blocks) == 1:
         obj.shape_key_clear()
 
 def mirror_shape_keys(obj, side_vgroup_name):
@@ -221,38 +220,50 @@ def mirror_shape_keys(obj, side_vgroup_name):
 
             logger.indent -= 1
 
-def encode_shape_key(obj, shape_key_index):
+def encode_shape_keys(obj, shape_key_names=["*"]):
     mesh = obj.data
-    sk = mesh.shape_keys.key_blocks[shape_key_index]
+    if not mesh.shape_keys or not mesh.shape_keys.key_blocks:
+        # No shape keys
+        return
+
     ensure_uv_map = lambda name: mesh.uv_layers.get(name) or mesh.uv_layers.new(name=name)
-    uv_map_names = (
-        ensure_uv_map(f"{sk.name}_WPOxy").name,
-        ensure_uv_map(f"{sk.name}_WPOzNORx").name,
-        ensure_uv_map(f"{sk.name}_NORyz").name,
-    )
-    log(f"Encoding shape key {sk.name} to UV channels " +
-        ", ".join(str(mesh.uv_layers.find(name)) for name in uv_map_names))
 
-    bm = bmesh.new()
-    bm.from_mesh(mesh, use_shape_key=True, shape_key_index=shape_key_index)
-    uv_layers = tuple(bm.loops.layers.uv[name] for name in uv_map_names)
-    basis_layer = bm.verts.layers.shape[0]
-    def set_vert_uvs(vert, co, uv_layer):
-        for bmloop in vert.link_loops:
-            bmloop[uv_layer].uv = co
+    for sk in mesh.shape_keys.key_blocks[1:]:
+        if any(fnmatch(sk.name, s) for s in shape_key_names):
+            uv_map_names = (
+                ensure_uv_map(f"{sk.name}_WPOxy").name,
+                ensure_uv_map(f"{sk.name}_WPOzNORx").name,
+                ensure_uv_map(f"{sk.name}_NORyz").name,
+            )
+            log(f"Encoding shape key {sk.name} to UV channels " +
+                ", ".join(str(mesh.uv_layers.find(name)) for name in uv_map_names))
 
-    for vert in bm.verts:
-        # Importing to UE4, UV precision degrades very quickly even with "Use Full Precision UVs"
-        # Remapping location deltas so that (0,0) is at the center of the UV sheet seems to help
-        delta = (vert.co - vert[basis_layer]) * 10.0 + half_vector  # [-10..10]->[0..1]
-        normal = (vert.normal + one_vector) * 0.5  # [-1..1]->[0..1]
-        set_vert_uvs(vert, (delta.x, delta.y), uv_layers[0])
-        set_vert_uvs(vert, (delta.z, 1-normal.x), uv_layers[1])
-        set_vert_uvs(vert, (1-normal.y, 1-normal.z), uv_layers[2])
+            bm = bmesh.new()
+            bm.from_mesh(mesh, use_shape_key=True, shape_key_index=mesh.shape_keys.key_blocks.find(sk.name))
+            uv_layers = tuple(bm.loops.layers.uv[name] for name in uv_map_names)
+            basis_layer = bm.verts.layers.shape[0]
+            def set_vert_uvs(vert, co, uv_layer):
+                for bmloop in vert.link_loops:
+                    bmloop[uv_layer].uv = co
 
-    bm.to_mesh(mesh)
-    bm.free()
+            for vert in bm.verts:
+                # Importing to UE4, UV precision degrades very quickly even with "Use Full Precision UVs"
+                # Remapping location deltas so that (0,0) is at the center of the UV sheet seems to help
+                delta = (vert.co - vert[basis_layer]) * 10.0 + half_vector  # [-10..10]->[0..1]
+                normal = (vert.normal + one_vector) * 0.5  # [-1..1]->[0..1]
+                set_vert_uvs(vert, (delta.x, delta.y), uv_layers[0])
+                set_vert_uvs(vert, (delta.z, 1-normal.x), uv_layers[1])
+                set_vert_uvs(vert, (1-normal.y, 1-normal.z), uv_layers[2])
+
+            bm.to_mesh(mesh)
+            bm.free()
+            obj.shape_key_remove(sk)
+
     obj.data.update()
+
+    # Only basis left? Remove it so applying modifiers has less issues
+    if mesh.shape_keys and len(mesh.shape_keys.key_blocks) == 1:
+        obj.shape_key_clear()
 
 def apply_modifiers(obj, key=None, keep_armature=False):
     """Apply modifiers while preserving shape keys."""

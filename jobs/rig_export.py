@@ -22,7 +22,7 @@ from ..mesh.helpers import (
     apply_modifiers,
     apply_shape_keys_with_vertex_groups,
     delete_faces_with_no_material,
-    encode_shape_key,
+    encode_shape_keys,
     merge_basis_shape_keys,
     merge_freestyle_edges,
     mirror_shape_keys,
@@ -148,7 +148,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
             obj.data.auto_smooth_angle = pi
 
             if job.merge_basis_shape_keys:
-                merge_basis_shape_keys(obj)
+                merge_basis_shape_keys(obj, ["Key [0-9]*", "b_*"])
 
             if job.mirror_shape_keys:
                 mirror_shape_keys(obj, job.side_vgroup_name)
@@ -261,16 +261,8 @@ class GRET_OT_rig_export(bpy.types.Operator):
             obj = item.obj
             logger.indent += 1
 
-            # Shape keys suffixed "_UV" are encoded and removed
             if job.encode_shape_keys:
-                sk_to_remove = []
-                for sk_idx, sk in enumerate(obj.data.shape_keys.key_blocks):
-                    if sk_idx > 0 and sk.name.endswith("_UV"):
-                        sk.name = sk.name[:-len("_UV")]
-                        encode_shape_key(obj, sk_idx)
-                        sk_to_remove.append(sk)
-                for sk in sk_to_remove:
-                    obj.shape_key_remove(sk)
+                encode_shape_keys(obj, ["*_UV"])
 
             # Ensure proper mesh state
             self.sanitize_mesh(obj)

@@ -20,7 +20,7 @@ from ..log import logger, log, logd
 from ..mesh.helpers import (
     apply_modifiers,
     delete_faces_with_no_material,
-    encode_shape_key,
+    encode_shape_keys,
     merge_basis_shape_keys,
     unsubdivide_preserve_uvs,
 )
@@ -157,18 +157,10 @@ class GRET_OT_scene_export(bpy.types.Operator):
                 unsubdivide_preserve_uvs(obj, -levels)
 
             if job.merge_basis_shape_keys:
-                merge_basis_shape_keys(obj)
+                merge_basis_shape_keys(obj, ["Key [0-9]*", "b_*"])
 
-            # Shape keys suffixed "_UV" are encoded and removed
             if job.encode_shape_keys:
-                sk_to_remove = []
-                for sk_idx, sk in enumerate(obj.data.shape_keys.key_blocks):
-                    if sk_idx > 0 and sk.name.endswith("_UV"):
-                        sk.name = sk.name[:-len("_UV")]
-                        encode_shape_key(obj, sk_idx)
-                        sk_to_remove.append(sk)
-                for sk in sk_to_remove:
-                    obj.shape_key_remove(sk)
+                encode_shape_keys(obj, ["*_UV"])
 
             obj.shape_key_clear()
 
