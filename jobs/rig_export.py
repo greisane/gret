@@ -4,6 +4,7 @@ from math import pi
 import bpy
 import os
 import re
+import shlex
 import time
 
 from ..helpers import (
@@ -148,7 +149,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
             obj.data.auto_smooth_angle = pi
 
             if job.merge_basis_shape_keys:
-                merge_basis_shape_keys(obj, ["Key [0-9]*", "b_*"])
+                merge_basis_shape_keys(obj, shlex.split(job.basis_shape_key_pattern))
 
             if job.mirror_shape_keys:
                 mirror_shape_keys(obj, job.side_vgroup_name)

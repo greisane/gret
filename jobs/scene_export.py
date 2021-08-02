@@ -3,6 +3,7 @@ from itertools import chain, zip_longest
 from math import pi
 import bpy
 import re
+import shlex
 import time
 
 from ..helpers import (
@@ -157,7 +158,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
                 unsubdivide_preserve_uvs(obj, -levels)
 
             if job.merge_basis_shape_keys:
-                merge_basis_shape_keys(obj, ["Key [0-9]*", "b_*"])
+                merge_basis_shape_keys(obj, shlex.split(job.basis_shape_key_pattern))
 
             if job.encode_shape_keys:
                 encode_shape_keys(obj, ["*_UV"])

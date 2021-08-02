@@ -4,11 +4,13 @@ import bmesh
 import bpy
 import re
 
-from ..helpers import get_flipped_name, get_context, select_only
+from ..helpers import get_flipped_name, get_context, select_only, fmt_fraction
 from ..log import logger, log, logd
 
 one_vector = Vector((1, 1, 1))
 half_vector = Vector((0.5, 0.5, 0.5))
+fmt_shape_key = lambda sk: (sk.name if sk.value == sk.slider_max else
+    f"{sk.name} ({fmt_fraction(sk.value, sk.slider_max)})")
 
 def edit_mesh_elements(obj, type='VERT', indices=None, key=None):
     """
@@ -135,9 +137,10 @@ def merge_basis_shape_keys(obj, shape_key_names=["*"]):
         else:
             sk.mute = True
 
-    num_shape_keys = sum([not sk.mute for sk in mesh.shape_keys.key_blocks])
-    if num_shape_keys:
-        log(f"Merging {num_shape_keys} basis shape keys")
+    unmuted_shape_keys = [sk for sk in mesh.shape_keys.key_blocks[1:] if not sk.mute]
+    if unmuted_shape_keys:
+        log(f"Merging {len(unmuted_shape_keys)} shape keys to basis: " +
+            ", ".join(fmt_shape_key(sk) for sk in unmuted_shape_keys))
 
         # Replace basis with merged
         new_basis = obj.shape_key_add(name="New Basis", from_mix=True)
@@ -150,9 +153,8 @@ def merge_basis_shape_keys(obj, shape_key_names=["*"]):
         bm.free()
 
         # Remove the merged shapekeys
-        for sk in mesh.shape_keys.key_blocks[:]:
-            if not sk.mute:
-                obj.shape_key_remove(sk)
+        for sk in unmuted_shape_keys:
+            obj.shape_key_remove(sk)
 
     # Restore state
     for sk in saved_unmuted_shape_keys:

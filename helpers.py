@@ -11,6 +11,10 @@ import sys
 from . import prefs
 from .log import logd
 
+safediv = lambda x, y: x / y if y != 0.0 else 0.0
+fmt_pct = lambda pct: f"{pct:.0f}%" if int(pct) == pct else f"{pct:.1f}%"
+fmt_fraction = lambda n, count: fmt_pct(safediv(n, count) * 100.0)
+
 def select_only(context, objs):
     """Ensures only the given object or objects are selected."""
 

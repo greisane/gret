@@ -136,7 +136,12 @@ def draw_job(layout, jobs, job_index):
             sub.prop(job, 'modifier_tags', text="")
             sub.enabled = job.apply_modifiers
 
-            col.prop(job, 'merge_basis_shape_keys')
+            row = col.row(align=True)
+            row.prop(job, 'merge_basis_shape_keys')
+            sub = row.split(align=True)
+            sub.prop(job, 'basis_shape_key_pattern', text="")
+            sub.enabled = job.merge_basis_shape_keys
+
             col.prop(job, 'encode_shape_keys')
 
             col.prop(job, 'export_collision')
@@ -170,7 +175,12 @@ def draw_job(layout, jobs, job_index):
             sub.prop(job, 'modifier_tags', text="")
             sub.enabled = job.apply_modifiers
 
-            col.prop(job, 'merge_basis_shape_keys')
+            row = col.row(align=True)
+            row.prop(job, 'merge_basis_shape_keys')
+            sub = row.split(align=True)
+            sub.prop(job, 'basis_shape_key_pattern', text="")
+            sub.enabled = job.merge_basis_shape_keys
+
             col.prop(job, 'encode_shape_keys')
 
             row = col.row(align=True)
@@ -471,9 +481,14 @@ Separate tags with a space. Tag modifiers with 'g:tag'""",
         default="",
     )
     merge_basis_shape_keys: bpy.props.BoolProperty(
-        name="Merge Basis Shape Keys",
-        description="Blends 'Key' and 'b_' shapekeys into the basis shape",
+        name="Merge Basis Keys",
+        description="Blends matching shape keys into the basis shape",
         default=True,
+    )
+    basis_shape_key_pattern: bpy.props.StringProperty(
+        name="Basis Shape Key Pattern",
+        description="Pattern for shape keys to be merged into basis (wildcards allowed)",
+        default='"Key [0-9]*" b_*',
     )
     encode_shape_keys: bpy.props.BoolProperty(
         name="Encode Shape Keys",
