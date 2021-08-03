@@ -160,13 +160,16 @@ class GRET_OT_scene_export(bpy.types.Operator):
             if job.merge_basis_shape_keys:
                 merge_basis_shape_keys(obj, shlex.split(job.basis_shape_key_pattern))
 
+            if job.apply_modifiers:
+                apply_modifiers(obj, key=should_enable_modifier)
+
+            obj.data.transform(obj.matrix_basis, shape_keys=True)
+            obj.matrix_basis.identity()
+
             if job.encode_shape_keys:
                 encode_shape_keys(obj, ["*_UV"])
 
             obj.shape_key_clear()
-
-            if job.apply_modifiers:
-                apply_modifiers(obj, key=should_enable_modifier)
 
             # Remap materials, any objects or faces with no material won't be exported
             remapped_to_none = False

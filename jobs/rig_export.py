@@ -208,6 +208,8 @@ class GRET_OT_rig_export(bpy.types.Operator):
             # Ensure proper mesh state
             self.sanitize_mesh(obj)
             bpy.ops.gret.vertex_group_remove_unused(ctx)
+            obj.data.transform(obj.matrix_basis, shape_keys=True)
+            obj.matrix_basis.identity()
 
             # Put the objects in a group
             path_fields = {
@@ -258,7 +260,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
         # Post-process
         for item in chain.from_iterable(groups.values()):
-            log(f"Post-processing merged mesh {item.original.name}")
+            log(f"Post-processing mesh {item.original.name}")
             obj = item.obj
             logger.indent += 1
 
