@@ -222,7 +222,7 @@ def mirror_shape_keys(obj, side_vgroup_name):
 
             logger.indent -= 1
 
-def encode_shape_keys(obj, shape_key_names=["*"]):
+def encode_shape_keys(obj, shape_key_names=["*"], keep=False):
     mesh = obj.data
     if not mesh.shape_keys or not mesh.shape_keys.key_blocks:
         # No shape keys
@@ -259,7 +259,8 @@ def encode_shape_keys(obj, shape_key_names=["*"]):
 
             bm.to_mesh(mesh)
             bm.free()
-            obj.shape_key_remove(sk)
+            if not keep:
+                obj.shape_key_remove(sk)
 
     obj.data.update()
 

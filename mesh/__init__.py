@@ -9,6 +9,7 @@ module_names = [
     'retarget',
     'sculpt_selection',
     'shape_key_apply_modifiers',
+    'shape_key_encode',
     'shape_key_normalize',
     'uv_texture_sync',
     'vertex_color_mapping',
