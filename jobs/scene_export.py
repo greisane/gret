@@ -163,14 +163,6 @@ class GRET_OT_scene_export(bpy.types.Operator):
             if job.apply_modifiers:
                 apply_modifiers(obj, key=should_enable_modifier)
 
-            obj.data.transform(obj.matrix_basis, shape_keys=True)
-            obj.matrix_basis.identity()
-
-            if job.encode_shape_keys:
-                encode_shape_keys(obj, ["*_UV"])
-
-            obj.shape_key_clear()
-
             # Remap materials, any objects or faces with no material won't be exported
             remapped_to_none = False
             for mat_idx, mat in enumerate(obj.data.materials):
@@ -218,6 +210,14 @@ class GRET_OT_scene_export(bpy.types.Operator):
                     if not mat.name.startswith(job.material_name_prefix):
                         self.saved_material_names[mat] = mat.name
                         mat.name = job.material_name_prefix + mat.name
+
+            obj.data.transform(obj.matrix_basis, shape_keys=True)
+            obj.matrix_basis.identity()
+
+            if job.encode_shape_keys:
+                encode_shape_keys(obj, ["*_UV"])
+
+            obj.shape_key_clear()
 
             # Ensure UV layer, Substance Painter complains. Zero coords to avoid all kinds of problems
             if not obj.data.uv_layers:
