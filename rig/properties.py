@@ -67,6 +67,11 @@ class GRET_OT_property_add(bpy.types.Operator):
         return {'FINISHED'}
 
     def invoke(self, context, event):
+        clipboard = bpy.context.window_manager.clipboard
+        if parse_prop_path(context.object, clipboard)[0]:
+            # Clipboard has a correct path, don't bring up the dialog
+            self.path = clipboard
+            return self.execute(context)
         return context.window_manager.invoke_props_dialog(self)
 
 class GRET_OT_property_remove(bpy.types.Operator):
