@@ -25,12 +25,10 @@ class GRET_OT_autoname_bone_chain(bpy.types.Operator):
         return context.mode == 'EDIT_ARMATURE' or context.mode == 'POSE'
 
     def execute(self, context):
-        obj = context.object
-
         if context.mode == 'EDIT_ARMATURE':
             selected_editable_bones = set(context.selected_editable_bones)
         elif context.mode == 'POSE':
-            selected_editable_bones = set(obj.data.bones[pb.name] for pb in context.selected_pose_bones)
+            selected_editable_bones = set(pb.bone for pb in context.selected_pose_bones)
 
         new_name = re.sub(r"#+", lambda m: f"{{n:0{len(m.group(0))}}}", self.new_name)
         while selected_editable_bones:
