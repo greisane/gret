@@ -4,6 +4,7 @@ module_names = [
     'helpers',
     'auto_hide_arp',
     'autoname_bone_chain',
+    'bone_lock',
     'propagate_bone_inherit_scale',
     'properties',
     'selection_sets',
