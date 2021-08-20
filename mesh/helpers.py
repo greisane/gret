@@ -151,6 +151,7 @@ def merge_basis_shape_keys(obj, shape_key_names=["*"]):
             vert.co[:] = vert[new_basis_layer]
         bm.to_mesh(mesh)
         bm.free()
+        obj.shape_key_remove(new_basis)
 
         # Remove the merged shapekeys
         for sk in unmuted_shape_keys:
