@@ -112,6 +112,23 @@ def try_key(obj, prop_path, frame=0):
     except TypeError:
         return False
 
+def copy_drivers(src, dst, overwrite=False):
+    """Copies drivers. src and dst should be of type bpy.types.ID with an AnimData slot."""
+
+    if src and src.animation_data:
+        src_name = src.user.name if src.user else src.name
+        for src_fc in src.animation_data.drivers:
+            if dst.animation_data is None:
+                dst.animation_data_create()
+            dst_drivers = dst.animation_data.drivers
+            existing_fc = next((fc for fc in dst_drivers if fc.data_path == src_fc.data_path), None)
+            if existing_fc and overwrite:
+                dst_drivers.remove(existing_fc)
+                existing_fc = None
+            if not existing_fc:
+                dst_drivers.from_existing(src_driver=src_fc)
+                logd(f"Copied driver for {src_fc.data_path} from {src_name}")
+
 def unmark_unused_bones(rig, objs):
     """Unmarks deform for all bones that aren't relevant to the given meshes."""
 

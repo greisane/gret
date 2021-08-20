@@ -33,6 +33,7 @@ from .. import prefs
 from ..log import logger, log, logd
 from ..rig.helpers import (
     clear_pose,
+    copy_drivers,
     export_autorig,
     export_autorig_universal,
     export_fbx,
@@ -246,12 +247,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
 
             # Joining objects loses drivers, restore them
             for item in items:
-                logd(f"Copying drivers from {item.original.name}")
-                if item.original.data.shape_keys and item.original.data.shape_keys.animation_data:
-                    for fc in item.original.data.shape_keys.animation_data.drivers:
-                        if obj.data.shape_keys.animation_data is None:
-                            obj.data.shape_keys.animation_data_create()
-                        obj.data.shape_keys.animation_data.drivers.from_existing(src_driver=fc)
+                copy_drivers(item.original.data.shape_keys, obj.data.shape_keys)
 
             num_verts_merged = merge_freestyle_edges(obj)
             if num_verts_merged > 0:
