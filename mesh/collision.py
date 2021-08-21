@@ -6,7 +6,12 @@ import math
 import re
 
 from ..helpers import remove_extra_data
-from ..math import calc_best_fit_line, get_point_dist_to_line, get_range_pct, get_sq_dist
+from ..math import (
+    calc_best_fit_line,
+    get_dist_sq,
+    get_point_dist_to_line_sq,
+    get_range_pct,
+)
 
 # make_collision TODO:
 # - When creating collision from vertices, sometimes the result is offset
@@ -54,7 +59,7 @@ across the center for each vertex, within some threshold"""
     center = sum((v.co for v in bm.verts), Vector()) / 8
     for v1 in bm.verts:
         co2 = (center - v1.co) + center
-        if not any(get_sq_dist(v2.co, co2) <= sq_threshold for v2 in bm.verts):
+        if not any(get_dist_sq(v2.co, co2) <= sq_threshold for v2 in bm.verts):
             return False
     return True
 
@@ -68,7 +73,7 @@ class GRET_OT_make_collision(bpy.types.Operator):
 
     shape: bpy.props.EnumProperty(
         items=[
-            ('BOX', "Box", "Box collision.", 'MESH_CUBE', 0),
+            ('AABB', "AABB", "Axis-aligned box collision.", 'MESH_PLANE', 0),
             ('CYLINDER', "Cylinder", "Cylinder collision.", 'MESH_CYLINDER', 1),
             ('CAPSULE', "Capsule", "Capsule collision.", 'MESH_CAPSULE', 2),
             ('SPHERE', "Sphere", "Sphere collision.", 'MESH_UVSPHERE', 3),
@@ -80,7 +85,7 @@ class GRET_OT_make_collision(bpy.types.Operator):
     )
     collection: bpy.props.StringProperty(
         name="Collection",
-        description="Name of the collection to link the collision objects to",
+        description="Name of the collection for the collision objects",
         default="Collision",
     )
     wire: bpy.props.BoolProperty(
@@ -90,7 +95,7 @@ class GRET_OT_make_collision(bpy.types.Operator):
     )
     hollow: bpy.props.BoolProperty(
         name="Hollow",
-        description="Creates a hollow shape from multiple bodies",
+        description="Create a hollow shape from multiple bodies",
         default=False,
     )
     thickness: bpy.props.FloatProperty(
@@ -115,33 +120,38 @@ class GRET_OT_make_collision(bpy.types.Operator):
         size=3,
     )
 
-    # Box settings
-    box_width: bpy.props.FloatProperty(
+    # AABB settings
+    aabb_width: bpy.props.FloatProperty(
         name="Width",
-        description="Box width",
+        description="Bounding box width",
         subtype='DISTANCE',
         min=0.001,
     )
-    box_height: bpy.props.FloatProperty(
+    aabb_height: bpy.props.FloatProperty(
         name="Height",
-        description="Box height",
+        description="Bounding box height",
         subtype='DISTANCE',
         min=0.001,
     )
-    box_depth: bpy.props.FloatProperty(
+    aabb_depth: bpy.props.FloatProperty(
         name="Depth",
-        description="Box depth",
+        description="Bounding box depth",
         subtype='DISTANCE',
         min=0.001,
     )
-    box_center: bpy.props.FloatVectorProperty(
+    aabb_center: bpy.props.FloatVectorProperty(
         name="Center",
-        description="Box center",
+        description="Bounding box center",
         subtype='TRANSLATION',
         size=3,
     )
 
     # Cylinder settings
+    cyl_caps: bpy.props.BoolProperty(
+        name="Caps",
+        description="Create shapes for the top and bottom of the cylinder",
+        default=False,
+    )
     cyl_sides: bpy.props.IntProperty(
         name="Sides",
         description="Number of sides",
@@ -303,19 +313,19 @@ class GRET_OT_make_collision(bpy.types.Operator):
             self.create_col_object_from_bm(context, obj, bm)
             bm.free()
 
-    def make_box_collision(self, context, obj):
-        v = Vector((self.box_depth, self.box_width, self.box_height)) * 0.5
+    def make_aabb_collision(self, context, obj):
+        v = Vector((self.aabb_depth, self.aabb_width, self.aabb_height)) * 0.5
 
         bm = bmesh.new()
         verts = bmesh.ops.create_cube(bm, calc_uvs=False)['verts']
-        verts[0].co = self.box_center.x - v.x, self.box_center.y - v.y, self.box_center.z - v.z
-        verts[1].co = self.box_center.x - v.x, self.box_center.y - v.y, self.box_center.z + v.z
-        verts[2].co = self.box_center.x - v.x, self.box_center.y + v.y, self.box_center.z - v.z
-        verts[3].co = self.box_center.x - v.x, self.box_center.y + v.y, self.box_center.z + v.z
-        verts[4].co = self.box_center.x + v.x, self.box_center.y - v.y, self.box_center.z - v.z
-        verts[5].co = self.box_center.x + v.x, self.box_center.y - v.y, self.box_center.z + v.z
-        verts[6].co = self.box_center.x + v.x, self.box_center.y + v.y, self.box_center.z - v.z
-        verts[7].co = self.box_center.x + v.x, self.box_center.y + v.y, self.box_center.z + v.z
+        verts[0].co = self.aabb_center.x - v.x, self.aabb_center.y - v.y, self.aabb_center.z - v.z
+        verts[1].co = self.aabb_center.x - v.x, self.aabb_center.y - v.y, self.aabb_center.z + v.z
+        verts[2].co = self.aabb_center.x - v.x, self.aabb_center.y + v.y, self.aabb_center.z - v.z
+        verts[3].co = self.aabb_center.x - v.x, self.aabb_center.y + v.y, self.aabb_center.z + v.z
+        verts[4].co = self.aabb_center.x + v.x, self.aabb_center.y - v.y, self.aabb_center.z - v.z
+        verts[5].co = self.aabb_center.x + v.x, self.aabb_center.y - v.y, self.aabb_center.z + v.z
+        verts[6].co = self.aabb_center.x + v.x, self.aabb_center.y + v.y, self.aabb_center.z - v.z
+        verts[7].co = self.aabb_center.x + v.x, self.aabb_center.y + v.y, self.aabb_center.z + v.z
 
         if self.hollow:
             self.create_split_col_object_from_bm(context, obj, bm, self.thickness, self.offset)
@@ -326,7 +336,8 @@ class GRET_OT_make_collision(bpy.types.Operator):
     def make_cylinder_collision(self, context, obj):
         mat = Matrix.Translation(self.location)
         bm = bmesh.new()
-        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=self.cyl_sides,
+        cap_ends = not self.hollow or self.cyl_caps
+        bmesh.ops.create_cone(bm, cap_ends=cap_ends, cap_tris=False, segments=self.cyl_sides,
             diameter1=self.cyl_diameter1, diameter2=self.cyl_diameter2, depth=self.cyl_height,
             calc_uvs=False, matrix=mat)
         if self.hollow:
@@ -437,8 +448,8 @@ class GRET_OT_make_collision(bpy.types.Operator):
             pattern = re.compile(rf"^U[A-Z][A-Z]_{obj.name}_\d+")
             for mesh in [mesh for mesh in bpy.data.meshes if pattern.match(mesh.name)]:
                 bpy.data.meshes.remove(mesh)
-        if self.shape == 'BOX':
-            self.make_box_collision(context, obj)
+        if self.shape == 'AABB':
+            self.make_aabb_collision(context, obj)
         elif self.shape == 'CYLINDER':
             self.make_cylinder_collision(context, obj)
         elif self.shape == 'CAPSULE':
@@ -484,11 +495,11 @@ class GRET_OT_make_collision(bpy.types.Operator):
             corner2.y = max(corner2.y, co.y)
             corner2.z = max(corner2.z, co.z)
 
-        # Box dimensions
-        self.box_depth = abs(corner1.x - corner2.x)
-        self.box_width = abs(corner1.y - corner2.y)
-        self.box_height = abs(corner1.z - corner2.z)
-        self.box_center = (corner1 + corner2) * 0.5
+        # Bounding box dimensions
+        self.aabb_depth = abs(corner1.x - corner2.x)
+        self.aabb_width = abs(corner1.y - corner2.y)
+        self.aabb_height = abs(corner1.z - corner2.z)
+        self.aabb_center = (corner1 + corner2) * 0.5
 
         # Cylinder diameters
         self.cyl_diameter1 = self.cyl_diameter2 = 0.001
@@ -500,40 +511,44 @@ class GRET_OT_make_collision(bpy.types.Operator):
             influence1 = 1.0 - influence2
             self.cyl_diameter1 = max(self.cyl_diameter1, d * influence1)
             self.cyl_diameter2 = max(self.cyl_diameter2, d * influence2)
-        self.cyl_height = self.box_height
+        self.cyl_height = self.aabb_height
 
         # Capsule axis and diameter
-        self.cap_diameter = 0.001
-        depth_sqr = 0.0
+        diameter_sq = 0.001
+        depth_sq = 0.0
         for co in vert_cos:
-            dist_to_axis = get_point_dist_to_line(co, axis, center)
-            if dist_to_axis > self.cap_diameter:
-                self.cap_diameter = dist_to_axis
-            dist_along_axis_sqr = (co - center).project(axis).length_squared
-            if dist_along_axis_sqr > depth_sqr:
-                depth_sqr = dist_along_axis_sqr
+            dist_to_axis_sq = get_point_dist_to_line_sq(co, axis, center)
+            if dist_to_axis_sq > diameter_sq:
+                diameter_sq = dist_to_axis_sq
+            dist_along_axis_sq = (co - center).project(axis).length_squared
+            if dist_along_axis_sq > depth_sq:
+                depth_sq = dist_along_axis_sq
+        self.cap_diameter = math.sqrt(diameter_sq)
         self.cap_rotation = axis.to_track_quat('Z', 'X').to_euler('XYZ')
-        self.cap_depth = math.sqrt(depth_sqr) * 2.0 - self.cap_diameter
+        self.cap_depth = math.sqrt(depth_sq) * 2.0 - self.cap_diameter
 
         # Sphere diameter
-        self.sph_diameter = max(self.box_depth, self.box_width, self.box_height)
+        self.sph_diameter = max(self.aabb_depth, self.aabb_width, self.aabb_height)
 
     def draw(self, context):
         layout = self.layout
         col = layout.column()
         col.prop(self, 'shape')
         col.prop(self, 'wire')
-        if self.shape in {'BOX', 'CYLINDER'}:
+        if self.shape in {'AABB', 'CYLINDER'}:
             col.prop(self, 'hollow')
-            if self.hollow:
-                col.prop(self, 'thickness')
-                col.prop(self, 'offset')
+            sub = col.split()
+            sub.prop(self, 'thickness')
+            sub.prop(self, 'offset')
+            if self.shape == 'CYLINDER':
+                sub.prop(self, 'cyl_caps')
+            sub.enabled = self.hollow
         col.separator()
 
-        if self.shape == 'BOX':
-            col.prop(self, 'box_width')
-            col.prop(self, 'box_height')
-            col.prop(self, 'box_depth')
+        if self.shape == 'AABB':
+            col.prop(self, 'aabb_width')
+            col.prop(self, 'aabb_height')
+            col.prop(self, 'aabb_depth')
         elif self.shape == 'CYLINDER':
             col.prop(self, 'cyl_sides')
             col.prop(self, 'cyl_diameter1')

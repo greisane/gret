@@ -1,5 +1,6 @@
 from mathutils import Vector
 from numpy.polynomial import polynomial as pl
+import math
 import numpy as np
 
 def calc_bounds(points):
@@ -19,7 +20,7 @@ def calc_center(points):
 def calc_center_2d(points):
     return sum(points, Vector((0.0, 0.0))) / len(points)
 
-def get_sq_dist(a, b):
+def get_dist_sq(a, b):
     """Returns the square distance between two vectors."""
     x, y, z = a.x - b.x, a.y - b.y, a.z - b.z
     return x*x + y*y + z*z
@@ -37,8 +38,15 @@ def get_point_dist_to_line(point, direction, origin):
     Calculates the distance of a given point in world space to a given line.
     Assumes direction is normalized.
     """
+    return math.sqrt(get_point_dist_to_line_sq(point, direction, origin))
+
+def get_point_dist_to_line_sq(point, direction, origin):
+    """
+    Calculates the square distance of a given point in world space to a given line.
+    Assumes direction is normalized.
+    """
     closest_point = origin + direction * (point - origin).dot(direction)
-    return (closest_point - point).length
+    return (closest_point - point).length_squared
 
 def calc_best_fit_line(points):
     """

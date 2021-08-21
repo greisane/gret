@@ -2,7 +2,7 @@ from collections import namedtuple, defaultdict
 import bmesh
 import bpy
 
-from ..math import get_sq_dist
+from ..math import get_dist_sq
 from ..log import log, logd
 
 # shape_key_apply_modifiers TODO:
@@ -124,7 +124,7 @@ class MirrorModifierHandler(ModifierHandler):
                 vert = mesh.vertices[vert_idx]
                 other_vert_idx = vert_idx + num_part_verts
                 other_vert = mesh.vertices[other_vert_idx]
-                if get_sq_dist(vert.co, other_vert.co) <= merge_dist_sq:
+                if get_dist_sq(vert.co, other_vert.co) <= merge_dist_sq:
                     welds.append((other_vert_idx, vert_idx))
 
         # Resolve the welds into a single dict. Not too robust but weld_verts doesn't complain
