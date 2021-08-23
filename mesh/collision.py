@@ -1,8 +1,8 @@
 from itertools import chain
+from math import radians, sqrt, isclose
 from mathutils import Matrix, Vector
 import bmesh
 import bpy
-import math
 import re
 
 from ..helpers import remove_extra_data
@@ -51,17 +51,13 @@ class GRET_OT_assign_collision(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def is_box(bm, sq_threshold=0.001):
-    """Check if the shape can be represented by a box by checking if there's a vertex opposite
-across the center for each vertex, within some threshold"""
+def is_box(bm):
+    """Check if the mesh can be represented by a box collision shape."""
     if len(bm.verts) != 8:
         return False
-    center = sum((v.co for v in bm.verts), Vector()) / 8
-    for v1 in bm.verts:
-        co2 = (center - v1.co) + center
-        if not any(get_dist_sq(v2.co, co2) <= sq_threshold for v2 in bm.verts):
-            return False
-    return True
+    c = sum((vert.co for vert in bm.verts), Vector()) / len(bm.verts)
+    avg_d_sq = sum(get_dist_sq(vert.co, c) for vert in bm.verts) / len(bm.verts)
+    return all(isclose(avg_d_sq, get_dist_sq(vert.co, c), abs_tol=0.0001) for vert in bm.verts)
 
 class GRET_OT_make_collision(bpy.types.Operator):
     #tooltip
@@ -210,10 +206,10 @@ class GRET_OT_make_collision(bpy.types.Operator):
         name="Max Face Angle",
         description="Use to remove decimation bias towards large, bumpy faces",
         subtype='ANGLE',
-        default=math.radians(10.0),
+        default=radians(10.0),
         min=0.0,
-        max=math.radians(180.0),
-        soft_max=math.radians(90.0),
+        max=radians(180.0),
+        soft_max=radians(90.0),
     )
     decimate_ratio: bpy.props.FloatProperty(
         name="Decimate Ratio",
@@ -435,7 +431,7 @@ class GRET_OT_make_collision(bpy.types.Operator):
             hole_edges = list(chain.from_iterable(f.edges for f in result['faces']))
             bmesh.ops.dissolve_edges(bm, edges=hole_edges, use_verts=True)
         bmesh.ops.split_edges(bm, edges=bm.edges)
-        bmesh.ops.dissolve_limit(bm, angle_limit=math.radians(5.0),
+        bmesh.ops.dissolve_limit(bm, angle_limit=radians(5.0),
             verts=bm.verts, edges=bm.edges, use_dissolve_boundaries=False, delimit=set())
 
         self.create_split_col_object_from_bm(context, obj, bm, self.thickness, self.offset)
@@ -506,7 +502,7 @@ class GRET_OT_make_collision(bpy.types.Operator):
         for co in vert_cos:
             dx = center.x - co.x
             dy = center.y - co.y
-            d = math.sqrt(dx * dx + dy * dy)
+            d = sqrt(dx * dx + dy * dy)
             influence2 = get_range_pct(corner1.z, corner2.z, co.z)
             influence1 = 1.0 - influence2
             self.cyl_diameter1 = max(self.cyl_diameter1, d * influence1)
@@ -523,9 +519,9 @@ class GRET_OT_make_collision(bpy.types.Operator):
             dist_along_axis_sq = (co - center).project(axis).length_squared
             if dist_along_axis_sq > depth_sq:
                 depth_sq = dist_along_axis_sq
-        self.cap_diameter = math.sqrt(diameter_sq)
+        self.cap_diameter = sqrt(diameter_sq)
         self.cap_rotation = axis.to_track_quat('Z', 'X').to_euler('XYZ')
-        self.cap_depth = math.sqrt(depth_sq) * 2.0 - self.cap_diameter
+        self.cap_depth = sqrt(depth_sq) * 2.0 - self.cap_diameter
 
         # Sphere diameter
         self.sph_diameter = max(self.aabb_depth, self.aabb_width, self.aabb_height)
