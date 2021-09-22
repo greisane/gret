@@ -2,7 +2,7 @@ from collections import defaultdict, namedtuple
 import bmesh
 import bpy
 
-from .helpers import bmesh_vertex_group_expand
+from .helpers import bmesh_vertex_group_bleed
 
 class EdgeKey(namedtuple("EdgeKey", ['a', 'b'])):
     @classmethod
@@ -321,7 +321,7 @@ class GRET_OT_vertex_group_smooth_loops(bpy.types.Operator):
                 for vert_idx in vert_idxs:
                     bm.verts[vert_idx].tag = True
                 for vg_idx in vg_idxs:
-                    bmesh_vertex_group_expand(bm, vg_idx, distance=self.factor / 100, power=self.power,
+                    bmesh_vertex_group_bleed(bm, vg_idx, distance=self.factor / 100, power=self.power,
                         only_tagged=True)
 
         bm.to_mesh(obj.data)

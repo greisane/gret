@@ -1,14 +1,15 @@
 import bmesh
 import bpy
 
-from .helpers import bmesh_vertex_group_expand
+from .helpers import bmesh_vertex_group_bleed
 
-class GRET_OT_vertex_group_expand(bpy.types.Operator):
+class GRET_OT_vertex_group_bleed(bpy.types.Operator):
     #tooltip
-    """Expand weights for selected vertices"""
+    """Expand weights for selected vertices via flood fill.
+The result is stable, running the operator more than once won't cause any changes"""
 
-    bl_idname = 'gret.vertex_group_expand'
-    bl_label = "Expand"
+    bl_idname = 'gret.vertex_group_bleed'
+    bl_label = "Bleed"
     bl_options = {'REGISTER', 'UNDO'}
 
     group_select_mode: bpy.props.EnumProperty(
@@ -62,7 +63,7 @@ class GRET_OT_vertex_group_expand(bpy.types.Operator):
             for vert in bm.verts:
                 vert.tag = vert.select
         for vg_idx in vg_idxs:
-            bmesh_vertex_group_expand(bm, vg_idx, distance=self.factor / 100, power=self.power,
+            bmesh_vertex_group_bleed(bm, vg_idx, distance=self.factor / 100, power=self.power,
                 only_tagged=obj.data.use_paint_mask_vertex)
 
         bm.to_mesh(obj.data)
@@ -72,12 +73,12 @@ class GRET_OT_vertex_group_expand(bpy.types.Operator):
         return{'FINISHED'}
 
 def draw_menu(self, context):
-    self.layout.operator(GRET_OT_vertex_group_expand.bl_idname)
+    self.layout.operator(GRET_OT_vertex_group_bleed.bl_idname)
 
 def register(settings):
-    bpy.utils.register_class(GRET_OT_vertex_group_expand)
+    bpy.utils.register_class(GRET_OT_vertex_group_bleed)
     bpy.types.VIEW3D_MT_paint_weight.append(draw_menu)
 
 def unregister():
     bpy.types.VIEW3D_MT_paint_weight.remove(draw_menu)
-    bpy.utils.unregister_class(GRET_OT_vertex_group_expand)
+    bpy.utils.unregister_class(GRET_OT_vertex_group_bleed)

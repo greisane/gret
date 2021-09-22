@@ -3,7 +3,7 @@ from math import pi
 import bmesh
 import bpy
 
-from .helpers import bmesh_vertex_group_expand, edit_mesh_elements
+from .helpers import bmesh_vertex_group_bleed, edit_mesh_elements
 from ..helpers import get_context, link_properties, load_selection, save_selection
 
 class GRET_OT_graft(bpy.types.Operator):
@@ -209,7 +209,7 @@ class GRET_OT_graft(bpy.types.Operator):
                     for vert in edge.verts:
                         vert[deform_layer][boundary_vg.index] = 1.0
             if self.transfer_normals:
-                bmesh_vertex_group_expand(bm, boundary_vg.index,
+                bmesh_vertex_group_bleed(bm, boundary_vg.index,
                     distance=self.normal_blend_distance,
                     power=self.normal_blend_power)
 
