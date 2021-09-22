@@ -5,6 +5,15 @@ import numpy as np
 # Based on https://github.com/chadmv/cmt/blob/master/scripts/cmt/rig/meshretarget.py
 # Which in turn references http://mathlab.github.io/PyGeM/_modules/pygem/radial.html#RBF
 
+rbf_kernels = {
+    'LINEAR': (linear, 1.0),
+    'GAUSSIAN': (gaussian, 0.01),
+    'PLATE': (thin_plate, 0.001),
+    'BIHARMONIC': (multi_quadratic_biharmonic, 0.01),
+    'INV_BIHARMONIC': (inv_multi_quadratic_biharmonic, 0.01),
+    'C2': (beckert_wendland_c2_basis, 1.0),
+}
+
 def linear(matrix, radius):
     return matrix
 
@@ -72,6 +81,7 @@ def get_mesh_points(obj, shape_key=None, matrix=None, mask=None, stride=1):
     """Return vertex coordinates of a mesh as a numpy array with shape (?, 3)."""
     # Moving the mesh seems to be faster. See https://blender.stackexchange.com/questions/139511
 
+    assert obj.type == 'MESH'
     mesh = obj.data
     if matrix is not None:
         mesh = mesh.copy()
@@ -102,4 +112,21 @@ def get_mesh_points(obj, shape_key=None, matrix=None, mask=None, stride=1):
 
     if matrix is not None:
         bpy.data.meshes.remove(mesh)
+    return points
+
+def get_armature_points(obj, matrix=None, only_selected=False):
+    """Return head and tail coordinates of armature bones as a numpy array with shape (?, 3)."""
+
+    assert obj.type == 'ARMATURE'
+    armature = obj.data
+    bones = armature.edit_bones if obj.mode == 'EDIT' else armature.bones
+
+    cos = []
+    for b in bones:
+        if not only_selected or b.select_head:
+            cos.append(matrix @ b.head if matrix is not None else b.head)
+        if not only_selected or b.select_tail:
+            cos.append(matrix @ b.tail if matrix is not None else b.tail)
+    points = np.array(cos)
+
     return points

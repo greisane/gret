@@ -6,7 +6,7 @@ module_names = [
     'collision',
     'extra_objects',
     'remove_unused_vertex_groups',
-    'retarget',
+    'retarget_mesh',
     'sculpt_selection',
     'shape_key_apply_modifiers',
     'shape_key_encode',

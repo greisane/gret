@@ -7,6 +7,7 @@ module_names = [
     'bone_lock',
     'propagate_bone_inherit_scale',
     'properties',
+    'retarget_armature',
     'selection_sets',
 ]
 from .. import import_or_reload_modules
@@ -23,7 +24,7 @@ class GRET_PT_rig(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         obj = context.object
-        return obj and obj.type == 'ARMATURE' and context.mode in {'OBJECT', 'POSE'}
+        return obj and obj.type == 'ARMATURE' and context.mode in {'OBJECT', 'POSE', 'EDIT_ARMATURE'}
 
     def draw(self, context):
         for draw_func in __class__.draw_funcs:

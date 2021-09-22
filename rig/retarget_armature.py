@@ -1,31 +1,17 @@
 from math import ceil
-import bmesh
 import bpy
 import numpy as np
 
 from ..log import log, logd, logger
 from ..rbf import *
 
-rbf_kernels = {
-    'LINEAR': (linear, 1.0),
-    'GAUSSIAN': (gaussian, 0.01),
-    'PLATE': (thin_plate, 0.001),
-    'BIHARMONIC': (multi_quadratic_biharmonic, 0.01),
-    'INV_BIHARMONIC': (inv_multi_quadratic_biharmonic, 0.01),
-    'C2': (beckert_wendland_c2_basis, 1.0),
-}
-
-# TODO
-# - Investigate the mesh state where new shape keys are broken, see if it can be detected
-
-class GRET_OT_retarget_mesh(bpy.types.Operator):
+class GRET_OT_retarget_armature(bpy.types.Operator):
     #tooltip
-    """Retarget meshes fit on a source mesh to a modified version of the source mesh.
-The meshes are expected to share topology and vertex order"""
+    """Retarget an armature or selected bones to fit a modified version of the source mesh."""
     # Note: If vertex order gets messed up, try using an addon like Transfer Vert Order to fix it
 
-    bl_idname = 'gret.retarget_mesh'
-    bl_label = "Retarget Mesh"
+    bl_idname = 'gret.retarget_armature'
+    bl_label = "Retarget Armature"
     bl_options = {'INTERNAL', 'UNDO'}
 
     source: bpy.props.StringProperty(
@@ -72,15 +58,10 @@ Use to speed up retargeting by selecting only the areas of importance""",
         description="Sample more vertices for higher accuracy. Slow on dense meshes",
         default=False,
     )
-    as_shape_key: bpy.props.BoolProperty(
-        name="As Shape Key",
-        description="Save the result as a shape key",
-        default=False,
-    )
 
     @classmethod
     def poll(cls, context):
-        return context.mode == 'OBJECT' and context.selected_objects
+        return context.mode in {'OBJECT', 'EDIT_ARMATURE'} and context.selected_objects
 
     def execute(self, context):
         objs = context.selected_objects
@@ -121,47 +102,40 @@ Use to speed up retargeting by selecting only the areas of importance""",
             return {'CANCELLED'}
 
         for obj in objs:
-            if obj.type != 'MESH' or obj == src_obj or obj == dst_obj:
+            if obj.type != 'ARMATURE':
                 continue
+            is_editing = obj.mode == 'EDIT'
+            if not is_editing:
+                bpy.ops.object.editmode_toggle()
+
             # Get the mesh points in retarget destination space
             dst_to_obj = obj.matrix_world.inverted() @ dst_obj.matrix_world
             obj_to_dst = dst_to_obj.inverted()
-            mesh_pts = get_mesh_points(obj, matrix=obj_to_dst)
-            num_mesh_pts = mesh_pts.shape[0]
+            bone_pts = get_armature_points(obj, matrix=obj_to_dst, only_selected=is_editing)
+            num_bone_pts = bone_pts.shape[0]
+            if num_bone_pts == 0:
+                continue
 
-            dist = get_distance_matrix(mesh_pts, src_pts, rbf_kernel, self.radius * scale)
-            identity = np.ones((num_mesh_pts, 1))
-            h = np.bmat([[dist, identity, mesh_pts]])
-            new_mesh_pts = np.asarray(np.dot(h, weights))
+            dist = get_distance_matrix(bone_pts, src_pts, rbf_kernel, self.radius * scale)
+            identity = np.ones((num_bone_pts, 1))
+            h = np.bmat([[dist, identity, bone_pts]])
+            new_bone_pts = np.asarray(np.dot(h, weights))
 
             # Result back to local space
-            new_mesh_pts = np.c_[new_mesh_pts, identity]
-            new_mesh_pts = np.einsum('ij,aj->ai', dst_to_obj, new_mesh_pts)
-            new_mesh_pts = new_mesh_pts[:, :-1]
+            new_bone_pts = np.c_[new_bone_pts, identity]
+            new_bone_pts = np.einsum('ij,aj->ai', dst_to_obj, new_bone_pts)
+            new_bone_pts = new_bone_pts[:, :-1]
 
-            if self.as_shape_key:
-                # Result to new shape key
-                if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:
-                    obj.shape_key_add(name="Basis")
-                shape_key_name = f"Retarget_{dst_obj.name}"
-                if dst_is_shape_key:
-                    shape_key_name += f"_{dst_shape_key_name}"
-                shape_key = obj.shape_key_add(name=shape_key_name)
-                shape_key.data.foreach_set('co', new_mesh_pts.ravel())
-                shape_key.value = 1.0
-            elif obj.data.shape_keys and obj.data.shape_keys.key_blocks:
-                # There are shape keys, so replace the basis
-                # Using bmesh propagates the change, where just setting the coordinates won't
-                bm = bmesh.new()
-                bm.from_mesh(obj.data)
-                for vert, new_pt in zip(bm.verts, new_mesh_pts):
-                    vert.co[:] = new_pt
-                bm.to_mesh(obj.data)
-                bm.free()
-            else:
-                # Set new coordinates directly
-                obj.data.vertices.foreach_set('co', new_mesh_pts.ravel())
-            obj.data.update()
+            index = 0
+            for bone in obj.data.edit_bones:
+                if not is_editing or bone.select_head:
+                    bone.head[:] = new_bone_pts[index]
+                    index += 1
+                if not is_editing or bone.select_tail:
+                    bone.tail[:] = new_bone_pts[index]
+                    index += 1
+            if not is_editing:
+                bpy.ops.object.editmode_toggle()
 
         return {'FINISHED'}
 
@@ -171,7 +145,7 @@ def draw_panel(self, context):
     obj = context.object
 
     box = layout.box()
-    box.label(text="Retarget Mesh", icon='MOD_MESHDEFORM')
+    box.label(text="Retarget Armature", icon='MOD_MESHDEFORM')
     col = box.column(align=False)
 
     row = col.row(align=True)
@@ -186,24 +160,20 @@ def draw_panel(self, context):
     col.prop(settings, 'retarget_only_selection')
     col.prop(settings, 'retarget_high_quality')
 
+    if obj and obj.data and getattr(obj.data, 'use_mirror_x', False):
+        col.label(text="X-Axis Mirror is enabled.")
+
     row = col.row(align=True)
-    op1 = row.operator('gret.retarget_mesh', icon='CHECKMARK', text="Retarget")
-    op2 = row.operator('gret.retarget_mesh', icon='SHAPEKEY_DATA', text="As Shape Key")
+    op = row.operator('gret.retarget_armature', icon='CHECKMARK', text="Retarget")
     if settings.retarget_src and settings.retarget_dst != 'NONE':
-        op1.source = op2.source = settings.retarget_src.name
-        op1.destination = op2.destination = settings.retarget_dst
-        op1.function = op2.function = settings.retarget_function
-        op1.radius = op2.radius = settings.retarget_radius
-        op1.only_selection = op2.only_selection = settings.retarget_only_selection
-        op1.high_quality = op2.high_quality = settings.retarget_high_quality
-        op1.as_shape_key = False
-        op2.as_shape_key = True
+        op.source = settings.retarget_src.name
+        op.destination = settings.retarget_dst
+        op.function = settings.retarget_function
+        op.radius = settings.retarget_radius
+        op.only_selection = settings.retarget_only_selection
+        op.high_quality = settings.retarget_high_quality
     else:
         row.enabled = False
-
-classes = (
-    GRET_OT_retarget_mesh,
-)
 
 def retarget_src_update(self, context):
     # On changing the source object, reset the destination object
@@ -228,8 +198,7 @@ def retarget_dst_items(self, context):
     return items
 
 def register(settings):
-    for cls in classes:
-        bpy.utils.register_class(cls)
+    bpy.utils.register_class(GRET_OT_retarget_armature)
 
     settings.add_property('retarget_src', bpy.props.PointerProperty(
         name="Mesh Retarget Source",
@@ -240,15 +209,15 @@ def register(settings):
     ))
     settings.add_property('retarget_dst', bpy.props.EnumProperty(
         name="Mesh Retarget Destination",
-        description="Mesh or shape key to retarget to",
+        description="""Mesh or shape key to retarget to.
+Expected to share topology and vertex order with the source mesh""",
         items=retarget_dst_items,
     ))
-    retarget_props = GRET_OT_retarget_mesh.__annotations__
+    retarget_props = GRET_OT_retarget_armature.__annotations__
     settings.add_property('retarget_function', retarget_props['function'])
     settings.add_property('retarget_radius', retarget_props['radius'])
     settings.add_property('retarget_only_selection', retarget_props['only_selection'])
     settings.add_property('retarget_high_quality', retarget_props['high_quality'])
 
 def unregister():
-    for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
+    bpy.utils.unregister_class(GRET_OT_retarget_armature)
