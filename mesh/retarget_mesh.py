@@ -118,7 +118,7 @@ Use to speed up retargeting by selecting only the areas of importance""",
             obj_to_dst = dst_to_obj.inverted()
             mesh_pts = get_mesh_points(obj, matrix=obj_to_dst)
             num_mesh_pts = mesh_pts.shape[0]
-            if new_mesh_pts == 0:
+            if num_mesh_pts == 0:
                 continue
 
             dist = get_distance_matrix(mesh_pts, src_pts, rbf_kernel, self.radius * scale)

@@ -5,15 +5,6 @@ import numpy as np
 # Based on https://github.com/chadmv/cmt/blob/master/scripts/cmt/rig/meshretarget.py
 # Which in turn references http://mathlab.github.io/PyGeM/_modules/pygem/radial.html#RBF
 
-rbf_kernels = {
-    'LINEAR': (linear, 1.0),
-    'GAUSSIAN': (gaussian, 0.01),
-    'PLATE': (thin_plate, 0.001),
-    'BIHARMONIC': (multi_quadratic_biharmonic, 0.01),
-    'INV_BIHARMONIC': (inv_multi_quadratic_biharmonic, 0.01),
-    'C2': (beckert_wendland_c2_basis, 1.0),
-}
-
 def linear(matrix, radius):
     return matrix
 
@@ -44,6 +35,15 @@ def beckert_wendland_c2_basis(matrix, radius):
     second = (4 * arg) + 1
     result = first * second
     return result
+
+rbf_kernels = {
+    'LINEAR': (linear, 1.0),
+    'GAUSSIAN': (gaussian, 0.01),
+    'PLATE': (thin_plate, 0.001),
+    'BIHARMONIC': (multi_quadratic_biharmonic, 0.01),
+    'INV_BIHARMONIC': (inv_multi_quadratic_biharmonic, 0.01),
+    'C2': (beckert_wendland_c2_basis, 1.0),
+}
 
 def get_weight_matrix(src_pts, dst_pts, rbf, radius):
     """Get the weight matrix x in Ax=B."""
