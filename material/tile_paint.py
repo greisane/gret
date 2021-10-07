@@ -108,7 +108,7 @@ def set_face_tile_uvs(face, uvs, tile):
     tiles_x, tiles_y = tileset.dims
     tile_x = tile.index % tiles_x
     tile_y = tiles_y - tile.index // tiles_x - 1
-    if tileset.solid:
+    if tileset.solid:  # TODO make this behavior a preference
         x1 = x2 = (tile_x + 0.5) / tiles_x
         y1 = y2 = (tile_y + 0.5) / tiles_y
     else:

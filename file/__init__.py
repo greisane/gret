@@ -1,6 +1,7 @@
 import bpy
 
 module_names = [
+    'copybuffer_flatten',
     'deduplicate_materials',
     'replace_references',
 ]

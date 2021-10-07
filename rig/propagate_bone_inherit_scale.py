@@ -22,14 +22,8 @@ class GRET_OT_propagate_bone_inherit_scale(bpy.types.Operator):
 
         return {'FINISHED'}
 
-classes = (
-    GRET_OT_propagate_bone_inherit_scale,
-)
-
 def register(settings):
-    for cls in classes:
-        bpy.utils.register_class(cls)
+    bpy.utils.register_class(GRET_OT_propagate_bone_inherit_scale)
 
 def unregister():
-    for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
+    bpy.utils.unregister_class(GRET_OT_propagate_bone_inherit_scale)
