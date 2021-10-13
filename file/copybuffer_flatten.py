@@ -2,6 +2,13 @@ import bpy
 import re
 from ..helpers import get_context, select_only, load_selection, save_selection, swap_object_names
 
+# TODO
+# - Make flattening optional and rename to Copy Advanced
+# - Add icon
+# - Poll should ensure view3d context
+# - Option to freeze world transform
+# - Fix armatures copying custom bone shapes
+
 def clear_pointers(obj):
     my_data = getattr(obj.id_data, 'data', None)
     for prop in obj.bl_rna.properties:

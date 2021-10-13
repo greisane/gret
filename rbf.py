@@ -59,16 +59,16 @@ def get_weight_matrix(src_pts, dst_pts, rbf, radius):
         [src_pts.T, np.zeros((dim, 1)), np.zeros((dim, dim))],
     ])
     rhs = np.bmat([[dst_pts], [np.zeros((1, dim))], [np.zeros((dim, dim))]])
+    weights = None
     try:
         weights = np.linalg.solve(H, rhs)
     except np.linalg.LinAlgError as err:
+        # Solving for C2 kernel may throw 'SVD did not converge' sometimes
         if 'Singular matrix' in str(err):
             # While testing the matrix would get close to singular, without a definite solution
             # Can't reproduce it now, however in such a case try an approximation
             Hpinv = np.linalg.pinv(H)
             weights = Hpinv.dot(rhs)
-        else:
-            raise
     return weights
 
 def get_distance_matrix(v1, v2, rbf, radius):
@@ -77,12 +77,20 @@ def get_distance_matrix(v1, v2, rbf, radius):
     matrix = np.linalg.norm(matrix, axis=-1)
     return rbf(matrix, radius)
 
-def get_mesh_points(obj, shape_key=None, matrix=None, mask=None, stride=1):
+def transform_points(pts, matrix):
+    identity = np.ones((len(pts), 1))
+    new_pts = np.c_[pts, identity]
+    new_pts = np.einsum('ij,aj->ai', matrix, new_pts)
+    new_pts = new_pts[:, :-1]
+    return new_pts
+
+def get_mesh_points(obj, matrix=None, shape_key=None, mask=None, stride=1):
     """Return vertex coordinates of a mesh as a numpy array with shape (?, 3)."""
     # Moving the mesh seems to be faster. See https://blender.stackexchange.com/questions/139511
 
     assert obj.type == 'MESH'
     mesh = obj.data
+
     if matrix is not None:
         mesh = mesh.copy()
         mesh.transform(matrix)
@@ -114,12 +122,42 @@ def get_mesh_points(obj, shape_key=None, matrix=None, mask=None, stride=1):
         bpy.data.meshes.remove(mesh)
     return points
 
+def set_mesh_points(obj, new_pts, matrix=None, shape_key_name=None):
+    assert obj.type == 'MESH'
+    mesh = obj.data
+
+    if matrix is not None:
+        new_pts = transform_points(new_pts, matrix)
+
+    if shape_key_name is not None:
+        # Result to new shape key
+        if not mesh.shape_keys or not mesh.shape_keys.key_blocks:
+            obj.shape_key_add(name="Basis")
+        shape_key = obj.shape_key_add(name=shape_key_name)
+        shape_key.data.foreach_set('co', new_pts.ravel())
+        shape_key.value = 1.0
+    elif mesh.shape_keys and mesh.shape_keys.key_blocks:
+        # There are shape keys, so replace the basis
+        # Using bmesh propagates the change, where just setting the coordinates won't
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        for vert, new_pt in zip(bm.verts, new_pts):
+            vert.co[:] = new_pt
+        bm.to_mesh(mesh)
+        bm.free()
+    else:
+        # Set new coordinates directly
+        mesh.vertices.foreach_set('co', new_pts.ravel())
+
 def get_armature_points(obj, matrix=None, only_selected=False):
     """Return head and tail coordinates of armature bones as a numpy array with shape (?, 3)."""
 
     assert obj.type == 'ARMATURE'
     armature = obj.data
     bones = armature.edit_bones if obj.mode == 'EDIT' else armature.bones
+
+    if matrix is None:
+        matrix = Matrix.Identity(4)
 
     cos = []
     for b in bones:
@@ -130,3 +168,18 @@ def get_armature_points(obj, matrix=None, only_selected=False):
     points = np.array(cos)
 
     return points
+
+def set_armature_points(obj, new_pts, matrix=None, only_selected=False):
+    assert obj.type == 'ARMATURE' and obj.mode == 'EDIT'
+
+    if matrix is not None:
+        new_pts = transform_points(new_pts, matrix)
+
+    index = 0
+    for bone in obj.data.edit_bones:
+        if not only_selected or bone.select_head:
+            bone.head[:] = new_pts[index]
+            index += 1
+        if not only_selected or bone.select_tail:
+            bone.tail[:] = new_pts[index]
+            index += 1

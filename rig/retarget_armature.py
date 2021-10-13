@@ -11,7 +11,6 @@ from ..rbf import *
 class GRET_OT_retarget_armature(bpy.types.Operator):
     #tooltip
     """Retarget an armature or selected bones to fit a modified version of the source mesh."""
-    # Note: If vertex order gets messed up, try using an addon like Transfer Vert Order to fix it
 
     bl_idname = 'gret.retarget_armature'
     bl_label = "Retarget Armature"
@@ -64,10 +63,9 @@ Use to speed up retargeting by selecting only the areas of importance""",
 
     @classmethod
     def poll(cls, context):
-        return context.mode in {'OBJECT', 'EDIT_ARMATURE'} and context.selected_objects
+        return len(context.selected_editable_bones) >= 1
 
     def execute(self, context):
-        objs = context.selected_objects
         src_obj = bpy.data.objects.get(self.source)
         dst_is_shape_key = self.destination.startswith('s_')
         dst_obj = bpy.data.objects.get(self.destination[2:]) if not dst_is_shape_key else src_obj
@@ -97,16 +95,15 @@ Use to speed up retargeting by selecting only the areas of importance""",
         rbf_kernel, scale = rbf_kernels.get(self.function, (linear, 1.0))
         src_pts = get_mesh_points(src_obj, mask=mask, stride=stride)
         dst_pts = get_mesh_points(dst_obj, shape_key=dst_shape_key_name, mask=mask, stride=stride)
-        try:
-            weights = get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius * scale)
-        except np.linalg.LinAlgError:
-            # Solving for C2 kernel may throw 'SVD did not converge' sometimes
+        weights = get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius * scale)
+        if weights is None:
             self.report({'ERROR'}, "Failed to retarget. Try a different function or radius.")
             return {'CANCELLED'}
 
-        for obj in objs:
+        for obj in context.selected_objects:
             if obj.type != 'ARMATURE':
                 continue
+
             is_editing = obj.mode == 'EDIT'
             if not is_editing:
                 bpy.ops.object.editmode_toggle()
@@ -114,35 +111,27 @@ Use to speed up retargeting by selecting only the areas of importance""",
             # Get the mesh points in retarget destination space
             dst_to_obj = obj.matrix_world.inverted() @ dst_obj.matrix_world
             obj_to_dst = dst_to_obj.inverted()
-            bone_pts = get_armature_points(obj, matrix=obj_to_dst, only_selected=is_editing)
-            num_bone_pts = bone_pts.shape[0]
-            if num_bone_pts == 0:
+            pts = get_armature_points(obj, matrix=obj_to_dst, only_selected=is_editing)
+            num_pts = pts.shape[0]
+            if num_pts == 0:
                 continue
 
-            dist = get_distance_matrix(bone_pts, src_pts, rbf_kernel, self.radius * scale)
-            identity = np.ones((num_bone_pts, 1))
-            h = np.bmat([[dist, identity, bone_pts]])
-            new_bone_pts = np.asarray(np.dot(h, weights))
+            dist = get_distance_matrix(pts, src_pts, rbf_kernel, self.radius * scale)
+            identity = np.ones((num_pts, 1))
+            h = np.bmat([[dist, identity, pts]])
+            new_pts = np.asarray(np.dot(h, weights))
 
-            # Result back to local space
-            new_bone_pts = np.c_[new_bone_pts, identity]
-            new_bone_pts = np.einsum('ij,aj->ai', dst_to_obj, new_bone_pts)
-            new_bone_pts = new_bone_pts[:, :-1]
+            set_armature_points(obj, new_pts, matrix=dst_to_obj, only_selected=is_editing)
 
-            index = 0
-            for bone in obj.data.edit_bones:
-                if not is_editing or bone.select_head:
-                    bone.head[:] = new_bone_pts[index]
-                    index += 1
-                if not is_editing or bone.select_tail:
-                    bone.tail[:] = new_bone_pts[index]
-                    index += 1
             if not is_editing:
                 bpy.ops.object.editmode_toggle()
 
         return {'FINISHED'}
 
 def draw_panel(self, context):
+    if context.mode != 'EDIT_ARMATURE':
+        return
+
     layout = self.layout
     settings = context.scene.gret
     obj = context.object
@@ -167,7 +156,7 @@ def draw_panel(self, context):
         col.label(text="X-Axis Mirror is enabled.")
 
     row = col.row(align=True)
-    op = row.operator('gret.retarget_armature', icon='CHECKMARK', text="Retarget")
+    op = row.operator('gret.retarget_armature', icon='CHECKMARK', text="Retarget Bones")
     if settings.retarget_src and settings.retarget_dst != 'NONE':
         op.source = settings.retarget_src.name
         op.destination = settings.retarget_dst

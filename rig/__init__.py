@@ -7,8 +7,8 @@ module_names = [
     'bone_lock',
     'propagate_bone_inherit_scale',
     'properties',
-    'retarget_armature',
     'selection_sets',
+    'retarget_armature',
 ]
 from .. import import_or_reload_modules
 modules = import_or_reload_modules(module_names, __name__)
