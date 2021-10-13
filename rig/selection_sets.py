@@ -192,6 +192,9 @@ class GRET_OT_selection_set_overwrite(bpy.types.Operator):
         return {'FINISHED'}
 
 def draw_panel(self, context):
+    if context.mode != 'POSE':
+        return
+
     layout = self.layout
     settings = context.scene.gret
     obj = context.active_object
