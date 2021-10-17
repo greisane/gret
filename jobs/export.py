@@ -4,6 +4,73 @@ from .. import prefs
 from ..log import log, logger
 from ..rig.helpers import is_object_arp
 
+class GRET_OT_export_job_preset(bpy.types.Operator):
+    #tooltip
+    """Add preset jobs and automatically create collections"""
+
+    bl_idname = 'gret.export_job_preset'
+    bl_label = "Add Job Preset"
+    bl_options = {'INTERNAL', 'UNDO'}
+
+    preset: bpy.props.EnumProperty(
+        items=[
+            ('BAKE', "Bake Jobs", "Add bake export jobs and collections"),
+            ('CHARACTER', "Character Jobs", "Add character export jobs and collections"),
+        ],
+        name="Preset",
+        description="Job Presets",
+    )
+
+    def execute(self, context):
+        def ensure_collection(collection_name, color_tag='NONE'):
+            collection = bpy.data.collections.get(collection_name)
+            if not collection:
+                collection = bpy.data.collections.new(collection_name)
+                context.scene.collection.children.link(collection)
+            collection.color_tag = color_tag
+            return collection
+
+        if self.preset == 'BAKE':
+            job = add_job(context, name="low", collections=[ensure_collection("low")])
+            job.what = 'SCENE'
+            job.merge_basis_shape_keys = False
+            job.selection_only = False
+            job.export_collision = False
+            job.export_sockets = False
+            job.keep_transforms = True
+            job.material_name_prefix = ""
+            job.scene_export_path = "//{file}_low.fbx"
+
+            job = add_job(context, name="high", collections=[ensure_collection("high", 'COLOR_02')])
+            job.what = 'SCENE'
+            job.merge_basis_shape_keys = False
+            job.selection_only = False
+            job.export_collision = False
+            job.export_sockets = False
+            job.keep_transforms = True
+            job.material_name_prefix = ""
+            job.scene_export_path = "//{file}_high.fbx"
+
+        elif self.preset == 'CHARACTER':
+            rig = next((o for o in bpy.data.objects if o.type == 'ARMATURE'), None)
+
+            job = add_job(context, name="preview", collections=[ensure_collection("body")])
+            job.what = 'RIG'
+            job.rig = rig
+            job.modifier_tags = "preview"
+            job.material_name_prefix = ""
+            job.to_collection = True
+            job.clean_collection = True
+            job.export_collection = ensure_collection("preview")
+
+            job = add_job(context, name="rig", collections=[ensure_collection("body")])
+            job.what = 'RIG'
+            job.rig = rig
+            job.encode_shape_keys = True
+            job.rig_export_path = "//export/SK_{rigfile}.fbx"
+
+        return {'FINISHED'}
+
 class GRET_OT_export_job_add(bpy.types.Operator):
     #tooltip
     """Add a new export job"""
@@ -13,26 +80,36 @@ class GRET_OT_export_job_add(bpy.types.Operator):
     bl_options = {'INTERNAL', 'UNDO'}
 
     def execute(self, context):
-        jobs = context.scene.gret.export_jobs
-        job = jobs.add()
-        job_index = len(jobs) - 1
-        job.name = "Job #%d" % (job_index + 1)
-        collection = job.collections.add()
-        collection.job_index = job_index
-        action = job.actions.add()
-        action.job_index = job_index
-        copy_property = job.copy_properties.add()
-        copy_property.job_index = job_index
-        remap_material = job.remap_materials.add()
-        remap_material.job_index = job_index
+        add_job(context)
 
         return {'FINISHED'}
+
+def add_job(context, name="", collections=[]):
+    jobs = context.scene.gret.export_jobs
+    job = jobs.add()
+    job_index = len(jobs) - 1
+    job.name = name or ("Job #%d" % (job_index + 1))
+    if collections:
+        for collection in collections:
+            job_cl = job.collections.add()
+            job_cl.job_index = job_index
+            job_cl.collection = collection
+    else:
+        job_cl = job.collections.add()
+        job_cl.job_index = job_index
+    action = job.actions.add()
+    action.job_index = job_index
+    copy_property = job.copy_properties.add()
+    copy_property.job_index = job_index
+    remap_material = job.remap_materials.add()
+    remap_material.job_index = job_index
+    return job
 
 def refresh_job_list(context):
     """Call after changing the job list, keeps job indices up to date"""
     for job_index, job in enumerate(context.scene.gret.export_jobs):
-        for collection in job.collections:
-            collection.job_index = job_index
+        for job_cl in job.collections:
+            job_cl.job_index = job_index
         for action in job.actions:
             action.job_index = job_index
         for copy_property in job.copy_properties:
@@ -262,7 +339,9 @@ class GRET_PT_export_jobs(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
 
-        layout.operator('gret.export_job_add', text="Add")
+        row = layout.row(align=True)
+        row.operator('gret.export_job_add', text="Add")
+        row.operator_menu_enum('gret.export_job_preset', 'preset', text="", icon='DOWNARROW_HLT')
 
         jobs = context.scene.gret.export_jobs
         for job_index, job in enumerate(jobs):
@@ -635,6 +714,7 @@ classes = (
     GRET_OT_export_job_add,
     GRET_OT_export_job_move_down,
     GRET_OT_export_job_move_up,
+    GRET_OT_export_job_preset,
     GRET_OT_export_job_remove,
     GRET_PG_copy_property,
     GRET_PG_export_action,
