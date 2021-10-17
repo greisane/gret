@@ -11,6 +11,7 @@ from ..helpers import (
     fail_if_invalid_export_path,
     get_context,
     get_export_path,
+    get_name_safe,
     get_nice_export_report,
     intercept,
     load_selection,
@@ -164,14 +165,24 @@ class GRET_OT_scene_export(bpy.types.Operator):
                 apply_modifiers(obj, key=should_enable_modifier)
 
             # Remap materials, any objects or faces with no material won't be exported
+            all_none = lambda iterable: all(not el for el in iterable)
+
             remapped_to_none = False
-            for mat_idx, mat in enumerate(obj.data.materials):
-                for remap in job.remap_materials:
-                    if mat and mat == remap.source:
-                        logd(f"Remapped material {mat.name} to {remap.destination}")
-                        obj.data.materials[mat_idx] = remap.destination
-                        remapped_to_none = remapped_to_none or not remap.destination
-                        break
+            for remap in job.remap_materials:
+                if remap.source:
+                    for mat_idx, mat in enumerate(obj.data.materials):
+                        if mat and mat == remap.source:
+                            logd(f"Remapped material {mat.name} to {get_name_safe(remap.destination)}")
+                            obj.data.materials[mat_idx] = remap.destination
+                            remapped_to_none = remapped_to_none or not remap.destination
+                elif remap.destination and all_none(obj.data.materials):
+                    logd(f"Added material {get_name_safe(remap.destination)}")
+                    obj.data.materials.append(remap.destination)
+
+            if all_none(obj.data.materials):
+                log(f"Object has no materials and won't be exported")
+                logger.indent -= 1
+                continue
 
             if all(not mat for mat in obj.data.materials):
                 log(f"Object has no materials and won't be exported")

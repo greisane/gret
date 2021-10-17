@@ -41,7 +41,11 @@ class GRET_OT_export_job_preset(bpy.types.Operator):
             job.material_name_prefix = ""
             job.scene_export_path = "//{file}_low.fbx"
 
-            job = add_job(context, name="high", collections=[ensure_collection("high", 'COLOR_02')])
+            job = add_job(context,
+                name="high",
+                collections=[ensure_collection("high", 'COLOR_02')],
+                remap_materials=[(None, bpy.data.materials.new("high"))],
+            )
             job.what = 'SCENE'
             job.merge_basis_shape_keys = False
             job.selection_only = False
@@ -84,7 +88,7 @@ class GRET_OT_export_job_add(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def add_job(context, name="", collections=[]):
+def add_job(context, name="", collections=[], remap_materials=[]):
     jobs = context.scene.gret.export_jobs
     job = jobs.add()
     job_index = len(jobs) - 1
@@ -101,8 +105,15 @@ def add_job(context, name="", collections=[]):
     action.job_index = job_index
     copy_property = job.copy_properties.add()
     copy_property.job_index = job_index
-    remap_material = job.remap_materials.add()
-    remap_material.job_index = job_index
+    if remap_materials:
+        for source, destination in remap_materials:
+            remap_material = job.remap_materials.add()
+            remap_material.job_index = job_index
+            remap_material.source = source
+            remap_material.destination = destination
+    else:
+        remap_material = job.remap_materials.add()
+        remap_material.job_index = job_index
     return job
 
 def refresh_job_list(context):
@@ -471,7 +482,7 @@ class GRET_PG_remap_material(bpy.types.PropertyGroup):
     job_index: bpy.props.IntProperty()
     source: bpy.props.PointerProperty(
         name="Source",
-        description="Source material",
+        description="Source material. If left empty, adds a material when there are none",
         type=bpy.types.Material,
         update=on_remap_material_updated,
     )
