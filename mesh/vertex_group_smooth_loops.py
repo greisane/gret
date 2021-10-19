@@ -241,7 +241,7 @@ def get_parallel_loops(bm, loops):
                 loop = loop[:-1]
             else:
                 circular = False
-        loops.append([loop, circular])
+            loops.append([loop, circular])
     return loops
 
 class GRET_OT_vertex_group_smooth_loops(bpy.types.Operator):
