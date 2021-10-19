@@ -4,6 +4,7 @@ import bmesh
 import bpy
 import re
 
+from ..heapdict import heapdict
 from ..helpers import get_flipped_name, get_context, select_only, fmt_fraction
 from ..log import logger, log, logd
 
@@ -377,9 +378,7 @@ def unsubdivide_preserve_uvs(obj, levels):
     bm.free()
 
 def bmesh_vertex_group_bleed(bm, vertex_group_index, distance, power=1.0, only_tagged=False):
-    # TODO Rewrite
-    # - Algorithm does too much redundant work. Sort starting set by weight?
-    # - Power as a parameter isn't very intuitive
+    # TODO Power as a parameter isn't very intuitive
 
     if distance <= 0.0:
         return
@@ -391,21 +390,26 @@ def bmesh_vertex_group_bleed(bm, vertex_group_index, distance, power=1.0, only_t
     def set_weight(vert, value):
         vert[deform_layer][vertex_group_index] = value
 
-    if only_tagged:
-        openset = [v for v in bm.verts if v.tag and get_weight(v)]
-    else:
-        openset = [v for v in bm.verts if get_weight(v)]
+    openset = heapdict()
+    for vert in bm.verts:
+        if not only_tagged or vert.tag:
+            w = get_weight(vert)
+            if w > 0.0:
+                openset[vert] = -w
 
     while openset:
-        vert = openset.pop()
-        w = get_weight(vert)
+        vert, w = openset.popitem()
         for edge in vert.link_edges:
             other_vert = edge.other_vert(vert)
             if only_tagged and not other_vert.tag:
                 continue
-            other_vert_w = w - edge.calc_length() / distance
+            other_vert_w = -w - (edge.calc_length() / distance)
             if other_vert_w > 0.0:
                 other_vert_w **= power
-                if other_vert_w > get_weight(other_vert):
+                other_vert_old_w = get_weight(other_vert)
+                if other_vert_w > other_vert_old_w:
+                    if other_vert_old_w > 0.0:
+                        openset.decrease_key(other_vert, -other_vert_w)
+                    else:
+                        openset[other_vert] = -other_vert_w
                     set_weight(other_vert, other_vert_w)
-                    openset.append(other_vert)
