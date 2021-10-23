@@ -2,6 +2,8 @@ import bmesh
 import bpy
 import numpy as np
 
+from .math import get_dist
+
 # Based on https://github.com/chadmv/cmt/blob/master/scripts/cmt/rig/meshretarget.py
 # Which in turn references http://mathlab.github.io/PyGeM/_modules/pygem/radial.html#RBF
 
@@ -120,6 +122,7 @@ def get_mesh_points(obj, matrix=None, shape_key=None, mask=None, stride=1):
 
     if matrix is not None:
         bpy.data.meshes.remove(mesh)
+
     return points
 
 def set_mesh_points(obj, new_pts, matrix=None, shape_key_name=None):
@@ -149,27 +152,27 @@ def set_mesh_points(obj, new_pts, matrix=None, shape_key_name=None):
         # Set new coordinates directly
         mesh.vertices.foreach_set('co', new_pts.ravel())
 
-def get_armature_points(obj, matrix=None, only_selected=False):
+def get_armature_points(obj, matrix=None):
     """Return head and tail coordinates of armature bones as a numpy array with shape (?, 3)."""
 
     assert obj.type == 'ARMATURE'
     armature = obj.data
     bones = armature.edit_bones if obj.mode == 'EDIT' else armature.bones
 
-    if matrix is None:
-        matrix = Matrix.Identity(4)
-
     cos = []
-    for b in bones:
-        if not only_selected or b.select_head:
-            cos.append(matrix @ b.head if matrix is not None else b.head)
-        if not only_selected or b.select_tail:
-            cos.append(matrix @ b.tail if matrix is not None else b.tail)
-    points = np.array(cos)
+    if matrix is None:
+        for bone in bones:
+            cos.append(bone.head)
+            cos.append(bone.tail)
+    else:
+        for bone in bones:
+            cos.append(matrix @ bone.head)
+            cos.append(matrix @ bone.tail)
 
+    points = np.array(cos)
     return points
 
-def set_armature_points(obj, new_pts, matrix=None, only_selected=False):
+def set_armature_points(obj, new_pts, matrix=None, only_selected=False, lock_roll=False):
     assert obj.type == 'ARMATURE' and obj.mode == 'EDIT'
 
     if matrix is not None:
@@ -177,9 +180,18 @@ def set_armature_points(obj, new_pts, matrix=None, only_selected=False):
 
     index = 0
     for bone in obj.data.edit_bones:
+        new_head, new_tail = new_pts[index], new_pts[index+1]
+        index += 2
+
+        if lock_roll:
+            direction = bone.vector.normalized()
+            new_length = get_dist(new_head, new_tail)
+            new_center = (new_head + new_tail) / 2
+            new_head = new_center + direction * (new_length * -0.5)
+            new_tail = new_center + direction * (new_length * 0.5)
+
         if not only_selected or bone.select_head:
-            bone.head[:] = new_pts[index]
-            index += 1
+            bone.head[:] = new_head
         if not only_selected or bone.select_tail:
-            bone.tail[:] = new_pts[index]
-            index += 1
+            bone.tail[:] = new_tail
+

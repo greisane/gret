@@ -68,7 +68,7 @@ Use to speed up retargeting by selecting only the areas of importance""",
 
     @classmethod
     def poll(cls, context):
-        return context.mode == 'OBJECT' and context.selected_objects
+        return context.mode == 'OBJECT' and bool(context.selected_objects)
 
     def execute(self, context):
         src_obj = bpy.data.objects.get(self.source)

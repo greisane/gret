@@ -51,7 +51,7 @@ default_pose_values = {}
 
 def is_object_arp(obj):
     """Returns whether the object is an Auto-Rig Pro armature."""
-    return obj and obj.type == 'ARMATURE' and obj.pose.bones.get('c_pos')
+    return obj and obj.type == 'ARMATURE' and "c_pos" in obj.data.bones
 
 def is_object_arp_humanoid(obj):
     """Returns whether the object is an Auto-Rig Pro humanoid armature."""

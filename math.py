@@ -22,8 +22,12 @@ def calc_center_2d(points):
 
 def get_dist_sq(a, b):
     """Returns the square distance between two vectors."""
-    x, y, z = a.x - b.x, a.y - b.y, a.z - b.z
+    x, y, z = a[0] - b[0], a[1] - b[1], a[2] - b[2]
     return x*x + y*y + z*z
+
+def get_dist(a, b):
+    """Returns the distance between two vectors."""
+    return math.sqrt(get_dist_sq(a, b))
 
 def get_range_pct(min_value, max_value, value):
     """Calculates the percentage along a line from min_value to max_value."""

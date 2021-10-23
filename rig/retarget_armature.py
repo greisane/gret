@@ -60,10 +60,16 @@ Use to speed up retargeting by selecting only the areas of importance""",
         description="Sample more vertices for higher accuracy. Slow on dense meshes",
         default=False,
     )
+    lock_roll: bpy.props.BoolProperty(
+        name="Lock Roll",
+        description="Prevent changing bone roll",
+        default=False,
+    )
 
     @classmethod
     def poll(cls, context):
-        return len(context.selected_editable_bones) >= 1
+        return (context.mode == 'EDIT_ARMATURE'
+            or (context.mode == 'OBJECT' and bool(context.selected_objects)))
 
     def execute(self, context):
         src_obj = bpy.data.objects.get(self.source)
@@ -111,7 +117,7 @@ Use to speed up retargeting by selecting only the areas of importance""",
             # Get the mesh points in retarget destination space
             dst_to_obj = obj.matrix_world.inverted() @ dst_obj.matrix_world
             obj_to_dst = dst_to_obj.inverted()
-            pts = get_armature_points(obj, matrix=obj_to_dst, only_selected=is_editing)
+            pts = get_armature_points(obj, matrix=obj_to_dst)
             num_pts = pts.shape[0]
             if num_pts == 0:
                 continue
@@ -121,7 +127,8 @@ Use to speed up retargeting by selecting only the areas of importance""",
             h = np.bmat([[dist, identity, pts]])
             new_pts = np.asarray(np.dot(h, weights))
 
-            set_armature_points(obj, new_pts, matrix=dst_to_obj, only_selected=is_editing)
+            set_armature_points(obj, new_pts, matrix=dst_to_obj, only_selected=is_editing,
+                lock_roll=self.lock_roll)
 
             if not is_editing:
                 bpy.ops.object.editmode_toggle()
@@ -151,12 +158,17 @@ def draw_panel(self, context):
 
     col.prop(settings, 'retarget_only_selection')
     col.prop(settings, 'retarget_high_quality')
+    col.prop(settings, 'retarget_lock_roll')
 
     if obj and obj.data and getattr(obj.data, 'use_mirror_x', False):
         col.label(text="X-Axis Mirror is enabled.")
 
     row = col.row(align=True)
-    op = row.operator('gret.retarget_armature', icon='CHECKMARK', text="Retarget Bones")
+    if context.mode == 'EDIT_ARMATURE':
+        text = "Retarget Bones"
+    else:
+        text = "Retarget Armature"
+    op = row.operator('gret.retarget_armature', icon='CHECKMARK', text=text)
     if settings.retarget_src and settings.retarget_dst != 'NONE':
         op.source = settings.retarget_src.name
         op.destination = settings.retarget_dst
@@ -164,6 +176,7 @@ def draw_panel(self, context):
         op.radius = settings.retarget_radius
         op.only_selection = settings.retarget_only_selection
         op.high_quality = settings.retarget_high_quality
+        op.lock_roll = settings.retarget_lock_roll
     else:
         row.enabled = False
 
@@ -210,6 +223,7 @@ Expected to share topology and vertex order with the source mesh""",
     settings.add_property('retarget_radius', retarget_props['radius'])
     settings.add_property('retarget_only_selection', retarget_props['only_selection'])
     settings.add_property('retarget_high_quality', retarget_props['high_quality'])
+    settings.add_property('retarget_lock_roll', retarget_props['lock_roll'])
 
 def unregister():
     bpy.utils.unregister_class(GRET_OT_retarget_armature)
