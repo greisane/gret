@@ -199,7 +199,7 @@ class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
     keep_modifiers: bpy.props.BoolProperty(
         name="Keep Disabled Modifiers",
         description="Keep muted or disabled modifiers",
-        default=False,
+        default=True,
     )
 
     @classmethod
