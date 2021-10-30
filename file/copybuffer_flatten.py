@@ -20,6 +20,14 @@ def clear_pointers(obj):
             if getattr(obj, prop_id) != my_data:
                 setattr(obj, prop_id, None)
 
+def try_call(f, *args, **kwargs):
+    try:
+        f(*args, **kwargs)
+        return True
+    except RuntimeError:
+        pass
+    return False
+
 class GRET_OT_copybuffer_flatten(bpy.types.Operator):
     #tooltip
     """Selected objects alone are copied to the clipboard, even if they reference other objects.
@@ -87,16 +95,10 @@ Modifiers and shape keys are applied, optionally other data may be removed"""
         # Didn't bother to find out how to check if forcefield is active, rarely used
         # bpy.ops.object.forcefield_toggle(new_obj)
         ctx = get_context(new_obj)
-        try:
-            bpy.ops.rigidbody.constraint_remove(ctx)
-        except RuntimeError:
-            pass
-        try:
-            bpy.ops.rigidbody.object_remove(ctx)
-        except RuntimeError:
-            pass
+        try_call(bpy.ops.rigidbody.constraint_remove, ctx)
+        try_call(bpy.ops.rigidbody.object_remove, ctx)
         if new_obj.type == 'MESH':
-            bpy.ops.mesh.customdata_mask_clear(ctx)
+            try_call(bpy.ops.mesh.customdata_mask_clear, ctx)
 
         # Clear optional data
         if self.clear_vertex_groups and hasattr(new_obj, 'vertex_groups'):
