@@ -95,10 +95,14 @@ Modifiers and shape keys are applied, optionally other data may be removed"""
             bpy.ops.rigidbody.object_remove(ctx)
         except RuntimeError:
             pass
+        if new_obj.type == 'MESH':
+            bpy.ops.mesh.customdata_mask_clear(ctx)
 
         # Clear optional data
         if self.clear_vertex_groups and hasattr(new_obj, 'vertex_groups'):
             new_obj.vertex_groups.clear()
+        if self.clear_face_maps and hasattr(new_obj, 'face_maps'):
+            new_obj.face_maps.clear()
         if self.clear_custom_properties:
             for key in new_obj.keys():
                 del new_obj[key]
@@ -110,6 +114,7 @@ Modifiers and shape keys are applied, optionally other data may be removed"""
                 while new_data.vertex_colors.active:
                     new_data.vertex_colors.remove(new_data.vertex_colors.active)
             if self.clear_face_maps and hasattr(new_data, 'face_maps'):
+                # Don't think these are shown in the user interface anywhere, unlike object face maps
                 while new_data.face_maps.active:
                     new_data.face_maps.remove(new_data.face_maps.active)
             if self.clear_materials and hasattr(new_data, 'materials'):
