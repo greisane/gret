@@ -102,11 +102,10 @@ def get_mesh_points(obj, matrix=None, shape_key=None, mask=None, stride=1):
     if shape_key and shape_key.vertex_group:
         bm = bmesh.new()
         bm.from_mesh(mesh)
-        bm.verts.layers.deform.verify()
         bm.verts.layers.shape.verify()
-        deform_layer = bm.verts.layers.deform.active
         base_shape_layer = bm.verts.layers.shape[shape_key.relative_key.name]
         shape_layer = bm.verts.layers.shape[shape_key.name]
+        deform_layer = bm.verts.layers.deform.verify()
         vertex_group_index = obj.vertex_groups[shape_key.vertex_group].index
         for vert_idx, vert in enumerate(bm.verts):
             w = vert[deform_layer].get(vertex_group_index, 0.0)

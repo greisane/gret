@@ -173,6 +173,7 @@ class GRET_OT_quick_unwrap(bpy.types.Operator):
     area_weight: bpy.props.FloatProperty(
         name="Area Weight",
         description="Weight projection vectors by faces with larger areas",
+        subtype='FACTOR',
         default=0.0,
         min=0.0,
         max=1.0,

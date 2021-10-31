@@ -214,6 +214,7 @@ class GRET_OT_make_collision(bpy.types.Operator):
     decimate_ratio: bpy.props.FloatProperty(
         name="Decimate Ratio",
         description="Percentage of edges to collapse",
+        subtype='FACTOR',
         default=1.0,
         min=0.0,
         max=1.0,

@@ -244,6 +244,7 @@ class GRET_OT_rope_add(bpy.types.Operator):
     spread: bpy.props.FloatProperty(
         name="Spread",
         description="Width ratio of the groove",
+        subtype='FACTOR',
         default=0.2,
         min=0.0,
         max=1.0,

@@ -383,8 +383,7 @@ def bmesh_vertex_group_bleed(bm, vertex_group_index, distance, power=1.0, only_t
     if distance <= 0.0:
         return
 
-    bm.verts.layers.deform.verify()
-    deform_layer = bm.verts.layers.deform.active
+    deform_layer = bm.verts.layers.deform.verify()
     def get_weight(vert):
         return vert[deform_layer].get(vertex_group_index, 0.0)
     def set_weight(vert, value):

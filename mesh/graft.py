@@ -202,8 +202,7 @@ class GRET_OT_graft(bpy.types.Operator):
                 face[fm_layer] = face_map.index
 
             # Begin transferring data from the destination mesh
-            bm.verts.layers.deform.verify()
-            deform_layer = bm.verts.layers.deform.active
+            deform_layer = bm.verts.layers.deform.verify()
             for edge in bm.edges:
                 if edge.is_boundary:
                     for vert in edge.verts:
@@ -217,7 +216,7 @@ class GRET_OT_graft(bpy.types.Operator):
             bm.to_mesh(obj.data)
             bm.free()
 
-            ctx = {'object': obj}
+            ctx = get_context(obj)
             if self.transfer_normals:
                 mod = self.new_modifier(obj, name="transfer normals", type='DATA_TRANSFER')
                 mod.object = dst_obj

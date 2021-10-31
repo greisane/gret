@@ -102,11 +102,6 @@ class GRET_PG_settings(bpy.types.PropertyGroup):
             cls.__annotations__ = {}
         cls.__annotations__[name] = annotation
 
-classes = (
-    GRET_PG_settings,
-    GretAddonPreferences,
-)
-
 def register():
     # Register prefs first so that modules can access them through gret.prefs
     bpy.utils.register_class(GretAddonPreferences)
@@ -122,12 +117,12 @@ def register():
 def unregister():
     del bpy.types.Scene.gret
 
-    for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
-
+    bpy.utils.unregister_class(GRET_PG_settings)
     for module in reversed(modules):
         if hasattr(module, 'unregister'):
             module.unregister()
+
+    bpy.utils.unregister_class(GretAddonPreferences)
 
 if __name__ == '__main__':
     register()
