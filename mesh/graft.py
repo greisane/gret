@@ -3,7 +3,7 @@ from math import pi
 import bmesh
 import bpy
 
-from .helpers import new_vgroup, new_modifier, edit_mesh_elements, bmesh_vertex_group_bleed
+from .helpers import new_vgroup, new_modifier, TempModifier, edit_mesh_elements, bmesh_vertex_group_bleed
 from ..helpers import get_context, link_properties, load_selection, save_selection
 
 class GRET_OT_graft(bpy.types.Operator):
@@ -206,39 +206,38 @@ class GRET_OT_graft(bpy.types.Operator):
 
             ctx = get_context(obj)
             if self.transfer_normals:
-                mod = new_modifier(obj, type='DATA_TRANSFER', at_top=True)
-                mod.object = dst_obj
-                mod.vertex_group = boundary_vg.name
-                mod.use_object_transform = True
-                mod.use_loop_data = True
-                mod.data_types_loops = {'CUSTOM_NORMAL'}
-                mod.loop_mapping = 'POLYINTERP_NEAREST'
                 obj.data.use_auto_smooth = True
                 obj.data.auto_smooth_angle = pi
                 bpy.ops.mesh.customdata_custom_splitnormals_clear(ctx)
-                bpy.ops.object.modifier_apply(ctx, modifier=mod.name)
+
+                with TempModifier(obj, type='DATA_TRANSFER') as data_mod:
+                    data_mod.object = dst_obj
+                    data_mod.vertex_group = boundary_vg.name
+                    data_mod.use_object_transform = True
+                    data_mod.use_loop_data = True
+                    data_mod.data_types_loops = {'CUSTOM_NORMAL'}
+                    data_mod.loop_mapping = 'POLYINTERP_NEAREST'
 
             if self.transfer_vertex_groups or self.transfer_uv:
-                mod = new_modifier(obj, type='DATA_TRANSFER', at_top=True)
-                mod.object = dst_obj
-                mod.use_object_transform = True
-                if self.transfer_vertex_groups:
-                    mod.use_vert_data = True
-                    mod.data_types_verts = {'VGROUP_WEIGHTS'}
-                    mod.vert_mapping = 'EDGEINTERP_NEAREST'
-                if self.transfer_uv:
-                    mod.use_loop_data = True
-                    mod.data_types_loops = {'UV'}  # Automatically turns on use_poly_data
-                    mod.loop_mapping = 'POLYINTERP_NEAREST'
-                bpy.ops.object.datalayout_transfer(ctx, modifier=mod.name)
-                bpy.ops.object.modifier_apply(ctx, modifier=mod.name)
+                with TempModifier(obj, type='DATA_TRANSFER') as data_mod:
+                    data_mod.object = dst_obj
+                    data_mod.use_object_transform = True
+                    if self.transfer_vertex_groups:
+                        data_mod.use_vert_data = True
+                        data_mod.data_types_verts = {'VGROUP_WEIGHTS'}
+                        data_mod.vert_mapping = 'EDGEINTERP_NEAREST'
+                    if self.transfer_uv:
+                        data_mod.use_loop_data = True
+                        data_mod.data_types_loops = {'UV'}  # Automatically turns on use_poly_data
+                        data_mod.loop_mapping = 'POLYINTERP_NEAREST'
+                    bpy.ops.object.datalayout_transfer(ctx, modifier=data_mod.name)
 
             # If requested, create a mask modifier that will hide the intersection's inner verts
             if self.create_mask:
                 mask_vg = new_vgroup(orig_dst_obj, f"_mask_{obj.name}")
                 intersecting_verts = (dst_mesh.vertices[i] for i in intersecting_vert_indices)
                 mask_vg.add([v.index for v in intersecting_verts if not v.select], 1.0, 'REPLACE')
-                mask_mod = new_modifier(orig_dst_obj, type='MASK', name=mask_vg.name, at_top=True)
+                mask_mod = new_modifier(orig_dst_obj, type='MASK', name=mask_vg.name)
                 mask_mod.vertex_group = mask_vg.name
                 mask_mod.invert_vertex_group = True
                 mod_dp = f'modifiers["{mask_mod.name}"]'

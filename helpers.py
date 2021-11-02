@@ -283,7 +283,7 @@ class Patcher(dict):
             logd(f"Couldn't patch {self.module_name}.{self.function_name}, module not found")
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, exc_type, exc_value, exc_traceback):
         module = sys.modules.get(self.module_name)
         if module:
             wrapper = getattr(module, self.function_name, None)

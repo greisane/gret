@@ -23,16 +23,32 @@ def new_vgroup(obj, name):
         vgroup = obj.vertex_groups.new(name=name)
     return vgroup
 
-def new_modifier(obj, type, name="", at_top=False):
-    """Ensures that a modifier with the given name exists. Moved first to avoid warnings on applying."""
+def new_modifier(obj, type, name=""):
+    """Ensures that a modifier with the given name exists."""
+    # Should it clear an existing modifier?
 
     modifier = obj.modifiers.get(name) if name else None
     if not modifier or modifier.type != type:
         modifier = obj.modifiers.new(type=type, name=name)
-    if at_top:
-        ctx = get_context(obj)
-        bpy.ops.object.modifier_move_to_index(ctx, modifier=modifier.name, index=0)
     return modifier
+
+class TempModifier:
+    """Convenient modifier wrapper to use in a `with` block to be automatically applied at the end."""
+
+    def __init__(self, obj, type):
+        self.obj = obj
+        self.type = type
+
+    def __enter__(self):
+        self.modifier = self.obj.modifiers.new(type=self.type, name="")
+        # Move first to avoid the warning on applying
+        ctx = get_context(self.obj)
+        bpy.ops.object.modifier_move_to_index(ctx, modifier=self.modifier.name, index=0)
+        return self.modifier
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        ctx = get_context(self.obj)
+        bpy.ops.object.modifier_apply(ctx, modifier=self.modifier.name)
 
 def edit_mesh_elements(obj, type='VERT', indices=None, key=None):
     """
