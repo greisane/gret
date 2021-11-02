@@ -3,6 +3,7 @@ import bpy
 module_names = [
     'helpers',
     'graft',  # So it appears at the top, fix this later
+    'merge',
     'collision',
     'extra_objects',
     'remove_unused_vertex_groups',

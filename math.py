@@ -3,6 +3,11 @@ from mathutils import Vector
 from numpy.polynomial import polynomial as pl
 import numpy as np
 
+SMALL_NUMBER = 1e-8
+KINDA_SMALL_NUMBER = 1e-4
+
+saturate = lambda x: min(1.0, max(0.0, x))
+
 def calc_bounds(points):
     xs, ys, zs = zip(*points)
     x0, y0, z1, x1, y1, z1 = min(xs), min(ys), min(zs), max(xs), max(ys), max(zs)
@@ -29,17 +34,19 @@ def get_dist(a, b):
     """Returns the distance between two vectors."""
     return sqrt(get_dist_sq(a, b))
 
-def get_direction(a, b):
-    """Returns the direction from one 3D position to another."""
+def get_direction_safe(a, b):
+    """Returns the direction from one 3D position to another, or zero vector if they are too close."""
     x, y, z = b[0] - a[0], b[1] - a[1], b[2] - a[2]
     k = sqrt(x*x + y*y + z*z)
+    if k <= SMALL_NUMBER:
+        return Vector()
     return Vector((x/k, y/k, z/k))
 
 def get_range_pct(min_value, max_value, value):
     """Calculates the percentage along a line from min_value to max_value."""
 
     divisor = max_value - min_value
-    if divisor <= 0.0001:
+    if divisor <= SMALL_NUMBER:
         return 1.0 if value >= max_value else 0.0
     return (value - min_value) / divisor
 
