@@ -1,6 +1,6 @@
+from math import sqrt
 from mathutils import Vector
 from numpy.polynomial import polynomial as pl
-import math
 import numpy as np
 
 def calc_bounds(points):
@@ -21,13 +21,19 @@ def calc_center_2d(points):
     return sum(points, Vector((0.0, 0.0))) / len(points)
 
 def get_dist_sq(a, b):
-    """Returns the square distance between two vectors."""
+    """Returns the square distance between two 3D vectors."""
     x, y, z = a[0] - b[0], a[1] - b[1], a[2] - b[2]
     return x*x + y*y + z*z
 
 def get_dist(a, b):
     """Returns the distance between two vectors."""
-    return math.sqrt(get_dist_sq(a, b))
+    return sqrt(get_dist_sq(a, b))
+
+def get_direction(a, b):
+    """Returns the direction from one 3D position to another."""
+    x, y, z = b[0] - a[0], b[1] - a[1], b[2] - a[2]
+    k = sqrt(x*x + y*y + z*z)
+    return Vector((x/k, y/k, z/k))
 
 def get_range_pct(min_value, max_value, value):
     """Calculates the percentage along a line from min_value to max_value."""
@@ -42,7 +48,7 @@ def get_point_dist_to_line(point, direction, origin):
     Calculates the distance of a given point in world space to a given line.
     Assumes direction is normalized.
     """
-    return math.sqrt(get_point_dist_to_line_sq(point, direction, origin))
+    return sqrt(get_point_dist_to_line_sq(point, direction, origin))
 
 def get_point_dist_to_line_sq(point, direction, origin):
     """

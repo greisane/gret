@@ -13,6 +13,27 @@ half_vector = Vector((0.5, 0.5, 0.5))
 fmt_shape_key = lambda sk: (sk.name if sk.value == sk.slider_max else
     f"{sk.name} ({fmt_fraction(sk.value, sk.slider_max)})")
 
+def new_vgroup(obj, name):
+    """Ensures that a clean vertex group with the given name exists."""
+
+    vgroup = obj.vertex_groups.get(name)
+    if vgroup:
+        vgroup.remove(range(len(obj.data.vertices)))
+    else:
+        vgroup = obj.vertex_groups.new(name=name)
+    return vgroup
+
+def new_modifier(obj, type, name="", at_top=False):
+    """Ensures that a modifier with the given name exists. Moved first to avoid warnings on applying."""
+
+    modifier = obj.modifiers.get(name) if name else None
+    if not modifier or modifier.type != type:
+        modifier = obj.modifiers.new(type=type, name=name)
+    if at_top:
+        ctx = get_context(obj)
+        bpy.ops.object.modifier_move_to_index(ctx, modifier=modifier.name, index=0)
+    return modifier
+
 def edit_mesh_elements(obj, type='VERT', indices=None, key=None):
     """
     Enters edit mode and selects elements of a mesh to be operated on.

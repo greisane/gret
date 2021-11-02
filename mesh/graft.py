@@ -3,7 +3,7 @@ from math import pi
 import bmesh
 import bpy
 
-from .helpers import bmesh_vertex_group_bleed, edit_mesh_elements
+from .helpers import new_vgroup, new_modifier, edit_mesh_elements, bmesh_vertex_group_bleed
 from ..helpers import get_context, link_properties, load_selection, save_selection
 
 class GRET_OT_graft(bpy.types.Operator):
@@ -67,22 +67,6 @@ class GRET_OT_graft(bpy.types.Operator):
             and context.active_object.type == 'MESH'
             and context.mode == 'OBJECT')
 
-    def new_vgroup(self, obj, name):
-        vgroup = obj.vertex_groups.get(name)
-        if vgroup:
-            vgroup.remove(range(len(obj.data.vertices)))
-        else:
-            vgroup = obj.vertex_groups.new(name=name)
-        return vgroup
-
-    def new_modifier(self, obj, type, name):
-        modifier = obj.modifiers.get(name)
-        if not modifier or modifier.type != type:
-            modifier = obj.modifiers.new(type=type, name=name)
-        ctx = get_context(obj)
-        bpy.ops.object.modifier_move_to_index(ctx, modifier=modifier.name, index=0)
-        return modifier
-
     def _execute(self, context):
         orig_dst_obj = context.active_object
         objs = [o for o in context.selected_objects if o.type == 'MESH' and o != orig_dst_obj]
@@ -103,7 +87,7 @@ class GRET_OT_graft(bpy.types.Operator):
             dst_to_obj = world_to_obj @ dst_obj.matrix_world
             obj_to_dst = dst_to_obj.inverted()
 
-            boundary_vg = obj.vertex_groups.new(name="_boundary")
+            boundary_vg = obj.vertex_groups.new(name="__boundary")
             bm = bmesh.new()
             bm.from_mesh(obj.data)
 
@@ -126,13 +110,13 @@ class GRET_OT_graft(bpy.types.Operator):
                 if mod.show_viewport:
                     mod.show_viewport = False
                     saved_active_modifiers.append(mod)
-            wrap_mod = obj.modifiers.new(type='SHRINKWRAP', name="Shrinkwrap")
+            wrap_mod = obj.modifiers.new(type='SHRINKWRAP', name="")
             wrap_mod.wrap_method = 'TARGET_PROJECT' # 'NEAREST_SURFACEPOINT'
             wrap_mod.wrap_mode = 'INSIDE'
             wrap_mod.target = dst_obj
             wrap_mod.vertex_group = boundary_vg.name
             wrap_mod.offset = 0.01
-            bool_mod = obj.modifiers.new(type='BOOLEAN', name="Boolean")
+            bool_mod = obj.modifiers.new(type='BOOLEAN', name="")
             bool_mod.operation = 'INTERSECT'
             bool_mod.solver = 'FAST'
             bool_mod.object = dst_obj
@@ -218,7 +202,7 @@ class GRET_OT_graft(bpy.types.Operator):
 
             ctx = get_context(obj)
             if self.transfer_normals:
-                mod = self.new_modifier(obj, name="transfer normals", type='DATA_TRANSFER')
+                mod = new_modifier(obj, type='DATA_TRANSFER', at_top=True)
                 mod.object = dst_obj
                 mod.vertex_group = boundary_vg.name
                 mod.use_object_transform = True
@@ -231,7 +215,7 @@ class GRET_OT_graft(bpy.types.Operator):
                 bpy.ops.object.modifier_apply(ctx, modifier=mod.name)
 
             if self.transfer_vertex_groups or self.transfer_uv:
-                mod = self.new_modifier(obj, name="transfer other", type='DATA_TRANSFER')
+                mod = new_modifier(obj, type='DATA_TRANSFER', at_top=True)
                 mod.object = dst_obj
                 mod.use_object_transform = True
                 if self.transfer_vertex_groups:
@@ -247,10 +231,10 @@ class GRET_OT_graft(bpy.types.Operator):
 
             # If requested, create a mask modifier that will hide the intersection's inner verts
             if self.create_mask:
-                mask_vg = self.new_vgroup(orig_dst_obj, f"_mask_{obj.name}")
+                mask_vg = new_vgroup(orig_dst_obj, f"_mask_{obj.name}")
                 intersecting_verts = (dst_mesh.vertices[i] for i in intersecting_vert_indices)
                 mask_vg.add([v.index for v in intersecting_verts if not v.select], 1.0, 'REPLACE')
-                mask_mod = self.new_modifier(orig_dst_obj, name=mask_vg.name, type='MASK')
+                mask_mod = new_modifier(orig_dst_obj, type='MASK', name=mask_vg.name, at_top=True)
                 mask_mod.vertex_group = mask_vg.name
                 mask_mod.invert_vertex_group = True
                 mod_dp = f'modifiers["{mask_mod.name}"]'
@@ -299,16 +283,10 @@ def draw_panel(self, context):
     layout = self.layout
 
     col = layout.column(align=True)
-    col.operator('gret.graft', icon='MOD_BOOLEAN')
-
-classes = (
-    GRET_OT_graft,
-)
+    col.operator('gret.graft', icon='AUTOMERGE_ON')
 
 def register(settings):
-    for cls in classes:
-        bpy.utils.register_class(cls)
+    bpy.utils.register_class(GRET_OT_graft)
 
 def unregister():
-    for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
+    bpy.utils.unregister_class(GRET_OT_graft)

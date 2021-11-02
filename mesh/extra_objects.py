@@ -61,7 +61,7 @@ A collection is created where meshes can be put to create openings."""
 
         # Solidify is necessary for the EXACT boolean solver to work on planes
         # Temporarily mark the new faces so they may be masked away later
-        mo = obj.modifiers.new(type='SOLIDIFY', name="Boolean Solidify")
+        mo = obj.modifiers.new(type='SOLIDIFY', name="")
         mo.show_expanded = False
         mo.thickness = 0.0001
         mo.offset = 0.0
@@ -70,7 +70,7 @@ A collection is created where meshes can be put to create openings."""
         mo.rim_vertex_group = self.back_vgroup_name
 
         # Boolean cuts out the openings
-        mo = obj.modifiers.new(type='BOOLEAN', name="Boolean")
+        mo = obj.modifiers.new(type='BOOLEAN', name="")
         mo.show_expanded = True  # Don't hide, user may want to change FAST for EXACT
         mo.operation = 'DIFFERENCE'
         mo.operand_type = 'COLLECTION'
@@ -78,11 +78,11 @@ A collection is created where meshes can be put to create openings."""
         mo.solver = 'FAST'
 
         # Undo the previous solidify
-        mo = obj.modifiers.new(type='MASK', name="Mask")
+        mo = obj.modifiers.new(type='MASK', name="")
         mo.show_expanded = False
         mo.vertex_group = self.back_vgroup_name
         mo.invert_vertex_group = True
-        mo = obj.modifiers.new(type='WELD', name="Weld")
+        mo = obj.modifiers.new(type='WELD', name="")
         mo.merge_threshold = 0.1
 
         # Clear the target vertex group
@@ -93,7 +93,7 @@ A collection is created where meshes can be put to create openings."""
         mo.remove_threshold = 1.0
 
         # Finally make the backside
-        mo = obj.modifiers.new(type='SOLIDIFY', name="Solidify")
+        mo = obj.modifiers.new(type='SOLIDIFY', name="")
         mo.show_expanded = False
         mo.thickness = self.thickness
         mo.offset = -1.0
@@ -171,7 +171,7 @@ class GRET_OT_strap_add(bpy.types.Operator):
         context.view_layer.objects.active = obj
 
         if target_obj:
-            mod = obj.modifiers.new(type='SHRINKWRAP', name="Shrinkwrap")
+            mod = obj.modifiers.new(type='SHRINKWRAP', name="")
             mod.wrap_method = 'TARGET_PROJECT'
             mod.wrap_mode = 'OUTSIDE_SURFACE' if self.use_snap_to_surface else 'OUTSIDE'
             mod.target = target_obj
@@ -179,13 +179,13 @@ class GRET_OT_strap_add(bpy.types.Operator):
             mod.show_in_editmode = True
             mod.show_on_cage = True
 
-        mod = obj.modifiers.new(type='SUBSURF', name="Subdivision")
+        mod = obj.modifiers.new(type='SUBSURF', name="")
         mod.levels = self.subdivisions
         mod.render_levels = self.subdivisions
         mod.show_in_editmode = True
         mod.show_on_cage = True
 
-        mod = obj.modifiers.new(type='SKIN', name="Skin")
+        mod = obj.modifiers.new(type='SKIN', name="")
         mod.use_x_symmetry = False
         # Smooth shade looks wrong with no thickness
         mod.use_smooth_shade = False if self.thickness <= 0.0 else self.use_smooth_shade
@@ -196,7 +196,7 @@ class GRET_OT_strap_add(bpy.types.Operator):
 
         # Ideally there would be a weld modifier here when thickness is 0
         # Weld modifier isn't consistent about normals in this case, causing faces to get flipped
-        # mod = obj.modifiers.new(type='WELD', name="Weld")
+        # mod = obj.modifiers.new(type='WELD', name="")
 
         return {'FINISHED'}
 
@@ -298,39 +298,39 @@ class GRET_OT_rope_add(bpy.types.Operator):
         context.collection.objects.link(obj)
         context.view_layer.objects.active = obj
 
-        mod = obj.modifiers.new(type='MIRROR', name="Mirror")
+        mod = obj.modifiers.new(type='MIRROR', name="")
         mod.use_axis = [True, True, False]
         mod.use_clip = True
         mod.merge_threshold = 1e-5
 
-        mod = obj.modifiers.new(type='ARRAY', name="Array")
+        mod = obj.modifiers.new(type='ARRAY', name="")
         mod.count = self.number_of_cuts + 1
         mod.relative_offset_displace = [0.0, 0.0, 1.0]
         mod.use_merge_vertices = True
         mod.merge_threshold = 1e-5
 
-        mod = obj.modifiers.new(type='SIMPLE_DEFORM', name="SimpleDeform")
+        mod = obj.modifiers.new(type='SIMPLE_DEFORM', name="")
         mod.deform_method = 'TWIST'
         mod.angle = pi/2
         mod.deform_axis = 'Z'
 
-        mod = obj.modifiers.new(type='ARRAY', name="Array")
+        mod = obj.modifiers.new(type='ARRAY', name="")
         mod.count = self.number_of_rows
         mod.relative_offset_displace = [0.0, 0.0, 1.0]
         mod.use_merge_vertices = True
         mod.merge_threshold = 1e-5
 
         if target_obj:
-            mod = obj.modifiers.new(type='CURVE', name="Curve")
+            mod = obj.modifiers.new(type='CURVE', name="")
             mod.object = target_obj
             mod.deform_axis = 'POS_Z'
 
             if target_obj.data.splines.active and target_obj.data.splines.active.use_cyclic_u:
                 # Only weld if it's a cyclic curve
-                mod = obj.modifiers.new(type='WELD', name="Weld")
+                mod = obj.modifiers.new(type='WELD', name="")
                 mod.merge_threshold = 1e-5
 
-        mod = obj.modifiers.new(type='SUBSURF', name="Subdivision")
+        mod = obj.modifiers.new(type='SUBSURF', name="")
         mod.levels = self.subdivisions
         mod.render_levels = self.subdivisions
 
