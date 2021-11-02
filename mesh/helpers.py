@@ -415,16 +415,14 @@ def unsubdivide_preserve_uvs(obj, levels):
     bm.free()
 
 def bmesh_vertex_group_bleed(bm, vertex_group_index, distance, power=1.0, only_tagged=False):
-    # TODO Power as a parameter isn't very intuitive
-
-    if distance <= 0.0:
+    if distance <= 0.0 or power <= 0.0:
         return
 
     deform_layer = bm.verts.layers.deform.verify()
     def get_weight(vert):
-        return vert[deform_layer].get(vertex_group_index, 0.0)
+        return vert[deform_layer].get(vertex_group_index, 0.0) ** power
     def set_weight(vert, value):
-        vert[deform_layer][vertex_group_index] = value
+        vert[deform_layer][vertex_group_index] = value ** (1.0 / power)
 
     openset = heapdict()
     for vert in bm.verts:
@@ -441,7 +439,6 @@ def bmesh_vertex_group_bleed(bm, vertex_group_index, distance, power=1.0, only_t
                 continue
             other_vert_w = -w - (edge.calc_length() / distance)
             if other_vert_w > 0.0:
-                other_vert_w **= power
                 other_vert_old_w = get_weight(other_vert)
                 if other_vert_w > other_vert_old_w:
                     if other_vert_old_w > 0.0:

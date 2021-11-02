@@ -22,17 +22,18 @@ The result is stable, running the operator more than once won't cause any change
         description="Subset of vertex groups to modify",
         default='ACTIVE',
     )
-    factor: bpy.props.FloatProperty(
-        name="Factor",
-        description="Distance factor",
+    distance: bpy.props.FloatProperty(
+        name="Distance",
+        description="Maximum smoothing distance",
+        subtype='DISTANCE',
         default=1.0,
         min=0.0,
     )
     power: bpy.props.FloatProperty(
         name="Power",
-        description="Power",
+        description="Scaling factor for new weights",
         default=1.0,
-        min=1.0,
+        min=0.01,
     )
 
     @classmethod
@@ -63,7 +64,7 @@ The result is stable, running the operator more than once won't cause any change
             for vert in bm.verts:
                 vert.tag = vert.select
         for vg_idx in vg_idxs:
-            bmesh_vertex_group_bleed(bm, vg_idx, distance=self.factor / 100, power=self.power,
+            bmesh_vertex_group_bleed(bm, vg_idx, distance=self.distance, power=self.power,
                 only_tagged=obj.data.use_paint_mask_vertex)
 
         bm.to_mesh(obj.data)
