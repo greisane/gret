@@ -62,14 +62,18 @@ class GRET_OT_graft(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return (len(context.selected_objects) > 1
-            and context.active_object
-            and context.active_object.type == 'MESH'
-            and context.mode == 'OBJECT')
+        return context.mode == 'OBJECT'
 
     def _execute(self, context):
         orig_dst_obj = context.active_object
         objs = [o for o in context.selected_objects if o.type == 'MESH' and o != orig_dst_obj]
+
+        if not objs:
+            self.report({'ERROR'}, f"Select one or more meshes then the target object to graft them to.")
+            return {'CANCELLED'}
+        if not orig_dst_obj or orig_dst_obj.type != 'MESH' or orig_dst_obj not in context.selected_objects:
+            self.report({'ERROR'}, f"Active object is not a selected mesh.")
+            return {'CANCELLED'}
 
         # Get an evaluated version of the destination object
         # Can't use to_mesh because we will need to enter edit mode on it
@@ -241,7 +245,8 @@ class GRET_OT_graft(bpy.types.Operator):
                 # Can't create a hide_viewport driver for reasons
                 link_properties(obj, 'hide_render', orig_dst_obj, mod_dp + '.show_render', invert=True)
 
-        obj.vertex_groups.remove(boundary_vg)
+            obj.vertex_groups.remove(boundary_vg)
+
         bpy.data.objects.remove(dst_obj)
         bpy.data.meshes.remove(dst_mesh)
         return {'FINISHED'}
