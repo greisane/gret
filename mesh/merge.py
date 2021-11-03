@@ -51,7 +51,7 @@ class GRET_OT_merge(bpy.types.Operator):
 
     weld_distance: bpy.props.FloatProperty(
         name="Weld Distance",
-        description="Limit below which to merge vertices.",
+        description="Limit below which to merge vertices",
         subtype='DISTANCE',
         default=0.005,
         min=0.0,

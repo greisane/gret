@@ -1,6 +1,6 @@
 # gret
 
-A collection of Blender tools I've written for myself over the years. I use these daily so they should be bug-free, mostly. Feel free to take and use any parts of this project. `gret` can be typed with one hand in the search bar.
+A collection of Blender tools I've written for myself over the years. I use these daily so they should be mostly bug-free. Feel free to take and use any parts of this project. `gret` can be typed with one hand in the search bar.
 
 
 
@@ -40,13 +40,21 @@ Connects boundaries of selected objects to the active object. I wrote it to deal
 
 ![Demo](../readme/graft-demo.gif?raw=true)
 
-## Mesh: Retarget Mesh
+## Mesh: Merge
 
-Refit clothing meshes to a modified version of the character mesh.
+Boolean merges one or more objects, with options to fix the resulting normals. Does a lot of cleanup and, if possible, it will only merge vertices belonging to the same edge loops in order to preserve geometry and UVs.
+
+![Demo](../readme/merge-demo.gif?raw=true)
+
+## Mesh: Retarget
+
+Given two versions of the same mesh, allows retargeting meshes or skeletons originally fit for the first version to fit the second version instead.
+
+Ideal to transfer shape keys from characters to clothing, or to make a character's skeleton follow the changes after modifying body proportions.
 
 ![Demo](../readme/retargetmesh-demo.gif?raw=true)
 
-If retargeting to a different mesh, make sure they share topology and vertex order. If the retargeted mesh becomes polygon soup then it's probably the vertex order. Try using an addon like [Transfer Vert Order](https://gumroad.com/l/copy_verts_ids) to fix it.
+> If retargeting to a different mesh, make sure they share topology and vertex order. If the result is polygon soup then it's probably the vertex order. Try using an addon like [Transfer Vert Order](https://gumroad.com/l/copy_verts_ids) to fix it.
 
 ## Mesh: Make Collision
 
@@ -64,9 +72,15 @@ Procedurally generates vertex colors from various sources. Sources can be vertex
 
 ![Panel](../readme/vcolmapping.png?raw=true)
 
+## Mesh: Vertex Group Bleed
+
+The Smooth operator with "Expand" tends to either clip values or smear them way too much, which is not always what you want. Bleed provides finer control and guarantees that new weights will never be lower than the input weights. Works in your favor when you want to create a clean weight gradient radiating from an edge loop, or to soften skinning without  weakening the overall deformation.
+
+Can sort of think of it like pathfinding, running the operator twice with the same parameters won't change the results.
+
 ## Mesh: Vertex Group Smooth Loops
 
-Skinning tool to separately smooth weights on parallel loops. Belts and such should deform lengthwise without compressing and regular Smooth isn't too good at this. Found in Weights → Smooth Loops while in Weight Paint mode, vertex selection must be enabled to use.
+Skinning tool to separately smooth weights on parallel loops, like belts and such that should deform lengthwise without compressing. Uses the Bleed operator above. Found in Weights → Smooth Loops while in Weight Paint mode, vertex selection must be enabled.
 
 ![Demo](../readme/smoothloops-demo.gif?raw=true)
 
@@ -87,6 +101,8 @@ Similar in function to an extruded curve. Since it's mesh and not curve based, t
 ## Mesh: Add Rope
 
 Generates helicoid meshes, mostly useful as ropes. Can edit the base shape once created.
+
+![Demo](../readme/rope-demo.gif?raw=true)
 
 ## Animation: Pose Blender
 
@@ -130,13 +146,17 @@ Relaxes selected UV edge loops to their respective length on the mesh. Together 
 
 ## Other
 
-**Sculpt Selection**: Sets the sculpt mask from the current edit-mode vertex selection. Found in the Select menu in edit mode.
+**Sculpt Selection**: Sets the sculpt mask from the current edit-mode vertex selection. Found in the Select menu in mesh edit mode.
 
-**Normalize Shape Key**: Resets min/max of shape keys while keeping the range of motion. A shape key with range [-1..3] becomes [0..1], neutral at 0.25. Some game engines don't allow extrapolation of shape keys. Found in Shape Keys → Specials Menu → Normalize Shape Key.
+**Normalize Shape Key**: Resets min/max of shape keys while keeping the range of motion. A shape key with range [-1..3] becomes [0..1], neutral at 0.25. Some game engines don't allow extrapolation of shape keys. Found in Shape Keys → Specials Menu.
 
-~~**Merge Shape Keys to Basis**: Mixes active shape keys into the basis shape. It's possible to filter shape keys by name~~.
+**Encode Shape Key**: Implements shape key to UV channel encoding required for [Static Mesh Morph Targets](https://docs.unrealengine.com/4.27/en-US/WorkingWithContent/Types/StaticMeshes/MorphTargets/). No menu button, use operator search.
 
-**Remove Unused Vertex Groups**: Originally an addon by CoDEmanX, this operator respects L/R pairs of vertex groups. Found in Vertex Groups → Specials Menu → Remove Unused Vertex Groups.
+**Remove Unused Vertex Groups**: Originally an addon by CoDEmanX, this operator respects L/R pairs of vertex groups. Found in Vertex Groups → Specials Menu.
+
+**Toggle Bone Lock**: Simple but useful toggle that causes a pose bone to become anchored in world space. Found in Pose → Constraints.
+
+**Copy Alone**: Removes references and optional data so that objects can easily be duplicated or moved between files. Still a bit incomplete. Found in the Object menu in the 3D view.
 
 **Deduplicate Materials**: Squashes duplicate materials, like "Skin.002", "Skin.003", etc. Found in File → Clean Up.
 
@@ -144,4 +164,15 @@ Relaxes selected UV edge loops to their respective length on the mesh. Together 
 
 # Export Jobs
 
-TODO
+*This panel is not shown by default, enable it in the addon configuration.*
+
+Jobs automate the export process for multiple objects or complex setups. Since this is tailored to my workflow, mileage may vary. Some extra options are available for Auto-Rig Pro rigs. 
+
+Example use cases:
+
+- Exporting many objects to one file each along with collision and socket metadata (UE4).
+- Different versions of a single character with swapped materials or clothes.
+- Joining a character with many parts and modifiers into a single optimized mesh, for performance while animating.
+- Avoiding mistakes like not correctly resetting an armature prior to animation export.
+
+![Panel](../readme/jobs-panel.png?raw=True)
