@@ -6,7 +6,7 @@ A collection of Blender tools I've written for myself over the years. I use thes
 
 # Installation
 
-Blender 2.92 or later required.
+Blender 2.93 or later required.
 
 1. Download the [latest release](https://github.com/greisane/gret/releases/latest).
 
@@ -48,9 +48,9 @@ Boolean merges one or more objects, with options to fix the resulting normals. D
 
 ## Mesh: Retarget
 
-Given two versions of the same mesh, allows retargeting meshes or skeletons originally fit for the first version to fit the second version instead.
+Given two versions of the same mesh, allows retargeting meshes or bones originally fit for the first version to fit the second version instead.
 
-Ideal to transfer shape keys from characters to clothing, or to make a character's skeleton follow the changes after modifying body proportions.
+Ideal to transfer shape keys from characters to clothing, or to make a character's skeleton follow changes after modifying body proportions.
 
 ![Demo](../readme/retargetmesh-demo.gif?raw=true)
 
@@ -74,9 +74,9 @@ Procedurally generates vertex colors from various sources. Sources can be vertex
 
 ## Mesh: Vertex Group Bleed
 
-The Smooth operator with "Expand" tends to either clip values or smear them way too much, which is not always what you want. Bleed provides finer control and guarantees that new weights will never be lower than the input weights. Works in your favor when you want to create a clean weight gradient radiating from an edge loop, or to soften skinning without  weakening the overall deformation.
+The Smooth operator with "Expand" tends to either clip values or smear them way too much. Bleed provides finer control and guarantees that new weights will never be lower than the input weights.
 
-Can sort of think of it like pathfinding, running the operator twice with the same parameters won't change the results.
+Works in your favor when you want to create a clean weight gradient radiating from an edge loop, or to soften skinning without weakening the overall deformation.
 
 ## Mesh: Vertex Group Smooth Loops
 

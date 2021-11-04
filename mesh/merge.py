@@ -1,10 +1,10 @@
 from itertools import chain
-from math import inf, sqrt, cos, pi, radians
+from math import inf, cos, pi, radians
 from mathutils import Vector
 import bmesh
 import bpy
 
-from ..math import get_direction_safe, SMALL_NUMBER
+from ..math import get_direction_safe
 from ..helpers import get_context
 from .helpers import new_vgroup, TempModifier, bmesh_vertex_group_bleed
 
@@ -102,6 +102,7 @@ Requires meshes to have an open boundary, which is used to find the edge loops""
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
+
         layout.prop(self, 'weld_distance')
         layout.prop(self, 'weld_only_loops')
 
@@ -174,7 +175,8 @@ Requires meshes to have an open boundary, which is used to find the edge loops""
                 bool_mod.operand_type = 'COLLECTION'
                 bool_mod.collection = bool_collection
                 bool_mod.solver = 'EXACT'
-                bool_mod.use_hole_tolerant = False
+                if bpy.app.version >= (2, 93):
+                    bool_mod.use_hole_tolerant = False
             bpy.data.collections.remove(bool_collection)
 
             # Write to cache
