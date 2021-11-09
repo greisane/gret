@@ -206,6 +206,8 @@ Requires meshes to have an open boundary, which is used to find the edge loops""
 
                 # Write to cache
                 self.cached_cage_settings = cage_settings
+                if self.cached_cage_bm:
+                    self.cached_cage_bm.free()
                 self.cached_cage_bm = bmesh.new()
                 self.cached_cage_bm.from_mesh(cage_mesh)
             else:
@@ -305,6 +307,8 @@ Requires meshes to have an open boundary, which is used to find the edge loops""
 
                 # Write to cache
                 self.cached_subdiv_settings = subdiv_settings
+                if self.cached_clean_bm:
+                    self.cached_clean_bm.free()
                 self.cached_subdiv_bm = bmesh.new()
                 self.cached_subdiv_bm.from_mesh(subdiv_mesh)
             else:

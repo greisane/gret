@@ -155,7 +155,7 @@ def draw_panel(self, context):
 
     row = col.row(align=True)
     op1 = row.operator('gret.retarget_mesh', icon='CHECKMARK', text="Retarget")
-    op2 = row.operator('gret.retarget_mesh', icon='SHAPEKEY_DATA', text="As Shape Key")
+    op2 = row.operator('gret.retarget_mesh', icon='SHAPEKEY_DATA', text="To Shape Key")
     if settings.retarget_src and settings.retarget_dst != 'NONE':
         op1.source = op2.source = settings.retarget_src.name
         op1.destination = op2.destination = settings.retarget_dst

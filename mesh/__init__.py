@@ -12,6 +12,7 @@ module_names = [
     'shape_key_apply_modifiers',
     'shape_key_encode',
     'shape_key_normalize',
+    'shape_key_select',
     'uv_texture_sync',
     'vertex_color_mapping',
     'vertex_group_bleed',

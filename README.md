@@ -154,6 +154,8 @@ Relaxes selected UV edge loops to their respective length on the mesh. Together 
 
 **Remove Unused Vertex Groups**: Originally an addon by CoDEmanX, this operator respects L/R pairs of vertex groups. Found in Vertex Groups → Specials Menu.
 
+**Auto-Name Bone Chain**: Automatically renames a chain of bones starting at the selected bone. Found in Armature → Names.
+
 **Toggle Bone Lock**: Simple but useful toggle that causes a pose bone to become anchored in world space. Found in Pose → Constraints.
 
 **Copy Alone**: Removes references and optional data so that objects can easily be duplicated or moved between files. Still a bit incomplete. Found in the Object menu in the 3D view.
