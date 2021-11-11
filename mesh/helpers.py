@@ -442,7 +442,8 @@ def bmesh_vertex_group_bleed(bm, vertex_group_index, distance, power=1.0, only_t
                 other_vert_old_w = get_weight(other_vert)
                 if other_vert_w > other_vert_old_w:
                     if other_vert_old_w > 0.0:
-                        openset.decrease_key(other_vert, -other_vert_w)
+                        if other_vert in openset:
+                            openset.decrease_key(other_vert, -other_vert_w)
                     else:
                         openset[other_vert] = -other_vert_w
                     set_weight(other_vert, other_vert_w)
