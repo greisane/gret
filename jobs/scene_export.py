@@ -67,17 +67,21 @@ class GRET_OT_scene_export(bpy.types.Operator):
     def poll(cls, context):
         return context.mode == 'OBJECT'
 
-    def copy_obj(self, obj, copy_data=True):
-        new_obj = obj.copy()
-        new_obj.name = obj.name + "_"
-        if copy_data:
+    def copy_obj(self, obj):
+        if obj.type == 'MESH':
+            new_obj = obj.copy()
+            new_obj.name = obj.name + "_"
             new_data = obj.data.copy()
-            if isinstance(new_data, bpy.types.Mesh):
-                self.new_meshes.append(new_data)
-            else:
-                log(f"Copied data of object {obj.name} won't be released!")
             new_obj.data = new_data
+        else:
+            dg = bpy.context.evaluated_depsgraph_get()
+            new_data = bpy.data.meshes.new_from_object(obj, preserve_all_data_layers=True, depsgraph=dg)
+            new_obj = bpy.data.objects.new(obj.name + "_", new_data)
+            new_obj.matrix_world = obj.matrix_world
         self.new_objs.append(new_obj)
+        assert isinstance(new_data, bpy.types.Mesh)
+        assert new_data.users == 1
+        self.new_meshes.append(new_data)
 
         # New objects are moved to the scene collection, ensuring they're visible
         bpy.context.scene.collection.objects.link(new_obj)
@@ -115,7 +119,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
         # Find and clone objects to be exported
         # Original objects that aren't exported will be hidden for render, only for driver purposes
         if not job.selection_only:
-            export_objs, job_cls = job.get_export_objects(context, types={'MESH'})
+            export_objs, job_cls = job.get_export_objects(context, types={'MESH', 'CURVE'})
         elif context.selected_objects:
             export_objs, job_cls = [o for o in context.selected_objects if o.type == 'MESH'], []
         else:
@@ -230,12 +234,11 @@ class GRET_OT_scene_export(bpy.types.Operator):
 
             obj.shape_key_clear()
 
-            if job.ensure_uv_layers:
+            if job.ensure_uv_layers and not obj.data.uv_layers:
                 # Optionally ensure UV layer. Zero coords to avoid all kinds of problems
-                if not obj.data.uv_layers:
-                    log("Created empty UV layer")
-                    for uvloop in obj.data.uv_layers.new(name="UVMap").data:
-                        uvloop.uv = (0.0, 0.0)
+                log("Created empty UV layer")
+                for uvloop in obj.data.uv_layers.new(name="UVMap").data:
+                    uvloop.uv = (0.0, 0.0)
 
             # It's more intuitive to author masks starting from black, however UE4 defaults to white
             # Invert vertex colors, materials should use OneMinus to get the original value
