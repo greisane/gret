@@ -230,11 +230,12 @@ class GRET_OT_scene_export(bpy.types.Operator):
 
             obj.shape_key_clear()
 
-            # Ensure UV layer, Substance Painter complains. Zero coords to avoid all kinds of problems
-            if not obj.data.uv_layers:
-                log("Created empty UV layer")
-                for uvloop in obj.data.uv_layers.new(name="UVMap").data:
-                    uvloop.uv = (0.0, 0.0)
+            if job.ensure_uv_layers:
+                # Optionally ensure UV layer. Zero coords to avoid all kinds of problems
+                if not obj.data.uv_layers:
+                    log("Created empty UV layer")
+                    for uvloop in obj.data.uv_layers.new(name="UVMap").data:
+                        uvloop.uv = (0.0, 0.0)
 
             # It's more intuitive to author masks starting from black, however UE4 defaults to white
             # Invert vertex colors, materials should use OneMinus to get the original value

@@ -31,7 +31,7 @@ class GRET_OT_export_job_preset(bpy.types.Operator):
             return collection
 
         if self.preset == 'BAKE':
-            job = add_job(context, name="low", collections=[ensure_collection("low")])
+            job = add_job(context, name="low", collections=[ensure_collection("low", 'COLOR_04')])
             job.what = 'SCENE'
             job.merge_basis_shape_keys = False
             job.selection_only = False
@@ -52,6 +52,7 @@ class GRET_OT_export_job_preset(bpy.types.Operator):
             job.export_collision = False
             job.export_sockets = False
             job.keep_transforms = True
+            job.ensure_uv_layers = False
             job.material_name_prefix = ""
             job.scene_export_path = "//{file}_high.fbx"
 
@@ -235,6 +236,7 @@ def draw_job(layout, jobs, job_index):
             col.prop(job, 'export_collision')
             col.prop(job, 'export_sockets')
             col.prop(job, 'keep_transforms')
+            col.prop(job, 'ensure_uv_layers')
 
             col = box.column(align=True)
             col.label(text="Remap Materials:")
@@ -605,6 +607,11 @@ UVn+1: deltaXY, UVn+2: deltaZnormalX, UVn+3: normalYZ. All values are remapped t
         name="Keep Transforms",
         description="Keep the position and rotation of objects relative to world center",
         default=False,
+    )
+    ensure_uv_layers: bpy.props.BoolProperty(
+        name="Ensure UV Layers",
+        description="Create an empty UV layer for objects that have none",
+        default=True,
     )
     scene_export_path: bpy.props.StringProperty(
         name="Export Path",
