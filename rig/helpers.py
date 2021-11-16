@@ -28,6 +28,7 @@ ik_bone_names = [
 ]
 # Collected keys with `sorted(set(chain.from_iterable(pb.keys() for pb in C.object.pose.bones)))`
 arp_default_pose_values = {
+    'arm_twist': 0.0,
     'auto_eyelid': 0.1,
     'auto_stretch': 0.0,
     'autolips': None,  # Different values
@@ -37,13 +38,16 @@ arp_default_pose_values = {
     'fingers_grasp': 0.0,
     'fix_roll': 0.0,
     'head_free': 0,
-    'ik_fk_switch': 0.0,
+    'ik_fk_switch': 1.0,  # TODO should be configurable
+    'ik_tip': 0,
     'leg_pin': 0.0,
     'lips_retain': 0.0,
     'lips_stretch': 1.0,
     'pole_parent': 1,
     'stretch_length': 1.0,
     'stretch_mode': 1,  # Bone original
+    'thigh_twist': 0.0,
+    'twist': 0.0,
     'volume_variation': 0.0,
     'y_scale': 2,  # Bone original
 }
