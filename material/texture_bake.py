@@ -352,9 +352,7 @@ All faces from all objects assigned to the active material are assumed to contri
 
         # Explode objects. Not strictly necessary anymore since AO node has only_local flag
         for obj_idx, obj in enumerate(objs):
-            # TODO Can only explode meshes that are frozen! Otherwise modifiers can change
-            # self.saved_transforms[obj] = obj.matrix_world.copy()
-            # obj.matrix_world = Matrix.Translation((100.0 * obj_idx, 0.0, 0.0))
+            obj.matrix_world = Matrix.Translation((100.0 * obj_idx, 0.0, 0.0))
             obj.data.uv_layers[texture_bake.uv_layer_name].active = True
 
         # Setup common to all bakers
@@ -445,7 +443,6 @@ All faces from all objects assigned to the active material are assumed to contri
         self.new_meshes = []
         self.new_materials = []
         self.new_images = []
-        self.saved_transforms = {}
         logger.start_logging()
 
         try:
@@ -465,9 +462,6 @@ All faces from all objects assigned to the active material are assumed to contri
                 bpy.data.materials.remove(self.new_materials.pop())
             while self.new_images:
                 bpy.data.images.remove(self.new_images.pop())
-            for obj, matrix_world in self.saved_transforms.items():
-                obj.matrix_world = matrix_world
-            del self.saved_transforms
 
             load_selection(saved_selection)
             context.scene.render.engine = saved_render_engine
