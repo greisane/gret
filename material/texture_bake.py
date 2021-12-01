@@ -178,6 +178,12 @@ bake_funcs = {
     'CURVATURE': bake_curvature,
 }
 
+bake_zeros = {
+    'AO': 1.0,
+    'BEVEL': 0.0,
+    'CURVATURE': 0.5,
+}
+
 node_trees = {
     'AO': nodes_ao,
     'BEVEL': nodes_bevel,
@@ -329,14 +335,14 @@ All faces from all objects assigned to the active material are assumed to contri
         # See https://developer.blender.org/T57143 and https://developer.blender.org/D4162
 
         mat = context.object.active_material
-        bake = mat.texture_bakes[self.index]
-        size = bake.size
+        texture_bake = mat.texture_bakes[self.index]
+        size = texture_bake.size
 
         # Collect all the objects that share this material
         objs = get_bake_objects(context, mat, self.new_objs, self.new_meshes)
         for obj in objs:
-            if bake.uv_layer_name not in obj.data.uv_layers:
-                self.report({'ERROR'}, f"{obj.name} has no UV layer named '{bake.uv_layer_name}'")
+            if texture_bake.uv_layer_name not in obj.data.uv_layers:
+                self.report({'ERROR'}, f"{obj.name} has no UV layer named '{texture_bake.uv_layer_name}'")
                 return {'CANCELLED'}
 
         log(f"Baking {mat.name} with {len(objs)} contributing objects")
@@ -349,7 +355,7 @@ All faces from all objects assigned to the active material are assumed to contri
             # TODO Can only explode meshes that are frozen! Otherwise modifiers can change
             # self.saved_transforms[obj] = obj.matrix_world.copy()
             # obj.matrix_world = Matrix.Translation((100.0 * obj_idx, 0.0, 0.0))
-            obj.data.uv_layers[bake.uv_layer_name].active = True
+            obj.data.uv_layers[texture_bake.uv_layer_name].active = True
 
         # Setup common to all bakers
         # Note that dilation happens before the bake results from multiple objects are merged
@@ -357,36 +363,39 @@ All faces from all objects assigned to the active material are assumed to contri
         context.scene.render.engine = 'CYCLES'
         context.scene.render.bake.margin = size // 128
         context.scene.render.bake.use_selected_to_active = False
+        context.scene.render.bake.use_clear = False
 
         bake_pixels = [SolidPixels(size, k) for k in (0.0, 0.0, 0.0, 1.0)]
-        ChannelBakeInfo = namedtuple('ChannelBakeInfo', ['src', 'scale'])
-        ChannelBakeInfo.__bool__ = lambda self: self.src != 'NONE'
-        channels = [
-            ChannelBakeInfo(bake.r, bake.r_scale),
-            ChannelBakeInfo(bake.g, bake.g_scale),
-            ChannelBakeInfo(bake.b, bake.b_scale),
+        BakeInfo = namedtuple('BakeInfo', ['type', 'scale'])
+        BakeInfo.__bool__ = lambda self: self.type != 'NONE'
+        bakes = [
+            BakeInfo(texture_bake.r, texture_bake.r_scale),
+            BakeInfo(texture_bake.g, texture_bake.g_scale),
+            BakeInfo(texture_bake.b, texture_bake.b_scale),
         ]
-        for channel in channels:
-            if not channel:
+        zero_color = [bake_zeros.get(bake.type, 0.0) for bake in bakes] + [0.0]
+        for bake in bakes:
+            if not bake:
                 continue
 
             # Avoid doing extra work and bake only once for all channels with the same baker
-            channel_idxs = []
-            for channel_idx, other_channel in enumerate(channels):
-                if channel == other_channel:
-                    channels[channel_idx] = None
-                    channel_idxs.append(channel_idx)
+            target_channel_idxs = []
+            for channel_idx, other_bake in enumerate(bakes):
+                if bake == other_bake:
+                    bakes[channel_idx] = None
+                    target_channel_idxs.append(channel_idx)
 
-            channel_names = ''.join(("R", "G", "B")[idx] for idx in channel_idxs)
-            log(f"Baking {channel.src} for channel {channel_names}")
-            bake_img = self.new_image(f"_{mat.name}_{channel.src}", size)
+            channel_names = ''.join(("R", "G", "B")[idx] for idx in target_channel_idxs)
+            log(f"Baking {bake.type} for channel {channel_names}")
+            bake_img = self.new_image(f"_{mat.name}_{bake.type}", size)
+            bake_img.generated_color = zero_color
             bake_mat = self.new_bake_material(bake_img)
 
             # Switch to the bake material temporarily and bake
             saved_materials = {obj: obj.data.materials[:] for obj in objs}
             remap_materials(objs, mat, bake_mat)
 
-            bake_funcs[channel.src](context.scene, bake_mat.node_tree, {'scale': channel.scale})
+            bake_funcs[bake.type](context.scene, bake_mat.node_tree, {'scale': bake.scale})
 
             for obj, saved_mats in saved_materials.items():
                 for mat_idx, saved_mat in enumerate(saved_mats):
@@ -394,14 +403,14 @@ All faces from all objects assigned to the active material are assumed to contri
 
             # Store the result
             pixels = bake_img.pixels[:]
-            for channel_idx in channel_idxs:
+            for channel_idx in target_channel_idxs:
                 bake_pixels[channel_idx] = pixels
 
         # Composite and write file to disk
         path_fields = {
             'material': mat.name,
         }
-        filepath = get_export_path(bake.export_path, path_fields)
+        filepath = get_export_path(texture_bake.export_path, path_fields)
         filename = bpy.path.basename(filepath)
 
         log(f"Exporting {filename}")
@@ -416,10 +425,10 @@ All faces from all objects assigned to the active material are assumed to contri
         logger.indent -= 1
 
     def execute(self, context):
-        bake = context.object.active_material.texture_bakes[self.index]
+        texture_bake = context.object.active_material.texture_bakes[self.index]
 
         try:
-            fail_if_invalid_export_path(bake.export_path, ['material'])
+            fail_if_invalid_export_path(texture_bake.export_path, ['material'])
         except Exception as e:
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
