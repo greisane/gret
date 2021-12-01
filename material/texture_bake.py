@@ -201,7 +201,7 @@ class GRET_OT_quick_unwrap(bpy.types.Operator):
             # Select all faces of all objects that share the material
             bpy.ops.object.editmode_toggle()
             context.scene.tool_settings.use_uv_select_sync = True
-            objs = [o for o in context.scene.objects if mat.name in o.data.materials]
+            objs = [o for o in context.scene.objects if o.type == 'MESH' and mat.name in o.data.materials]
             select_only(context, objs)
             bpy.ops.object.editmode_toggle()
             bpy.ops.mesh.reveal()
@@ -594,8 +594,10 @@ class GRET_PT_texture_bake(bpy.types.Panel):
 
             row = col.row(align=True)
             row.prop(bake, 'uv_layer_name', icon='UV', text="")
-            op = row.operator('gret.quick_unwrap', icon='MOD_UVPROJECT')
-            op.index = bake_idx
+            # Disabled, might rework or remove in the future
+            # op = row.operator('gret.quick_unwrap', icon='MOD_UVPROJECT')
+            # op.index = bake_idx
+            row.prop(bake, 'size')
             col.separator()
 
             row = col.row(align=True)
@@ -622,7 +624,6 @@ class GRET_PT_texture_bake(bpy.types.Panel):
             op = row.operator('gret.texture_bake_preview', icon='HIDE_OFF', text="")
             op.baker = bake.b
             op.scale = bake.b_scale
-            col.prop(bake, 'size')
             col.separator()
 
             col.prop(bake, 'export_path', text="")
