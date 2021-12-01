@@ -23,6 +23,38 @@ from .helpers import SolidPixels, Node
 # - AO floor
 # - Allow Quick Unwrap from object mode
 
+def get_bake_objects(context, material, out_objects, out_meshes):
+    for obj in context.scene.objects:
+        if obj.type == 'MESH' and not obj.hide_render and material.name in obj.data.materials:
+            # Only apply render modifiers
+            saved_modifier_show_viewport = []
+            for mod in obj.modifiers:
+                saved_modifier_show_viewport.append(mod.show_viewport)
+                mod.show_viewport = mod.show_render
+
+            dg = bpy.context.evaluated_depsgraph_get()
+            new_data = bpy.data.meshes.new_from_object(obj.evaluated_get(dg),
+                preserve_all_data_layers=True, depsgraph=dg)
+            new_obj = bpy.data.objects.new(obj.name + "_", new_data)
+            new_obj.matrix_world = obj.matrix_world
+
+            # Restore modifiers
+            for mod, show_viewport in zip(obj.modifiers, saved_modifier_show_viewport):
+                mod.show_viewport = show_viewport
+
+            out_objects.append(new_obj)
+            assert isinstance(new_data, bpy.types.Mesh)
+            assert new_data.users == 1
+            out_meshes.append(new_data)
+
+            # New objects are moved to the scene collection, ensuring they're visible
+            bpy.context.scene.collection.objects.link(new_obj)
+            new_obj.hide_set(False)
+            new_obj.hide_viewport = False
+            new_obj.hide_render = False
+            new_obj.hide_select = False
+    return out_objects
+
 def remap_materials(objs, src_mat, dst_mat):
     for obj in objs:
         for mat_idx, mat in enumerate(obj.data.materials):
@@ -115,23 +147,30 @@ nodes_curvature = (Node('OutputMaterial')
     )
 ))
 
+def _bake(type):
+    # Fixes a bug where bake fails because it polls for context.object being visible
+    # Why the hell is 'object' not in sync with 'active_object'?
+    ctx = bpy.context.copy()
+    ctx['object'] = ctx['active_object']
+    bpy.ops.object.bake(ctx, type=type)
+
 def bake_ao(scene, node_tree, values):
     # scene.cycles.samples = 128
     # bpy.ops.object.bake(type='AO')
     # Ambient occlusion node seems to produce less artifacts
     nodes_ao.build(node_tree, values)
     scene.cycles.samples = 16
-    bpy.ops.object.bake(type='EMIT')
+    _bake(type='EMIT')
 
 def bake_bevel(scene, node_tree, values):
     nodes_bevel.build(node_tree, values)
     scene.cycles.samples = 16
-    bpy.ops.object.bake(type='EMIT')
+    _bake(type='EMIT')
 
 def bake_curvature(scene, node_tree, values):
     nodes_curvature.build(node_tree, values)
     scene.cycles.samples = 16
-    bpy.ops.object.bake(type='EMIT')
+    _bake(type='EMIT')
 
 bake_funcs = {
     'AO': bake_ao,
@@ -294,7 +333,7 @@ All faces from all objects assigned to the active material are assumed to contri
         size = bake.size
 
         # Collect all the objects that share this material
-        objs = [o for o in context.scene.objects if o.type == 'MESH' and mat.name in o.data.materials]
+        objs = get_bake_objects(context, mat, self.new_objs, self.new_meshes)
         for obj in objs:
             if bake.uv_layer_name not in obj.data.uv_layers:
                 self.report({'ERROR'}, f"{obj.name} has no UV layer named '{bake.uv_layer_name}'")
@@ -343,10 +382,12 @@ All faces from all objects assigned to the active material are assumed to contri
             bake_img = self.new_image(f"_{mat.name}_{channel.src}", size)
             bake_mat = self.new_bake_material(bake_img)
 
-            # Switch to the bake material, bake then restore
+            # Switch to the bake material temporarily and bake
             saved_materials = {obj: obj.data.materials[:] for obj in objs}
             remap_materials(objs, mat, bake_mat)
+
             bake_funcs[channel.src](context.scene, bake_mat.node_tree, {'scale': channel.scale})
+
             for obj, saved_mats in saved_materials.items():
                 for mat_idx, saved_mat in enumerate(saved_mats):
                     obj.data.materials[mat_idx] = saved_mat
@@ -391,6 +432,8 @@ All faces from all objects assigned to the active material are assumed to contri
         saved_use_global_undo = context.preferences.edit.use_global_undo
         context.preferences.edit.use_global_undo = False
         self.exported_files = []
+        self.new_objs = []
+        self.new_meshes = []
         self.new_materials = []
         self.new_images = []
         self.saved_transforms = {}
@@ -405,6 +448,10 @@ All faces from all objects assigned to the active material are assumed to contri
             beep(pitch=3, num=1)
         finally:
             # Clean up
+            while self.new_objs:
+                bpy.data.objects.remove(self.new_objs.pop())
+            while self.new_meshes:
+                bpy.data.meshes.remove(self.new_meshes.pop())
             while self.new_materials:
                 bpy.data.materials.remove(self.new_materials.pop())
             while self.new_images:
@@ -462,17 +509,11 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
             context.scene.render.engine = self.saved_render_engine
             context.scene.cycles.preview_samples = self.saved_cycles_samples
 
-            # Revert object changes
-            for obj, show_viewports in self.saved_modifier_show_viewport.items():
-                for modifier, show_viewport in zip(obj.modifiers, show_viewports):
-                    modifier.show_viewport = show_viewport
-            del self.saved_modifier_show_viewport
-
-            for obj, saved_mats in self.saved_materials.items():
-                for mat_idx, saved_mat in enumerate(saved_mats):
-                    obj.data.materials[mat_idx] = saved_mat
-            del self.saved_materials
-
+            # Clean up
+            while self.new_objs:
+                bpy.data.objects.remove(self.new_objs.pop())
+            while self.new_meshes:
+                bpy.data.meshes.remove(self.new_meshes.pop())
             bpy.data.materials.remove(self.preview_mat)
             del self.preview_mat
 
@@ -496,7 +537,10 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
             self.report({'ERROR'}, "Select a baker type.")
             return {'CANCELLED'}
 
-        objs = [o for o in context.scene.objects if o.type == 'MESH' and mat.name in o.data.materials]
+        # Collect all the objects that share this material
+        self.new_objs = []
+        self.new_meshes = []
+        objs = get_bake_objects(context, mat, self.new_objs, self.new_meshes)
 
         logger.start_logging(timestamps=False)
         log(f"Previewing {self.baker} baker with {len(objs)} objects")
@@ -505,12 +549,6 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
         self.saved_selection = save_selection()
         show_only(context, objs)
 
-        self.saved_modifier_show_viewport = {}
-        for obj in objs:
-            self.saved_modifier_show_viewport[obj] = [mod.show_viewport for mod in obj.modifiers]
-            for modifier in obj.modifiers:
-                modifier.show_viewport = modifier.show_render
-        self.saved_materials = {obj: obj.data.materials[:] for obj in objs}
         self.preview_mat = preview_mat = bpy.data.materials.new(name=f"_preview_{self.baker}")
         preview_mat.use_nodes = True
         preview_mat.node_tree.nodes.clear()
