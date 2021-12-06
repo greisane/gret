@@ -216,12 +216,17 @@ class GRET_OT_scene_export(bpy.types.Operator):
                 if obj.parent:
                     logd(f"Moving object {obj.name}")
                     was_parented = True
-                    obj.matrix_world = obj.parent.matrix_world.inverted() @ obj.matrix_world
+                    pivot_tm_inverse = obj.parent.matrix_world.inverted()
+                    obj.matrix_world = pivot_tm_inverse @ obj.matrix_world
                     obj.parent = None
+                else:
+                    pivot_tm_inverse = obj.matrix_world.inverted()
+
                 for other_obj in chain(item.col_objs, item.socket_objs):
                     logd(f"Moving object {other_obj.name}")
                     self.saved_transforms[other_obj] = other_obj.matrix_world.copy()
-                    other_obj.matrix_world = obj.matrix_world.inverted() @ other_obj.matrix_world
+                    other_obj.matrix_world = pivot_tm_inverse @ other_obj.matrix_world
+
                 if not was_parented:
                     logd(f"Zero transform for object {obj.name}")
                     obj.matrix_world.identity()
