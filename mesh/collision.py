@@ -19,6 +19,16 @@ from ..math import (
 # - Symmetrize for convex isn't good
 # - Wall collision should try to decompose into boxes
 
+def find_collection_in_scene(scene, name):
+    colls = [scene.collection]
+    while colls:
+        coll = colls.pop()
+        if re.match(rf"^{name}(?:\.\d\d\d)?$", coll.name):
+            print(coll.name)
+            return coll
+        colls.extend(coll.children)
+    return None
+
 def find_free_col_name(prefix, name):
     n = 0
     while True:
@@ -268,11 +278,11 @@ class GRET_OT_make_collision(bpy.types.Operator):
         # Link to scene
         if not self.collection:
             collection = context.scene.collection
-        elif self.collection in bpy.data.collections:
-            collection = bpy.data.collections[self.collection]
         else:
-            collection = bpy.data.collections.new(self.collection)
-            context.scene.collection.children.link(collection)
+            collection = find_collection_in_scene(context.scene, self.collection)
+            if not collection:
+                collection = bpy.data.collections.new(self.collection)
+                context.scene.collection.children.link(collection)
         if bpy.app.version >= (2, 91):
             collection.color_tag = 'COLOR_04'
         collection.objects.link(col_obj)
