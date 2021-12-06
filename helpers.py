@@ -88,7 +88,7 @@ def get_layers_recursive(layer):
     for child in layer.children:
         yield from get_layers_recursive(child)
 
-def save_selection(all_objects=False):
+def save_selection():
     """Returns a SelectionState storing the current selection state."""
 
     return SelectionState(
@@ -123,7 +123,7 @@ def load_selection(state):
     if is_valid(state.active):
         bpy.context.view_layer.objects.active = state.active
 
-def viewport_reveal_all(context):
+def viewport_reveal_all():
     for collection in bpy.data.collections:
         collection.hide_select = False
         collection.hide_viewport = False
@@ -305,56 +305,6 @@ class Patcher(dict):
             if wrapper and hasattr(wrapper, '__wrapped__'):
                 setattr(module, self.function_name, wrapper.__wrapped__)
 
-def set_collection_viewport_visibility(context, collection_name, visibility=True):
-    # Based on https://blenderartists.org/t/1141768
-    # This is dumb as hell and hopefully it'll change in the future
-
-    def get_viewport_ordered_collections(context):
-        def add_child_collections(collection, out_list, add_self=True):
-            if add_self:
-                out_list.append(collection)
-            for child in collection.children:
-                out_list.append(child)
-            for child in collection.children:
-                add_child_collections(child, out_list, False)
-        result = []
-        add_child_collections(context.scene.collection, result)
-        return result
-
-    def get_area_from_context(context, area_type):
-        for area in context.screen.areas:
-            if area.type == area_type:
-                return area
-        return None
-
-    # Find outliner index for the given collection name
-    try:
-        collections = get_viewport_ordered_collections(context)
-        index, collection = next(((n, coll) for n, coll in enumerate(collections)
-            if coll.name == collection_name))
-    except StopIteration:
-        return
-
-    first_object = None
-    if len(collection.objects) > 0:
-        first_object = collection.objects[0]
-
-    try:
-        bpy.ops.object.hide_collection(context, collection_index=index, toggle=True)
-
-        if first_object.visible_get() != visibility:
-            bpy.ops.object.hide_collection(context, collection_index=index, toggle=True)
-    except:
-        context_override = context.copy()
-        context_override['area'] = get_area_from_context(context, 'VIEW_3D')
-
-        bpy.ops.object.hide_collection(context_override, collection_index=index, toggle=True)
-
-        if first_object.visible_get() != visibility:
-            bpy.ops.object.hide_collection(context_override, collection_index=index, toggle=True)
-
-    return collection
-
 def get_export_path(path, fields):
     """Returns an absolute path from an export path."""
 
@@ -517,26 +467,3 @@ def keymap_view3d_empty(km_name):
         {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
         {"items": []},
     )
-
-def make_annotations(cls):
-    """Converts class fields to annotations if running Blender 2.8."""
-
-    if bpy.app.version < (2, 80):
-        return
-
-    def is_property(o):
-        try:
-            return o[0].__module__ == 'bpy.props'
-        except:
-            return False
-    bl_props = {k: v for k, v in cls.__dict__.items() if is_property(v)}
-    if bl_props:
-        if '__annotations__' not in cls.__dict__:
-            setattr(cls, '__annotations__', {})
-        annotations = cls.__dict__['__annotations__']
-        for k, v in bl_props.items():
-            annotations[k] = v
-            delattr(cls, k)
-
-def _280(true=True, false=False):
-    return true if bpy.app.version >= (2, 80) else false

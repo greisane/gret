@@ -346,7 +346,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
 
-        saved_selection = save_selection(all_objects=True)
+        saved_selection = save_selection()
         saved_pose_position = rig.data.pose_position
         saved_use_global_undo = context.preferences.edit.use_global_undo
         context.preferences.edit.use_global_undo = False

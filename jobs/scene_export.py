@@ -320,8 +320,8 @@ class GRET_OT_scene_export(bpy.types.Operator):
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
 
-        saved_selection = save_selection(all_objects=True)
-        viewport_reveal_all(context)
+        saved_selection = save_selection(context)
+        viewport_reveal_all()
         saved_use_global_undo = context.preferences.edit.use_global_undo
         context.preferences.edit.use_global_undo = False
         self.exported_files = []
