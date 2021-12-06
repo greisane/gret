@@ -212,11 +212,19 @@ class GRET_OT_scene_export(bpy.types.Operator):
 
             # If enabled, move main object to world center while keeping collision relative transforms
             if not job.keep_transforms:
+                was_parented = False
+                if obj.parent:
+                    logd(f"Moving object {obj.name}")
+                    was_parented = True
+                    obj.matrix_world = obj.parent.matrix_world.inverted() @ obj.matrix_world
+                    obj.parent = None
                 for other_obj in chain(item.col_objs, item.socket_objs):
                     logd(f"Moving object {other_obj.name}")
                     self.saved_transforms[other_obj] = other_obj.matrix_world.copy()
                     other_obj.matrix_world = obj.matrix_world.inverted() @ other_obj.matrix_world
-                obj.matrix_world.identity()
+                if not was_parented:
+                    logd(f"Zero transform for object {obj.name}")
+                    obj.matrix_world.identity()
 
             # If set, ensure prefix for exported materials
             if job.material_name_prefix:
