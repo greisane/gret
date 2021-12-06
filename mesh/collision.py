@@ -24,7 +24,6 @@ def find_collection_in_scene(scene, name):
     while colls:
         coll = colls.pop()
         if re.match(rf"^{name}(?:\.\d\d\d)?$", coll.name):
-            print(coll.name)
             return coll
         colls.extend(coll.children)
     return None
