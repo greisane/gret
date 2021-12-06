@@ -19,6 +19,7 @@ from ..helpers import (
     load_selection,
     save_properties,
     save_selection,
+    viewport_reveal_all,
 )
 from ..mesh.helpers import (
     apply_modifiers,
@@ -332,9 +333,6 @@ class GRET_OT_rig_export(bpy.types.Operator):
         if job.to_collection and not job.export_collection:
             self.report({'ERROR'}, "No collection selected to export to.")
             return {'CANCELLED'}
-        if not rig.visible_get():
-            self.report({'ERROR'}, "Currently the rig must be visible to export.")
-            return {'CANCELLED'}
         context.view_layer.objects.active = rig
 
         # Check addon availability and export path
@@ -347,6 +345,8 @@ class GRET_OT_rig_export(bpy.types.Operator):
             return {'CANCELLED'}
 
         saved_selection = save_selection()
+        viewport_reveal_all()
+        assert rig.visible_get()
         saved_pose_position = rig.data.pose_position
         saved_use_global_undo = context.preferences.edit.use_global_undo
         context.preferences.edit.use_global_undo = False
