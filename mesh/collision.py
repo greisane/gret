@@ -5,13 +5,14 @@ import bmesh
 import bpy
 import re
 
-from ..helpers import remove_extra_data
 from ..math import (
     calc_best_fit_line,
     get_dist_sq,
     get_point_dist_to_line_sq,
     get_range_pct,
 )
+from ..helpers import remove_extra_data
+from .helpers import TempModifier
 
 # make_collision TODO:
 # - When creating collision from vertices, sometimes the result is offset
@@ -77,6 +78,8 @@ class GRET_OT_make_collision(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     shape: bpy.props.EnumProperty(
+        name="Shape",
+        description="Selects the collision shape",
         items=[
             ('AABB', "AABB", "Axis-aligned box collision.", 'MESH_PLANE', 0),
             ('CYLINDER', "Cylinder", "Cylinder collision.", 'MESH_CYLINDER', 1),
@@ -85,8 +88,6 @@ class GRET_OT_make_collision(bpy.types.Operator):
             ('CONVEX', "Convex", "Convex collision.", 'MESH_ICOSPHERE', 4),
             ('WALL', "Wall", "Wall collision.", 'MOD_SOLIDIFY', 5),
         ],
-        name="Shape",
-        description="Selects the collision shape",
     )
     collection: bpy.props.StringProperty(
         name="Collection",
@@ -228,20 +229,19 @@ class GRET_OT_make_collision(bpy.types.Operator):
         min=0.0,
         max=1.0,
     )
-    x_symmetry: bpy.props.BoolProperty(
-        name="X Symmetry",
-        description="Symmetrize across X axis",
+    use_symmetry: bpy.props.BoolProperty(
+        name="Symmetry",
+        description="Maintain symmetry on an axis",
         default=False,
     )
-    y_symmetry: bpy.props.BoolProperty(
-        name="Y Symmetry",
-        description="Symmetrize across Y axis",
-        default=False,
-    )
-    z_symmetry: bpy.props.BoolProperty(
-        name="Z Symmetry",
-        description="Symmetrize across Z axis",
-        default=False,
+    symmetry_axis: bpy.props.EnumProperty(
+        name="Symmetry Axis",
+        description="Axis of symmetry",
+        items=[
+            ('X', "X", "X"),
+            ('Y', "Y", "Y"),
+            ('Z', "Z", "Z"),
+        ],
     )
 
     # Wall settings
@@ -407,24 +407,10 @@ class GRET_OT_make_collision(bpy.types.Operator):
         bm.free()
 
         # Decimate (no bmesh op for this currently?)
-        context.view_layer.objects.active = col_obj
-        obj.select_set(False)
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.mesh.decimate(ratio=self.decimate_ratio)
-
-        # Symmetrize
-        if self.x_symmetry:
-            bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.mesh.symmetrize(direction='POSITIVE_X')
-        if self.y_symmetry:
-            bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.mesh.symmetrize(direction='POSITIVE_Y')
-        if self.z_symmetry:
-            bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.mesh.symmetrize(direction='POSITIVE_Z')
-
-        bpy.ops.object.mode_set(mode='OBJECT')
+        with TempModifier(col_obj, type='DECIMATE') as dec_mod:
+            dec_mod.ratio = self.decimate_ratio
+            dec_mod.use_symmetry = self.use_symmetry
+            dec_mod.symmetry_axis = self.symmetry_axis
 
     def make_wall_collision(self, context, obj):
         if context.mode == 'EDIT_MESH':
@@ -449,11 +435,13 @@ class GRET_OT_make_collision(bpy.types.Operator):
 
     def execute(self, context):
         obj = context.active_object
+
         if obj.mode != 'EDIT':
             # When working from object mode, it follows that there should be only one collision shape
             pattern = re.compile(rf"^U[A-Z][A-Z]_{obj.name}_\d+")
             for mesh in [mesh for mesh in bpy.data.meshes if pattern.match(mesh.name)]:
                 bpy.data.meshes.remove(mesh)
+
         if self.shape == 'AABB':
             self.make_aabb_collision(context, obj)
         elif self.shape == 'CYLINDER':
@@ -466,6 +454,7 @@ class GRET_OT_make_collision(bpy.types.Operator):
             self.make_convex_collision(context, obj)
         elif self.shape == 'WALL':
             self.make_wall_collision(context, obj)
+
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -475,10 +464,12 @@ class GRET_OT_make_collision(bpy.types.Operator):
         except RuntimeError as e:
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
+
+        # Ideally this would execute once then show the popup dialog, doesn't seem possible
         return context.window_manager.invoke_props_dialog(self)
 
     def calculate_parameters(self, context, obj):
-        if context.mode == 'EDIT_MESH':
+        if obj.mode == 'EDIT':
             bm = bmesh.from_edit_mesh(obj.data)
             vert_cos = [vert.co for vert in bm.verts if vert.select]
         else:
@@ -538,18 +529,18 @@ class GRET_OT_make_collision(bpy.types.Operator):
 
     def draw(self, context):
         layout = self.layout
+        layout.use_property_split = True
+
         col = layout.column()
-        col.prop(self, 'shape')
-        col.prop(self, 'wire')
+        row = col.row(align=True)
+        row.prop(self, 'shape')
+        row.prop(self, 'wire', icon='MOD_WIREFRAME', text="")
         if self.shape in {'AABB', 'CYLINDER'}:
+            col.separator()
             col.prop(self, 'hollow')
-            sub = col.split()
-            sub.prop(self, 'thickness')
-            sub.prop(self, 'offset')
-            if self.shape == 'CYLINDER':
-                sub.prop(self, 'cyl_caps')
-            sub.enabled = self.hollow
-        col.separator()
+            if self.hollow:
+                col.prop(self, 'thickness')
+                col.prop(self, 'offset')
 
         if self.shape == 'AABB':
             col.prop(self, 'aabb_width')
@@ -560,6 +551,7 @@ class GRET_OT_make_collision(bpy.types.Operator):
             col.prop(self, 'cyl_diameter1')
             col.prop(self, 'cyl_diameter2')
             col.prop(self, 'cyl_height')
+            col.prop(self, 'cyl_caps')
         elif self.shape == 'CAPSULE':
             col.prop(self, 'cap_diameter')
             col.prop(self, 'cap_depth')
@@ -568,11 +560,9 @@ class GRET_OT_make_collision(bpy.types.Operator):
         elif self.shape == 'CONVEX':
             col.prop(self, 'planar_angle')
             col.prop(self, 'decimate_ratio')
-            col.label(text='Symmetrize')
-            row = col.row(align=True)
-            row.prop(self, 'x_symmetry', text="X", toggle=1)
-            row.prop(self, 'y_symmetry', text="Y", toggle=1)
-            row.prop(self, 'z_symmetry', text="Z", toggle=1)
+            row = col.row(align=True, heading="Symmetrize")
+            row.prop(self, 'use_symmetry', text="")
+            row.prop(self, 'symmetry_axis', expand=True)
         elif self.shape == 'WALL':
             col.prop(self, 'thickness')
             col.prop(self, 'offset')

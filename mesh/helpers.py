@@ -40,15 +40,24 @@ class TempModifier:
         self.type = type
 
     def __enter__(self):
+        self.saved_mode = bpy.context.mode
+        if bpy.context.mode == 'EDIT_MESH':
+            bpy.ops.object.editmode_toggle()
+
         self.modifier = self.obj.modifiers.new(type=self.type, name="")
         # Move first to avoid the warning on applying
         ctx = get_context(self.obj)
         bpy.ops.object.modifier_move_to_index(ctx, modifier=self.modifier.name, index=0)
+
         return self.modifier
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         ctx = get_context(self.obj)
+
         bpy.ops.object.modifier_apply(ctx, modifier=self.modifier.name)
+
+        if self.saved_mode == 'EDIT_MESH':
+            bpy.ops.object.editmode_toggle()
 
 def edit_mesh_elements(obj, type='VERT', indices=None, key=None):
     """
@@ -346,7 +355,7 @@ def merge_freestyle_edges(obj):
     """Does 'Remove Doubles' on freestyle marked edges. Returns the number of vertices merged."""
     # Reverted to using bpy.ops because bmesh is failing to merge normals correctly
 
-    saved_mode = bpy.context.mode
+    saved_mode = obj.mode
 
     edit_mesh_elements(obj, 'EDGE', key=lambda e: e.use_freestyle_mark)
     old_num_verts = len(obj.data.vertices)
