@@ -17,6 +17,7 @@ from ..helpers import (
     load_selection,
     save_selection,
     select_only,
+    viewport_reveal_all,
 )
 from ..log import logger, log, logd
 from ..mesh.helpers import (
@@ -320,6 +321,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
             return {'CANCELLED'}
 
         saved_selection = save_selection(all_objects=True)
+        viewport_reveal_all(context)
         saved_use_global_undo = context.preferences.edit.use_global_undo
         context.preferences.edit.use_global_undo = False
         self.exported_files = []

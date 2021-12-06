@@ -78,33 +78,40 @@ def get_context(active_obj=None, selected_objs=None):
 SelectionState = namedtuple('SelectionState', [
     'selected',
     'active',
+    'collections',
     'layers',
     'objects',
 ])
+
+def get_layers_recursive(layer):
+    yield layer
+    for child in layer.children:
+        yield from get_layers_recursive(child)
 
 def save_selection(all_objects=False):
     """Returns a SelectionState storing the current selection state."""
 
     return SelectionState(
         selected=bpy.context.selected_objects[:],
-        active=bpy.context.scene.objects.active if not _280() else
-            bpy.context.view_layer.objects.active,
-        layers=bpy.context.scene.layers[:] if not _280() else
-            [(c, c.hide_select, c.hide_viewport, c.hide_render) for c in bpy.data.collections],
+        active=bpy.context.view_layer.objects.active,
+        collections=[(c, c.hide_select, c.hide_viewport, c.hide_render) for c in bpy.data.collections],
+        layers=[(l, l.hide_viewport, l.exclude) for l in
+            get_layers_recursive(bpy.context.view_layer.layer_collection)],
         objects=[(o, o.hide_select, o.hide_viewport, o.hide_render) for o in bpy.data.objects],
     )
 
 def load_selection(state):
     """Restores selection state from a SelectionState returned by save_selection()"""
 
-    if not _280():
-        bpy.context.scene.layers[:] = state.layers
-    else:
-        for collection, hide_select, hide_viewport, hide_render in state.layers:
-            if is_valid(collection):
-                collection.hide_select = hide_select
-                collection.hide_viewport = hide_viewport
-                collection.hide_render = hide_render
+    for collection, hide_select, hide_viewport, hide_render in state.collections:
+        if is_valid(collection):
+            collection.hide_select = hide_select
+            collection.hide_viewport = hide_viewport
+            collection.hide_render = hide_render
+    for layer, hide_viewport, exclude in state.layers:
+        if is_valid(layer):
+            layer.hide_viewport = hide_viewport
+            layer.exclude = exclude
     for obj, hide_select, hide_viewport, hide_render in state.objects:
         if is_valid(obj):
             obj.hide_select = hide_select
@@ -115,6 +122,14 @@ def load_selection(state):
 
     if is_valid(state.active):
         bpy.context.view_layer.objects.active = state.active
+
+def viewport_reveal_all(context):
+    for collection in bpy.data.collections:
+        collection.hide_select = False
+        collection.hide_viewport = False
+    for layer in get_layers_recursive(bpy.context.view_layer.layer_collection):
+        layer.hide_viewport = False
+        layer.exclude = False
 
 def save_properties(obj):
     """Returns a dictionary storing the properties of a Blender object."""
