@@ -43,35 +43,41 @@ def xyz_from_index(i):
 
 def get_bake_objects(context, material, out_objects, out_meshes):
     for obj in context.scene.objects:
-        if obj.type == 'MESH' and not obj.hide_render and material.name in obj.data.materials:
-            # Only apply render modifiers
-            saved_modifier_show_viewport = []
-            for mod in obj.modifiers:
-                saved_modifier_show_viewport.append(mod.show_viewport)
-                mod.show_viewport = mod.show_render
+        if obj.type != 'MESH' or obj.hide_render:
+            continue  # Not a mesh or filtered by visibility
+        if not material.name in obj.data.materials:
+            continue  # Object doesn't contribute
+        if not obj.data.polygons:
+            continue  # Empty meshes cause bake to fail
 
-            dg = context.evaluated_depsgraph_get()
-            new_data = bpy.data.meshes.new_from_object(obj.evaluated_get(dg),
-                preserve_all_data_layers=True, depsgraph=dg)
-            new_obj = bpy.data.objects.new(obj.name + "_", new_data)
-            new_data.transform(obj.matrix_world)
-            bpy.ops.object.origin_set(get_context(new_obj), type='ORIGIN_GEOMETRY', center='MEDIAN')
+        # Only apply render modifiers
+        saved_modifier_show_viewport = []
+        for mod in obj.modifiers:
+            saved_modifier_show_viewport.append(mod.show_viewport)
+            mod.show_viewport = mod.show_render
 
-            # Restore modifiers
-            for mod, show_viewport in zip(obj.modifiers, saved_modifier_show_viewport):
-                mod.show_viewport = show_viewport
+        dg = context.evaluated_depsgraph_get()
+        new_data = bpy.data.meshes.new_from_object(obj.evaluated_get(dg),
+            preserve_all_data_layers=True, depsgraph=dg)
+        new_obj = bpy.data.objects.new(obj.name + "_", new_data)
+        new_data.transform(obj.matrix_world)
+        bpy.ops.object.origin_set(get_context(new_obj), type='ORIGIN_GEOMETRY', center='MEDIAN')
 
-            out_objects.append(new_obj)
-            assert isinstance(new_data, bpy.types.Mesh)
-            assert new_data.users == 1
-            out_meshes.append(new_data)
+        # Restore modifiers
+        for mod, show_viewport in zip(obj.modifiers, saved_modifier_show_viewport):
+            mod.show_viewport = show_viewport
 
-            # New objects are moved to the scene collection, ensuring they're visible
-            context.scene.collection.objects.link(new_obj)
-            new_obj.hide_set(False)
-            new_obj.hide_viewport = False
-            new_obj.hide_render = False
-            new_obj.hide_select = False
+        out_objects.append(new_obj)
+        assert isinstance(new_data, bpy.types.Mesh)
+        assert new_data.users == 1
+        out_meshes.append(new_data)
+
+        # New objects are moved to the scene collection, ensuring they're visible
+        context.scene.collection.objects.link(new_obj)
+        new_obj.hide_set(False)
+        new_obj.hide_viewport = False
+        new_obj.hide_render = False
+        new_obj.hide_select = False
     return out_objects
 
 def remap_materials(objs, src_mat, dst_mat):
