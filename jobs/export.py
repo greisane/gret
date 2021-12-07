@@ -618,6 +618,7 @@ UVn+1: deltaXY, UVn+2: deltaZnormalX, UVn+3: normalYZ. All values are remapped t
         description="""Export path relative to the current folder.
 {file} = Name of this .blend file without extension.
 {object} = Name of the object being exported.
+{topobject} = Name of the top-most parent of the object being exported.
 {collection} = Name of the collection the object belongs to""",
         default="//export/S_{object}.fbx",
         subtype='FILE_PATH',
@@ -705,7 +706,7 @@ Requires a mirror modifier""",
         subtype='FILE_PATH',
     )
 
-    def get_export_objects(self, context, types=set(), armature=None):
+    def get_export_objects(self, context, types=set(), armature=None, unique=False):
         objs, objs_job_cl = [], []
         for job_cl in self.collections:
             cl = job_cl.get_collection(context)
@@ -713,17 +714,17 @@ Requires a mirror modifier""",
                 continue
             if not (not cl.hide_viewport and job_cl.export_viewport
                 or not cl.hide_render and job_cl.export_render):
-                continue
+                continue  # Collection filtered by visibility
             for obj in cl.objects:
                 if types and obj.type not in types:
-                    continue
+                    continue  # Not in the requested object types
                 if (armature and obj.find_armature() != armature and
                     (not armature.proxy or obj.find_armature() != armature.proxy)):
-                    continue
+                    continue  # Wrong armature
                 if not (not obj.hide_viewport and job_cl.export_viewport
                     or not obj.hide_render and job_cl.export_render):
-                    continue
-                if obj not in objs:
+                    continue  # Object filtered by visibility
+                if not unique or obj not in objs:
                     objs.append(obj)
                     objs_job_cl.append(job_cl)
         return objs, objs_job_cl

@@ -200,6 +200,11 @@ def is_defaulted(obj):
 
     return True
 
+def get_topmost_parent(obj):
+    while obj.parent:
+        obj = obj.parent
+    return obj
+
 def get_children_recursive(obj):
     for child in obj.children:
         yield child

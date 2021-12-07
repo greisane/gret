@@ -13,6 +13,7 @@ from ..helpers import (
     get_export_path,
     get_name_safe,
     get_nice_export_report,
+    get_topmost_parent,
     intercept,
     load_selection,
     save_selection,
@@ -265,6 +266,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
             cl = job_cl.get_collection(context) if job_cl else item.original.users_collection[0]
             path_fields = {
                 'object': item.original.name,
+                'topobject': get_topmost_parent(item.original).name,
                 'collection': cl.name,
             }
             filepath = get_export_path(job.scene_export_path, path_fields)
@@ -314,13 +316,13 @@ class GRET_OT_scene_export(bpy.types.Operator):
 
         # Check addon availability and export path
         try:
-            field_names = ['object', 'collection']
+            field_names = ['object', 'topobject', 'collection']
             fail_if_invalid_export_path(job.scene_export_path, field_names)
         except Exception as e:
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
 
-        saved_selection = save_selection(context)
+        saved_selection = save_selection()
         viewport_reveal_all()
         saved_use_global_undo = context.preferences.edit.use_global_undo
         context.preferences.edit.use_global_undo = False
