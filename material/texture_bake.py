@@ -45,7 +45,7 @@ def get_bake_objects(context, material, out_objects, out_meshes):
     for obj in context.scene.objects:
         if obj.type != 'MESH' or obj.hide_render:
             continue  # Not a mesh or filtered by visibility
-        if not material.name in obj.data.materials:
+        if not material.name in obj.material_slots:
             continue  # Object doesn't contribute
         if not obj.data.polygons:
             continue  # Empty meshes cause bake to fail
@@ -62,6 +62,11 @@ def get_bake_objects(context, material, out_objects, out_meshes):
         new_obj = bpy.data.objects.new(obj.name + "_", new_data)
         new_data.transform(obj.matrix_world)
         bpy.ops.object.origin_set(get_context(new_obj), type='ORIGIN_GEOMETRY', center='MEDIAN')
+
+        # Move object materials to mesh
+        for mat_idx, mat_slot in enumerate(obj.material_slots):
+            if mat_slot.link == 'OBJECT':
+                new_data.materials[mat_idx] = mat_slot.material
 
         # Restore modifiers
         for mod, show_viewport in zip(obj.modifiers, saved_modifier_show_viewport):

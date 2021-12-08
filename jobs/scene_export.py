@@ -85,6 +85,11 @@ class GRET_OT_scene_export(bpy.types.Operator):
         assert new_data.users == 1
         self.new_meshes.append(new_data)
 
+        # Move object materials to mesh
+        for mat_idx, mat_slot in enumerate(obj.material_slots):
+            if mat_slot.link == 'OBJECT':
+                new_data.materials[mat_idx] = mat_slot.material
+
         # New objects are moved to the scene collection, ensuring they're visible
         bpy.context.scene.collection.objects.link(new_obj)
         new_obj.hide_set(False)
