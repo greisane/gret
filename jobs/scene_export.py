@@ -279,7 +279,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
             logger.indent -= 1
 
         # Export each file
-        for filepath, items in groups.items():
+        for filepath, items in sorted(groups.items()):
             for item in items:
                 self.swap_object_names(item.original, item.obj)
                 # Rename sockets to lose the .001 .002 suffix while avoiding name collisions

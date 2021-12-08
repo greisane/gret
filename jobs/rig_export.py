@@ -237,7 +237,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
         del items  # These objects might become invalid soon
 
         # Process groups. Meshes in each group are merged together
-        for filepath, items in groups.items():
+        for filepath, items in sorted(groups.items()):
             if len(items) <= 1:
                 continue
 
