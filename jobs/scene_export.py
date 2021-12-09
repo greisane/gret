@@ -219,23 +219,26 @@ class GRET_OT_scene_export(bpy.types.Operator):
 
             # If enabled, move main object to world center while keeping collision relative transforms
             if not job.keep_transforms:
-                was_parented = False
-                if obj.parent:
-                    logd(f"Moving object {obj.name}")
-                    was_parented = True
-                    pivot_tm_inverse = obj.parent.matrix_world.inverted()
-                    obj.matrix_world = pivot_tm_inverse @ obj.matrix_world
+                was_parented = obj.parent is not None
+                if was_parented:
+                    pivot_obj = get_topmost_parent(obj)
+                    if pivot_obj == obj.parent:
+                        logd(f"Unparenting {obj.name} from {obj.parent.name}")
+                    else:
+                        logd(f"Unparenting {obj.name} from {obj.parent.name} (top: {pivot_obj.name})")
+                    pivot_tm_inverse = pivot_obj.matrix_world.inverted()
                     obj.parent = None
+                    obj.matrix_world = pivot_tm_inverse @ obj.matrix_world
                 else:
                     pivot_tm_inverse = obj.matrix_world.inverted()
 
                 for other_obj in chain(item.col_objs, item.socket_objs):
-                    logd(f"Moving object {other_obj.name}")
+                    logd(f"Moving collision/socket {other_obj.name}")
                     self.saved_transforms[other_obj] = other_obj.matrix_world.copy()
                     other_obj.matrix_world = pivot_tm_inverse @ other_obj.matrix_world
 
                 if not was_parented:
-                    logd(f"Zero transform for object {obj.name}")
+                    logd(f"Zero transform for {obj.name}")
                     obj.matrix_world.identity()
 
             # If set, ensure prefix for exported materials
