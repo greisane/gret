@@ -2,6 +2,25 @@ from math import pi
 import bpy
 import sys
 
+def get_first_mapping(obj):
+    return obj.vertex_color_mapping[0] if obj.vertex_color_mapping else None
+
+def copy_mapping(obj, other_obj):
+    mapping = get_first_mapping(obj)
+    if mapping and not other_obj.vertex_color_mapping:
+        other_obj.vertex_color_mapping.add()
+    elif not mapping and other_obj.vertex_color_mapping:
+        other_obj.vertex_color_mapping.clear()
+    other_mapping = get_first_mapping(other_obj)
+
+    if mapping and other_mapping:
+        other_mapping.r = mapping.r
+        other_mapping.g = mapping.g
+        other_mapping.b = mapping.b
+        other_mapping.a = mapping.a
+        other_mapping.invert = mapping.invert
+        other_mapping.extents = mapping.extents
+
 def values_to_vcol(mesh, src_values, dst_vcol, dst_channel_idx, invert=False):
     for loop_idx, loop in enumerate(mesh.loops):
         value = max(0.0, min(1.0, src_values[loop.vertex_index]))
@@ -52,7 +71,7 @@ def update_vcol_from_src(obj, mapping, src, dst_vcol, dst_channel_idx, invert=Fa
         values_to_vcol(mesh, values, dst_vcol, dst_channel_idx, invert=invert)
 
 def update_vcols(obj, invert=False):
-    mapping = obj.vertex_color_mapping[0] if obj.vertex_color_mapping else None
+    mapping = get_first_mapping(obj)
     if not mapping:
         return
     if all(src == 'NONE' for src in (mapping.r, mapping.g, mapping.b, mapping.a)):
@@ -133,95 +152,6 @@ class GRET_OT_vertex_color_mapping_refresh(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class GRET_OT_vertex_color_mapping_set(bpy.types.Operator):
-    #tooltip
-    """Set vertex color mapping for multiple objects"""
-
-    bl_idname = 'gret.vertex_color_mapping_set'
-    bl_label = "Set Vertex Color Mapping"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    r: bpy.props.EnumProperty(
-        name="Vertex Color R Source",
-        description="Source mapping to vertex color channel red",
-        items=vcol_src_r_items,
-        default=1,
-    )
-    g: bpy.props.EnumProperty(
-        name="Vertex Color G Source",
-        description="Source mapping to vertex color channel green",
-        items=vcol_src_g_items,
-        default=1,
-    )
-    b: bpy.props.EnumProperty(
-        name="Vertex Color B Source",
-        description="Source mapping to vertex color channel blue",
-        items=vcol_src_b_items,
-        default=1,
-    )
-    a: bpy.props.EnumProperty(
-        name="Vertex Color A Source",
-        description="Source mapping to vertex color channel alpha",
-        items=vcol_src_a_items,
-        default=1,
-    )
-    invert: bpy.props.BoolProperty(
-        name="Invert Values",
-        description="Make the result 1-value for each vertex color channel",
-        default=False,
-    )
-    extents: bpy.props.FloatProperty(
-        name="Extents",
-        description="Extents of the box used to scale mappings that encode a location",
-        default=4.0, min=0.001, precision=4, step=1, unit='LENGTH',
-    )
-
-    @classmethod
-    def poll(cls, context):
-        return bool(context.selected_objects)
-
-    def execute(self, context):
-        for obj in context.selected_objects:
-            if obj.type == 'MESH':
-                if not obj.vertex_color_mapping:
-                    obj.vertex_color_mapping.add()
-                mapping = obj.vertex_color_mapping[0]
-                mapping.r = self.r
-                mapping.g = self.g
-                mapping.b = self.b
-                mapping.a = self.a
-                mapping.invert = self.invert
-                mapping.extents = self.extents
-
-                update_vcols(obj)
-
-        return {'FINISHED'}
-
-    def draw(self, context):
-        layout = self.layout
-        col = layout.column()
-        row = col.row(align=True)
-        row.prop(self, 'r', icon='COLOR_RED', text="")
-        row.prop(self, 'g', icon='COLOR_GREEN', text="")
-        row.prop(self, 'b', icon='COLOR_BLUE', text="")
-        row.prop(self, 'a', icon='OUTLINER_DATA_FONT', text="")
-        row.prop(self, 'invert', icon='REMOVE', text="")
-        if any(src in {'PIVOTLOC', 'VERTEX'} for src in (self.r, self.g, self.b, self.a)):
-            col.prop(self, 'extents')
-
-    def invoke(self, context, event):
-        obj = context.object
-        if obj.vertex_color_mapping:
-            # Take default values from the selected object if there's already a mapping
-            mapping = obj.vertex_color_mapping[0]
-            self.r = mapping.r
-            self.g = mapping.g
-            self.b = mapping.b
-            self.a = mapping.a
-            self.invert = mapping.invert
-            self.extents = mapping.extents
-        return context.window_manager.invoke_props_dialog(self)
-
 class GRET_OT_vertex_color_mapping_add(bpy.types.Operator):
     #tooltip
     """Add vertex color mapping"""
@@ -259,6 +189,48 @@ class GRET_OT_vertex_color_mapping_clear(bpy.types.Operator):
     def execute(self, context):
         obj = context.active_object
         obj.vertex_color_mapping.clear()
+
+        return {'FINISHED'}
+
+class GRET_OT_vertex_color_mapping_copy_to_linked(bpy.types.Operator):
+    #tooltip
+    """Clear vertex color mapping"""
+
+    bl_idname = 'gret.vertex_color_mapping_copy_to_linked'
+    bl_label = "Copy Vertex Color Mapping to Linked"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object and context.active_object.type == 'MESH'
+
+    def execute(self, context):
+        obj = context.active_object
+
+        for other_obj in bpy.data.objects:
+            if other_obj != obj and other_obj.data == obj.data:
+                copy_mapping(obj, other_obj)
+
+        return {'FINISHED'}
+
+class GRET_OT_vertex_color_mapping_copy_to_selected(bpy.types.Operator):
+    #tooltip
+    """Clear vertex color mapping"""
+
+    bl_idname = 'gret.vertex_color_mapping_copy_to_selected'
+    bl_label = "Copy Vertex Color Mapping to Selected"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object and context.active_object.type == 'MESH'
+
+    def execute(self, context):
+        obj = context.active_object
+
+        for other_obj in context.selected_objects:
+            if other_obj != obj:
+                copy_mapping(obj, other_obj)
 
         return {'FINISHED'}
 
@@ -301,13 +273,17 @@ class GRET_PG_vertex_color_mapping(bpy.types.PropertyGroup):
 def vcol_panel_draw(self, context):
     layout = self.layout
     obj = context.active_object
-    mapping = obj.vertex_color_mapping[0] if obj.vertex_color_mapping else None
+    mapping = get_first_mapping(obj)
 
     if not mapping:
-        layout.operator('gret.vertex_color_mapping_add', icon='ADD')
+        row = layout.row(align=True)
+        row.operator('gret.vertex_color_mapping_add', icon='ADD')
+        row.menu('GRET_MT_vertex_color_mapping', text='', icon='DOWNARROW_HLT')
     else:
         col = layout.column(align=True)
-        col.operator('gret.vertex_color_mapping_clear', icon='X')
+        row = col.row(align=True)
+        row.operator('gret.vertex_color_mapping_clear', icon='X')
+        row.menu('GRET_MT_vertex_color_mapping', text='', icon='DOWNARROW_HLT')
         row = col.row(align=True)
         row.prop(mapping, 'r', icon='COLOR_RED', text="")
         row.prop(mapping, 'g', icon='COLOR_GREEN', text="")
@@ -318,11 +294,22 @@ def vcol_panel_draw(self, context):
         if any(src in {'PIVOTLOC', 'VERTEX'} for src in (mapping.r, mapping.g, mapping.b, mapping.a)):
             col.prop(mapping, 'extents')
 
+class GRET_MT_vertex_color_mapping(bpy.types.Menu):
+    bl_label = "Vertex Color Mapping Menu"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.operator('gret.vertex_color_mapping_copy_to_linked')
+        layout.operator('gret.vertex_color_mapping_copy_to_selected')
+
 classes = (
+    GRET_MT_vertex_color_mapping,
     GRET_OT_vertex_color_mapping_add,
     GRET_OT_vertex_color_mapping_clear,
+    GRET_OT_vertex_color_mapping_copy_to_linked,
+    GRET_OT_vertex_color_mapping_copy_to_selected,
     GRET_OT_vertex_color_mapping_refresh,
-    GRET_OT_vertex_color_mapping_set,
     GRET_PG_vertex_color_mapping,
 )
 
