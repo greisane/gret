@@ -67,11 +67,6 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         description="Name of the default UV layer for tileset paint",
         default="UVMap",
     )
-    auto_hide_arp_enable: bpy.props.BoolProperty(
-        name="Auto Hide ARP",
-        description="Automatically hide the ARP armature collection on saving",
-        default=False,
-    )
     debug: bpy.props.BoolProperty(
         name="Debug Mode",
         description="Enables verbose output",
@@ -83,7 +78,6 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         col = layout.column(align=True)
 
         col.prop(self, 'jobs_panel_enable')
-        col.prop(self, 'auto_hide_arp_enable')
         col.prop(self, 'debug')
         col.separator()
 
