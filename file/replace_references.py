@@ -87,6 +87,8 @@ class GRET_OT_replace_references(bpy.types.Operator):
             self.report({'INFO'}, f"No references found.")
         elif self.dry_run:
             self.report({'INFO'}, f"{num_found} references found, see console for details.")
+        elif num_replaced < num_found and num_replaced == 0:
+            self.report({'INFO'}, f"{num_found} references found, none could be replaced.")
         elif num_replaced < num_found:
             self.report({'INFO'}, f"{num_found} references found, only {num_replaced} were replaced.")
         else:

@@ -161,7 +161,11 @@ class GRET_OT_selection_set_remove(bpy.types.Operator):
         obj = context.active_object
         index = obj.selection_sets.find(self.name)
         if index > -1:
-            obj.selection_sets.remove(index)
+            try:
+                obj.selection_sets.remove(index)
+            except TypeError:
+                self.report({'WARNING'}, "This selection set can't be removed.")
+                return {'CANCELLED'}
         return {'FINISHED'}
 
 class GRET_OT_selection_set_overwrite(bpy.types.Operator):

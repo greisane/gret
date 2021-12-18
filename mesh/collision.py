@@ -164,15 +164,15 @@ class GRET_OT_make_collision(bpy.types.Operator):
         default=8,
         min=3,
     )
-    cyl_diameter1: bpy.props.FloatProperty(
-        name="Diameter 1",
-        description="First cylinder diameter",
+    cyl_radius1: bpy.props.FloatProperty(
+        name="Radius 1",
+        description="First cylinder radius",
         subtype='DISTANCE',
         min=0.001,
     )
-    cyl_diameter2: bpy.props.FloatProperty(
-        name="Diameter 2",
-        description="Second cylinder diameter",
+    cyl_radius2: bpy.props.FloatProperty(
+        name="Radius 2",
+        description="Second cylinder radius",
         subtype='DISTANCE',
         min=0.001,
     )
@@ -184,9 +184,9 @@ class GRET_OT_make_collision(bpy.types.Operator):
     )
 
     # Capsule settings
-    cap_diameter: bpy.props.FloatProperty(
-        name="Diameter",
-        description="Capsule diameter",
+    cap_radius: bpy.props.FloatProperty(
+        name="Radius",
+        description="Capsule radius",
         subtype='DISTANCE',
         min=0.001,
     )
@@ -204,9 +204,9 @@ class GRET_OT_make_collision(bpy.types.Operator):
     )
 
     # Sphere settings
-    sph_diameter: bpy.props.FloatProperty(
-        name="Diameter",
-        description="Sphere diameter",
+    sph_radius: bpy.props.FloatProperty(
+        name="Radius",
+        description="Sphere radius",
         subtype='DISTANCE',
         min=0.001,
     )
@@ -344,7 +344,7 @@ class GRET_OT_make_collision(bpy.types.Operator):
         bm = bmesh.new()
         cap_ends = not self.hollow or self.cyl_caps
         bmesh.ops.create_cone(bm, cap_ends=cap_ends, cap_tris=False, segments=self.cyl_sides,
-            diameter1=self.cyl_diameter1, diameter2=self.cyl_diameter2, depth=self.cyl_height,
+            radius1=self.cyl_radius1, radius2=self.cyl_radius2, depth=self.cyl_height,
             calc_uvs=False, matrix=mat)
         if self.hollow:
             self.create_split_col_object_from_bm(context, obj, bm, self.thickness, self.offset)
@@ -356,18 +356,18 @@ class GRET_OT_make_collision(bpy.types.Operator):
         mat = Matrix.Translation(self.location) @ self.cap_rotation.to_matrix().to_4x4()
         bm = bmesh.new()
         bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=8,
-            diameter1=self.cap_diameter, diameter2=self.cap_diameter, depth=self.cap_depth,
+            radius1=self.cap_radius, radius2=self.cap_radius, depth=self.cap_depth,
             calc_uvs=False, matrix=mat)
         bm.faces.ensure_lookup_table()
         caps = [bm.faces[-1], bm.faces[-4]]
-        bmesh.ops.poke(bm, faces=caps, offset=self.cap_diameter)
+        bmesh.ops.poke(bm, faces=caps, offset=self.cap_radius)
         self.create_col_object_from_bm(context, obj, bm, "UCP")
         bm.free()
 
     def make_sphere_collision(self, context, obj):
         mat = Matrix.Translation(self.location)
         bm = bmesh.new()
-        bmesh.ops.create_icosphere(bm, subdivisions=2, diameter=self.sph_diameter * 0.5,
+        bmesh.ops.create_icosphere(bm, subdivisions=2, radius=self.sph_radius*0.5,
             calc_uvs=False, matrix=mat)
         self.create_col_object_from_bm(context, obj, bm, "USP")
         bm.free()
@@ -498,34 +498,34 @@ class GRET_OT_make_collision(bpy.types.Operator):
         self.aabb_height = abs(corner1.z - corner2.z)
         self.aabb_center = (corner1 + corner2) * 0.5
 
-        # Cylinder diameters
-        self.cyl_diameter1 = self.cyl_diameter2 = 0.001
+        # Cylinder radiuss
+        self.cyl_radius1 = self.cyl_radius2 = 0.001
         for co in vert_cos:
             dx = center.x - co.x
             dy = center.y - co.y
             d = sqrt(dx * dx + dy * dy)
             influence2 = get_range_pct(corner1.z, corner2.z, co.z)
             influence1 = 1.0 - influence2
-            self.cyl_diameter1 = max(self.cyl_diameter1, d * influence1)
-            self.cyl_diameter2 = max(self.cyl_diameter2, d * influence2)
+            self.cyl_radius1 = max(self.cyl_radius1, d * influence1)
+            self.cyl_radius2 = max(self.cyl_radius2, d * influence2)
         self.cyl_height = self.aabb_height
 
-        # Capsule axis and diameter
-        diameter_sq = 0.001
+        # Capsule axis and radius
+        radius_sq = 0.001
         depth_sq = 0.0
         for co in vert_cos:
             dist_to_axis_sq = get_point_dist_to_line_sq(co, axis, center)
-            if dist_to_axis_sq > diameter_sq:
-                diameter_sq = dist_to_axis_sq
+            if dist_to_axis_sq > radius_sq:
+                radius_sq = dist_to_axis_sq
             dist_along_axis_sq = (co - center).project(axis).length_squared
             if dist_along_axis_sq > depth_sq:
                 depth_sq = dist_along_axis_sq
-        self.cap_diameter = sqrt(diameter_sq)
+        self.cap_radius = sqrt(radius_sq)
         self.cap_rotation = axis.to_track_quat('Z', 'X').to_euler('XYZ')
-        self.cap_depth = sqrt(depth_sq) * 2.0 - self.cap_diameter
+        self.cap_depth = sqrt(depth_sq) * 2.0 - self.cap_radius
 
-        # Sphere diameter
-        self.sph_diameter = max(self.aabb_depth, self.aabb_width, self.aabb_height)
+        # Sphere radius
+        self.sph_radius = max(self.aabb_depth, self.aabb_width, self.aabb_height)
 
     def draw(self, context):
         layout = self.layout
@@ -548,15 +548,15 @@ class GRET_OT_make_collision(bpy.types.Operator):
             col.prop(self, 'aabb_depth')
         elif self.shape == 'CYLINDER':
             col.prop(self, 'cyl_sides')
-            col.prop(self, 'cyl_diameter1')
-            col.prop(self, 'cyl_diameter2')
+            col.prop(self, 'cyl_radius1')
+            col.prop(self, 'cyl_radius2')
             col.prop(self, 'cyl_height')
             col.prop(self, 'cyl_caps')
         elif self.shape == 'CAPSULE':
-            col.prop(self, 'cap_diameter')
+            col.prop(self, 'cap_radius')
             col.prop(self, 'cap_depth')
         elif self.shape == 'SPHERE':
-            col.prop(self, 'sph_diameter')
+            col.prop(self, 'sph_radius')
         elif self.shape == 'CONVEX':
             col.prop(self, 'planar_angle')
             col.prop(self, 'decimate_ratio')

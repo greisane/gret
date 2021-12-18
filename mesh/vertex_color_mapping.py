@@ -2,6 +2,8 @@ from math import pi
 import bpy
 import sys
 
+from ..math import saturate
+
 def get_first_mapping(obj):
     return obj.vertex_color_mapping[0] if obj.vertex_color_mapping else None
 
@@ -23,7 +25,7 @@ def copy_mapping(obj, other_obj):
 
 def values_to_vcol(mesh, src_values, dst_vcol, dst_channel_idx, invert=False):
     for loop_idx, loop in enumerate(mesh.loops):
-        value = max(0.0, min(1.0, src_values[loop.vertex_index]))
+        value = saturate(src_values[loop.vertex_index])
         if invert:
             value = 1.0 - value
         dst_vcol.data[loop_idx].color[dst_channel_idx] = value
