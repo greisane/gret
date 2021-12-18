@@ -15,6 +15,7 @@ from ..helpers import (
     get_export_path,
     get_name_safe,
     get_nice_export_report,
+    get_object_filepath,
     load_properties,
     load_selection,
     save_properties,
@@ -101,8 +102,7 @@ class GRET_OT_rig_export(bpy.types.Operator):
             obj.shape_key_clear()
 
     def _execute(self, context, job, rig):
-        rig_filepath = (rig.proxy.library.filepath if rig.proxy and rig.proxy.library
-            else bpy.data.filepath)
+        rig_filepath = get_object_filepath(rig)
         rig_basename = os.path.splitext(bpy.path.basename(rig_filepath))[0]
         rig.data.pose_position = 'REST'
 

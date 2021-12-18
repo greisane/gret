@@ -18,6 +18,18 @@ fmt_fraction = lambda n, count: fmt_pct(safediv(n, count) * 100.0)
 def get_name_safe(obj):
     return getattr(obj, 'name', "Unknown") if obj else "None"
 
+def get_object_filepath(obj):
+    """Return source filepath of a proxy or library override, otherwise return the working filepath."""
+
+    try:
+        if obj.proxy and obj.proxy.library:
+            return obj.proxy.library.filepath
+        if obj.override_library and obj.override_library.reference:
+            return obj.override_library.reference.library.filepath
+    except:
+        pass
+    return bpy.data.filepath
+
 def select_only(context, objs):
     """Ensures only the given object or objects are selected."""
 

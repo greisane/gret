@@ -9,6 +9,7 @@ from ..helpers import (
     fail_if_invalid_export_path,
     get_export_path,
     get_nice_export_report,
+    get_object_filepath,
     load_selection,
     save_selection,
 )
@@ -44,8 +45,7 @@ class GRET_OT_animation_export(bpy.types.Operator):
 
     def _execute(self, context, job, rig):
         start_time = time.time()
-        rig_filepath = (rig.proxy.library.filepath if rig.proxy and rig.proxy.library
-            else bpy.data.filepath)
+        rig_filepath = get_object_filepath(rig)
         path_fields = {
             'rigfile': os.path.splitext(bpy.path.basename(rig_filepath))[0],
             'rig': rig.name,
