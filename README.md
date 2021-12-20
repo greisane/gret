@@ -40,9 +40,11 @@ Connects boundaries of selected objects to the active object. I wrote it to deal
 
 ![Demo](../readme/graft-demo.gif?raw=true)
 
+![Examples](../readme/graft-examples.png?raw=true)
+
 ## Mesh: Merge
 
-Boolean merges one or more objects, with options to fix the resulting normals. Does a lot of cleanup and, if possible, it will only merge vertices belonging to the same edge loops in order to preserve geometry and UVs.
+Boolean merges one or more objects, with options to fix the resulting normals. Does a lot of cleanup and, if possible, it will only merge vertices belonging to the same edge loops in order to preserve geometry and UVs. Though it's no substitute for proper retopo it can be a decent starting point.
 
 ![Demo](../readme/merge-demo.gif?raw=true)
 
@@ -149,6 +151,8 @@ Relaxes selected UV edge loops to their respective length on the mesh. Together 
 **Sculpt Selection**: Sets the sculpt mask from the current edit-mode vertex selection. Found in the Select menu in mesh edit mode.
 
 **Normalize Shape Key**: Resets min/max of shape keys while keeping the range of motion. A shape key with range [-1..3] becomes [0..1], neutral at 0.25. Some game engines don't allow extrapolation of shape keys. Found in Shape Keys → Specials Menu.
+
+**Select Shape Key**: Select vertices affected by the current shape key. Found in Shape Keys → Specials Menu.
 
 **Encode Shape Key**: Implements shape key to UV channel encoding required for [Static Mesh Morph Targets](https://docs.unrealengine.com/4.27/en-US/WorkingWithContent/Types/StaticMeshes/MorphTargets/). No menu button, use operator search.
 
