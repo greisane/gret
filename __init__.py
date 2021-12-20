@@ -2,7 +2,7 @@ bl_info = {
     'name': "gret",
     'author': "greisane",
     'description': "",
-    'version': (0, 1, 1),
+    'version': (0, 2, 0),
     'blender': (2, 93, 0),
     'location': "3D View > Tools",
     'category': "Object"
