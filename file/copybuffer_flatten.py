@@ -76,6 +76,7 @@ Modifiers and shape keys are applied, optionally other data may be removed"""
         # Make evaluated mesh copy, shape keys will be cleared
         dg = context.evaluated_depsgraph_get()
         new_obj = obj.copy()
+        new_obj.parent = None
         self.new_objs.add(new_obj)
         new_obj.name = new_obj.name + "_"
         if obj.type == 'MESH':
@@ -106,7 +107,7 @@ Modifiers and shape keys are applied, optionally other data may be removed"""
         if self.clear_face_maps and hasattr(new_obj, 'face_maps'):
             new_obj.face_maps.clear()
         if self.clear_custom_properties:
-            for key in new_obj.keys():
+            for key in list(new_obj.keys()):
                 del new_obj[key]
         if new_data:
             if self.clear_uv_layers and hasattr(new_data, 'uv_layers'):
