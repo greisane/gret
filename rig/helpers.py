@@ -263,13 +263,18 @@ def export_autorig_universal(filepath, context, rig, objects=[], actions=[], opt
 
     # Animation
     if not actions:
-        scn.arp_bake_actions = False
+        scn.arp_bake_anim = False
     else:
-        scn.arp_bake_actions = True
+        scn.arp_bake_anim = True
         scn.arp_bake_only_active = False
-        scn.arp_only_containing = True
-        scn.arp_frame_range_type = 'FULL'
-        scn.arp_export_name_string = ','.join(action.name for action in actions)
+        scn.arp_only_containing = False
+        scn.arp_export_use_actlist = True
+        scn.arp_export_actlist.clear()
+        arp_actlist = scn.arp_export_actlist.add()
+        for action in actions:
+            arp_action = arp_actlist.actions.add()
+            arp_action.action = action
+        scn.arp_frame_range_type = 'MARKERS'
         scn.arp_simplify_fac = 0.0
 
     # Misc
