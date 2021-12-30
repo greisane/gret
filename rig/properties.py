@@ -99,13 +99,17 @@ class GRET_OT_property_remove(bpy.types.Operator):
         return {'FINISHED'}
 
 def draw_panel(self, context):
-    obj = context.object
     layout = self.layout
+    settings = context.scene.gret
+    obj = context.object
 
     box = layout.box()
     row = box.row()
     row.label(text="Properties", icon='PROPERTIES')
-    row.operator('gret.property_add', icon='ADD', text="")
+    row = row.row(align=True)
+    if settings.properties_show_edit:
+        row.operator('gret.property_add', icon='ADD', text="")
+    row.prop(settings, 'properties_show_edit', icon='SETTINGS', text="")
 
     properties = obj.get('properties')
     if properties:
@@ -121,7 +125,8 @@ def draw_panel(self, context):
                 row.alert = True
                 row.label(text=f"Missing: {label}")
 
-            row.operator('gret.property_remove', icon='X', text="").index = idx
+            if settings.properties_show_edit:
+                row.operator('gret.property_remove', icon='X', text="").index = idx
 
 classes = (
     GRET_OT_property_add,
@@ -131,6 +136,12 @@ classes = (
 def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
+
+    settings.add_property('properties_show_edit', bpy.props.BoolProperty(
+        name="Edit Properties",
+        description="Show buttons to edit rig properties",
+        default=False,
+    ))
 
 def unregister():
     for cls in reversed(classes):
