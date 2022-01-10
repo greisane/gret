@@ -29,7 +29,7 @@ class GRET_OT_vertex_group_remove_unused(bpy.types.Operator):
         obj.update_from_editmode()
         vgroups = obj.vertex_groups
 
-        vgroup_used = {i: False for i, k in enumerate(vgroups)}
+        vgroup_used = {i: vg.lock_weight for i, vg in enumerate(vgroups)}
         for vert in obj.data.vertices:
             for vg in vert.groups:
                 if vg.weight > 0.0:
