@@ -11,6 +11,12 @@ Basis will change if Min is negative"""
     bl_context = 'objectmode'
     bl_options = {'REGISTER', 'UNDO'}
 
+    apply_vertex_group: bpy.props.BoolProperty(
+        name="Apply Vertex Group",
+        description="Apply vertex weight group",
+        default=False,
+    )
+
     @classmethod
     def poll(cls, context):
         obj = context.active_object
@@ -24,6 +30,7 @@ Basis will change if Min is negative"""
         saved_show_only_shape_key = obj.show_only_shape_key
         saved_active_shape_key_index = obj.active_shape_key_index
         saved_unmuted_shape_keys = [sk for sk in obj.data.shape_keys.key_blocks if not sk.mute]
+        saved_vertex_group = this_sk.vertex_group
         new_value = (this_sk.value - this_sk.slider_min) / (this_sk.slider_max - this_sk.slider_min)
 
         # Create a new shape key from the maximum range of motion by muting all except current
@@ -32,6 +39,8 @@ Basis will change if Min is negative"""
             sk.mute = sk_idx != obj.active_shape_key_index
         this_sk.slider_max = this_sk.slider_max - this_sk.slider_min
         this_sk.value = this_sk.slider_max
+        if not self.apply_vertex_group:
+            this_sk.vertex_group = ""
         obj.show_only_shape_key = False
         new_sk = obj.shape_key_add(name="New", from_mix=True)
 
@@ -52,6 +61,7 @@ Basis will change if Min is negative"""
         this_sk.slider_min = 0.0
         this_sk.slider_max = 1.0
         this_sk.value = new_value
+        this_sk.vertex_group = saved_vertex_group if not self.apply_vertex_group else ""
         for vert, new_vert in zip(this_sk.data, new_sk.data):
             vert.co[:] = new_vert.co
         obj.data.update()
