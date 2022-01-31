@@ -42,7 +42,7 @@ def xyz_from_index(i):
     return x, y, z
 
 def get_bake_objects(context, material, out_objects, out_meshes):
-    for obj in context.scene.objects:
+    for obj in context.scene.objects[:]:
         if obj.type != 'MESH' or obj.hide_render:
             continue  # Not a mesh or filtered by visibility
         if not material.name in obj.material_slots:
