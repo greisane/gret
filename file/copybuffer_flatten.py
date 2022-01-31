@@ -103,7 +103,10 @@ Modifiers and shape keys are applied, optionally other data may be removed"""
 
         # Clear optional data
         if self.clear_vertex_groups and hasattr(new_obj, 'vertex_groups'):
-            new_obj.vertex_groups.clear()
+            try:
+                new_obj.vertex_groups.clear()
+            except RuntimeError:
+                pass
         if self.clear_face_maps and hasattr(new_obj, 'face_maps'):
             new_obj.face_maps.clear()
         if self.clear_custom_properties:
