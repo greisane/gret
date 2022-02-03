@@ -6,7 +6,7 @@ import bpy
 
 from ..math import get_direction_safe
 from ..helpers import get_context
-from .helpers import new_vgroup, TempModifier, bmesh_vertex_group_bleed
+from .helpers import get_vgroup, TempModifier, bmesh_vertex_group_bleed
 
 def get_connected_verts_along_direction(from_vert, to_vert, max_angle=60.0):
     min_dot = cos(radians(max_angle))
@@ -152,7 +152,7 @@ Requires meshes to have an open boundary, which is used to find the edge loops""
                     obj.data = obj.data.copy()
                 bool_collection.objects.link(obj)
 
-                boundary_vg = new_vgroup(obj, "__boundary")
+                boundary_vg = get_vgroup(obj, "__boundary")
                 boundary_vg_index = boundary_vg.index
                 bm = bmesh.new()
                 bm.from_mesh(obj.data)
@@ -184,7 +184,7 @@ Requires meshes to have an open boundary, which is used to find the edge loops""
             self.cached_boolean_bm.from_mesh(dst_obj.data)
         else:
             # Read from cache
-            boundary_vg = new_vgroup(dst_obj, "__boundary")
+            boundary_vg = get_vgroup(dst_obj, "__boundary")
             self.cached_boolean_bm.to_mesh(dst_obj.data)
         boundary_vg_index = dst_obj.vertex_groups["__boundary"].index
 

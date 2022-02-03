@@ -13,23 +13,30 @@ half_vector = Vector((0.5, 0.5, 0.5))
 fmt_shape_key = lambda sk: (sk.name if sk.value == sk.slider_max else
     f"{sk.name} ({fmt_fraction(sk.value, sk.slider_max)})")
 
-def new_vgroup(obj, name):
-    """Ensures that a clean vertex group with the given name exists."""
+def get_vgroup(obj, name, clean=True):
+    """Ensures that a vertex group with the given name exists."""
 
     vgroup = obj.vertex_groups.get(name)
-    if vgroup:
-        vgroup.remove(range(len(obj.data.vertices)))
-    else:
+    if not vgroup:
         vgroup = obj.vertex_groups.new(name=name)
+    elif clean:
+        vgroup.remove(range(len(obj.data.vertices)))
     return vgroup
 
-def new_modifier(obj, type, name=""):
+def get_modifier(obj, type, name="", index=None):
     """Ensures that a modifier with the given name exists."""
-    # Should it clear an existing modifier?
 
-    modifier = obj.modifiers.get(name) if name else None
+    if name:
+        modifier = obj.modifiers.get(name)
+    else:
+        modifier = next((m for m in obj.modifiers if m.type == type), None)
     if not modifier or modifier.type != type:
         modifier = obj.modifiers.new(type=type, name=name)
+    if index is not None:
+        index %= len(obj.modifiers)
+        if index != obj.modifiers.find(modifier.name):
+            ctx = get_context(obj)
+            bpy.ops.object.modifier_move_to_index(ctx, modifier=modifier.name, index=index)
     return modifier
 
 class TempModifier:

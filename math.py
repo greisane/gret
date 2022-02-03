@@ -10,7 +10,7 @@ saturate = lambda x: min(1.0, max(0.0, x))
 
 def calc_bounds(points):
     xs, ys, zs = zip(*points)
-    x0, y0, z1, x1, y1, z1 = min(xs), min(ys), min(zs), max(xs), max(ys), max(zs)
+    x0, y0, z0, x1, y1, z1 = min(xs), min(ys), min(zs), max(xs), max(ys), max(zs)
     return Vector((x0, y0, z0)), Vector((x1, y1, z1))
 
 def calc_bounds_2d(points):

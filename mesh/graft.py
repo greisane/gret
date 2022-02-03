@@ -3,7 +3,7 @@ from math import pi
 import bmesh
 import bpy
 
-from .helpers import new_vgroup, new_modifier, TempModifier, edit_mesh_elements, bmesh_vertex_group_bleed
+from .helpers import get_vgroup, get_modifier, TempModifier, edit_mesh_elements, bmesh_vertex_group_bleed
 from ..helpers import get_context, link_properties, load_selection, save_selection
 
 class GRET_OT_graft(bpy.types.Operator):
@@ -234,10 +234,10 @@ class GRET_OT_graft(bpy.types.Operator):
 
             # If requested, create a mask modifier that will hide the intersection's inner verts
             if self.create_mask:
-                mask_vg = new_vgroup(orig_dst_obj, f"_mask_{obj.name}")
+                mask_vg = get_vgroup(orig_dst_obj, f"_mask_{obj.name}")
                 intersecting_verts = (dst_mesh.vertices[i] for i in intersecting_vert_indices)
                 mask_vg.add([v.index for v in intersecting_verts if not v.select], 1.0, 'REPLACE')
-                mask_mod = new_modifier(orig_dst_obj, type='MASK', name=mask_vg.name)
+                mask_mod = get_modifier(orig_dst_obj, type='MASK', name=mask_vg.name)
                 mask_mod.vertex_group = mask_vg.name
                 mask_mod.invert_vertex_group = True
                 mod_dp = f'modifiers["{mask_mod.name}"]'
