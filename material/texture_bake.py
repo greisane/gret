@@ -665,47 +665,36 @@ class GRET_PT_texture_bake(bpy.types.Panel):
         else:
             layout.operator('gret.texture_bake_clear', icon='X')
 
+        def draw_bake_layout(layout, bake, src_property, icon):
+            scale_property = src_property + '_scale'
+            row = layout.row(align=True)
+            row.prop(bake, src_property, icon=icon, text="")
+            sub = row.split(align=True)
+            sub.prop(bake, scale_property, text="")
+            sub.scale_x = 0.4
+            op = row.operator('gret.texture_bake_preview', icon='HIDE_OFF', text="")
+            op.baker = getattr(bake, src_property)
+            op.scale = getattr(bake, scale_property)
+
         for bake_idx, bake in enumerate(mat.texture_bakes):
             box = layout
             col = box.column(align=True)
 
-            row = col.row(align=True)
-            row.prop(bake, 'uv_layer_name', icon='UV', text="")
             # Disabled, might rework or remove in the future
             # op = row.operator('gret.quick_unwrap', icon='MOD_UVPROJECT')
             # op.index = bake_idx
+
+            draw_bake_layout(col, bake, 'r', 'COLOR_RED')
+            draw_bake_layout(col, bake, 'g', 'COLOR_GREEN')
+            draw_bake_layout(col, bake, 'b', 'COLOR_BLUE')
+
+            col.separator()
+
+            row = col.row(align=True)
+            row.prop(bake, 'uv_layer_name', icon='UV', text="")
             row.prop(bake, 'size')
-            col.separator()
-
-            row = col.row(align=True)
-            row.prop(bake, 'r', icon='COLOR_RED', text="")
-            sub = row.split(align=True)
-            sub.prop(bake, 'r_scale', text="")
-            sub.scale_x = 0.4
-            op = row.operator('gret.texture_bake_preview', icon='HIDE_OFF', text="")
-            op.baker = bake.r
-            op.scale = bake.r_scale
-            row = col.row(align=True)
-            row.prop(bake, 'g', icon='COLOR_GREEN', text="")
-            sub = row.split(align=True)
-            sub.prop(bake, 'g_scale', text="")
-            sub.scale_x = 0.4
-            op = row.operator('gret.texture_bake_preview', icon='HIDE_OFF', text="")
-            op.baker = bake.g
-            op.scale = bake.g_scale
-            row = col.row(align=True)
-            row.prop(bake, 'b', icon='COLOR_BLUE', text="")
-            sub = row.split(align=True)
-            sub.prop(bake, 'b_scale', text="")
-            sub.scale_x = 0.4
-            op = row.operator('gret.texture_bake_preview', icon='HIDE_OFF', text="")
-            op.baker = bake.b
-            op.scale = bake.b_scale
-            col.separator()
-
             col.prop(bake, 'export_path', text="")
-            row = col.row(align=True)
-            op = row.operator('gret.texture_bake', icon='INDIRECT_ONLY_ON', text="Bake")
+            op = col.operator('gret.texture_bake', icon='INDIRECT_ONLY_ON', text="Bake")
             op.index = bake_idx
 
 class GRET_PG_texture_bake(bpy.types.PropertyGroup):
