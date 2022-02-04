@@ -4,6 +4,24 @@ import sys
 
 from ..math import saturate
 
+src_items = [
+    ('NONE', "", "Leave the channel unchanged"),
+    ('ZERO', "Zero", "Fill the channel with the minimum value"),
+    ('ONE', "One", "Fill the channel with the maximum value"),
+    ('VERTEX_GROUP', "Group", "Weight of specified vertex group"),
+    ('BEVEL', "Bevel", "Vertex bevel weight"),
+    ('HASH', "Random", "Random value based on the object's name"),
+    ('PIVOTLOC', "Location", "Object pivot location"),
+    ('PIVOTROT', "Rotation", "Object pivot rotation"),
+    ('VERTEX', "Vertex", "Vertex world coordinates"),
+]
+
+component_items = [
+    ('X', "X", "X component of the vector"),
+    ('Y', "Y", "Y component of the vector"),
+    ('Z', "Z", "Z component of the vector"),
+]
+
 def get_first_mapping(obj):
     return obj.vertex_color_mapping[0] if obj.vertex_color_mapping else None
 
@@ -21,7 +39,22 @@ def copy_mapping(obj, other_obj):
         other_mapping.b = mapping.b
         other_mapping.a = mapping.a
         other_mapping.invert = mapping.invert
-        other_mapping.extents = mapping.extents
+        other_mapping.r_invert = mapping.r_invert
+        other_mapping.g_invert = mapping.g_invert
+        other_mapping.b_invert = mapping.b_invert
+        other_mapping.a_invert = mapping.a_invert
+        other_mapping.r_vertex_group = mapping.r_vertex_group
+        other_mapping.g_vertex_group = mapping.g_vertex_group
+        other_mapping.b_vertex_group = mapping.b_vertex_group
+        other_mapping.a_vertex_group = mapping.a_vertex_group
+        other_mapping.r_component = mapping.r_component
+        other_mapping.g_component = mapping.g_component
+        other_mapping.b_component = mapping.b_component
+        other_mapping.a_component = mapping.a_component
+        other_mapping.r_extents = mapping.r_extents
+        other_mapping.g_extents = mapping.g_extents
+        other_mapping.b_extents = mapping.b_extents
+        other_mapping.a_extents = mapping.a_extents
 
 def values_to_vcol(mesh, src_values, dst_vcol, dst_channel_idx, invert=False):
     for loop_idx, loop in enumerate(mesh.loops):
@@ -30,35 +63,20 @@ def values_to_vcol(mesh, src_values, dst_vcol, dst_channel_idx, invert=False):
             value = 1.0 - value
         dst_vcol.data[loop_idx].color[dst_channel_idx] = value
 
-def update_vcol_from_src(obj, mapping, src, dst_vcol, dst_channel_idx, invert=False):
+def update_vcol_from(obj, mapping, src_property, dst_vcol, dst_channel_idx, invert=False):
     mesh = obj.data
     values = None
-    remap_co = lambda co: (co[dst_channel_idx] / mapping.extents) + 0.5
+    src = getattr(mapping, src_property)
+    invert = invert != getattr(mapping, src_property + '_invert')
+
     if src == 'ZERO':
         values = 0.0
     elif src == 'ONE':
         values = 1.0
-    elif src == 'BEVEL':
-        values = [vert.bevel_weight for vert in mesh.vertices]
-    elif src == 'HASH':
-        min_hash = -sys.maxsize - 1
-        max_hash = sys.maxsize
-        values = (hash(obj.name) - min_hash) / (max_hash - min_hash)
-    elif src == 'PIVOTLOC':
-        assert dst_channel_idx <= 3
-        values = remap_co(obj.location)
-    elif src == 'PIVOTROT':
-        assert dst_channel_idx <= 3
-        values = (obj.rotation_euler[dst_channel_idx] % pi) / pi
-    elif src == 'VERTEX':
-        assert dst_channel_idx <= 3
-        m = obj.matrix_world
-        values = [remap_co(m @ vert.co) for vert in mesh.vertices]
-    elif src.startswith('vg_'):
-        # Get values from vertex group
+    elif src == 'VERTEX_GROUP':
+        vertex_group = getattr(mapping, src_property + '_vertex_group')
         values = [0.0] * len(mesh.vertices)
-        vgroup_name = src[3:]
-        vgroup = obj.vertex_groups.get(vgroup_name)
+        vgroup = obj.vertex_groups.get(vertex_group)
         if vgroup:
             vgroup_idx = vgroup.index
             for vert_idx, vert in enumerate(mesh.vertices):
@@ -66,6 +84,25 @@ def update_vcol_from_src(obj, mapping, src, dst_vcol, dst_channel_idx, invert=Fa
                     if vg.group == vgroup_idx:
                         values[vert_idx] = vg.weight
                         break
+    elif src == 'BEVEL':
+        values = [vert.bevel_weight for vert in mesh.vertices]
+    elif src == 'HASH':
+        min_hash = -sys.maxsize - 1
+        max_hash = sys.maxsize
+        values = (hash(obj.name) - min_hash) / (max_hash - min_hash)
+    elif src in {'PIVOTLOC', 'PIVOTROT', 'VERTEX'}:
+        component = getattr(mapping, src_property + '_component')
+        component_idx = ['X', 'Y', 'Z'].index(component)
+        extents = getattr(mapping, src_property + '_extents')
+        remap_co = lambda co: (co[component_idx] / extents) + 0.5
+        if src == 'PIVOTLOC':
+            values = remap_co(obj.location)
+        elif src == 'PIVOTROT':
+            values = (obj.rotation_euler[component_idx] % pi) / pi
+        elif src == 'VERTEX':
+            m = obj.matrix_world
+            values = [remap_co(m @ vert.co) for vert in mesh.vertices]
+
     if type(values) is float:
         values = [values] * len(mesh.vertices)
     if values:
@@ -81,53 +118,16 @@ def update_vcols(obj, invert=False):
         return
 
     mesh = obj.data
-    vcol = mesh.vertex_colors.active if mesh.vertex_colors else mesh.vertex_colors.new()
+    vcol = mesh.vertex_colors.get(mapping.vertex_color_layer_name)
+    if not vcol:
+        vcol = mesh.vertex_colors.new(name=mapping.vertex_color_layer_name)
+
     invert = invert != mapping.invert
-    update_vcol_from_src(obj, mapping, mapping.r, vcol, 0, invert=invert)
-    update_vcol_from_src(obj, mapping, mapping.g, vcol, 1, invert=invert)
-    update_vcol_from_src(obj, mapping, mapping.b, vcol, 2, invert=invert)
-    update_vcol_from_src(obj, mapping, mapping.a, vcol, 3, invert=invert)
+    update_vcol_from(obj, mapping, 'r', vcol, 0, invert)
+    update_vcol_from(obj, mapping, 'g', vcol, 1, invert)
+    update_vcol_from(obj, mapping, 'b', vcol, 2, invert)
+    update_vcol_from(obj, mapping, 'a', vcol, 3, invert)
     mesh.update()
-
-persistent_items = [], [], [], []
-def vcol_src_items(self, context, channel_idx=0):
-    axis = ("X", "Y", "Z", "")[channel_idx]
-    obj = context.active_object
-    items = persistent_items[channel_idx]
-    items.clear()
-    if obj and obj.type == 'MESH':
-        items.extend([
-            ('NONE', "", "Leave the channel unchanged"),
-            ('ZERO', "Zero", "Fill the channel with the minimum value"),
-            ('ONE', "One", "Fill the channel with the maximum value"),
-            ('BEVEL', "Bevel", "Vertex bevel weight"),
-            ('HASH', "Random", "Random value based on the object's name"),
-        ])
-        if axis:
-            items.extend([
-                ('PIVOTLOC', "Location", f"Object pivot {axis} location"),
-                ('PIVOTROT', "Rotation", f"Object pivot {axis} rotation"),
-                ('VERTEX', "Vertex", f"Vertex {axis} world coordinates"),
-            ])
-        if obj.vertex_groups:
-            items.extend([(f'vg_{vg.name}', vg.name, "Vertex group") for vg in obj.vertex_groups])
-    return items
-
-# Blender doesn't recognize functools.partial as a valid function for EnumProperty items
-def vcol_src_r_items(self, context):
-    return vcol_src_items(self, context, channel_idx=0)
-def vcol_src_g_items(self, context):
-    return vcol_src_items(self, context, channel_idx=1)
-def vcol_src_b_items(self, context):
-    return vcol_src_items(self, context, channel_idx=2)
-def vcol_src_a_items(self, context):
-    return vcol_src_items(self, context, channel_idx=3)
-
-def vcol_src_update(self, context):
-    obj = context.active_object
-    if obj and obj.type == 'MESH' and obj.data.vertex_colors:
-        # Automatically refresh mappings only if it wouldn't create a vcol layer
-        bpy.ops.gret.vertex_color_mapping_refresh()
 
 class GRET_OT_vertex_color_mapping_refresh(bpy.types.Operator):
     #tooltip
@@ -237,64 +237,164 @@ class GRET_OT_vertex_color_mapping_copy_to_selected(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_PG_vertex_color_mapping(bpy.types.PropertyGroup):
+    vertex_color_layer_name: bpy.props.StringProperty(
+        name="Vertex Color Layer",
+        description="Name of the target vertex color layer",
+        default="Col",
+    )
     r: bpy.props.EnumProperty(
         name="Vertex Color R Source",
         description="Source mapping to vertex color channel red",
-        items=vcol_src_r_items,
-        update=vcol_src_update,
+        items=src_items,
     )
     g: bpy.props.EnumProperty(
         name="Vertex Color G Source",
         description="Source mapping to vertex color channel green",
-        items=vcol_src_g_items,
-        update=vcol_src_update,
+        items=src_items,
     )
     b: bpy.props.EnumProperty(
         name="Vertex Color B Source",
         description="Source mapping to vertex color channel blue",
-        items=vcol_src_b_items,
-        update=vcol_src_update,
+        items=src_items,
     )
     a: bpy.props.EnumProperty(
         name="Vertex Color A Source",
         description="Source mapping to vertex color channel alpha",
-        items=vcol_src_a_items,
-        update=vcol_src_update,
+        items=src_items,
     )
     invert: bpy.props.BoolProperty(
-        name="Invert Values",
-        description="Make the result 1-value for each vertex color channel",
+        name="Invert",
+        description="Invert all channels",
         default=False,
     )
-    extents: bpy.props.FloatProperty(
+    r_invert: bpy.props.BoolProperty(
+        name="Invert",
+        description="Invert this channel",
+        default=False,
+    )
+    g_invert: bpy.props.BoolProperty(
+        name="Invert",
+        description="Invert this channel",
+        default=False,
+    )
+    b_invert: bpy.props.BoolProperty(
+        name="Invert",
+        description="Invert this channel",
+        default=False,
+    )
+    a_invert: bpy.props.BoolProperty(
+        name="Invert",
+        description="Invert this channel",
+        default=False,
+    )
+    r_vertex_group: bpy.props.StringProperty(
+        name="Vertex Group",
+        description="Vertex group to store in this channel",
+    )
+    g_vertex_group: bpy.props.StringProperty(
+        name="Vertex Group",
+        description="Vertex group to store in this channel",
+    )
+    b_vertex_group: bpy.props.StringProperty(
+        name="Vertex Group",
+        description="Vertex group to store in this channel",
+    )
+    a_vertex_group: bpy.props.StringProperty(
+        name="Vertex Group",
+        description="Vertex group to store in this channel",
+    )
+    r_component: bpy.props.EnumProperty(
+        name="Component",
+        description="Source vector component",
+        items=component_items,
+        default='X',
+    )
+    g_component: bpy.props.EnumProperty(
+        name="Component",
+        description="Source vector component",
+        items=component_items,
+        default='Y',
+    )
+    b_component: bpy.props.EnumProperty(
+        name="Component",
+        description="Source vector component",
+        items=component_items,
+        default='Z',
+    )
+    a_component: bpy.props.EnumProperty(
+        name="Component",
+        description="Source vector component",
+        items=component_items,
+    )
+    r_extents: bpy.props.FloatProperty(
         name="Extents",
-        description="Extents of the box used to scale mappings that encode a location",
+        description="Maximum distance representable by this channel",
+        default=4.0, min=0.001, precision=4, step=1, unit='LENGTH',
+    )
+    g_extents: bpy.props.FloatProperty(
+        name="Extents",
+        description="Maximum distance representable by this channel",
+        default=4.0, min=0.001, precision=4, step=1, unit='LENGTH',
+    )
+    b_extents: bpy.props.FloatProperty(
+        name="Extents",
+        description="Maximum distance representable by this channel",
+        default=4.0, min=0.001, precision=4, step=1, unit='LENGTH',
+    )
+    a_extents: bpy.props.FloatProperty(
+        name="Extents",
+        description="Maximum distance representable by this channel",
         default=4.0, min=0.001, precision=4, step=1, unit='LENGTH',
     )
 
 def vcol_panel_draw(self, context):
     layout = self.layout
     obj = context.active_object
-    mapping = get_first_mapping(obj)
 
-    if not mapping:
+    if not obj.vertex_color_mapping:
         row = layout.row(align=True)
         row.operator('gret.vertex_color_mapping_add', icon='ADD')
         row.menu('GRET_MT_vertex_color_mapping', text='', icon='DOWNARROW_HLT')
     else:
-        col = layout.column(align=True)
-        row = col.row(align=True)
+        row = layout.row(align=True)
         row.operator('gret.vertex_color_mapping_clear', icon='X')
         row.menu('GRET_MT_vertex_color_mapping', text='', icon='DOWNARROW_HLT')
+
+    def draw_vcol_layout(layout, mapping, src_property, icon):
+        row = layout.row(align=True)
+        row.prop(mapping, src_property, icon=icon, text="")
+        src = getattr(mapping, src_property)
+        if src == 'VERTEX_GROUP':
+            sub = row.split(align=True)
+            sub.prop_search(mapping, src_property + '_vertex_group', obj, 'vertex_groups', text="")
+            sub.ui_units_x = 14.0
+        elif src == 'PIVOTROT':
+            sub = row.split(align=True)
+            sub.prop(mapping, src_property + '_component', text="")
+            sub.ui_units_x = 14.0
+        elif src in {'PIVOTLOC', 'VERTEX'}:
+            sub = row.split(align=True)
+            row2 = sub.row(align=True)
+            row2.prop(mapping, src_property + '_component', text="")
+            row2.prop(mapping, src_property + '_extents', text="")
+            sub.ui_units_x = 14.0
+        row.prop(mapping, src_property + '_invert', icon='REMOVE', text="")
+
+    for mapping_idx, mapping in enumerate(obj.vertex_color_mapping):
+        box = layout
+        col = box.column(align=True)
+
+        draw_vcol_layout(col, mapping, 'r', 'COLOR_RED')
+        draw_vcol_layout(col, mapping, 'g', 'COLOR_GREEN')
+        draw_vcol_layout(col, mapping, 'b', 'COLOR_BLUE')
+        draw_vcol_layout(col, mapping, 'a', 'OUTLINER_DATA_FONT')
+
+        col.separator()
+
         row = col.row(align=True)
-        row.prop(mapping, 'r', icon='COLOR_RED', text="")
-        row.prop(mapping, 'g', icon='COLOR_GREEN', text="")
-        row.prop(mapping, 'b', icon='COLOR_BLUE', text="")
-        row.prop(mapping, 'a', icon='OUTLINER_DATA_FONT', text="")
+        row.prop(mapping, 'vertex_color_layer_name', icon='GROUP_VCOL', text="")
         row.prop(mapping, 'invert', icon='REMOVE', text="")
-        row.operator('gret.vertex_color_mapping_refresh', icon='FILE_REFRESH', text="")
-        if any(src in {'PIVOTLOC', 'VERTEX'} for src in (mapping.r, mapping.g, mapping.b, mapping.a)):
-            col.prop(mapping, 'extents')
+        col.operator('gret.vertex_color_mapping_refresh', icon='FILE_REFRESH', text="Update Vertex Color")
 
 class GRET_MT_vertex_color_mapping(bpy.types.Menu):
     bl_label = "Vertex Color Mapping Menu"
