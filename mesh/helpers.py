@@ -324,7 +324,7 @@ def encode_shape_keys(obj, shape_key_names=["*"], keep=False):
         obj.shape_key_clear()
 
 def apply_modifiers(obj, key=None, keep_armature=False):
-    """Apply modifiers while preserving shape keys."""
+    """Apply modifiers while preserving shape keys and UV layers."""
 
     ctx = get_context(obj)
 
@@ -332,6 +332,9 @@ def apply_modifiers(obj, key=None, keep_armature=False):
         enable = key(mod) if key else True
         logd(f"{'Enabled' if enable else 'Disabled'} {mod.type} modifier {mod.name}")
         mod.show_viewport = enable
+
+    # Remember UV layer names in case they're destroyed by geometry nodes
+    uv_layer_names = [uv_layer.name for uv_layer in obj.data.uv_layers]
 
     bpy.ops.gret.shape_key_apply_modifiers(ctx, keep_modifiers=True)
 
@@ -341,6 +344,21 @@ def apply_modifiers(obj, key=None, keep_armature=False):
         else:
             logd(f"Removed {mod.type} modifier {mod.name}")
             bpy.ops.object.modifier_remove(ctx, modifier=mod.name)
+
+    # Restore UV layers from attributes
+    for name in uv_layer_names:
+        if name not in obj.data.uv_layers:
+            attr = obj.data.attributes.get(name)
+            if attr and attr.domain == 'CORNER' and attr.data_type == 'FLOAT2':
+                log(f"Restoring UV layer {name} from attributes")
+                uvs = [0.0] * (len(attr.data) * 2)
+                attr.data.foreach_get('vector', uvs)
+                uv_layer = obj.data.uv_layers.new(name=attr.name, do_init=False)
+                uv_layer.data.foreach_set('uv', uvs)
+            elif attr:
+                log(f"Can't restore UV layer {name}, attribute has wrong domain or data type")
+            else:
+                log(f"Can't restore UV layer {name}, attribute doesn't exist")
 
 def apply_shape_keys_with_vertex_groups(obj):
     if not obj.data.shape_keys:
