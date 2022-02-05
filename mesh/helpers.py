@@ -333,8 +333,9 @@ def apply_modifiers(obj, key=None, keep_armature=False):
         logd(f"{'Enabled' if enable else 'Disabled'} {mod.type} modifier {mod.name}")
         mod.show_viewport = enable
 
-    # Remember UV layer names in case they're destroyed by geometry nodes
+    # Remember layer names in case they're destroyed by geometry nodes
     uv_layer_names = [uv_layer.name for uv_layer in obj.data.uv_layers]
+    vertex_color_names = [vertex_color.name for vertex_color in obj.data.vertex_colors]
 
     bpy.ops.gret.shape_key_apply_modifiers(ctx, keep_modifiers=True)
 
@@ -359,6 +360,21 @@ def apply_modifiers(obj, key=None, keep_armature=False):
                 log(f"Can't restore UV layer {name}, attribute has wrong domain or data type")
             else:
                 log(f"Can't restore UV layer {name}, attribute doesn't exist")
+
+    # Restore vertex color layers from attributes
+    for name in vertex_color_names:
+        if name not in obj.data.vertex_colors:
+            attr = obj.data.attributes.get(name)
+            if attr and attr.domain == 'CORNER' and attr.data_type == 'FLOAT_COLOR':
+                log(f"Restoring vertex color layer {name} from attributes")
+                colors = [0.0] * (len(attr.data) * 4)
+                attr.data.foreach_get('color', colors)
+                vertex_color = obj.data.vertex_colors.new(name=attr.name, do_init=False)
+                vertex_color.data.foreach_set('color', colors)
+            elif attr:
+                log(f"Can't restore vertex color layer {name}, attribute has wrong domain or data type")
+            else:
+                log(f"Can't restore vertex color layer {name}, attribute doesn't exist")
 
 def apply_shape_keys_with_vertex_groups(obj):
     if not obj.data.shape_keys:
