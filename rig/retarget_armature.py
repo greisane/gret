@@ -65,9 +65,14 @@ Use to speed up retargeting by selecting only the areas of importance""",
         description="Enable symmetry in the X axis",
         default=False,
     )
-    lock_roll: bpy.props.BoolProperty(
-        name="Lock Roll",
-        description="Prevent changing bone roll",
+    lock_length: bpy.props.BoolProperty(
+        name="Lock Length",
+        description="Prevent changing bone length",
+        default=False,
+    )
+    lock_direction: bpy.props.BoolProperty(
+        name="Lock Direction",
+        description="Prevent changing bone direction (and roll)",
         default=False,
     )
 
@@ -138,7 +143,7 @@ Use to speed up retargeting by selecting only the areas of importance""",
             new_pts = np.asarray(np.dot(h, weights))
 
             set_armature_points(obj, new_pts, matrix=dst_to_obj, only_selected=is_editing,
-                lock_roll=self.lock_roll)
+                lock_length=self.lock_length, lock_direction=self.lock_direction)
 
             if not is_editing:
                 bpy.ops.object.editmode_toggle()
@@ -169,7 +174,8 @@ def draw_panel(self, context):
     col.prop(settings, 'retarget_only_selection')
     col.prop(settings, 'retarget_high_quality')
     col.prop(settings, 'retarget_use_mirror_x')
-    col.prop(settings, 'retarget_lock_roll')
+    col.prop(settings, 'retarget_lock_length')
+    col.prop(settings, 'retarget_lock_direction')
 
     if obj and obj.data and getattr(obj.data, 'use_mirror_x', False):
         col.label(text="X-Axis Mirror is enabled.")
@@ -188,7 +194,8 @@ def draw_panel(self, context):
         op.only_selection = settings.retarget_only_selection
         op.high_quality = settings.retarget_high_quality
         op.use_mirror_x = settings.retarget_use_mirror_x
-        op.lock_roll = settings.retarget_lock_roll
+        op.lock_length = settings.retarget_lock_length
+        op.lock_direction = settings.retarget_lock_direction
     else:
         row.enabled = False
 
@@ -236,7 +243,8 @@ Expected to share topology and vertex order with the source mesh""",
     settings.add_property('retarget_only_selection', retarget_props['only_selection'])
     settings.add_property('retarget_high_quality', retarget_props['high_quality'])
     settings.add_property('retarget_use_mirror_x', retarget_props['use_mirror_x'])
-    settings.add_property('retarget_lock_roll', retarget_props['lock_roll'])
+    settings.add_property('retarget_lock_length', retarget_props['lock_length'])
+    settings.add_property('retarget_lock_direction', retarget_props['lock_direction'])
 
 def unregister():
     bpy.utils.unregister_class(GRET_OT_retarget_armature)

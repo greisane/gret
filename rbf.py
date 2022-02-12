@@ -1,3 +1,4 @@
+from mathutils import Vector
 import bmesh
 import bpy
 import numpy as np
@@ -177,7 +178,8 @@ def get_armature_points(obj, matrix=None):
     points = np.array(cos)
     return points
 
-def set_armature_points(obj, new_pts, matrix=None, only_selected=False, lock_roll=False):
+def set_armature_points(obj, new_pts, matrix=None, only_selected=False,
+    lock_length=False, lock_direction=False):
     assert obj.type == 'ARMATURE' and obj.mode == 'EDIT'
 
     if matrix is not None:
@@ -188,12 +190,12 @@ def set_armature_points(obj, new_pts, matrix=None, only_selected=False, lock_rol
         new_head, new_tail = new_pts[index], new_pts[index+1]
         index += 2
 
-        if lock_roll:
-            direction = bone.vector.normalized()
-            new_length = get_dist(new_head, new_tail)
-            new_center = (new_head + new_tail) / 2
-            new_head = new_center + direction * (new_length * -0.5)
-            new_tail = new_center + direction * (new_length * 0.5)
+        if lock_length or lock_direction:
+            length = bone.length if lock_length else get_dist(new_head, new_tail)
+            direction = (bone.vector if lock_direction else Vector(new_tail - new_head)).normalized()
+            center = (new_head + new_tail) / 2
+            new_head = center + direction * (length * -0.5)
+            new_tail = center + direction * (length * 0.5)
 
         if not only_selected or bone.select_head:
             bone.head[:] = new_head
