@@ -64,20 +64,13 @@ class GRET_OT_graft(bpy.types.Operator):
     def poll(cls, context):
         return context.mode == 'OBJECT'
 
-    def _execute(self, context):
-        orig_dst_obj = context.active_object
-        objs = [o for o in context.selected_objects if o.type == 'MESH' and o != orig_dst_obj]
-
-        if not objs:
-            self.report({'ERROR'}, f"Select one or more meshes then the target object to graft them to.")
-            return {'CANCELLED'}
-        if not orig_dst_obj or orig_dst_obj.type != 'MESH' or orig_dst_obj not in context.selected_objects:
-            self.report({'ERROR'}, f"Active object is not a selected mesh.")
-            return {'CANCELLED'}
+    def _execute(self, context, dst_obj, objs):
+        assert dst_obj not in objs
 
         # Get an evaluated version of the destination object
         # Can't use to_mesh because we will need to enter edit mode on it
         dg = context.evaluated_depsgraph_get()
+        orig_dst_obj = dst_obj
         eval_obj = orig_dst_obj.evaluated_get(dg)
         dst_mesh = bpy.data.meshes.new_from_object(eval_obj)
         dst_obj = bpy.data.objects.new(eval_obj.name, dst_mesh)
@@ -251,10 +244,20 @@ class GRET_OT_graft(bpy.types.Operator):
         return {'FINISHED'}
 
     def execute(self, context):
+        obj = context.active_object
+        objs = [o for o in context.selected_objects if o.type == 'MESH' and o != obj]
+
+        if not objs:
+            self.report({'ERROR'}, f"Select one or more meshes then the target object to graft them to.")
+            return {'CANCELLED'}
+        if not obj or obj.type != 'MESH' or obj not in context.selected_objects:
+            self.report({'ERROR'}, f"Active object is not a selected mesh.")
+            return {'CANCELLED'}
+
         saved_selection = save_selection()
 
         try:
-            self._execute(context)
+            self._execute(context, obj, objs)
         finally:
             # Clean up
             load_selection(saved_selection)
