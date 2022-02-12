@@ -60,6 +60,11 @@ Use to speed up retargeting by selecting only the areas of importance""",
         description="Sample more vertices for higher accuracy. Slow on dense meshes",
         default=False,
     )
+    use_mirror_x: bpy.props.BoolProperty(
+        name="X-Axis Mirror",
+        description="Enable symmetry in the X axis",
+        default=False,
+    )
     as_shape_key: bpy.props.BoolProperty(
         name="As Shape Key",
         description="Save the result as a shape key",
@@ -98,8 +103,13 @@ Use to speed up retargeting by selecting only the areas of importance""",
         logd(f"num_verts={num_masked}/{num_vertices} stride={stride} total={num_masked//stride}")
 
         rbf_kernel, scale = rbf_kernels.get(self.function, (linear, 1.0))
-        src_pts = get_mesh_points(src_obj, mask=mask, stride=stride)
-        dst_pts = get_mesh_points(dst_obj, shape_key=dst_shape_key_name, mask=mask, stride=stride)
+        x_mirror = [] if self.use_mirror_x else None
+        src_pts = get_mesh_points(src_obj,
+            mask=mask, stride=stride, x_mirror=x_mirror)
+        if not x_mirror:
+            x_mirror = None  # No vertices to mirror, prevent it from attempting to mirror again
+        dst_pts = get_mesh_points(dst_obj, shape_key=dst_shape_key_name,
+            mask=mask, stride=stride, x_mirror=x_mirror)
         weights = get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius * scale)
         if weights is None:
             self.report({'ERROR'}, "Failed to retarget. Try a different function or radius.")
@@ -152,6 +162,7 @@ def draw_panel(self, context):
 
     col.prop(settings, 'retarget_only_selection')
     col.prop(settings, 'retarget_high_quality')
+    col.prop(settings, 'retarget_use_mirror_x')
 
     row = col.row(align=True)
     op1 = row.operator('gret.retarget_mesh', icon='CHECKMARK', text="Retarget")
@@ -163,6 +174,7 @@ def draw_panel(self, context):
         op1.radius = op2.radius = settings.retarget_radius
         op1.only_selection = op2.only_selection = settings.retarget_only_selection
         op1.high_quality = op2.high_quality = settings.retarget_high_quality
+        op1.use_mirror_x = op2.use_mirror_x = settings.retarget_use_mirror_x
         op1.as_shape_key = False
         op2.as_shape_key = True
     else:
@@ -211,6 +223,7 @@ Expected to share topology and vertex order with the source mesh""",
     settings.add_property('retarget_radius', retarget_props['radius'])
     settings.add_property('retarget_only_selection', retarget_props['only_selection'])
     settings.add_property('retarget_high_quality', retarget_props['high_quality'])
+    settings.add_property('retarget_use_mirror_x', retarget_props['use_mirror_x'])
 
 def unregister():
     bpy.utils.unregister_class(GRET_OT_retarget_mesh)

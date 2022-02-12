@@ -86,7 +86,7 @@ def transform_points(pts, matrix):
     new_pts = new_pts[:, :-1]
     return new_pts
 
-def get_mesh_points(obj, matrix=None, shape_key=None, mask=None, stride=1):
+def get_mesh_points(obj, matrix=None, shape_key=None, mask=None, stride=1, x_mirror=None):
     """Return vertex coordinates of a mesh as a numpy array with shape (?, 3)."""
     # Moving the mesh seems to be faster. See https://blender.stackexchange.com/questions/139511
 
@@ -114,10 +114,16 @@ def get_mesh_points(obj, matrix=None, shape_key=None, mask=None, stride=1):
     else:
         vertices = mesh.vertices if shape_key is None else shape_key.data
         vertices.foreach_get('co', points)
+
     points = points.reshape((-1, 3))
     if mask is not None:
         points = points[mask]
     points = points[::stride]
+
+    if isinstance(x_mirror, list):
+        if not x_mirror:
+            x_mirror[:] = np.ravel(np.where(points[:,0] > 1e-4))
+        points = np.append(points, points[x_mirror] * [-1, 1, 1], axis=0)
 
     if matrix is not None:
         bpy.data.meshes.remove(mesh)
