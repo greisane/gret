@@ -84,7 +84,7 @@ class GRET_OT_graft(bpy.types.Operator):
             dst_to_obj = world_to_obj @ dst_obj.matrix_world
             obj_to_dst = dst_to_obj.inverted()
 
-            boundary_vg = obj.vertex_groups.new(name="__boundary")
+            boundary_vg = get_vgroup(obj, "__boundary")
             bm = bmesh.new()
             bm.from_mesh(obj.data)
 
@@ -177,7 +177,7 @@ class GRET_OT_graft(bpy.types.Operator):
                 self.report({'ERROR'}, f"Couldn't bridge edge loops.")
                 return
 
-            face_map = obj.face_maps.get('graft') or obj.face_maps.new(name='graft')
+            face_map = obj.face_maps.get("Graft") or obj.face_maps.new(name="Graft")
             for face in new_faces:
                 face.smooth = True
                 face[fm_layer] = face_map.index
@@ -237,7 +237,8 @@ class GRET_OT_graft(bpy.types.Operator):
                 # Can't create a hide_viewport driver for reasons
                 link_properties(obj, 'hide_render', orig_dst_obj, mod_dp + '.show_render', invert=True)
 
-            obj.vertex_groups.remove(boundary_vg)
+            if boundary_vg.name in obj.vertex_groups:
+                obj.vertex_groups.remove(boundary_vg)
 
         bpy.data.objects.remove(dst_obj)
         bpy.data.meshes.remove(dst_mesh)
