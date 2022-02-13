@@ -5,8 +5,11 @@ import bmesh
 import bpy
 
 from ..math import get_direction_safe
-from ..helpers import get_context
+from ..helpers import get_context, get_collection
 from .helpers import get_vgroup, TempModifier, bmesh_vertex_group_bleed
+
+temp_boundary_vg_name = "__boundary"
+temp_collection_name = "__merge"
 
 def get_connected_verts_along_direction(from_vert, to_vert, max_angle=60.0):
     min_dot = cos(radians(max_angle))
@@ -126,163 +129,178 @@ Requires meshes to have an open boundary, which is used to find the edge loops""
         self.cage_show = False
         return self.execute(context)
 
-    def execute(self, context):
-        dst_obj = context.active_object
-        objs = [o for o in context.selected_objects if o.type == 'MESH']
+    def cache_boolean_bm(self, context, dst_obj, objs):
+        # Boolean modifier behaves very differently on compound meshes even with use_self
+        bpy.ops.object.editmode_toggle()
+        bpy.ops.mesh.separate(type='LOOSE')
+        bpy.ops.object.editmode_toggle()
 
-        if not objs:
-            self.report({'ERROR'}, f"Select one or more meshes to merge.")
-            return {'CANCELLED'}
-        if not dst_obj or dst_obj.type != 'MESH' or dst_obj not in context.selected_objects:
-            self.report({'ERROR'}, f"Active object is not a selected mesh.")
-            return {'CANCELLED'}
+        bool_collection = get_collection(context, "__merge")
+        dg = context.evaluated_depsgraph_get()
 
-        if not self.cached_boolean_bm:
-            # Boolean modifier behaves very differently on compound meshes even with use_self
-            bpy.ops.object.editmode_toggle()
-            bpy.ops.mesh.separate(type='LOOSE')
-            bpy.ops.object.editmode_toggle()
-            objs = [o for o in context.selected_objects if o.type == 'MESH']
+        # Preprocess meshes
+        new_objs = []
+        for obj in objs:
+            if obj.data.users > 1:
+                obj.data = obj.data.copy()
+            bool_collection.objects.link(obj)
 
-            bool_collection = bpy.data.collections.new("__merge")
-            context.scene.collection.children.link(bool_collection)
+            boundary_vg = get_vgroup(obj, temp_boundary_vg_name)
+            boundary_vg_index = boundary_vg.index
+            bm = bmesh.new()
+            bm.from_mesh(obj.data)
+            deform_layer = bm.verts.layers.deform.verify()
 
-            # Preprocess meshes
-            for obj in objs:
-                if obj.data.users > 1:
-                    obj.data = obj.data.copy()
-                bool_collection.objects.link(obj)
+            # The use_hole_tolerant flag causes artifacts and generally doesn't work very well
+            # Closed meshes produce better results, assuming the input meshes aren't too broken
+            # Remember where the boundaries were before filling holes
+            for vert in bm.verts:
+                if vert.is_boundary:
+                    vert[deform_layer][boundary_vg_index] = 1.0
+            bmesh.ops.holes_fill(bm, edges=bm.edges)
 
-                boundary_vg = get_vgroup(obj, "__boundary")
-                boundary_vg_index = boundary_vg.index
-                bm = bmesh.new()
-                bm.from_mesh(obj.data)
-                deform_layer = bm.verts.layers.deform.verify()
+            bm.to_mesh(obj.data)
+            bm.free()
 
-                # The use_hole_tolerant flag causes artifacts and generally doesn't work very well
-                # Closed meshes produce better results, assuming the input meshes aren't too broken
-                # Remember where the boundaries were before filling holes
+        # Boolean merge
+        with TempModifier(dst_obj, type='BOOLEAN') as bool_mod:
+            bool_mod.operation = 'UNION'
+            bool_mod.operand_type = 'COLLECTION'
+            bool_mod.collection = bool_collection
+            bool_mod.solver = 'EXACT'
+            if bpy.app.version >= (2, 93):
+                bool_mod.use_hole_tolerant = False
+
+        # Clean up
+        for obj in new_objs:
+            delete_obj_with_mesh(obj)
+
+        # Write to cache
+        self.cached_boolean_bm = bmesh.new()
+        self.cached_boolean_bm.from_mesh(dst_obj.data)
+
+    def cache_cage_bm(self, mesh, obj, settings):
+        self.cached_boolean_bm.to_mesh(mesh)
+
+        with TempModifier(obj, type='DISPLACE') as displace_mod:
+            displace_mod.strength = self.cage_distance
+            displace_mod.mid_level = 0.0
+        with TempModifier(obj, type='REMESH') as remesh_mod:
+            remesh_mod.voxel_size = 0.02
+            remesh_mod.adaptivity = self.cage_distance
+            remesh_mod.use_smooth_shade = True
+
+        # Write to cache
+        self.cached_cage_settings = settings
+        if self.cached_cage_bm:
+            self.cached_cage_bm.free()
+        self.cached_cage_bm = bmesh.new()
+        self.cached_cage_bm.from_mesh(mesh)
+
+    def cache_clean_bm(self, dst_obj, settings, boundary_vg_index):
+        # Begin mesh cleanup after boolean
+        bm = bmesh.new()
+        bm.from_mesh(dst_obj.data)
+
+        if self.weld_only_loops:
+            # Very ugly because removing doubles invalidates indices. Should rewrite somehow
+            def get_weight(vert, vg_idx):
+                return vert[deform_layer].get(vg_idx, 0.0)
+            def next_weld_along_direction(bm, dist):
                 for vert in bm.verts:
-                    if vert.is_boundary:
-                        vert[deform_layer][boundary_vg_index] = 1.0
-                bmesh.ops.holes_fill(bm, edges=bm.edges)
+                    if get_weight(vert, boundary_vg_index) == 1.0:
+                        for edge in vert.link_edges:
+                            if edge.tag:
+                                continue
+                            edge.tag = True
+                            verts = get_connected_verts_along_direction(vert, edge.other_vert(vert))
+                            bmesh.ops.remove_doubles(bm, verts=verts, dist=dist)
+                            return True
+                return False
+            if self.weld_distance > 0.0:
+                deform_layer = bm.verts.layers.deform.verify()
+                for edge in bm.edges:
+                    edge.tag = False
+                for vert in bm.verts:
+                    vert.tag = False
+                while next_weld_along_direction(bm, self.weld_distance):
+                    pass
+        else:
+            bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=self.weld_distance)
 
-                bm.to_mesh(obj.data)
-                bm.free()
+        # Delete non-manifold edges, then verts. This will likely create holes, close them too
+        bmesh.ops.holes_fill(bm, edges=bm.edges)
+        bmesh.ops.delete(bm, geom=[e for e in bm.edges if not e.is_manifold], context='EDGES')
+        bmesh.ops.holes_fill(bm, edges=bm.edges)
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.is_manifold])
+        bmesh.ops.holes_fill(bm, edges=bm.edges)
 
-            # Boolean merge
-            with TempModifier(dst_obj, type='BOOLEAN') as bool_mod:
-                bool_mod.operation = 'UNION'
-                bool_mod.operand_type = 'COLLECTION'
-                bool_mod.collection = bool_collection
-                bool_mod.solver = 'EXACT'
-                if bpy.app.version >= (2, 93):
-                    bool_mod.use_hole_tolerant = False
-            bpy.data.collections.remove(bool_collection)
+        # Get rid of excess verts
+        bmesh.ops.dissolve_limit(bm, angle_limit=radians(1.0),
+            verts=list(set(chain.from_iterable(f.verts for f in bm.faces if len(f.verts) != 4))),
+            edges=bm.edges, use_dissolve_boundaries=False, delimit=set())
+        bmesh.ops.dissolve_degenerate(bm, dist=0.001, edges=bm.edges)
+        bmesh.ops.connect_verts_concave(bm, faces=bm.faces)
+        bmesh.ops.holes_fill(bm, edges=bm.edges)
 
-            # Write to cache
-            self.cached_boolean_bm = bmesh.new()
-            self.cached_boolean_bm.from_mesh(dst_obj.data)
+        # Crudely close any remaining holes by collapsing boundaries
+        for _ in range(2):
+            bmesh.ops.collapse(bm, edges=[e for e in bm.edges if e.is_boundary], uvs=False)
+
+        # Delete loose geometry
+        bmesh.ops.delete(bm, geom=[f for f in bm.faces if all(e.is_boundary for e in f.edges)], context='FACES')
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces])
+
+        # Write to cache and invalidate further steps
+        self.cached_clean_settings = settings
+        self.cached_clean_bm = bm.copy()
+        if self.cached_subdiv_bm:
+            self.cached_subdiv_bm.free()
+            self.cached_subdiv_bm = None
+
+        # Adjust boundary mask
+        if self.boundary_mask_distance > 0.0:
+            bmesh_vertex_group_bleed(bm, boundary_vg_index, distance=self.boundary_mask_distance, power=2.0)
+
+        bm.to_mesh(dst_obj.data)
+        bm.free()
+
+    def cache_subdiv_bm(self, mesh, obj, settings):
+        self.cached_clean_bm.to_mesh(mesh)
+
+        with TempModifier(obj, type='SUBSURF') as subdiv_mod:
+            subdiv_mod.levels = self.subdivisions
+
+        # Write to cache
+        self.cached_subdiv_settings = settings
+        if self.cached_subdiv_bm:
+            self.cached_subdiv_bm.free()
+        self.cached_subdiv_bm = bmesh.new()
+        self.cached_subdiv_bm.from_mesh(mesh)
+
+    def _execute(self, context, dst_obj, objs):
+        if not self.cached_boolean_bm:
+            self.cache_boolean_bm(context, dst_obj, objs)
         else:
             # Read from cache
-            boundary_vg = get_vgroup(dst_obj, "__boundary")
+            boundary_vg = get_vgroup(dst_obj, temp_boundary_vg_name)
             self.cached_boolean_bm.to_mesh(dst_obj.data)
-        boundary_vg_index = dst_obj.vertex_groups["__boundary"].index
+        boundary_vg_index = dst_obj.vertex_groups[temp_boundary_vg_name].index
 
         # Calculate voxelized cage
         cage_mesh = bpy.data.meshes.new(f"__{dst_obj.name}_cage")
-        cage_obj = bpy.data.objects.new(cage_mesh.name, object_data=cage_mesh)
+        cage_obj = self.cage_obj = bpy.data.objects.new(cage_mesh.name, object_data=cage_mesh)
         cage_settings = (self.cage_distance, )
         if self.cage_distance > 0.0:
             if not self.cached_cage_bm or cage_settings != self.cached_cage_settings:
-                self.cached_boolean_bm.to_mesh(cage_mesh)
-
-                with TempModifier(cage_obj, type='DISPLACE') as displace_mod:
-                    displace_mod.strength = self.cage_distance
-                    displace_mod.mid_level = 0.0
-                with TempModifier(cage_obj, type='REMESH') as remesh_mod:
-                    remesh_mod.voxel_size = 0.02
-                    remesh_mod.adaptivity = self.cage_distance
-                    remesh_mod.use_smooth_shade = True
-
-                # Write to cache
-                self.cached_cage_settings = cage_settings
-                if self.cached_cage_bm:
-                    self.cached_cage_bm.free()
-                self.cached_cage_bm = bmesh.new()
-                self.cached_cage_bm.from_mesh(cage_mesh)
+                self.cache_cage_bm(cage_mesh, cage_obj, cage_settings)
             else:
                 # Read from cache
                 self.cached_cage_bm.to_mesh(cage_mesh)
 
         clean_settings = (self.weld_distance, self.weld_only_loops)
         if not self.cached_clean_bm or clean_settings != self.cached_clean_settings:
-            # Begin mesh cleanup after boolean
-            bm = bmesh.new()
-            bm.from_mesh(dst_obj.data)
-
-            if self.weld_only_loops:
-                # Very ugly because removing doubles invalidates indices. Should rewrite somehow
-                def get_weight(vert, vg_idx):
-                    return vert[deform_layer].get(vg_idx, 0.0)
-                def next_weld_along_direction(bm, dist):
-                    for vert in bm.verts:
-                        if get_weight(vert, boundary_vg_index) == 1.0:
-                            for edge in vert.link_edges:
-                                if edge.tag:
-                                    continue
-                                edge.tag = True
-                                verts = get_connected_verts_along_direction(vert, edge.other_vert(vert))
-                                bmesh.ops.remove_doubles(bm, verts=verts, dist=dist)
-                                return True
-                    return False
-                if self.weld_distance > 0.0:
-                    deform_layer = bm.verts.layers.deform.verify()
-                    for edge in bm.edges:
-                        edge.tag = False
-                    for vert in bm.verts:
-                        vert.tag = False
-                    while next_weld_along_direction(bm, self.weld_distance):
-                        pass
-            else:
-                bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=self.weld_distance)
-
-            # Delete non-manifold edges, then verts. This will likely create holes, close them too
-            bmesh.ops.holes_fill(bm, edges=bm.edges)
-            bmesh.ops.delete(bm, geom=[e for e in bm.edges if not e.is_manifold], context='EDGES')
-            bmesh.ops.holes_fill(bm, edges=bm.edges)
-            bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.is_manifold])
-            bmesh.ops.holes_fill(bm, edges=bm.edges)
-
-            # Get rid of excess verts
-            bmesh.ops.dissolve_limit(bm, angle_limit=radians(1.0),
-                verts=list(set(chain.from_iterable(f.verts for f in bm.faces if len(f.verts) != 4))),
-                edges=bm.edges, use_dissolve_boundaries=False, delimit=set())
-            bmesh.ops.dissolve_degenerate(bm, dist=0.001, edges=bm.edges)
-            bmesh.ops.connect_verts_concave(bm, faces=bm.faces)
-            bmesh.ops.holes_fill(bm, edges=bm.edges)
-
-            # Crudely close any remaining holes by collapsing boundaries
-            for _ in range(2):
-                bmesh.ops.collapse(bm, edges=[e for e in bm.edges if e.is_boundary], uvs=False)
-
-            # Delete loose geometry
-            bmesh.ops.delete(bm, geom=[f for f in bm.faces if all(e.is_boundary for e in f.edges)], context='FACES')
-            bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces])
-
-            # Write to cache and invalidate further steps
-            self.cached_clean_settings = clean_settings
-            self.cached_clean_bm = bm.copy()
-            if self.cached_subdiv_bm:
-                self.cached_subdiv_bm.free()
-                self.cached_subdiv_bm = None
-
-            # Adjust boundary mask
-            if self.boundary_mask_distance > 0.0:
-                bmesh_vertex_group_bleed(bm, boundary_vg_index, distance=self.boundary_mask_distance, power=2.0)
-
-            bm.to_mesh(dst_obj.data)
-            bm.free()
+            self.cache_clean_bm(dst_obj, clean_settings, boundary_vg_index)
         elif self.boundary_mask_distance > 0.0:
             # Read from cache adjusting boundary mask
             bm = self.cached_clean_bm.copy()
@@ -301,17 +319,7 @@ Requires meshes to have an open boundary, which is used to find the edge loops""
             subdiv_obj = bpy.data.objects.new(subdiv_mesh.name, object_data=subdiv_mesh)
             subdiv_settings = (self.subdivisions, )
             if not self.cached_subdiv_bm or subdiv_settings != self.cached_subdiv_settings:
-                self.cached_clean_bm.to_mesh(subdiv_mesh)
-
-                with TempModifier(subdiv_obj, type='SUBSURF') as subdiv_mod:
-                    subdiv_mod.levels = self.subdivisions
-
-                # Write to cache
-                self.cached_subdiv_settings = subdiv_settings
-                if self.cached_subdiv_bm:
-                    self.cached_subdiv_bm.free()
-                self.cached_subdiv_bm = bmesh.new()
-                self.cached_subdiv_bm.from_mesh(subdiv_mesh)
+                self.cache_subdiv_bm(subdiv_mesh, subdiv_obj, subdiv_settings)
             else:
                 # Read from cache
                 self.cached_subdiv_bm.to_mesh(subdiv_mesh)
@@ -330,7 +338,7 @@ Requires meshes to have an open boundary, which is used to find the edge loops""
                 data_mod.object = subdiv_obj
                 data_mod.use_object_transform = False
                 if self.boundary_mask_distance > 0.0:
-                    data_mod.vertex_group = "__boundary"
+                    data_mod.vertex_group = temp_boundary_vg_name
                     data_mod.invert_vertex_group = True
                 data_mod.use_loop_data = True
                 data_mod.data_types_loops = {'CUSTOM_NORMAL'}
@@ -343,7 +351,7 @@ Requires meshes to have an open boundary, which is used to find the edge loops""
                 data_mod.use_object_transform = False
                 data_mod.mix_factor = self.cage_mix_factor
                 if self.boundary_mask_distance > 0.0:
-                    data_mod.vertex_group = "__boundary"
+                    data_mod.vertex_group = temp_boundary_vg_name
                     data_mod.invert_vertex_group = True
                 data_mod.use_loop_data = True
                 data_mod.data_types_loops = {'CUSTOM_NORMAL'}
@@ -356,11 +364,44 @@ Requires meshes to have an open boundary, which is used to find the edge loops""
                 continue
             delete_obj_with_mesh(obj)
 
-        if self.cage_show:
-            context.scene.collection.objects.link(cage_obj)
-            cage_obj.matrix_world = dst_obj.matrix_world
-        else:
-            delete_obj_with_mesh(cage_obj)
+    def execute(self, context):
+        obj = context.active_object
+        objs = [o for o in context.selected_objects if o.type == 'MESH']
+
+        if not objs:
+            self.report({'ERROR'}, f"Select one or more meshes to merge.")
+            return {'CANCELLED'}
+        if not obj or obj.type != 'MESH' or obj not in context.selected_objects:
+            self.report({'ERROR'}, f"Active object is not a selected mesh.")
+            return {'CANCELLED'}
+        if obj.data.shape_keys:
+            self.report({'ERROR'}, f"Active object cannot have shape keys.")
+            return {'CANCELLED'}
+
+        self.cage_obj = None
+
+        try:
+            self._execute(context, obj, objs)
+        except:
+            self.cage_show = False
+            raise
+        finally:
+            # Clean up
+            boundary_vg = obj.vertex_groups.get(temp_boundary_vg_name)
+            if boundary_vg:
+                obj.vertex_groups.remove(boundary_vg)
+
+            collection = bpy.data.collections.get(temp_collection_name)
+            if collection:
+                bpy.data.collections.remove(collection)
+
+            if self.cage_obj:
+                if self.cage_show:
+                    context.scene.collection.objects.link(self.cage_obj)
+                    self.cage_obj.matrix_world = obj.matrix_world
+                else:
+                    delete_obj_with_mesh(self.cage_obj)
+            del self.cage_obj
 
         return {'FINISHED'}
 

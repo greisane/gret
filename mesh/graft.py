@@ -6,6 +6,9 @@ import bpy
 from .helpers import get_vgroup, get_modifier, TempModifier, edit_mesh_elements, bmesh_vertex_group_bleed
 from ..helpers import get_context, link_properties, load_selection, save_selection
 
+temp_boundary_vg_name = "__boundary"
+face_map_name = "Graft"
+
 class GRET_OT_graft(bpy.types.Operator):
     #tooltip
     """Connects boundaries of selected objects to the active object"""
@@ -85,7 +88,7 @@ class GRET_OT_graft(bpy.types.Operator):
             dst_to_obj = world_to_obj @ dst_obj.matrix_world
             obj_to_dst = dst_to_obj.inverted()
 
-            boundary_vg = get_vgroup(obj, "__boundary")
+            boundary_vg = get_vgroup(obj, temp_boundary_vg_name)
             bm = bmesh.new()
             bm.from_mesh(obj.data)
 
@@ -112,7 +115,7 @@ class GRET_OT_graft(bpy.types.Operator):
             wrap_mod.wrap_method = 'TARGET_PROJECT' # 'NEAREST_SURFACEPOINT'
             wrap_mod.wrap_mode = 'INSIDE'
             wrap_mod.target = dst_obj
-            wrap_mod.vertex_group = boundary_vg.name
+            wrap_mod.vertex_group = temp_boundary_vg_name
             wrap_mod.offset = 0.01
             bool_mod = obj.modifiers.new(type='BOOLEAN', name="")
             bool_mod.operation = 'INTERSECT'
@@ -178,7 +181,7 @@ class GRET_OT_graft(bpy.types.Operator):
                 self.report({'ERROR'}, f"Couldn't bridge edge loops.")
                 return
 
-            face_map = obj.face_maps.get("Graft") or obj.face_maps.new(name="Graft")
+            face_map = obj.face_maps.get(face_map_name) or obj.face_maps.new(name=face_map_name)
             for face in new_faces:
                 face.smooth = True
                 face[fm_layer] = face_map.index
@@ -206,7 +209,7 @@ class GRET_OT_graft(bpy.types.Operator):
 
                 with TempModifier(obj, type='DATA_TRANSFER') as data_mod:
                     data_mod.object = dst_obj
-                    data_mod.vertex_group = boundary_vg.name
+                    data_mod.vertex_group = temp_boundary_vg_name
                     data_mod.use_object_transform = True
                     data_mod.use_loop_data = True
                     data_mod.data_types_loops = {'CUSTOM_NORMAL'}
@@ -238,9 +241,6 @@ class GRET_OT_graft(bpy.types.Operator):
                 # Can't create a hide_viewport driver for reasons
                 link_properties(obj, 'hide_render', orig_dst_obj, mod_dp + '.show_render', invert=True)
 
-            if boundary_vg.name in obj.vertex_groups:
-                obj.vertex_groups.remove(boundary_vg)
-
         bpy.data.objects.remove(dst_obj)
         bpy.data.meshes.remove(dst_mesh)
         return {'FINISHED'}
@@ -262,6 +262,10 @@ class GRET_OT_graft(bpy.types.Operator):
             self._execute(context, obj, objs)
         finally:
             # Clean up
+            boundary_vg = obj.vertex_groups.get(temp_boundary_vg_name)
+            if boundary_vg:
+                obj.vertex_groups.remove(boundary_vg)
+
             load_selection(saved_selection)
 
         return {'FINISHED'}

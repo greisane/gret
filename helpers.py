@@ -87,6 +87,20 @@ def get_context(active_obj=None, selected_objs=None):
         ctx['selected_objects'] = ctx['selected_editable_objects'] = [active_obj]
     return ctx
 
+def get_collection(context, name, clean=True):
+    """Ensures that a collection with the given name exists in the scene."""
+
+    collection = bpy.data.collections.get(name)
+    if not collection:
+        collection = bpy.data.collections.new(name)
+    elif clean:
+        for obj in collection.objects[:]:
+            collection.objects.unlink(obj)
+    assert not collection.objects
+    if name not in context.scene.collection.children:
+        context.scene.collection.children.link(collection)
+    return collection
+
 SelectionState = namedtuple('SelectionState', [
     'selected',
     'active',
