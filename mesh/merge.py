@@ -67,6 +67,7 @@ Requires meshes to have an open boundary, which is used to find the edge loops""
         description="Transfer normals from a subdivided surface",
         default=0,
         min=0,
+        soft_max=6,
     )
     cage_distance: bpy.props.FloatProperty(
         name="Cage Distance",

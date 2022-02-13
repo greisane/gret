@@ -396,6 +396,8 @@ class GRET_PG_export_collection(bpy.types.PropertyGroup):
         name="Subdivision Levels",
         description="Subdivision levels to apply to the collection. Negative values will simplify",
         default=0,
+        soft_min=-6,
+        soft_max=6,
     )
 
     def get_collection(self, context):

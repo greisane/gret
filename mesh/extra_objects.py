@@ -143,6 +143,7 @@ class GRET_OT_strap_add(bpy.types.Operator):
         description="Subdivision level",
         default=1,
         min=0,
+        soft_max=6,
     )
     use_smooth_shade: bpy.props.BoolProperty(
         name="Smooth Shade",
@@ -208,17 +209,18 @@ class GRET_OT_rope_add(bpy.types.Operator):
     bl_label = "Add Rope"
     bl_options = {'REGISTER', 'UNDO'}
 
-    number_of_rows: bpy.props.IntProperty(
+    rows: bpy.props.IntProperty(
         name="Number of Rows",
         description="Number of rows",
         default=10,
         min=1,
     )
-    number_of_cuts: bpy.props.IntProperty(
+    cuts: bpy.props.IntProperty(
         name="Number of Cuts",
         description="Number of cuts for each row",
         default=2,
         min=0,
+        soft_max=100,
     )
     radius: bpy.props.FloatProperty(
         name="Radius",
@@ -254,6 +256,7 @@ class GRET_OT_rope_add(bpy.types.Operator):
         description="Subdivision level",
         default=1,
         min=0,
+        soft_max=6,
     )
     use_smooth_shade: bpy.props.BoolProperty(
         name="Smooth Shade",
@@ -276,7 +279,7 @@ class GRET_OT_rope_add(bpy.types.Operator):
             Vector((cos(pi/2) * r0, sin(pi/2) * r0, 0.0)),
         ]
         faces = [(n, n+1, n+1+len(vertices), n+len(vertices)) for n in range(4)]
-        cut_height = self.row_height / (self.number_of_cuts + 1)
+        cut_height = self.row_height / (self.cuts + 1)
         vertices.extend([Vector((v.x, v.y, cut_height)) for v in vertices])
         mesh.from_pydata(vertices, [], faces)
         for face in mesh.polygons:
@@ -304,7 +307,7 @@ class GRET_OT_rope_add(bpy.types.Operator):
         mod.merge_threshold = 1e-5
 
         mod = obj.modifiers.new(type='ARRAY', name="")
-        mod.count = self.number_of_cuts + 1
+        mod.count = self.cuts + 1
         mod.relative_offset_displace = [0.0, 0.0, 1.0]
         mod.use_merge_vertices = True
         mod.merge_threshold = 1e-5

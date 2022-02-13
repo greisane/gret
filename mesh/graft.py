@@ -25,6 +25,7 @@ class GRET_OT_graft(bpy.types.Operator):
         description="Number of cuts",
         default=0,
         min=0,
+        soft_max=100,
     )
     transfer_normals: bpy.props.BoolProperty(
         name="Transfer Normals",

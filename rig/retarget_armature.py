@@ -5,9 +5,6 @@ import numpy as np
 from ..log import log, logd, logger
 from ..rbf import *
 
-# TODO
-# - Allow moving the center of the bone instead of head+tail (for markers)
-
 class GRET_OT_retarget_armature(bpy.types.Operator):
     #tooltip
     """Retarget an armature or selected bones to fit a modified version of the source mesh."""
