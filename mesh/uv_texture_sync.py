@@ -1,5 +1,7 @@
 import bpy
 
+from ..patcher import PanelPatcher
+
 def move_uv_layer_last(uv_layers, index):
     saved_active_index = uv_layers.active_index
     uv_layers.active_index = index
@@ -47,11 +49,12 @@ class GRET_OT_uv_texture_move(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        obj = context.active_object
-        return obj and obj.type == 'MESH' and len(obj.data.uv_layers) > 1
+        return context.active_object and context.active_object.type == 'MESH'
 
     def execute(self, context):
         uv_layers = context.active_object.data.uv_layers
+        if len(uv_layers) == 1:
+            return {'FINISHED'}
         index = uv_layers.active_index
 
         if self.direction == 'UP' and index > 0:
@@ -101,12 +104,7 @@ class GRET_OT_uv_texture_sync(bpy.types.Operator):
 
         return {'FINISHED'}
 
-classes = (
-    GRET_OT_uv_texture_move,
-    GRET_OT_uv_texture_sync,
-)
-
-def draw_layout(self, context):
+def draw_uv_texture_panel_addon(self, context):
     layout = self.layout
     row = layout.row(align=True)
     op = row.operator('gret.uv_texture_move', icon='TRIA_UP', text="")
@@ -115,14 +113,51 @@ def draw_layout(self, context):
     op.direction = 'DOWN'
     row.operator('gret.uv_texture_sync', icon='UV_SYNC_SELECT', text="")
 
+uv_texture_panel_addon = """
+col.separator()
+op = col.operator('gret.uv_texture_move', icon='TRIA_UP', text="")
+op.direction = 'UP'
+op = col.operator('gret.uv_texture_move', icon='TRIA_DOWN', text="")
+op.direction = 'DOWN'
+col.operator('gret.uv_texture_sync', icon='UV_SYNC_SELECT', text="")
+"""
+
+class UVTexturePanelPatcher(PanelPatcher):
+    fallback_func = staticmethod(draw_uv_texture_panel_addon)
+    panel_type = bpy.types.DATA_PT_uv_texture
+
+    def visit_Call(self, node):
+        super().generic_visit(node)
+        # Modify `col.template_list(...)`
+        if node.func.attr == "template_list":
+            for kw in node.keywords:
+                if kw.arg == "rows":
+                    kw.value.value = 4
+        return node
+
+    def visit_FunctionDef(self, node):
+        super().generic_visit(node)
+        # Add more buttons at the end
+        import ast
+        tree_addon = ast.parse(uv_texture_panel_addon)
+        node.body += tree_addon.body
+        return node
+
+panel_patcher = UVTexturePanelPatcher()
+
+classes = (
+    GRET_OT_uv_texture_move,
+    GRET_OT_uv_texture_sync,
+)
+
 def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    bpy.types.DATA_PT_uv_texture.append(draw_layout)
+    panel_patcher.patch(debug=False)
 
 def unregister():
-    bpy.types.DATA_PT_uv_texture.remove(draw_layout)
+    panel_patcher.unpatch()
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

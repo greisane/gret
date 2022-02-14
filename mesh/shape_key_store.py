@@ -119,7 +119,7 @@ class GRET_OT_shape_key_clear(bpy.types.Operator):
         self.mute = event.ctrl
         return self.execute(context)
 
-def draw_panel_label_addon(self, context):
+def draw_shape_key_panel_addon(self, context):
     layout = self.layout
     obj = context.active_object
     slots = obj.data.shape_key_storage
@@ -137,7 +137,7 @@ def draw_panel_label_addon(self, context):
         row.separator()
         row.operator('gret.shape_key_clear', text="", icon='X')
 
-panel_label_addon = f"""
+shape_key_panel_slots_addon = f"""
 slots = ob.data.shape_key_storage
 subsub = sub.row(align=True)
 subsub.scale_x = 0.6
@@ -150,7 +150,7 @@ sub.separator()
 """
 
 class ShapeKeyPanelPatcher(PanelPatcher):
-    fallback_func = staticmethod(draw_panel_label_addon)
+    fallback_func = staticmethod(draw_shape_key_panel_addon)
     panel_type = bpy.types.DATA_PT_shape_keys
 
     def visit_Call(self, node):
@@ -172,7 +172,7 @@ class ShapeKeyPanelPatcher(PanelPatcher):
         # Add slot selector after `sub.label()`
         if node.value.func.attr == "label":
             import ast
-            tree_addon = ast.parse(panel_label_addon)
+            tree_addon = ast.parse(shape_key_panel_slots_addon)
             return [node, *tree_addon.body]
         return node
 
