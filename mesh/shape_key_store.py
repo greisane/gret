@@ -2,6 +2,8 @@ from io import StringIO
 import bpy
 import csv
 
+from ..patcher import PanelPatcher
+
 max_shape_key_slots = 5
 
 def dump_shape_key_info(sk):
@@ -33,7 +35,7 @@ class GRET_PG_shape_key_storage(bpy.types.PropertyGroup):
 
 class GRET_OT_shape_key_store(bpy.types.Operator):
     #tooltip
-    """Load shape key values stored in this slot. Ctrl-click to save or discard"""
+    """Load shape key values stored in this slot. Ctrl-Click to save or discard"""
 
     bl_idname = 'gret.shape_key_store'
     bl_label = "Store Shape Keys"
@@ -83,7 +85,41 @@ class GRET_OT_shape_key_store(bpy.types.Operator):
         self.load = not event.ctrl
         return self.execute(context)
 
-def draw_panel_extra(self, context):
+class GRET_OT_shape_key_clear(bpy.types.Operator):
+    #tooltip
+    """Clear weights for all shape keys. Ctrl-Click to mute all instead"""
+
+    bl_idname = 'gret.shape_key_clear'
+    bl_label = "Clear Shape Keys"
+    bl_context = 'objectmode'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    mute: bpy.props.BoolProperty(
+        name="Mute",
+        description="Mute shape keys instead of clearing weights",
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object and context.active_object.type == 'MESH'
+
+    def execute(self, context):
+        obj = context.active_object
+
+        if not self.mute:
+            # Can't set value to 0.0 myself when slider_min is greater, so call the native operator
+            bpy.ops.object.shape_key_clear()
+        else:
+            for sk in obj.data.shape_keys.key_blocks:
+                sk.mute = True
+
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        self.mute = event.ctrl
+        return self.execute(context)
+
+def draw_panel_label_addon(self, context):
     layout = self.layout
     obj = context.active_object
     slots = obj.data.shape_key_storage
@@ -98,8 +134,52 @@ def draw_panel_extra(self, context):
             text = chr(ord('A') + min(slot_idx, 25))
             op = row.operator('gret.shape_key_store', text=text, depress=has_data)
             op.index = slot_idx
+        row.separator()
+        row.operator('gret.shape_key_clear', text="", icon='X')
+
+panel_label_addon = f"""
+slots = ob.data.shape_key_storage
+subsub = sub.row(align=True)
+subsub.scale_x = 0.6
+for slot_idx in range({max_shape_key_slots}):
+    has_data = slot_idx < len(slots) and bool(slots[slot_idx].data)
+    text = chr(ord('A') + min(slot_idx, 25))
+    op = subsub.operator('gret.shape_key_store', text=text, depress=has_data)
+    op.index = slot_idx
+sub.separator()
+"""
+
+class ShapeKeyPanelPatcher(PanelPatcher):
+    fallback_func = staticmethod(draw_panel_label_addon)
+    panel_type = bpy.types.DATA_PT_shape_keys
+
+    def visit_Call(self, node):
+        super().generic_visit(node)
+        # Modify `split = layout.split(factor=0.4)`
+        if node.func.attr == "split":
+            for kw in node.keywords:
+                if kw.arg == "factor":
+                    kw.value.value = 0.25
+        # Modify `sub.operator('object.shape_key_clear', icon='X', text='')`
+        if node.func.attr == "operator":
+            for arg in node.args:
+                if arg.value == "object.shape_key_clear":
+                    arg.value = "gret.shape_key_clear"
+        return node
+
+    def visit_Expr(self, node):
+        super().generic_visit(node)
+        # Add slot selector after `sub.label()`
+        if node.value.func.attr == "label":
+            import ast
+            tree_addon = ast.parse(panel_label_addon)
+            return [node, *tree_addon.body]
+        return node
+
+panel_patcher = ShapeKeyPanelPatcher()
 
 classes = (
+    GRET_OT_shape_key_clear,
     GRET_OT_shape_key_store,
     GRET_PG_shape_key_storage,
 )
@@ -111,11 +191,11 @@ def register(settings):
     bpy.types.Mesh.shape_key_storage = bpy.props.CollectionProperty(
         type=GRET_PG_shape_key_storage,
     )
-    bpy.types.DATA_PT_shape_keys.append(draw_panel_extra)
+    panel_patcher.patch(debug=False)
 
 def unregister():
-    bpy.types.DATA_PT_shape_keys.remove(draw_panel_extra)
-    del bpy.types.Mesh.shape_keys_store
+    panel_patcher.unpatch()
+    del bpy.types.Mesh.shape_key_storage
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
