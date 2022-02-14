@@ -1,6 +1,8 @@
+from functools import wraps
 import ast
 import bpy
 import inspect
+import sys
 import textwrap
 import traceback
 
@@ -51,9 +53,63 @@ class PanelPatcher(ast.NodeTransformer):
         elif self.fallback_func:
             self.panel_type.remove(self.fallback_func)
 
+class FunctionPatcher(dict):
+    """
+    Allows patching functionality in foreign modules. The module must be already imported.
+    The patcher object acts like a keyword argument dictionary in order to pass additional data.
+    Example usage:
+
+    def cos_override(base, *args, **kwargs):
+        if kwargs.pop('to_radians', False):
+            args = (args[0] * (math.pi / 180), )
+        return base(*args, **kwargs)
+    import math
+    with FunctionPatcher('math', 'cos', cos_override) as patcher:
+        patcher['to_radians'] = True
+        print(math.cos(180.0))
+    """
+
+    def __init__(self, module_or_module_name, function_name, func, use_wrapper=True):
+        self.module_or_module_name = module_or_module_name
+        self.function_name = function_name
+        self.func = func
+
+    def get_module(self, module_or_module_name):
+        if isinstance(module_or_module_name, str):
+            return sys.modules.get(module_or_module_name)
+        return module_or_module_name
+
+    def get_func(self, module, function_name):
+        for part in function_name.split("."):
+            module = getattr(module, part, None)
+        return module
+
+    def __enter__(self):
+        module = self.get_module(self.module_or_module_name)
+        if module:
+            base_func = self.get_func(module, self.function_name)
+            if base_func:
+                @wraps(base_func)
+                def wrapper(*args, **kwargs):
+                    kwargs.update(self)
+                    return self.func(base_func, *args, **kwargs)
+                setattr(module, self.function_name, wrapper)
+            else:
+                logd(f"Couldn't patch {module.__name__}.{self.function_name}, function not found")
+        else:
+            logd(f"Couldn't patch {self.module_or_module_name}.{self.function_name}, module not found")
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        module = self.get_module(self.module_or_module_name)
+        if module:
+            wrapper = self.get_func(module, self.function_name)
+            if wrapper and hasattr(wrapper, '__wrapped__'):
+                setattr(module, self.function_name, wrapper.__wrapped__)
+
 def patch_module(module, visitor, debug=False):
     if debug:
-        print(f"{'Patching' if visitor else 'Analysing'} {module}")
+        print(f"{'Patching' if visitor else 'Dumping'} {module}")
 
     clipboard_text = ""
     def add_clipboard_text(*args):

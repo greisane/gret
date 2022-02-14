@@ -1,7 +1,8 @@
 from mathutils import Vector, Quaternion, Euler
 import bpy
 
-from ..helpers import intercept, get_context, select_only, Patcher
+from ..patcher import FunctionPatcher
+from ..helpers import intercept, get_context, select_only
 from ..log import log, logd
 
 non_humanoid_bone_names = [
@@ -236,7 +237,7 @@ def export_autorig(filepath, context, rig, objects=[], actions=[], options={}):
     select_only(context, objects)
     rig.select_set(True)
     context.view_layer.objects.active = rig
-    with Patcher('auto_rig_pro.export_fbx.export_fbx_bin', 'arp_save', arp_save) as patcher:
+    with FunctionPatcher('auto_rig_pro.export_fbx.export_fbx_bin', 'arp_save', arp_save) as patcher:
         patcher['options'] = options
         return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
@@ -296,7 +297,7 @@ def export_autorig_universal(filepath, context, rig, objects=[], actions=[], opt
     select_only(context, objects)
     rig.select_set(True)
     context.view_layer.objects.active = rig
-    with Patcher('auto_rig_pro.export_fbx.export_fbx_bin', 'arp_save', arp_save) as patcher:
+    with FunctionPatcher('auto_rig_pro.export_fbx.export_fbx_bin', 'arp_save', arp_save) as patcher:
         patcher['options'] = options
         return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 

@@ -1,12 +1,11 @@
 from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
 from collections import namedtuple
-from functools import wraps, lru_cache
+from functools import lru_cache
 from mathutils import Vector, Quaternion, Euler
 import bpy
 import io
 import os
 import re
-import sys
 
 from . import prefs
 from .log import logd
@@ -294,47 +293,6 @@ def intercept(_func=None, error_result=None):
         return decorator
     else:
         return decorator(_func)
-
-class Patcher(dict):
-    """
-    Allows patching functionality in foreign modules. The module must be already imported.
-    Example usage:
-
-    def override(base, *args, **kwargs):
-        del kwargs['some_extra_argument']
-        return base(*args, **kwargs)
-    with Patcher('math', 'pow', override) as patcher:
-        patcher['some_extra_argument'] = 1
-        math.pow(2, 2)
-    """
-
-    def __init__(self, module_name, function_name, func):
-        self.module_name = module_name
-        self.function_name = function_name
-        self.func = func
-
-    def __enter__(self):
-        module = sys.modules.get(self.module_name)
-        if module:
-            base_func = getattr(module, self.function_name, None)
-            if base_func:
-                @wraps(base_func)
-                def wrapper(*args, **kwargs):
-                    kwargs.update(self)
-                    return self.func(base_func, *args, **kwargs)
-                setattr(module, self.function_name, wrapper)
-            else:
-                logd(f"Couldn't patch {self.module_name}.{self.function_name}, function not found")
-        else:
-            logd(f"Couldn't patch {self.module_name}.{self.function_name}, module not found")
-        return self
-
-    def __exit__(self, exc_type, exc_value, exc_traceback):
-        module = sys.modules.get(self.module_name)
-        if module:
-            wrapper = getattr(module, self.function_name, None)
-            if wrapper and hasattr(wrapper, '__wrapped__'):
-                setattr(module, self.function_name, wrapper.__wrapped__)
 
 def get_export_path(path, fields):
     """Returns an absolute path from an export path."""

@@ -21,6 +21,7 @@ class ShapeKeyInfo(namedtuple('ShapeKeyInfo', ['coords', 'interpolation', 'mute'
             interpolation=shape_key.interpolation,
             mute=shape_key.mute,
             name=shape_key.name,
+            # relative_key=shape_key.relative_key.name,
             slider_max=shape_key.slider_max,
             slider_min=shape_key.slider_min,
             value=shape_key.value,
