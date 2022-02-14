@@ -1,6 +1,6 @@
 from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
 from collections import namedtuple
-from functools import lru_cache
+from functools import wraps, lru_cache
 from mathutils import Vector, Quaternion, Euler
 import bpy
 import io
