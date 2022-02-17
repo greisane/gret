@@ -6,6 +6,8 @@ import sys
 import textwrap
 import traceback
 
+from .log import logd
+
 class PanelPatcher(ast.NodeTransformer):
     """
     Allows patching Blender native UI panels. If patching fails and fallback_func is provided,
@@ -55,7 +57,7 @@ class PanelPatcher(ast.NodeTransformer):
 
 class FunctionPatcher(dict):
     """
-    Allows patching functionality in foreign modules. The module must be already imported.
+    Allows patching functionality in foreign modules.
     The patcher object acts like a keyword argument dictionary in order to pass additional data.
     Example usage:
 
@@ -86,6 +88,9 @@ class FunctionPatcher(dict):
 
     def __enter__(self):
         module = self.get_module(self.module_or_module_name)
+        if not module:
+            logd(f"Importing module {module_name}")
+            module = importlib.import_module(module_name)
         if module:
             base_func = self.get_func(module, self.function_name)
             if base_func:

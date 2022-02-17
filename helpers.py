@@ -8,7 +8,6 @@ import os
 import re
 
 from . import prefs
-from .log import logd
 
 safediv = lambda x, y: x / y if y != 0.0 else 0.0
 fmt_pct = lambda pct: f"{pct:.0f}%" if int(pct) == pct else f"{pct:.1f}%"
