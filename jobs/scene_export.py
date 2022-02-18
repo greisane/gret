@@ -61,7 +61,7 @@ class GRET_OT_scene_export(bpy.types.Operator):
     bl_idname = 'gret.scene_export'
     bl_label = "Scene Export"
     bl_context = 'objectmode'
-    bl_options = {'REGISTER'}
+    bl_options = {'INTERNAL'}
 
     index: bpy.props.IntProperty(options={'HIDDEN'})
 

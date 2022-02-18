@@ -177,6 +177,36 @@ class GRET_OT_export_job_move_down(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class GRET_OT_export(bpy.types.Operator):
+    bl_idname = 'gret.export'
+    bl_label = "Export"
+    bl_context = 'objectmode'
+    bl_options = {'REGISTER'}
+
+    index: bpy.props.IntProperty(options={'HIDDEN'})
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'OBJECT'
+
+    def execute(self, context):
+        if not context.scene.gret.export_jobs:
+            self.report({'ERROR'}, "No export jobs created!")
+            return {'CANCELLED'}
+        if self.index < 0 or self.index >= len(context.scene.gret.export_jobs):
+            self.report({'ERROR'}, "Invalid export job index.")
+            return {'CANCELLED'}
+
+        job = context.scene.gret.export_jobs[self.index]
+        if job.what == 'SCENE':
+            bpy.ops.gret.scene_export(self.index)
+        elif job.what == 'RIG':
+            bpy.ops.gret.rig_export(self.index)
+        elif job.what == 'ANIMATION':
+            bpy.ops.gret.animation_export(self.index)
+
+        return {'FINISHED'}
+
 def draw_job(layout, jobs, job_index):
     job = jobs[job_index]
 
@@ -250,10 +280,10 @@ def draw_job(layout, jobs, job_index):
             col = box.column(align=True)
             col.prop(job, 'scene_export_path', text="")
 
-        op = col.operator('gret.scene_export', icon='INDIRECT_ONLY_ON', text="Execute")
+        op = col.operator('gret.export', icon='INDIRECT_ONLY_ON', text="Execute")
         op.index = job_index
 
-    elif job.what == 'RIG' or job.what == 'MESH':  # 'MESH' for backwards compat
+    elif job.what == 'RIG':
         if job.show_expanded:
             box.prop(job, 'rig')
             add_collection_layout()
@@ -299,7 +329,7 @@ def draw_job(layout, jobs, job_index):
             else:
                 col.prop(job, 'rig_export_path', text="")
 
-        op = col.operator('gret.rig_export', icon='INDIRECT_ONLY_ON', text="Execute")
+        op = col.operator('gret.export', icon='INDIRECT_ONLY_ON', text="Execute")
         op.index = job_index
 
     elif job.what == 'ANIMATION':
@@ -336,7 +366,7 @@ def draw_job(layout, jobs, job_index):
             col = box.column(align=True)
             col.prop(job, 'animation_export_path', text="")
 
-        op = col.operator('gret.animation_export', icon='INDIRECT_ONLY_ON', text="Execute")
+        op = col.operator('gret.export', icon='INDIRECT_ONLY_ON', text="Execute")
         op.index = job_index
 
 class GRET_PT_export_jobs(bpy.types.Panel):
@@ -737,6 +767,7 @@ classes = (
     GRET_OT_export_job_move_up,
     GRET_OT_export_job_preset,
     GRET_OT_export_job_remove,
+    GRET_OT_export,
     GRET_PG_copy_property,
     GRET_PG_export_action,
     GRET_PG_export_collection,

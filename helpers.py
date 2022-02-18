@@ -310,7 +310,7 @@ def get_export_path(path, fields):
     return path
 
 def fail_if_invalid_export_path(path, field_names):
-    """Validates an export path and returns the reason it isn't valid."""
+    """Raises an exception if the export path is not valid."""
 
     if not path:
         raise Exception("Invalid export path.")
@@ -336,7 +336,7 @@ def fail_if_invalid_export_path(path, field_names):
         pass  # Directory already exists
 
 def fail_if_no_operator(bl_idname, submodule=bpy.ops.object):
-    """Checks an operator is available and returns the reason if it isn't."""
+    """Raises an exception if the operator is not available."""
 
     try:
         # Use getattr, hasattr seems to always return True
