@@ -354,6 +354,22 @@ def get_nice_export_report(filepaths, elapsed):
         return f"Exported {', '.join(filenames)} in {elapsed:.2f}s."
     return "Nothing exported."
 
+def snakecase(s):
+    """Convert string into snake case."""
+
+    s = re.sub(r"[\-\.\s]", '_', str(s))
+    if not s:
+        return s
+    s = s[0] + re.sub(r"[^_][A-Z]+", lambda m: m.group(0)[0] + "_" + m.group(0)[1:], s[1:])
+    return s.lower()
+
+def titlecase(s):
+    """Convert string into sentence case."""
+
+    if not s:
+        return s
+    return " ".join(word[0].upper() + word[1:] for word in snakecase(s).split("_"))
+
 def path_split_all(path):
     """Returns a path split into a list of its parts."""
 
@@ -448,10 +464,3 @@ def get_visible_objects_and_duplis(context):
 
 def get_tools_from_space_and_mode(space_type, context_mode):
     return ToolSelectPanelHelper._tool_class_from_space_type(space_type)._tools[context_mode]
-
-def keymap_view3d_empty(km_name):
-    return (
-        km_name,
-        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": []},
-    )

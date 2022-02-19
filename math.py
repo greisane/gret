@@ -7,7 +7,7 @@ SMALL_NUMBER = 1e-8
 KINDA_SMALL_NUMBER = 1e-4
 
 saturate = lambda x: min(1.0, max(0.0, x))
-grid_snap = lambda x, grid: x if grid == 0.0 else floor((x + (grid*0.5)) / grid) * grid
+grid_snap = lambda x, grid: x if grid == 0.0 else floor((x + (grid * 0.5)) / grid) * grid
 
 def calc_bounds(points):
     xs, ys, zs = zip(*points)

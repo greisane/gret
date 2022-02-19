@@ -604,9 +604,10 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
             for space in area.spaces:
                 if space.type == 'VIEW_3D':
                     space.shading['saved_type'], space.shading.type = space.shading.type, 'RENDERED'
-        context.window_manager.modal_handler_add(self)
 
         logger.end_logging()
+
+        context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
 
 class GRET_OT_texture_bake_add(bpy.types.Operator):

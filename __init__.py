@@ -35,9 +35,10 @@ def import_or_reload_modules(module_names, package_name):
 module_names = [
     'log',
     'helpers',
-    'patcher',
     'math',
     'rbf',
+    'patcher',
+    # Submodules
     'file',
     'material',
     'mesh',
