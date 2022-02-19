@@ -1,5 +1,3 @@
-from bl_keymap_utils.io import keyconfig_init_from_data
-from bpy.utils.toolsystem import ToolDef
 from bpy_extras import view3d_utils
 from collections import namedtuple
 from math import ceil, inf, atan2, pi
@@ -8,17 +6,10 @@ from random import randrange
 import bpy
 import re
 
-from ..helpers import (
-    get_tools_from_space_and_mode,
-    keymap_view3d_empty,
-    remove_subsequence,
-    select_only,
-)
-from .helpers import Node
 from .. import prefs
+from ..helpers import select_only
+from .helpers import Node
 
-tool_id = 'gret.tileset_paint'
-km_tool_paint_name = "3D View Tool: Tile Paint"
 generative_modifier_types = {'MULTIRES', 'BEVEL', 'BOOLEAN', 'BUILD', 'DECIMATE', 'NODES', 'MASK',
     'REMESH', 'SCREW', 'SKIN', 'SOLIDIFY', 'SUBSURF', 'TRIANGULATE', 'WIREFRAME'}
 tilesets = {}  # Image name to Tileset
@@ -324,7 +315,7 @@ class GRET_OT_tileset_draw(bpy.types.Operator):
         if not tile:
             return
 
-        tool = context.workspace.tools.get(tool_id)
+        tool = context.workspace.tools.get(GRET_TT_tile_paint.bl_idname)
         if tool:
             props = tool.operator_properties(GRET_OT_tileset_draw.bl_idname)
             props.tileset = tile.tileset.name
@@ -446,7 +437,7 @@ class GRET_OT_tileset_select(bpy.types.Operator):
     index: bpy.props.IntProperty()
 
     def execute(self, context):
-        tool = context.workspace.tools.get(tool_id)
+        tool = context.workspace.tools.get(GRET_TT_tile_paint.bl_idname)
         if not tool:
             return {'CANCELLED'}
 
@@ -454,8 +445,43 @@ class GRET_OT_tileset_select(bpy.types.Operator):
         props.index = self.index
         return {'FINISHED'}
 
-@ToolDef.from_fn
-def tool_paint():
+class GRET_TT_tile_paint(bpy.types.WorkSpaceTool):
+    bl_space_type = 'VIEW_3D'
+    bl_context_mode = 'OBJECT'
+
+    bl_idname = "gret.tileset_paint"
+    bl_label = "Tile Paint"
+    bl_description = """Paint faces using the tileset selected in the Active Tool panel.
+\u2022 Left click to paint.
+\u2022 Ctrl+Left to sample.
+\u2022 Shift+Left to fill.
+\u2022 Shift+Ctrl+Left to replace similar"""
+    bl_icon = "brush.paint_texture.draw"
+    bl_widget = None
+    bl_cursor = 'PAINT_BRUSH'
+    bl_keymap = (
+        (
+            GRET_OT_tileset_draw.bl_idname,
+            {"type": 'LEFTMOUSE', "value": 'PRESS'},
+            None,
+        ),
+        (
+            GRET_OT_tileset_draw.bl_idname,
+            {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True},
+            {"properties": [("mode", 'SAMPLE')]},
+        ),
+        (
+            GRET_OT_tileset_draw.bl_idname,
+            {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
+            {"properties": [("mode", 'FILL')]},
+        ),
+        (
+            GRET_OT_tileset_draw.bl_idname,
+            {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True, "ctrl": True},
+            {"properties": [("mode", 'REPLACE')]},
+        ),
+    )
+
     def draw_settings(context, layout, tool):
         props = tool.operator_properties(GRET_OT_tileset_draw.bl_idname)
         if not props.uv_layer_name and prefs.tileset_uv_layer_name:
@@ -497,72 +523,6 @@ def tool_paint():
             op = row.operator('gret.tileset_select', text="", depress=selected, icon_value=icon_id)
             op.index = tile_idx
 
-    return dict(
-        idname=tool_id,
-        label="Tile Paint",
-        description="""Paint faces using the tileset selected in the Active Tool panel.
-\u2022 Left click to paint.
-\u2022 Ctrl+Left to sample.
-\u2022 Shift+Left to fill.
-\u2022 Shift+Ctrl+Left to replace similar""",
-        icon="brush.paint_texture.draw",
-        widget=None,
-        cursor='PAINT_BRUSH',
-        keymap=km_tool_paint_name,
-        draw_settings=draw_settings,
-    )
-
-km_tool_paint = (
-    km_tool_paint_name,
-    {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-    {"items": [
-        (
-            GRET_OT_tileset_draw.bl_idname,
-            {"type": 'LEFTMOUSE', "value": 'PRESS'},
-            None
-        ),
-        (
-            GRET_OT_tileset_draw.bl_idname,
-            {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True},
-            {"properties": [("mode", 'SAMPLE')]}
-        ),
-        (
-            GRET_OT_tileset_draw.bl_idname,
-            {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
-            {"properties": [("mode", 'FILL')]}
-        ),
-        (
-            GRET_OT_tileset_draw.bl_idname,
-            {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True, "ctrl": True},
-            {"properties": [("mode", 'REPLACE')]}
-        ),
-    ]},
-)
-km_tool_paint_empty = keymap_view3d_empty(km_tool_paint_name)
-
-def register_keymaps():
-    keyconfigs = bpy.context.window_manager.keyconfigs
-    kc_default = keyconfigs.default
-    kc_addon = keyconfigs.addon
-
-    keyconfig_init_from_data(kc_default, [km_tool_paint_empty])
-    keyconfig_init_from_data(kc_addon, [km_tool_paint])
-
-def unregister_keymaps():
-    keyconfigs = bpy.context.window_manager.keyconfigs
-    kc_default_keymaps = keyconfigs.default.keymaps
-    kc_addon_keymaps = keyconfigs.addon.keymaps
-
-    for km_name, km_args, km_content in [km_tool_paint]:
-        keymap = kc_addon_keymaps.find(km_name, **km_args)
-        keymap_items = keymap.keymap_items
-        for item in km_content['items']:
-            item_id = keymap_items.find(item[0])
-            if item_id != -1:
-                keymap_items.remove(keymap_items[item_id])
-        kc_addon_keymaps.remove(keymap)
-        kc_default_keymaps.remove(kc_default_keymaps.find(km_name, **km_args))
-
 def clear_tilesets():
     for tileset in tilesets.values():
         bpy.utils.previews.remove(tileset.pcoll)
@@ -579,14 +539,12 @@ def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    get_tools_from_space_and_mode('VIEW_3D', 'OBJECT').extend((None, tool_paint))
-    register_keymaps()
+    bpy.utils.register_tool(GRET_TT_tile_paint, separator=True)
     clear_tilesets()
 
 def unregister():
     clear_tilesets()
-    unregister_keymaps()
-    remove_subsequence(get_tools_from_space_and_mode('VIEW_3D', 'OBJECT'), (None, tool_paint))
+    bpy.utils.unregister_tool(GRET_TT_tile_paint)
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
