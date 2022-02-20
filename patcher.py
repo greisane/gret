@@ -116,19 +116,19 @@ def patch_module(module, visitor, debug=False):
     if debug:
         print(f"{'Patching' if visitor else 'Dumping'} {module}")
 
-    clipboard_text = ""
-    def add_clipboard_text(*args):
-        nonlocal clipboard_text
+    debug_text = ""
+    def printd(*args):
+        nonlocal debug_text
         for arg in args:
-            clipboard_text += "-" * 80 + "\n"
-            clipboard_text += str(arg) + "\n"
+            debug_text += "-" * 80 + "\n"
+            debug_text += str(arg) + "\n"
 
     source = textwrap.dedent(inspect.getsource(module))
     tree = ast.parse(source)
 
     if debug:
-        add_clipboard_text("BEGIN SOURCE", source)
-        add_clipboard_text("BEGIN AST DUMP", ast.dump(tree, include_attributes=True, indent=2))
+        printd("BEGIN SOURCE", source)
+        printd("BEGIN AST DUMP", ast.dump(tree, include_attributes=True, indent=2))
         print(f"Copied source and AST dump of {module} to clipboard")
 
     new_tree = None
@@ -136,14 +136,17 @@ def patch_module(module, visitor, debug=False):
         try:
             new_tree = ast.fix_missing_locations(visitor.visit(tree))
             if debug:
-                from .astunparse import unparse
-                add_clipboard_text("BEGIN OUTPUT SOURCE", unparse(tree))
-                add_clipboard_text("BEGIN OUTPUT AST DUMP", ast.dump(tree, include_attributes=True, indent=2))
-                print(f"Copied transformed source of {module} to clipboard")
+                try:
+                    import astunparse
+                    printd("BEGIN OUTPUT SOURCE", astunparse.unparse(tree))
+                except ModuleNotFoundError:
+                    pass
+                printd("BEGIN OUTPUT AST DUMP", ast.dump(tree, include_attributes=True, indent=2))
+                print(f"Copied output of patching {module} to clipboard")
         except:
             if debug:
                 print(f"Copied visit exception to clipboard")
-                add_clipboard_text("VISIT EXCEPTION", traceback.format_exc())
+                printd("VISIT EXCEPTION", traceback.format_exc())
 
     new_code = None
     if new_tree:
@@ -152,7 +155,7 @@ def patch_module(module, visitor, debug=False):
         except:
             if debug:
                 print(f"Copied compile exception to clipboard")
-                add_clipboard_text("COMPILE EXCEPTION", traceback.format_exc())
+                printd("COMPILE EXCEPTION", traceback.format_exc())
 
     new_module = None
     if new_code:
@@ -163,10 +166,10 @@ def patch_module(module, visitor, debug=False):
         except:
             if debug:
                 print(f"Copied execution exception to clipboard")
-                add_clipboard_text("EXEC EXCEPTION", traceback.format_exc())
+                printd("EXEC EXCEPTION", traceback.format_exc())
 
-    if clipboard_text:
-        bpy.context.window_manager.clipboard = clipboard_text
+    if debug_text:
+        bpy.context.window_manager.clipboard = debug_text
 
     return new_module
 
