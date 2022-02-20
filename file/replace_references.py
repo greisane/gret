@@ -15,11 +15,11 @@ class GRET_OT_replace_references(bpy.types.Operator):
         description="Print the properties that would be replaced, without making any changes",
         default=False,
     )
-    src_obj_name: bpy.props.StringProperty(
+    src_obj: bpy.props.StringProperty(
         name="Source Object",
         description="Object to be replaced",
     )
-    dst_obj_name: bpy.props.StringProperty(
+    dst_obj: bpy.props.StringProperty(
         name="Destination Object",
         description="Object to be used in its place",
     )
@@ -30,16 +30,16 @@ class GRET_OT_replace_references(bpy.types.Operator):
 
     def draw(self, context):
         layout = self.layout
-        layout.prop_search(self, 'src_obj_name', bpy.data, 'objects', text="From")
-        layout.prop_search(self, 'dst_obj_name', bpy.data, 'objects', text="To")
+        layout.prop_search(self, 'src_obj', bpy.data, 'objects', text="From")
+        layout.prop_search(self, 'dst_obj', bpy.data, 'objects', text="To")
         layout.prop(self, 'dry_run')
 
     def execute(self, context):
-        src_obj = bpy.data.objects.get(self.src_obj_name)
+        src_obj = bpy.data.objects.get(self.src_obj)
         if not src_obj:
             self.report({'ERROR'}, f"Source object does not exist.")
             return {'CANCELLED'}
-        dst_obj = bpy.data.objects.get(self.dst_obj_name)
+        dst_obj = bpy.data.objects.get(self.dst_obj)
         if not dst_obj:
             self.report({'ERROR'}, f"Destination object does not exist.")
             return {'CANCELLED'}
