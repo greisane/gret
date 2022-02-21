@@ -36,14 +36,16 @@ module_names = [
     'log',
     'helpers',
     'math',
-    'rbf',
+    'drawing',
+    'operator',
     'patcher',
+    'rbf',
     # Submodules
     'file',
     'material',
     'mesh',
     'rig',
-    'uv',
+    'uv',  # Depends on material
     'anim',  # Depends on rig
     'jobs',  # Depends on mesh, rig
 ]
@@ -64,9 +66,9 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         description="Name of the default UV layer for texture bakes",
         default="UVMap",
     )
-    tileset_uv_layer_name: bpy.props.StringProperty(
+    uv_paint_layer_name: bpy.props.StringProperty(
         name="Default UV Layer",
-        description="Name of the default UV layer for tileset paint",
+        description="Name of the default UV layer for UV paint",
         default="UVMap",
     )
     debug: bpy.props.BoolProperty(
@@ -87,8 +89,8 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         col.prop(self, 'texture_bake_uv_layer_name')
         col.separator()
 
-        col.label(text='Tile Paint:')
-        col.prop(self, 'tileset_uv_layer_name')
+        col.label(text='UV Paint:')
+        col.prop(self, 'uv_paint_layer_name')
         col.separator()
 
 class GRET_PG_settings(bpy.types.PropertyGroup):

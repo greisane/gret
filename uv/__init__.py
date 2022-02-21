@@ -1,9 +1,11 @@
 import bpy
 
 module_names = [
-    'helpers',
     'align_each',
+    'helpers',
     'relax_loops',
+    'uv_paint',
+    'uv_sheet',
 ]
 from .. import import_or_reload_modules
 modules = import_or_reload_modules(module_names, __name__)

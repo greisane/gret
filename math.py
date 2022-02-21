@@ -1,3 +1,4 @@
+from collections import namedtuple
 from math import floor, sqrt
 from mathutils import Vector
 from numpy.polynomial import polynomial as pl
@@ -8,6 +9,47 @@ KINDA_SMALL_NUMBER = 1e-4
 
 saturate = lambda x: min(1.0, max(0.0, x))
 grid_snap = lambda x, grid: x if grid == 0.0 else floor((x + (grid * 0.5)) / grid) * grid
+
+class Rect(namedtuple("Rect", ["x0", "y0", "x1", "y1"])):
+    @classmethod
+    def from_size(self, x, y, width, height):
+        return Rect(x, y, x + width, y + height)
+
+    @property
+    def width(self):
+        return self.x1 - self.x0
+
+    @property
+    def height(self):
+        return self.y1 - self.y0
+
+    @property
+    def center(self):
+        return self.x0 + (self.x1 - self.x0) * 0.5, self.y0 + (self.y1 - self.y0) * 0.5
+
+    @property
+    def corners(self):
+        # return (self.x0, self.y0), (self.x0, self.y1), (self.x1, self.y1), (self.x1, self.y0)
+        return (self.x0, self.y0), (self.x1, self.y0), (self.x1, self.y1), (self.x0, self.y1)
+
+    def contains(self, point):
+        return self.x0 < point[0] < self.x1 and self.y0 < point[1] < self.y1
+
+    def intersects(self, other):
+        return self.x0 < other.x1 and other.x0 < self.x1 and self.y0 < other.y1 and other.y0 < self.y1
+
+    def expand(self, w):
+        return Rect(self.x0 - w, self.y0 - w, self.x1 + w, self.y1 + w)
+
+    def resize(self, width, height):
+        w, h = width * 0.5, height * 0.5
+        cx, cy = self.center
+        return Rect(cx - w, cy - h, cx + w, cy + h)
+
+    def to_screen(self, view2d):
+        x0, y0 = view2d.view_to_region(self.x0, self.y0, clip=False)
+        x1, y1 = view2d.view_to_region(self.x1, self.y1, clip=False)
+        return Rect(x0, y0, x1, y1)
 
 def calc_bounds(points):
     xs, ys, zs = zip(*points)
