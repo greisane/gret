@@ -1,39 +1,46 @@
 from bpy_extras import view3d_utils
 from collections import namedtuple
-from gpu_extras.batch import batch_for_shader
 from math import inf, atan2, pi
-from mathutils import Vector, Matrix
+from mathutils import Vector
 from random import randrange
 import bpy
-import gpu
 
 from .. import prefs
-from ..drawing import UVSheetTheme, draw_image, draw_box, draw_box_fill
 from ..helpers import select_only
-from ..material.helpers import Node
-from ..math import Rect, SMALL_NUMBER
+from ..material.helpers import Node, get_material, set_material
+from ..math import SMALL_NUMBER
+
+# TODO:
+# - no random fill option
+# - toggle image quadrant
+# - paint flipped uvs?
+# - gravity paint
+# - trim alignment
+# - paint hold lmb to paint multiple faces? or to change rotation?
+# - paint hold shift lmb to slide texture?
 
 generative_modifier_types = {'MULTIRES', 'BEVEL', 'BOOLEAN', 'BUILD', 'DECIMATE', 'NODES', 'MASK',
     'REMESH', 'SCREW', 'SKIN', 'SOLIDIFY', 'SUBSURF', 'TRIANGULATE', 'WIREFRAME'}
-rect_texcoords = (0, 0), (1, 0), (1, 1), (0, 1)
-theme = UVSheetTheme()
 
 simple_nodes = (Node('OutputMaterial')
 .link('Surface', None,
     Node('BsdfDiffuse')
     .set('Roughness', 1.0)
     .link('Color', 0,
-        Node('TexImage', image_eval='image', interpolation='Closest')
+        Node('TexImage', image_eval='image', interpolation='Closest', show_texture=True)
     )
 ))
 
-Quad = namedtuple('Quad', ['uv_sheet', 'region_index', 'rotation'])
-Quad.__bool__ = lambda self: self.uv_sheet is not None
-Quad.invalid = Quad(None, -1, 0)
+class Quad(namedtuple('Quad', ['uv_sheet', 'region_index', 'rotation'])):
+    Quad.invalid = Quad(None, -1, 0)
+
+    def __bool__(self):
+        return (self.uv_sheet is not None
+            and self.region_index >= 0 and self.region_index < len(self.uv_sheet.regions))
 
 def get_uv_sheet_from_material(mat):
     if mat and mat.use_nodes:
-        # Find the "active" image node that is also displayed in viewport texture mode
+        # Find the "active" image node that will be visible in viewport texture mode
         for node in mat.node_tree.nodes:
             if node.show_texture and node.type == 'TEX_IMAGE':
                 return node.image.uv_sheet
@@ -57,13 +64,14 @@ def set_face_uvs(face, uvs, quad):
         uvs[face.loop_indices[(2 - rotation) % 4]].uv[:] = (x1, y1)
         uvs[face.loop_indices[(3 - rotation) % 4]].uv[:] = (x0, y1)
 
-def get_quad(mesh, face, uv_layer_name):
-    # TODO respect object materials
-    if face.material_index >= len(mesh.materials):
+def get_quad(obj, face, uv_layer_name):
+    mesh = obj.data
+
+    if face.material_index >= len(obj.material_slots):
         # No such material
         return Quad.invalid
 
-    uv_sheet = get_uv_sheet_from_material(mesh.materials[face.material_index])
+    uv_sheet = get_uv_sheet_from_material(get_material(obj, face.material_index))
     if not uv_sheet:
         # Not a uv_sheet material
         return Quad.invalid
@@ -99,21 +107,22 @@ def get_quad(mesh, face, uv_layer_name):
 
     return Quad(uv_sheet, region_index, rotation)
 
-def set_quad(mesh, face, quad, uv_layer_name):
+def set_quad(obj, face, quad, uv_layer_name):
     if not quad:
         return
     uv_sheet = quad.uv_sheet
+    mesh = obj.data
 
     # Ensure material and UV state
-    if not mesh.materials:
-        mat = bpy.data.materials.new(name=uv_sheet.id_data.name)
-        mesh.materials.append(mat)
-    elif mesh.materials:
-        mat = mesh.materials[face.material_index]
+    mat = get_material(obj, face.material_index)
+    if not mat:
+        mat_name = uv_sheet.id_data.name
+        mat = bpy.data.materials.get(mat_name) or bpy.data.materials.new(name=mat_name)
+        set_material(obj, face.material_index, mat)
 
     do_fill = False
     if get_uv_sheet_from_material(mat) != uv_sheet:
-        # Convert the material to use this uv_sheet
+        # Convert the material to use this UV sheet
         mat.use_nodes = True
         mat.node_tree.nodes.clear()
         simple_nodes.build(mat.node_tree, {'image': uv_sheet.id_data})
@@ -194,7 +203,7 @@ def get_ray_hit(context, mouse_x, mouse_y):
     return hit_obj, face, quadrant
 
 class GRET_OT_uv_paint(bpy.types.Operator):
-    bl_idname = 'gret.uv_sheet_draw'
+    bl_idname = 'gret.uv_paint'
     bl_label = "Paint Face"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -212,9 +221,9 @@ class GRET_OT_uv_paint(bpy.types.Operator):
         description="Tool mode",
         items = (
             ('DRAW', "Paint", "Paint face"),
-            ('SAMPLE', "Sample", "Sample quad"),
+            ('SAMPLE', "Sample", "Sample UVs"),
             ('FILL', "Fill", "Paint floodfill"),
-            ('REPLACE', "Replace", "Replace faces with the same quad"),
+            ('REPLACE', "Replace", "Replace faces with the same UVs"),
         ),
         default='DRAW',
     )
@@ -237,14 +246,14 @@ class GRET_OT_uv_paint(bpy.types.Operator):
         image = bpy.data.images.get(self.image)
         return image.uv_sheet if image else None
 
-    def do_draw(self, context, mesh, face, rotation=0):
+    def do_draw(self, context, obj, face, rotation=0):
         new_quad = Quad(self.uv_sheet, self.uv_sheet.active_index, rotation)
         if not new_quad:
             return
-        set_quad(mesh, face, new_quad, self.uv_layer_name)
+        set_quad(obj, face, new_quad, self.uv_layer_name)
 
-    def do_sample(self, context, mesh, face):
-        quad = get_quad(mesh, face, self.uv_layer_name)
+    def do_sample(self, context, obj, face):
+        quad = get_quad(obj, face, self.uv_layer_name)
         if not quad:
             return
 
@@ -254,10 +263,11 @@ class GRET_OT_uv_paint(bpy.types.Operator):
             props.image = quad.uv_sheet.id_data.name
             quad.uv_sheet.active_index = quad.region_index
 
-    def do_fill(self, context, mesh, face):
+    def do_fill(self, context, obj, face):
         new_quad = Quad(self.uv_sheet, self.uv_sheet.active_index, -1)
         if not new_quad:
             return
+        mesh = obj.data
 
         bpy.ops.object.editmode_toggle()
         bpy.ops.mesh.select_mode(type='FACE')
@@ -268,20 +278,25 @@ class GRET_OT_uv_paint(bpy.types.Operator):
         bpy.ops.object.editmode_toggle()
         for face in mesh.polygons:
             if face.select:
-                set_quad(mesh, face, new_quad, self.uv_layer_name)
+                set_quad(obj, face, new_quad, self.uv_layer_name)
 
-    def do_replace(self, context, mesh, face):
-        quad = get_quad(mesh, face, self.uv_layer_name)
+    def do_replace(self, context, obj, face):
+        quad = get_quad(obj, face, self.uv_layer_name)
         new_quad = Quad(self.uv_sheet, self.uv_sheet.active_index, -1)
         if not quad or not new_quad:
             return
 
-        for other_face in mesh.polygons:
-            other_quad = get_quad(mesh, other_face, self.uv_layer_name)
+        for other_face in obj.data.polygons:
+            other_quad = get_quad(obj, other_face, self.uv_layer_name)
             if quad.uv_sheet == other_quad.uv_sheet and quad.region_index == other_quad.region_index:
-                set_quad(mesh, other_face, new_quad, self.uv_layer_name)
+                set_quad(obj, other_face, new_quad, self.uv_layer_name)
 
     def invoke(self, context, event):
+        image = bpy.data.images.get(self.image)
+        if not image and self.mode != 'SAMPLE':
+            self.report({'WARNING'}, "No image to paint with, select one in the Tool tab.")
+            return {'CANCELLED'}
+
         # Make sure user can see the result
         if context.space_data.shading.type == 'SOLID':
             context.space_data.shading.color_type = 'TEXTURE'
@@ -293,132 +308,15 @@ class GRET_OT_uv_paint(bpy.types.Operator):
         select_only(context, obj)
 
         if self.mode == 'DRAW':
-            self.do_draw(context, obj.data, hit_face, quadrant)
+            self.do_draw(context, obj, hit_face, quadrant)
         elif self.mode == 'SAMPLE':
-            self.do_sample(context, obj.data, hit_face)
+            self.do_sample(context, obj, hit_face)
         elif self.mode == 'FILL':
-            self.do_fill(context, obj.data, hit_face)
+            self.do_fill(context, obj, hit_face)
         elif self.mode == 'REPLACE':
-            self.do_replace(context, obj.data, hit_face)
+            self.do_replace(context, obj, hit_face)
 
         return {'FINISHED'}
-
-class GRET_GT_uv_sheet_gizmo(bpy.types.Gizmo):
-    active_area = None
-    __slots__ = (
-        "region_index",
-    )
-
-    @staticmethod
-    def get_active_image_info(context):
-        tool = context.workspace.tools.get(GRET_TT_uv_paint.bl_idname)
-        if tool:
-            props = tool.operator_properties(GRET_OT_uv_paint.bl_idname)
-            im = bpy.data.images.get(props.image)
-            if im:
-                return im, im.uv_sheet, im.size[0]/ max(im.size), im.size[1] / max(im.size)
-        return None, None, 0, 0
-
-    def get_region_index_at(self, context, x, y):
-        image, uv_sheet, w, h = self.get_active_image_info(context)
-        if not image:
-            return None, None
-
-        x, y, _ = self.matrix_world.inverted() @ Vector((x, y, 0))
-        x /= w
-        y /= h
-
-        if x >= 0.0 and y >= 0.0 and x < 1.0 and y < 1.0:
-            # Find index of hovered region
-            for region_idx, region in enumerate(uv_sheet.regions):
-                if region.v0[0] < x < region.v1[0] and region.v0[1] < y < region.v1[1]:
-                    return uv_sheet, region_idx
-            return uv_sheet, -1
-        return uv_sheet, None
-
-    def draw(self, context):
-        cls = __class__
-        if not cls.active_area or context.area != cls.active_area:
-            # Only draw the picker in the active area
-            return
-        image, uv_sheet, w, h = self.get_active_image_info(context)
-        if not image:
-            return
-        texture = gpu.texture.from_image(image)
-
-        with gpu.matrix.push_pop():
-            gpu.matrix.multiply_matrix(self.matrix_world)
-            gpu.matrix.multiply_matrix(Matrix.Diagonal((w, h, 1.0, 1.0)))
-
-            draw_box(0, 0, 1, 1, theme.border)
-            draw_image(0, 0, 1, 1, image, nearest=True)
-            draw_box_fill(0, 0, 1, 1, (0, 0, 0, 0.3))  # Darken (image shader doesn't support tint)
-
-            for region in uv_sheet.regions:
-                draw_box(*region.v0, *region.v1, theme.unselected)
-
-            if self.region_index >= 0 and self.region_index < len(uv_sheet.regions):
-                region = uv_sheet.regions[self.region_index]
-                draw_box(*region.v0, *region.v1, theme.hovered)
-
-            if uv_sheet.active_index >= 0 and uv_sheet.active_index < len(uv_sheet.regions):
-                region = uv_sheet.regions[uv_sheet.active_index]
-                draw_box(*region.v0, *region.v1, theme.selected, width=2.0)
-
-    def test_select(self, context, location):
-        # Only called for the currently hovered viewport
-        cls = __class__
-        if cls.active_area:
-            # Force a redraw on the area we're leaving so the picker disappears
-            cls.active_area.tag_redraw()
-        cls.active_area = context.area
-
-        uv_sheet, result = self.get_region_index_at(context, *location)
-        if result is not None:
-            self.region_index = result
-            return 0
-
-        self.region_index = -1
-        return -1
-
-    def setup(self):
-        self.region_index = -1
-
-    def invoke(self, context, event):
-        if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
-            uv_sheet, result = self.get_region_index_at(context, event.mouse_region_x, event.mouse_region_y)
-            if result is not None:
-                uv_sheet.active_index = result
-                return {'RUNNING_MODAL'}
-        return {'FINISHED'}
-
-    def exit(self, context, cancel):
-        pass
-
-    def modal(self, context, event, tweak):
-        return {'RUNNING_MODAL'}
-
-class GRET_GGT_uv_sheet_gizmo_group(bpy.types.GizmoGroup):
-    bl_label = "Gizmo Group"
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'WINDOW'
-    bl_options = {'PERSISTENT', 'SCALE'}
-
-    @classmethod
-    def poll(cls, context):
-        return context.mode == 'OBJECT'
-
-    def set_position_and_size(self, x, y, width, height):
-        self.gizmo.matrix_basis[0][3], self.gizmo.matrix_basis[1][3] = x, y
-        self.gizmo.matrix_basis[0][0], self.gizmo.matrix_basis[1][1] = width, height
-
-    def setup(self, context):
-        self.gizmo = self.gizmos.new(GRET_GT_uv_sheet_gizmo.__name__)
-        # self.gizmo.use_event_handle_all = True  # Swallow all events while hovered
-        self.gizmo.use_draw_modal = True  # Keep drawing gizmo while clicking
-        # self.gizmo.use_draw_hover = True  # Only draw while cursor is on the picker
-        # self.gizmo.use_operator_tool_properties = True  # ?
-        self.set_position_and_size(30, 30, 256, 256)
 
 class GRET_TT_uv_paint(bpy.types.WorkSpaceTool):
     bl_space_type = 'VIEW_3D'
@@ -432,7 +330,7 @@ class GRET_TT_uv_paint(bpy.types.WorkSpaceTool):
 \u2022 Shift+Click to fill.
 \u2022 Shift+Ctrl+Click to replace similar"""
     bl_icon = "brush.paint_texture.draw"
-    bl_widget = GRET_GGT_uv_sheet_gizmo_group.__name__
+    bl_widget = "GRET_GGT_uv_picker_gizmo_group"
     bl_cursor = 'PAINT_BRUSH'
     bl_keymap = (
         (
@@ -489,8 +387,6 @@ class GRET_TT_uv_paint(bpy.types.WorkSpaceTool):
         op.image = image.name
 
 classes = (
-    GRET_GT_uv_sheet_gizmo,
-    GRET_GGT_uv_sheet_gizmo_group,
     GRET_OT_uv_paint,
 )
 

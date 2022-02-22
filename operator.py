@@ -10,28 +10,29 @@ class StateMachineBaseState:
     def on_exit(self):
         pass
 
-    def exit(self):
-        self.owner.pop_state()
+    # def exit(self):
+    #     self.owner.pop_state()
 
 class StateMachineMixin:
     """Simple state machine."""
     state_stack = None
+    state_events_on_reentry = True
 
     @property
     def state(self):
         return self.state_stack[-1] if self.state_stack else None
 
-    def pop_state(self):
+    def pop_state(self, *args, **kwargs):
         if self.state:
-            self.state_stack.pop().on_exit()
-            if self.state:
+            self.state_stack.pop().on_exit(*args, **kwargs)
+            if self.state_events_on_reentry and self.state:
                 self.state.on_enter()
 
     def push_state(self, state_class, *args, **kwargs):
         assert state_class
         new_state = state_class(self)
 
-        if self.state:
+        if self.state_events_on_reentry and self.state:
             self.state.on_exit()
         if self.state_stack is None:
             self.state_stack = []

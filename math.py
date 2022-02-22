@@ -1,6 +1,6 @@
 from collections import namedtuple
 from math import floor, sqrt
-from mathutils import Vector
+from mathutils import Vector, Matrix
 from numpy.polynomial import polynomial as pl
 import numpy as np
 
@@ -32,11 +32,11 @@ class Rect(namedtuple("Rect", ["x0", "y0", "x1", "y1"])):
         # return (self.x0, self.y0), (self.x0, self.y1), (self.x1, self.y1), (self.x1, self.y0)
         return (self.x0, self.y0), (self.x1, self.y0), (self.x1, self.y1), (self.x0, self.y1)
 
-    def contains(self, point):
-        return self.x0 < point[0] < self.x1 and self.y0 < point[1] < self.y1
+    def contains(self, x, y):
+        return self.x0 < x < self.x1 and self.y0 < y < self.y1
 
     def intersects(self, other):
-        return self.x0 < other.x1 and other.x0 < self.x1 and self.y0 < other.y1 and other.y0 < self.y1
+        return self.x0 <= other.x1 and other.x0 <= self.x1 and self.y0 <= other.y1 and other.y0 <= self.y1
 
     def expand(self, w):
         return Rect(self.x0 - w, self.y0 - w, self.x1 + w, self.y1 + w)
@@ -50,6 +50,15 @@ class Rect(namedtuple("Rect", ["x0", "y0", "x1", "y1"])):
         x0, y0 = view2d.view_to_region(self.x0, self.y0, clip=False)
         x1, y1 = view2d.view_to_region(self.x1, self.y1, clip=False)
         return Rect(x0, y0, x1, y1)
+
+    def to_trs_matrix(self):
+        m = Matrix()
+        m[0][3], m[1][3], m[0][0], m[1][1] = self.x0, self.y0, self.width, self.height
+        return m
+
+    def inverse_transform(self, x, y):
+        x, y, _ = self.to_matrix().inverted() @ Vector((x, y, 0.0))
+        return x, y
 
 def calc_bounds(points):
     xs, ys, zs = zip(*points)

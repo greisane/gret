@@ -11,10 +11,9 @@ from ..drawing import (
     draw_help_box,
     draw_image,
     draw_point,
-    shader_solid,
     UVSheetTheme,
 )
-from ..math import Rect, saturate
+from ..math import Rect, saturate, SMALL_NUMBER
 from ..operator import StateMachineBaseState, StateMachineMixin, DrawHooksMixin
 
 theme = UVSheetTheme()
@@ -24,7 +23,7 @@ def is_event_single_press(event, types={}):
 
 def draw_region_rect(rect, color, emboss=False):
     draw_box(*rect, color, width=4.0 if emboss else 2.0)
-    draw_point(*rect.center, color, size=4.0)
+    draw_point(*rect.center, color, size=theme.point_size)
 
 class Region:
     def __init__(self, x0, y0, x1, y1, solid=False):
@@ -57,10 +56,11 @@ class CreateRegionState(UVSheetEditBaseState):
         x1 = floor(saturate(self.owner.mouse_pos[0]) * cols) / cols
         y1 = floor(saturate(self.owner.mouse_pos[1]) * rows) / rows
         self.rect = Rect(min(x0, x1), min(y0, y1), max(x0, x1) + 1 / cols, max(y0, y1) + 1 / rows)
+        test_rect = self.rect.expand(-SMALL_NUMBER)
 
         self.is_intersecting = False
         for region in self.owner.regions:
-            if self.rect.intersects(region.rect):
+            if test_rect.intersects(region.rect):
                 self.is_intersecting = True
                 break
 
@@ -71,9 +71,10 @@ class CreateRegionState(UVSheetEditBaseState):
             # Remove overlapping regions, backwards from the end for efficiency
             num_removed = 0
             region_idx = len(self.owner.regions) - 1
+            test_rect = self.rect.expand(-SMALL_NUMBER)
             while region_idx >= 0:
                 region = self.owner.regions[region_idx]
-                if self.rect.intersects(region.rect):
+                if test_rect.intersects(region.rect):
                     self.owner.regions.pop(region_idx)
                     region_idx = min(region_idx, len(self.owner.regions) - 1)
                     num_removed += 1
@@ -119,7 +120,7 @@ class EditRegionState(UVSheetEditBaseState):
         if self.owner.is_mouse_pos_in_bounds:
             # Find index of hovered region
             for region_idx, region in enumerate(self.owner.regions):
-                if region.rect.contains(self.owner.mouse_pos):
+                if region.rect.contains(*self.owner.mouse_pos):
                     self.region_index = region_idx
                     break
 
@@ -184,7 +185,6 @@ class EditRegionState(UVSheetEditBaseState):
         self.owner.help_texts = [
             "\u2022 Click and drag to create a region.",
             "\u2022 Ctrl+Wheel to adjust grid divisions.",
-            # "\u2022 Shift-Click and drag to auto-region solid color swatches.",
             "\u2022 Hold X or Del to remove regions.",
             # "\u2022 Shift+X resets regions to a grid.",
             "(ENTER) Finish -- (Escape/RMB) Cancel.",
@@ -247,7 +247,7 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
                 self.wants_quit = True  # Avoid flooding the console
                 self.report({'ERROR'}, f"An exception ocurred: {e}")
 
-        draw_help_box(self.help_texts, self.help_title, width_override=340.0)
+        draw_help_box(30.0, 30.0, self.help_texts, self.help_title, width=340.0)
 
     def commit(self):
         image = bpy.data.images.get(self.image)
@@ -259,6 +259,8 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
         uv_sheet.regions.clear()
         for region in self.regions:
             region.fill_property_group(uv_sheet.regions.add())
+        if uv_sheet.active_index > len(uv_sheet.regions):
+            uv_sheet.active_index = -1
         self.committed = True
 
     def modal(self, context, event):
@@ -310,7 +312,8 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
     def invoke(self, context, event):
         region = context.region
         image = bpy.data.images.get(self.image)
-        if not image:
+        if not image or image.size[0] == 0 and image.size[1] == 0:
+            self.report({'ERROR'}, "Image doesn't exist or is invalid.")
             return {'CANCELLED'}
 
         # Reset state
@@ -342,12 +345,10 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
 
 class GRET_PG_uv_region(bpy.types.PropertyGroup):
     v0: bpy.props.FloatVectorProperty(
-        name="Bottom Left",
         size=2,
         default=(0.0, 0.0),
     )
     v1: bpy.props.FloatVectorProperty(
-        name="Top Right",
         size=2,
         default=(0.0, 0.0),
     )
@@ -373,6 +374,10 @@ class GRET_PG_uv_sheet(bpy.types.PropertyGroup):
         type=GRET_PG_uv_region,
     )
     active_index: bpy.props.IntProperty()
+    custom_region: bpy.props.PointerProperty(
+        type=GRET_PG_uv_region,
+    )
+    use_custom_region: bpy.props.BoolProperty()
 
 classes = (
     GRET_OT_uv_sheet_edit,
