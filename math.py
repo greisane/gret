@@ -58,7 +58,10 @@ class Rect(namedtuple("Rect", ["x0", "y0", "x1", "y1"])):
         m[0][3], m[1][3], m[0][0], m[1][1] = self.x0, self.y0, self.width, self.height
         return m
 
-    def inverse_transform(self, x, y):
+    def transform_point(self, x, y):
+        return x * self.width + self.x0, y * self.height + self.y0
+
+    def inverse_transform_point(self, x, y):
         # x, y, _ = self.to_trs_matrix().inverted() @ Vector((x, y, 0.0))
         return (x - self.x0) / self.width, (y - self.y0) / self.height
 

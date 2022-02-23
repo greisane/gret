@@ -202,6 +202,21 @@ def draw_grid(x, y, grid_width, grid_height, num_cols, num_rows, color, width=1.
     if use_blend:
         gpu.state.blend_set('NONE')
 
+def draw_text(x, y, text, color, clip_rect=None):
+    if not text:
+        return
+
+    blf.color(font_id, *color)
+    blf.size(font_id, p_font_size, 60)
+    width, height = blf.dimensions(font_id, text)
+    blf.position(font_id, x - width * 0.5, y - height * 0.5, 0.0)
+    if clip_rect is not None:
+        blf.clipping(font_id, *clip_rect)
+        blf.enable(font_id, blf.CLIPPING)
+    blf.draw(font_id, text)
+    if clip_rect is not None:
+        blf.disable(font_id, blf.CLIPPING)
+
 def draw_help_box(x0, y0, texts, title="", padding=16.0, width=None):
     if not texts and not title:
         return

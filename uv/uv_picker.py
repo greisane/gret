@@ -9,6 +9,7 @@ from ..drawing import (
     draw_icon,
     draw_image,
     draw_point,
+    draw_text,
     icon_size,
     UVSheetTheme,
 )
@@ -16,6 +17,9 @@ from ..math import Rect, saturate, SMALL_NUMBER
 from ..operator import StateMachineMixin, StateMachineBaseState
 
 theme = UVSheetTheme()
+
+def rect_transform_region(rect, region):
+    return rect.transform_point(*region.v0) + rect.transform_point(*region.v1)
 
 class UVPickerBaseState(StateMachineBaseState):
     def on_enter(self, context, event, control):
@@ -54,8 +58,8 @@ class UVPickerCustomRegionState(UVPickerBaseState):
     def update(self, context, mx, my):
         image, uv_sheet = self.owner.get_active_image_info(context)
         picker_rect = self.control.get_rect(image)
-        start_x, start_y = picker_rect.inverse_transform(*self.start_mouse_pos)
-        x, y = picker_rect.inverse_transform(mx, my)
+        start_x, start_y = picker_rect.inverse_transform_point(*self.start_mouse_pos)
+        x, y = picker_rect.inverse_transform_point(mx, my)
 
         if self.grid_snap:
             cols, rows = uv_sheet.grid_cols, uv_sheet.grid_rows
@@ -138,7 +142,10 @@ class UVPickerPickerControl(UVPickerBaseControl):
         self.region_index = -1
 
     def get_rect(self, image):
-        scale_x, scale_y = image.size[0] / max(image.size), image.size[1] / max(image.size)
+        if image:
+            scale_x, scale_y = image.size[0] / max(image.size), image.size[1] / max(image.size)
+        else:
+            scale_x, scale_y = 1.0, 1.0
         size = self.owner.size
         return Rect.from_size(*self.owner.position, size * scale_x, size * scale_y)
 
@@ -151,7 +158,7 @@ class UVPickerPickerControl(UVPickerBaseControl):
         rect = self.get_rect(image)
         if rect.contains(mx, my):
             # Update index of hovered region
-            x, y = rect.inverse_transform(mx, my)
+            x, y = rect.inverse_transform_point(mx, my)
             for region_idx, region in enumerate(uv_sheet.regions):
                 if region.v0[0] < x < region.v1[0] and region.v0[1] < y < region.v1[1]:
                     self.region_index = region_idx
@@ -160,36 +167,39 @@ class UVPickerPickerControl(UVPickerBaseControl):
         return False
 
     def draw(self, context, image):
+        rect = self.get_rect(image)
+
+        # Draw bordered image
+        draw_box(*rect, theme.border)
+        if not image:
+            draw_box_fill(*rect, theme.background)
+            draw_text(*rect.center, "Select an image in the Tool tab.", theme.border, rect)
+            return
+        draw_image(*rect, image, (0.7, 0.7, 0.7, 1.0), nearest=True)
         uv_sheet = image.uv_sheet
 
-        with gpu.matrix.push_pop():
-            gpu.matrix.multiply_matrix(self.get_rect(image).to_trs_matrix())
+        # Draw region rectangles
+        for region in uv_sheet.regions:
+            draw_box(*rect_transform_region(rect, region), theme.unselected)
 
-            draw_box(0, 0, 1, 1, theme.border)
-            draw_image(0, 0, 1, 1, image, (0.7, 0.7, 0.7, 1.0), nearest=True)
+        # Draw hovered region
+        if self.region_index >= 0 and self.region_index < len(uv_sheet.regions):
+            region = uv_sheet.regions[self.region_index]
+            draw_box(*rect_transform_region(rect, region), theme.hovered)
 
-            # Draw region rectangles
-            for region in uv_sheet.regions:
-                draw_box(*region.v0, *region.v1, theme.unselected)
-
-            # Draw hovered region
-            if self.region_index >= 0 and self.region_index < len(uv_sheet.regions):
-                region = uv_sheet.regions[self.region_index]
-                draw_box(*region.v0, *region.v1, theme.hovered)
-
-            # Draw active region
-            if not uv_sheet.use_custom_region:
-                if uv_sheet.active_index >= 0 and uv_sheet.active_index < len(uv_sheet.regions):
-                    region = uv_sheet.regions[uv_sheet.active_index]
-                    draw_box(*region.v0, *region.v1, theme.selected, width=2.0)
+        # Draw active region
+        if not uv_sheet.use_custom_region:
+            if uv_sheet.active_index >= 0 and uv_sheet.active_index < len(uv_sheet.regions):
+                region = uv_sheet.regions[uv_sheet.active_index]
+                draw_box(*rect_transform_region(rect, region), theme.selected, width=2.0)
+        else:
+            region = uv_sheet.custom_region
+            x0, y0, x1, y1 = rect_transform_region(rect, region)
+            if abs(x0 - x1) < SMALL_NUMBER and abs(y0 - y1) < SMALL_NUMBER:
+                # Custom region is too small and won't be visible with draw_box
+                draw_point(x0, y0, theme.bad, size=theme.point_size)
             else:
-                region = uv_sheet.custom_region
-                x0, y0, x1, y1 = *region.v0, *region.v1
-                if abs(x0 - x1) < SMALL_NUMBER and abs(y0 - y1) < SMALL_NUMBER:
-                    # Custom region is too small and won't be visible with draw_box
-                    draw_point(x0, y0, theme.bad, size=theme.point_size)
-                else:
-                    draw_box(x0, y0, x1, y1, theme.bad, width=2.0)
+                draw_box(x0, y0, x1, y1, theme.bad, width=2.0)
 
     def invoke(self, context, event):
         if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
@@ -225,6 +235,8 @@ class UVPickerHelpControl(UVPickerBaseControl):
                 "\u2022 Click on mesh faces or Ctrl+Click to sample UVs.",
                 "\u2022 Shift+Click to fill.",
                 "\u2022 Shift+Ctrl+Click to replace similar.",
+                "",
+                "Brush options can be found in the Tool tab on the right.",
             ],
         },
     ]
@@ -285,10 +297,9 @@ class GRET_GT_uv_picker_gizmo(bpy.types.Gizmo, StateMachineMixin):
             # Only draw in the active area
             return
 
-        image, uv_sheet = self.get_active_image_info(context)
-        if image and image.size[0] > 0 and image.size[1] > 0:
-            for control in reversed(self.controls):
-                control.draw(context, image)
+        image, _ = self.get_active_image_info(context)
+        for control in reversed(self.controls):
+            control.draw(context, image)
 
     def test_select(self, context, location):
         # This is only called for the currently hovered viewport while not running modal
@@ -298,20 +309,19 @@ class GRET_GT_uv_picker_gizmo(bpy.types.Gizmo, StateMachineMixin):
             cls.active_area.tag_redraw()
         cls.active_area = context.area
 
-        image, uv_sheet = self.get_active_image_info(context)
-        if image and image.size[0] > 0 and image.size[1] > 0:
-            for control_idx, control in enumerate(self.controls):
-                if control.test_select(context, image, *location):
-                    if control is not self.active_control:
-                        if self.active_control:
-                            self.active_control.on_exit()
-                        self.active_control = control
-                        self.active_control.on_enter()
-                    return control_idx
-            # No control hovered
-            if self.active_control:
-                self.active_control.on_exit()
-                self.active_control = None
+        image, _ = self.get_active_image_info(context)
+        for control_idx, control in enumerate(self.controls):
+            if control.test_select(context, image, *location):
+                if control is not self.active_control:
+                    if self.active_control:
+                        self.active_control.on_exit()
+                    self.active_control = control
+                    self.active_control.on_enter()
+                return control_idx
+        # No control hovered
+        if self.active_control:
+            self.active_control.on_exit()
+            self.active_control = None
 
         return -1
 
