@@ -13,7 +13,7 @@ from ..drawing import (
     icon_size,
     UVSheetTheme,
 )
-from ..math import Rect, saturate, saturate2, SMALL_NUMBER
+from ..math import Rect, saturate, saturate2
 from ..operator import StateMachineMixin, StateMachineBaseState
 from .uv_paint import GRET_TT_uv_paint, GRET_OT_uv_paint
 
@@ -196,7 +196,7 @@ class UVPickerSelectorControl(UVPickerBaseControl):
         else:
             region = uv_sheet.custom_region
             x0, y0, x1, y1 = rect_transform_region(rect, region)
-            if abs(x0 - x1) < SMALL_NUMBER and abs(y0 - y1) < SMALL_NUMBER:
+            if abs(x0 - x1) < 4.0 and abs(y0 - y1) < 4.0:
                 # Custom region is too small and won't be visible with draw_box
                 draw_point(x0, y0, theme.bad, size=theme.point_size)
             else:
