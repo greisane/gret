@@ -59,6 +59,9 @@ class Quad(namedtuple("Quad", ["uv_sheet", "x0", "y0", "x1", "y1", "rotation"]))
             and equals(self.x0, other.x0) and equals(self.y0, other.y0)
             and equals(self.x1, other.x1) and equals(self.y1, other.y1))
 
+    def with_rotation(self, rotation):
+        return Quad(self.uv_sheet, self.x0, self.y0, self.x1, self.y1, rotation)
+
     def __bool__(self):
         return self.uv_sheet is not None
 
@@ -309,7 +312,8 @@ class GRET_OT_uv_paint(bpy.types.Operator):
         for other_face in obj.data.polygons:
             other_quad = get_quad(obj, other_face, self.uv_layer_name)
             if quad.region_equals(other_quad):
-                set_quad(obj, other_face, new_quad, self.uv_layer_name)
+                new_other_quad = new_quad.with_rotation(other_quad.rotation)
+                set_quad(obj, other_face, new_other_quad, self.uv_layer_name)
 
     def invoke(self, context, event):
         image = bpy.data.images.get(self.image)
