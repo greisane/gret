@@ -4,15 +4,7 @@ import bpy
 import gpu
 import traceback
 
-from ..drawing import (
-    draw_box,
-    draw_box_fill,
-    draw_grid,
-    draw_help_box,
-    draw_image,
-    draw_point,
-    UVSheetTheme,
-)
+from ..drawing import *
 from ..math import Rect, saturate2, SMALL_NUMBER
 from ..operator import StateMachineBaseState, StateMachineMixin, DrawHooksMixin
 
@@ -84,6 +76,7 @@ class UVSheetCreateRegionState(UVSheetBaseState):
 
             # Add new region
             region = self.owner.regions.append(Region(*self.rect))
+            self.owner.batch_rects = self.owner.batch_points = None
             self.owner.pop_state()
 
             if not num_removed:
@@ -103,8 +96,7 @@ class UVSheetCreateRegionState(UVSheetBaseState):
         self.owner.help_texts = ["(Escape/RMB) Cancel."]
 
     def on_draw_post_pixel(self, context):
-        for region in self.owner.regions:
-            draw_region_rect(region.rect, theme.unselectable)
+        self.owner.draw_region_rects(theme.unselectable)
 
         # Draw the region being created
         color = theme.selected if not self.is_intersecting else theme.bad
@@ -166,6 +158,7 @@ class UVSheetEditRegionState(UVSheetBaseState):
             if self.deleting and is_valid_region:
                 # Remove hovered region
                 self.owner.regions.pop(self.region_index)
+                self.owner.batch_rects = self.owner.batch_points = None
                 self.region_index = -1
                 self.owner.report({'INFO'}, "Deleted region.")
                 return True
@@ -174,6 +167,7 @@ class UVSheetEditRegionState(UVSheetBaseState):
 
     def do_reset(self, intialize_grid=False):
         self.owner.regions.clear()
+        self.owner.batch_rects = self.owner.batch_points = None
         if intialize_grid:
             gw, gh = 1.0 / self.owner.grid_cols, 1.0 / self.owner.grid_rows
             for y in range(self.owner.grid_rows):
@@ -193,8 +187,7 @@ class UVSheetEditRegionState(UVSheetBaseState):
         ]
 
     def on_draw_post_pixel(self, context):
-        for region in self.owner.regions:
-            draw_region_rect(region.rect, theme.unselected)
+        self.owner.draw_region_rects(theme.unselected)
 
         if self.region_index != -1 and not self.deleting:
             region = self.owner.regions[self.region_index]
@@ -219,6 +212,8 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
     help_texts = []
     wants_quit = False
     committed = False
+    batch_rects = None
+    batch_points = None
 
     # UV sheet data being edited
     grid_rows, grid_cols = 1, 1
@@ -249,6 +244,14 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
                 self.report({'ERROR'}, f"An exception ocurred: {e}")
 
         draw_help_box(30.0, 30.0, self.help_texts, self.help_title, width=280.0)
+
+    def draw_region_rects(self, color):
+        if not self.batch_rects:
+            self.batch_rects = batch_rects([region.rect for region in self.regions])
+        if not self.batch_points:
+            self.batch_points = batch_points([region.rect.center for region in self.regions])
+        draw_solid_batch(self.batch_rects, color, line_width=2.0)
+        draw_solid_batch(self.batch_points, color, point_size=theme.point_size)
 
     def commit(self):
         image = bpy.data.images.get(self.image)

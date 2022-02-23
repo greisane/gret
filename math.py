@@ -32,7 +32,6 @@ class Rect(namedtuple("Rect", ["x0", "y0", "x1", "y1"])):
 
     @property
     def corners(self):
-        # return (self.x0, self.y0), (self.x0, self.y1), (self.x1, self.y1), (self.x1, self.y0)
         return (self.x0, self.y0), (self.x1, self.y0), (self.x1, self.y1), (self.x0, self.y1)
 
     def contains(self, x, y):

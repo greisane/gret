@@ -1,4 +1,5 @@
 from gpu_extras.batch import batch_for_shader
+from itertools import chain
 # import bgl
 import base64
 import blf
@@ -37,6 +38,7 @@ line_height_h1 = int(1.3 * h1_font_size)
 line_height_p = int(1.3 * p_font_size)
 font_id = 0
 rect_texcoords = (0, 0), (1, 0), (1, 1), (0, 1)
+rect_indices = (0, 1), (1, 2), (2, 3), (3, 0)
 
 class UVSheetTheme:
     unselectable = (0.8, 0.8, 0.8, 0.7) # (0.6, 0.6, 0.6, 0.6)
@@ -91,7 +93,7 @@ def get_icon(icon_id):
         icon_textures[icon_id] = texture
     return texture
 
-def draw_image(x0, y0, x1, y1, image, color, nearest=False):
+def draw_image(x0, y0, x1, y1, image, color, texcoords=rect_texcoords, nearest=False):
     if not image:
         return
     # XXX Filters not exposed in gpu module, workaround with bgl is simple enough however the state
@@ -113,7 +115,7 @@ def draw_image(x0, y0, x1, y1, image, color, nearest=False):
     gpu.state.blend_set('ALPHA')
     batch_for_shader(shader_image_alpha, 'TRI_FAN', {
         "pos": ((x0, y0), (x1, y0), (x1, y1), (x0, y1)),
-        "texCoord": rect_texcoords,
+        "texCoord": texcoords,
     }).draw(shader_image_alpha)
     gpu.state.blend_set('NONE')
     if nearest:
@@ -175,6 +177,36 @@ def draw_box(x0, y0, x1, y1, color, width=1.0):
     batch_for_shader(shader_solid, 'LINE_LOOP', {
         "pos": ((x0, y0), (x1, y0), (x1, y1), (x0, y1)),
     }).draw(shader_solid)
+    if use_blend:
+        gpu.state.blend_set('NONE')
+
+def batch_rects(rects):
+    pos = chain.from_iterable(
+        ((x0, y0), (x1, y0), (x1, y1), (x0, y1)) for x0, y0, x1, y1 in rects
+    )
+    indices = chain.from_iterable(
+        ((i0 + k, i1 + k) for i0, i1 in rect_indices) for k in range(0, len(rects) * 4, 4)
+    )
+    batch = batch_for_shader(shader_solid, 'LINES', {"pos": list(pos)}, indices=list(indices))
+    return batch
+
+def batch_points(points):
+    batch = batch_for_shader(shader_solid, 'POINTS', {"pos": points})
+    return batch
+
+def draw_solid_batch(batch, color, line_width=None, point_size=None):
+    if len(color) == 3:
+        color = *color, 1.0
+    use_blend = color[3] < 1.0
+    shader_solid.bind()
+    shader_solid.uniform_float("color", color)
+    if use_blend:
+        gpu.state.blend_set('ALPHA')
+    if line_width is not None:
+        gpu.state.line_width_set(line_width)
+    if point_size is not None:
+        gpu.state.point_size_set(point_size)
+    batch.draw(shader_solid)
     if use_blend:
         gpu.state.blend_set('NONE')
 

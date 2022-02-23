@@ -2,17 +2,7 @@ from math import floor
 import bpy
 import gpu
 
-from ..drawing import (
-    draw_box,
-    draw_box_fill,
-    draw_help_box,
-    draw_icon,
-    draw_image,
-    draw_point,
-    draw_text,
-    icon_size,
-    UVSheetTheme,
-)
+from ..drawing import *
 from ..math import Rect, saturate, saturate2
 from ..operator import StateMachineMixin, StateMachineBaseState
 from .uv_paint import GRET_TT_uv_paint, GRET_OT_uv_paint
@@ -176,12 +166,21 @@ class UVPickerSelectorControl(UVPickerBaseControl):
             draw_box_fill(*rect, theme.background)
             draw_text(*rect.center, "Select an image in the Tool tab.", theme.border, rect)
             return
-        draw_image(*rect, image, (0.7, 0.7, 0.7, 1.0), nearest=True)
-        uv_sheet = image.uv_sheet
+
+        x0, y0 = 0.0, 0.0
+        w, h = 1.0, 1.0
+        x1, y1 = x0 + w, y0 + h
+        texcoords = (x0, y0), (x1, y0), (x1, y1), (x0, y1)
+        draw_image(*rect, image, (0.7, 0.7, 0.7, 1.0), texcoords, nearest=True)
 
         # Draw region rectangles
-        for region in uv_sheet.regions:
-            draw_box(*rect_transform_region(rect, region), theme.unselected)
+        # TODO Not actually caching since it's difficult to figure out when regions have changed,
+        # and bpy.msgbus isn't doing the trick. Drawing all rects together is still an improvement
+        uv_sheet = image.uv_sheet
+        if True or not self.batch_rects:
+            rects = [rect_transform_region(rect, region) for region in uv_sheet.regions]
+            self.batch_rects = batch_rects(rects)
+        draw_solid_batch(self.batch_rects, theme.unselected, line_width=1.0)
 
         # Draw hovered region
         if self.region_index >= 0 and self.region_index < len(uv_sheet.regions):
