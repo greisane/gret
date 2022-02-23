@@ -249,14 +249,14 @@ class GRET_OT_uv_paint(bpy.types.Operator):
         name="Fill Mode",
         description="Delimit fill region",
         items = (
-            ('NORMAL', "Normal", "Delimit by face directions"),
+            # ('NORMAL', "Normal", "Delimit by face directions"),
             ('MATERIAL', "Material", "Delimit by material"),
             ('SEAM', "Seam", "Delimit by edge seams"),
             ('SHARP', "Sharp", "Delimit by sharp edges"),
             ('UV', "UVs", "Delimit by UV coordinates"),
         ),
         options={'ENUM_FLAG'},
-        default={'MATERIAL', 'SEAM', 'SHARP', 'UV'},
+        default={'MATERIAL', 'SEAM', 'SHARP'},
     )
     random: bpy.props.BoolProperty(
         name="Random Fill",
