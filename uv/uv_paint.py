@@ -8,13 +8,12 @@ import bpy
 from .. import prefs
 from ..helpers import select_only
 from ..material.helpers import Node, get_material, set_material
-from ..math import SMALL_NUMBER
+from ..math import SMALL_NUMBER, equals, calc_bounds_2d, calc_center_2d
 
 # TODO:
-# - no random fill option
 # - toggle image quadrant
 # - paint flipped uvs?
-# - gravity paint
+# - gravity paint?
 # - trim alignment
 # - paint hold lmb to paint multiple faces? or to change rotation?
 # - paint hold shift lmb to slide texture?
@@ -31,12 +30,39 @@ simple_nodes = (Node('OutputMaterial')
     )
 ))
 
-class Quad(namedtuple('Quad', ['uv_sheet', 'region_index', 'rotation'])):
-    Quad.invalid = Quad(None, -1, 0)
+class Quad(namedtuple("Quad", ["uv_sheet", "x0", "y0", "x1", "y1", "rotation"])):
+    @classmethod
+    def from_uv_sheet(cls, uv_sheet, rotation=-1):
+        if not uv_sheet:
+            return cls.invalid
+        if uv_sheet.use_custom_region:
+            region = uv_sheet.custom_region
+        elif uv_sheet.active_index >= 0 and uv_sheet.active_index < len(uv_sheet.regions):
+            region = uv_sheet.regions[uv_sheet.active_index]
+        else:
+            return cls.invalid
+        return cls(uv_sheet, *region.v0, *region.v1, rotation)
+
+    def to_uv_sheet(self, uv_sheet):
+        for region_idx, region in enumerate(uv_sheet.regions):
+            if (equals(self.x0, region.v0[0]) and equals(self.y0, region.v0[1]) and
+                equals(self.x1, region.v1[0]) and equals(self.y1, region.v1[1])):
+                uv_sheet.use_custom_region = False
+                uv_sheet.active_index = region_idx
+                return
+        uv_sheet.use_custom_region = True
+        uv_sheet.custom_region.v0 = self.x0, self.y0
+        uv_sheet.custom_region.v1 = self.x1, self.y1
+
+    def region_equals(self, other):
+        return (self.uv_sheet == other.uv_sheet
+            and equals(self.x0, other.x0) and equals(self.y0, other.y0)
+            and equals(self.x1, other.x1) and equals(self.y1, other.y1))
 
     def __bool__(self):
-        return (self.uv_sheet is not None
-            and self.region_index >= 0 and self.region_index < len(self.uv_sheet.regions))
+        return self.uv_sheet is not None
+
+Quad.invalid = Quad(None, 0.0, 0.0, 0.0, 0.0, -1)
 
 def get_uv_sheet_from_material(mat):
     if mat and mat.use_nodes:
@@ -47,22 +73,17 @@ def get_uv_sheet_from_material(mat):
     return None
 
 def set_face_uvs(face, uvs, quad):
-    uv_sheet = quad.uv_sheet
-
-    region = uv_sheet.regions[quad.region_index]
-    x0, y0, x1, y1 = *region.v0, *region.v1
-
-    if region.solid or len(face.loop_indices) != 4:
+    if len(face.loop_indices) != 4:
         for loop_idx in face.loop_indices:
-            uvs[loop_idx].uv[:] = (x0, y0)
+            uvs[loop_idx].uv[:] = (quad.x0, quad.y0)
     else:
         rotation = quad.rotation
         if rotation == -1:
             rotation = randrange(0, 4)
-        uvs[face.loop_indices[(0 - rotation) % 4]].uv[:] = (x0, y0)
-        uvs[face.loop_indices[(1 - rotation) % 4]].uv[:] = (x1, y0)
-        uvs[face.loop_indices[(2 - rotation) % 4]].uv[:] = (x1, y1)
-        uvs[face.loop_indices[(3 - rotation) % 4]].uv[:] = (x0, y1)
+        uvs[face.loop_indices[(0 - rotation) % 4]].uv[:] = (quad.x0, quad.y0)
+        uvs[face.loop_indices[(1 - rotation) % 4]].uv[:] = (quad.x1, quad.y0)
+        uvs[face.loop_indices[(2 - rotation) % 4]].uv[:] = (quad.x1, quad.y1)
+        uvs[face.loop_indices[(3 - rotation) % 4]].uv[:] = (quad.x0, quad.y1)
 
 def get_quad(obj, face, uv_layer_name):
     mesh = obj.data
@@ -82,15 +103,9 @@ def get_quad(obj, face, uv_layer_name):
         return Quad.invalid
     uvs = uv_layer.data
 
-    uv_avg = sum((uvs[loop_idx].uv for loop_idx in face.loop_indices), Vector((0.0, 0.0)))
-    uv_avg /= len(face.loop_indices)
-    region_index = -1
-    for region_idx, region in enumerate(uv_sheet.regions):
-        cx = region.v0[0] + (region.v1[0] - region.v0[0]) * 0.5
-        cy = region.v0[1] + (region.v1[1] - region.v0[1]) * 0.5
-        if abs(cx - uv_avg[0]) <= SMALL_NUMBER and abs(cy - uv_avg[1]) <= SMALL_NUMBER:
-            region_index = region_idx
-            break
+    points = [uvs[loop_idx].uv for loop_idx in face.loop_indices]
+    uv_avg = calc_center_2d(points)
+    uv_min, uv_max, axis = calc_bounds_2d(points)
 
     if len(face.loop_indices) == 4:
         uv0 = uvs[face.loop_indices[0]].uv
@@ -105,7 +120,7 @@ def get_quad(obj, face, uv_layer_name):
     else:
         rotation = 0
 
-    return Quad(uv_sheet, region_index, rotation)
+    return Quad(uv_sheet, *uv_min, *uv_max, rotation)
 
 def set_quad(obj, face, quad, uv_layer_name):
     if not quad:
@@ -240,14 +255,19 @@ class GRET_OT_uv_paint(bpy.types.Operator):
         options={'ENUM_FLAG'},
         default={'MATERIAL', 'SEAM', 'SHARP', 'UV'},
     )
+    random: bpy.props.BoolProperty(
+        name="Random Fill",
+        description="Select a random direction while filling",
+        default=False,
+    )
 
     @property
     def uv_sheet(self):
         image = bpy.data.images.get(self.image)
         return image.uv_sheet if image else None
 
-    def do_draw(self, context, obj, face, rotation=0):
-        new_quad = Quad(self.uv_sheet, self.uv_sheet.active_index, rotation)
+    def do_draw(self, context, obj, face, rotation):
+        new_quad = Quad.from_uv_sheet(self.uv_sheet, rotation)
         if not new_quad:
             return
         set_quad(obj, face, new_quad, self.uv_layer_name)
@@ -261,10 +281,10 @@ class GRET_OT_uv_paint(bpy.types.Operator):
         if tool:
             props = tool.operator_properties(GRET_OT_uv_paint.bl_idname)
             props.image = quad.uv_sheet.id_data.name
-            quad.uv_sheet.active_index = quad.region_index
+            quad.to_uv_sheet(quad.uv_sheet)
 
-    def do_fill(self, context, obj, face):
-        new_quad = Quad(self.uv_sheet, self.uv_sheet.active_index, -1)
+    def do_fill(self, context, obj, face, rotation):
+        new_quad = Quad.from_uv_sheet(self.uv_sheet, rotation)
         if not new_quad:
             return
         mesh = obj.data
@@ -282,13 +302,13 @@ class GRET_OT_uv_paint(bpy.types.Operator):
 
     def do_replace(self, context, obj, face):
         quad = get_quad(obj, face, self.uv_layer_name)
-        new_quad = Quad(self.uv_sheet, self.uv_sheet.active_index, -1)
+        new_quad = Quad.from_uv_sheet(self.uv_sheet, -1)
         if not quad or not new_quad:
             return
 
         for other_face in obj.data.polygons:
             other_quad = get_quad(obj, other_face, self.uv_layer_name)
-            if quad.uv_sheet == other_quad.uv_sheet and quad.region_index == other_quad.region_index:
+            if quad.region_equals(other_quad):
                 set_quad(obj, other_face, new_quad, self.uv_layer_name)
 
     def invoke(self, context, event):
@@ -312,7 +332,7 @@ class GRET_OT_uv_paint(bpy.types.Operator):
         elif self.mode == 'SAMPLE':
             self.do_sample(context, obj, hit_face)
         elif self.mode == 'FILL':
-            self.do_fill(context, obj, hit_face)
+            self.do_fill(context, obj, hit_face, -1 if self.random else quadrant)
         elif self.mode == 'REPLACE':
             self.do_replace(context, obj, hit_face)
 
@@ -361,12 +381,13 @@ class GRET_TT_uv_paint(bpy.types.WorkSpaceTool):
             props.uv_layer_name = prefs.uv_paint_layer_name
         image = bpy.data.images.get(props.image)
 
-        layout.use_property_split = True
         col = layout.column(align=False)
+        col.use_property_split = True
+        col.use_property_decorate = False
         row = col.row(align=True)
         row.prop_search(props, "image", bpy.data, "images", text="")
         # row.operator('gret.uv_sheet_reload', icon='FILE_REFRESH', text="")
-        row.operator('image.reload', icon='FILE_REFRESH', text="")
+        row.operator('image.reload', icon='FILE_REFRESH', text="")  # TODO this reloads what?
         row.operator('image.open', icon='ADD', text="")
 
         col.separator()
@@ -378,6 +399,7 @@ class GRET_TT_uv_paint(bpy.types.WorkSpaceTool):
         else:
             col.prop(props, 'uv_layer_name', icon='UV')
             col.prop(props, 'delimit')
+            col.prop(props, 'random', icon='FORCE_VORTEX', text="Random")
 
         col.separator()
         col = layout.column(align=True)

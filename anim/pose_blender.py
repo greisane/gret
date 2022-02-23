@@ -8,10 +8,10 @@ import json
 import re
 
 from ..helpers import get_flipped_name
+from ..math import lerp
 
 ZERO_ANIMWEIGHT_THRESH = 0.00001
 DELTA = 0.00001
-lerp = lambda a, b, t: t * b + (1.0 - t) * a
 zero_vector = Vector((0.0, 0.0, 0.0))
 one_vector = Vector((1.0, 1.0, 1.0))
 pose_blenders = {}

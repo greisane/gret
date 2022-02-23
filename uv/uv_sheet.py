@@ -39,14 +39,15 @@ class Region:
         pg.v1 = self.rect.x1, self.rect.y1
         pg.solid = self.solid
 
-class UVSheetEditBaseState(StateMachineBaseState):
+class UVSheetBaseState(StateMachineBaseState):
     def on_event(self, context, event):
         return False  # Return True to consume event
 
     def on_draw_post_pixel(self, context):
         pass
 
-class CreateRegionState(UVSheetEditBaseState):
+class UVSheetCreateRegionState(UVSheetBaseState):
+    start_mouse_pos = (0, 0)
     rect = None
 
     def update(self):
@@ -111,7 +112,7 @@ class CreateRegionState(UVSheetEditBaseState):
 
         draw_box(*self.start_mouse_pos, *self.owner.mouse_pos, theme.marquee)
 
-class EditRegionState(UVSheetEditBaseState):
+class UVSheetEditRegionState(UVSheetBaseState):
     region_index = -1
     deleting = False
 
@@ -130,7 +131,7 @@ class EditRegionState(UVSheetEditBaseState):
 
         if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
             # Begin creating new region
-            self.owner.push_state(CreateRegionState)
+            self.owner.push_state(UVSheetCreateRegionState)
             return True
 
         elif (event.type == 'WHEELUPMOUSE' or event.type == 'WHEELDOWNMOUSE') and event.ctrl:
@@ -187,6 +188,7 @@ class EditRegionState(UVSheetEditBaseState):
             "\u2022 Ctrl+Wheel to adjust grid divisions.",
             "\u2022 Hold X or Del to remove regions.",
             # "\u2022 Shift+X resets regions to a grid.",
+            "",
             "(ENTER) Finish -- (Escape/RMB) Cancel.",
         ]
 
@@ -234,9 +236,8 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
             gpu.matrix.multiply_matrix(self.matrix_view)
 
             num_rows, num_cols = self.grid_rows, self.grid_cols
-            draw_image(0, 0, 1, 1, image, nearest=True)
+            draw_image(0, 0, 1, 1, image, (0.75, 0.75, 0.75, 1.0), nearest=True)
             draw_box(0, 0, 1, 1, theme.border)
-            draw_box_fill(0, 0, 1, 1, (0, 0, 0, 0.25))  # Darken (image shader doesn't support tint)
             draw_grid(0, 0, 1 / num_cols, 1 / num_rows, num_cols, num_rows, theme.grid)
 
             try:
@@ -247,7 +248,7 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
                 self.wants_quit = True  # Avoid flooding the console
                 self.report({'ERROR'}, f"An exception ocurred: {e}")
 
-        draw_help_box(30.0, 30.0, self.help_texts, self.help_title, width=340.0)
+        draw_help_box(30.0, 30.0, self.help_texts, self.help_title, width=280.0)
 
     def commit(self):
         image = bpy.data.images.get(self.image)
@@ -338,7 +339,7 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
         self.regions = [Region.from_property_group(pg) for pg in uv_sheet.regions]
 
         self.hook(context)
-        self.push_state(EditRegionState)
+        self.push_state(UVSheetEditRegionState)
 
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}

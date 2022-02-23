@@ -9,6 +9,8 @@ KINDA_SMALL_NUMBER = 1e-4
 
 saturate = lambda x: min(1.0, max(0.0, x))
 grid_snap = lambda x, grid: x if grid == 0.0 else floor((x + (grid * 0.5)) / grid) * grid
+equals = lambda a, b, threshold=SMALL_NUMBER: abs(a - b) <= threshold
+lerp = lambda a, b, t: t * b + (1.0 - t) * a
 
 class Rect(namedtuple("Rect", ["x0", "y0", "x1", "y1"])):
     @classmethod
@@ -57,8 +59,8 @@ class Rect(namedtuple("Rect", ["x0", "y0", "x1", "y1"])):
         return m
 
     def inverse_transform(self, x, y):
-        x, y, _ = self.to_matrix().inverted() @ Vector((x, y, 0.0))
-        return x, y
+        # x, y, _ = self.to_trs_matrix().inverted() @ Vector((x, y, 0.0))
+        return (x - self.x0) / self.width, (y - self.y0) / self.height
 
 def calc_bounds(points):
     xs, ys, zs = zip(*points)

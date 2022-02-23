@@ -1,3 +1,4 @@
+from math import floor
 import bpy
 import gpu
 
@@ -16,7 +17,7 @@ from ..operator import StateMachineMixin, StateMachineBaseState
 
 theme = UVSheetTheme()
 
-class UVPickerGizmoBaseState(StateMachineBaseState):
+class UVPickerBaseState(StateMachineBaseState):
     def on_enter(self, context, event, control):
         pass
 
@@ -29,7 +30,7 @@ class UVPickerGizmoBaseState(StateMachineBaseState):
     def on_modal(self, context, event, tweak):
         pass
 
-class UVPickerGizmoSelectState(UVPickerGizmoBaseState):
+class UVPickerSelectState(UVPickerBaseState):
     def update(self, context, mx, my):
         image, uv_sheet = self.owner.get_active_image_info(context)
         if self.control.test_select(context, image, mx, my):
@@ -46,7 +47,48 @@ class UVPickerGizmoSelectState(UVPickerGizmoBaseState):
         if event.type == 'MOUSEMOVE' and event.value == 'PRESS':
             self.update(context, event.mouse_region_x, event.mouse_region_y)
 
-class UVPickerGizmoResizeState(UVPickerGizmoBaseState):
+class UVPickerCustomRegionState(UVPickerBaseState):
+    start_mouse_pos = (0, 0)
+    grid_snap = False
+
+    def update(self, context, mx, my):
+        image, uv_sheet = self.owner.get_active_image_info(context)
+        picker_rect = self.control.get_rect(image)
+        start_x, start_y = picker_rect.inverse_transform(*self.start_mouse_pos)
+        x, y = picker_rect.inverse_transform(mx, my)
+
+        if self.grid_snap:
+            cols, rows = uv_sheet.grid_cols, uv_sheet.grid_rows
+            x0 = floor(saturate(start_x) * cols) / cols
+            y0 = floor(saturate(start_y) * rows) / rows
+            x1 = floor(saturate(x) * cols) / cols
+            y1 = floor(saturate(y) * rows) / rows
+            x0, y0, x1, y1 = min(x0, x1), min(y0, y1), max(x0, x1) + 1 / cols, max(y0, y1) + 1 / rows
+        else:
+            x0 = saturate(start_x)
+            y0 = saturate(start_y)
+            x1 = saturate(x)
+            y1 = saturate(y)
+            x0, y0, x1, y1 = min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)
+
+        uv_sheet.use_custom_region = True
+        uv_sheet.custom_region.v0 = x0, y0
+        uv_sheet.custom_region.v1 = x1, y1
+
+        context.area.tag_redraw()
+
+    def on_enter(self, context, event, control):
+        self.control = control
+        self.owner.region_index = -1
+        self.start_mouse_pos = event.mouse_region_x, event.mouse_region_y
+        self.update(context, *self.start_mouse_pos)
+
+    def on_modal(self, context, event, tweak):
+        if event.type == 'MOUSEMOVE' and event.value == 'PRESS':
+            self.grid_snap = True
+            self.update(context, event.mouse_region_x, event.mouse_region_y)
+
+class UVPickerResizeState(UVPickerBaseState):
     def update(self, context, mx, my):
         delta_size = max(mx - self.start_mouse_pos[0], my - self.start_mouse_pos[1])
         max_size = min(context.region.width, context.region.height) - 100.0
@@ -63,7 +105,7 @@ class UVPickerGizmoResizeState(UVPickerGizmoBaseState):
         if event.type == 'MOUSEMOVE' and event.value == 'PRESS':
             self.update(context, event.mouse_region_x, event.mouse_region_y)
 
-class UVPickerGizmoBaseControl:
+class UVPickerBaseControl:
     def __init__(self, owner):
         self.owner = owner
 
@@ -90,7 +132,7 @@ class UVPickerGizmoBaseControl:
     def on_exit(self):
         pass
 
-class UVPickerGizmoPickerControl(UVPickerGizmoBaseControl):
+class UVPickerPickerControl(UVPickerBaseControl):
     def __init__(self, owner):
         super().__init__(owner)
         self.region_index = -1
@@ -124,8 +166,7 @@ class UVPickerGizmoPickerControl(UVPickerGizmoBaseControl):
             gpu.matrix.multiply_matrix(self.get_rect(image).to_trs_matrix())
 
             draw_box(0, 0, 1, 1, theme.border)
-            draw_image(0, 0, 1, 1, image, nearest=True)
-            draw_box_fill(0, 0, 1, 1, (0, 0, 0, 0.3))  # Darken (image shader doesn't support tint)
+            draw_image(0, 0, 1, 1, image, (0.7, 0.7, 0.7, 1.0), nearest=True)
 
             # Draw region rectangles
             for region in uv_sheet.regions:
@@ -153,11 +194,11 @@ class UVPickerGizmoPickerControl(UVPickerGizmoBaseControl):
     def invoke(self, context, event):
         if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
             if event.ctrl:
-                raise NotImplementedError
+                self.owner.push_state(UVPickerCustomRegionState, context, event, self)
             else:
-                self.owner.push_state(UVPickerGizmoSelectState, context, event, self)
+                self.owner.push_state(UVPickerSelectState, context, event, self)
 
-class UVPickerGizmoResizeControl(UVPickerGizmoBaseControl):
+class UVPickerResizeControl(UVPickerBaseControl):
     def get_rect(self, image):
         picker_rect = self.owner.controls[-1].get_rect(image)
         return Rect.from_size(picker_rect.x1 + 4.0, picker_rect.y1 + 4.0, *icon_size)
@@ -167,14 +208,25 @@ class UVPickerGizmoResizeControl(UVPickerGizmoBaseControl):
 
     def invoke(self, context, event):
         if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
-            self.owner.push_state(UVPickerGizmoResizeState, context, event, self)
+            self.owner.push_state(UVPickerResizeState, context, event, self)
 
-class UVPickerGizmoHelpControl(UVPickerGizmoBaseControl):
-    help_title = "Tile/Trim UV Picker"
-    help_texts = [
-        "\u2022 Click to select before painting.",
-        "\u2022 Ctrl+Click and drag to use a custom region.",
-        # "\u2022 Hold X or Del to remove regions.",
+class UVPickerHelpControl(UVPickerBaseControl):
+    help_boxes = [
+        {
+            "title": "1. Select UVs",
+            "texts": [
+                "\u2022 Click on the picker to select a region.",
+                "\u2022 Ctrl+Click and drag to use a custom region.",
+            ],
+        },
+        {
+            "title": "2. Paint in the viewport",
+            "texts": [
+                "\u2022 Click on mesh faces or Ctrl+Click to sample UVs.",
+                "\u2022 Shift+Click to fill.",
+                "\u2022 Shift+Ctrl+Click to replace similar.",
+            ],
+        },
     ]
 
     def get_rect(self, image):
@@ -186,7 +238,10 @@ class UVPickerGizmoHelpControl(UVPickerGizmoBaseControl):
         draw_icon(*rect, 'HELP', theme.hovered if self.is_active else theme.border)
 
         if self.is_active:
-            draw_help_box(rect.x1 + 8.0, rect.y1, self.help_texts, self.help_title)
+            x, y = rect.x1 + 8.0, rect.y1
+            for box in reversed(self.help_boxes):
+                width, height = draw_help_box(x, y, box["texts"], box["title"], width=320.0)
+                y += height + 8.0
 
 class GRET_GT_uv_picker_gizmo(bpy.types.Gizmo, StateMachineMixin):
     __slots__ = (
@@ -262,9 +317,9 @@ class GRET_GT_uv_picker_gizmo(bpy.types.Gizmo, StateMachineMixin):
 
     def setup(self):
         self.controls = [
-            UVPickerGizmoHelpControl(self),
-            UVPickerGizmoResizeControl(self),
-            UVPickerGizmoPickerControl(self),
+            UVPickerHelpControl(self),
+            UVPickerResizeControl(self),
+            UVPickerPickerControl(self),
         ]
         self.active_control = None
 

@@ -8,6 +8,29 @@ import numpy as np
 
 shader_image = gpu.shader.from_builtin('2D_IMAGE')
 shader_solid = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
+shader_image_alpha = gpu.types.GPUShader("""
+uniform mat4 ModelViewProjectionMatrix;
+/* Keep in sync with intern/opencolorio/gpu_shader_display_transform_vertex.glsl */
+in vec2 texCoord;
+in vec2 pos;
+out vec2 texCoord_interp;
+void main()
+{
+    gl_Position = ModelViewProjectionMatrix * vec4(pos.xy, 0.0f, 1.0f);
+    gl_Position.z = 1.0;
+    texCoord_interp = texCoord;
+}
+""", """
+in vec2 texCoord_interp;
+out vec4 fragColor;
+uniform sampler2D image;
+uniform vec4 color;
+void main()
+{
+    fragColor = texture(image, texCoord_interp) * color;
+}
+""")
+
 h1_font_size = 19
 p_font_size = 15
 line_height_h1 = int(1.3 * h1_font_size)
@@ -68,7 +91,7 @@ def get_icon(icon_id):
         icon_textures[icon_id] = texture
     return texture
 
-def draw_image(x0, y0, x1, y1, image, nearest=False):
+def draw_image(x0, y0, x1, y1, image, color, nearest=False):
     if not image:
         return
     # XXX Filters not exposed in gpu module, workaround with bgl is simple enough however the state
@@ -76,7 +99,7 @@ def draw_image(x0, y0, x1, y1, image, nearest=False):
     nearest = False
     if nearest:
         image.gl_load()
-        shader_image.bind()
+        shader_image_alpha.bind()
         bgl.glEnable(bgl.GL_BLEND)
         bgl.glEnable(bgl.GL_TEXTURE_2D)
         bgl.glBindTexture(bgl.GL_TEXTURE_2D, image.bindcode)
@@ -84,28 +107,31 @@ def draw_image(x0, y0, x1, y1, image, nearest=False):
         bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MAG_FILTER, bgl.GL_NEAREST)
     else:
         texture = gpu.texture.from_image(image)
-        shader_image.bind()
-        shader_image.uniform_sampler("image", texture)
-    batch_for_shader(shader_image, 'TRI_FAN', {
+        shader_image_alpha.bind()
+        shader_image_alpha.uniform_sampler("image", texture)
+        shader_image_alpha.uniform_float("color", color)
+    gpu.state.blend_set('ALPHA')
+    batch_for_shader(shader_image_alpha, 'TRI_FAN', {
         "pos": ((x0, y0), (x1, y0), (x1, y1), (x0, y1)),
         "texCoord": rect_texcoords,
-    }).draw(shader_image)
+    }).draw(shader_image_alpha)
+    gpu.state.blend_set('NONE')
     if nearest:
         bgl.glDisable(bgl.GL_TEXTURE_2D)
         image.gl_free()
 
 def draw_icon(x0, y0, x1, y1, icon_id, color):
-    # TODO: image color shader...
     texture = get_icon(icon_id)
     if not texture:
         return
-    shader_image.bind()
-    shader_image.uniform_sampler("image", texture)
+    shader_image_alpha.bind()
+    shader_image_alpha.uniform_sampler("image", texture)
+    shader_image_alpha.uniform_float("color", color)
     gpu.state.blend_set('ALPHA')
-    batch_for_shader(shader_image, 'TRI_FAN', {
+    batch_for_shader(shader_image_alpha, 'TRI_FAN', {
         "pos": ((x0, y0), (x1, y0), (x1, y1), (x0, y1)),
         "texCoord": rect_texcoords,
-    }).draw(shader_image)
+    }).draw(shader_image_alpha)
     gpu.state.blend_set('NONE')
 
 def draw_point(x, y, color, size=1.0):
@@ -186,7 +212,8 @@ def draw_help_box(x0, y0, texts, title="", padding=16.0, width=None):
         width = max(width, len(title) * h1_font_size * 0.5)
     width += padding * 2.0
 
-    height = len(texts) * line_height_p
+    # height = len(texts) * line_height_p
+    height = sum(line_height_p if s else line_height_p * 0.4 for s in texts)
     if title:
         if texts:
             height += 8.0
@@ -201,10 +228,13 @@ def draw_help_box(x0, y0, texts, title="", padding=16.0, width=None):
     blf.color(font_id, 1.0, 1.0, 1.0, 1.0)
 
     for text in reversed(texts):
-        blf.size(font_id, p_font_size, 60)
-        blf.position(font_id, x0 + padding, y, 0)
-        blf.draw(font_id, text)
-        y += line_height_p
+        if text:
+            blf.size(font_id, p_font_size, 60)
+            blf.position(font_id, x0 + padding, y, 0)
+            blf.draw(font_id, text)
+            y += line_height_p
+        else:
+            y += line_height_p * 0.4
 
     if title:
         if texts:
@@ -212,3 +242,5 @@ def draw_help_box(x0, y0, texts, title="", padding=16.0, width=None):
         blf.size(font_id, h1_font_size, 60)
         blf.position(font_id, x0 + padding, y, 0)
         blf.draw(font_id, title)
+
+    return width, height
