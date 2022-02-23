@@ -5,7 +5,7 @@ module_names = [
     'helpers',
     'relax_loops',
     'uv_paint',
-    'uv_picker',
+    'uv_picker',  # Depends on uv_paint (only so idnames aren't hardcoded)
     'uv_sheet',
 ]
 from .. import import_or_reload_modules

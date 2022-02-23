@@ -15,6 +15,7 @@ from ..drawing import (
 )
 from ..math import Rect, saturate, saturate2, SMALL_NUMBER
 from ..operator import StateMachineMixin, StateMachineBaseState
+from .uv_paint import GRET_TT_uv_paint, GRET_OT_uv_paint
 
 theme = UVSheetTheme()
 
@@ -266,9 +267,9 @@ class GRET_GT_uv_picker_gizmo(bpy.types.Gizmo, StateMachineMixin):
 
     @staticmethod
     def get_active_image_info(context):
-        tool = context.workspace.tools.get("gret.uv_paint")  # GRET_TT_uv_paint.bl_idname
+        tool = context.workspace.tools.get(GRET_TT_uv_paint.bl_idname)
         if tool:
-            props = tool.operator_properties("gret.uv_paint")  # GRET_OT_uv_paint.bl_idname
+            props = tool.operator_properties(GRET_OT_uv_paint.bl_idname)
             image = bpy.data.images.get(props.image)
             if image:
                 return image, image.uv_sheet
@@ -355,7 +356,8 @@ class GRET_GGT_uv_picker_gizmo_group(bpy.types.GizmoGroup):
 
     @classmethod
     def poll(cls, context):
-        return context.mode == 'OBJECT'
+        current_tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
+        return context.mode == 'OBJECT' and current_tool.idname == GRET_TT_uv_paint.bl_idname
 
     def setup(self, context):
         settings = context.scene.gret
