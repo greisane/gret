@@ -13,7 +13,7 @@ from ..drawing import (
     draw_point,
     UVSheetTheme,
 )
-from ..math import Rect, saturate, SMALL_NUMBER
+from ..math import Rect, saturate2, SMALL_NUMBER
 from ..operator import StateMachineBaseState, StateMachineMixin, DrawHooksMixin
 
 theme = UVSheetTheme()
@@ -52,10 +52,10 @@ class UVSheetCreateRegionState(UVSheetBaseState):
 
     def update(self):
         cols, rows = self.owner.grid_cols, self.owner.grid_rows
-        x0 = floor(saturate(self.start_mouse_pos[0]) * cols) / cols
-        y0 = floor(saturate(self.start_mouse_pos[1]) * rows) / rows
-        x1 = floor(saturate(self.owner.mouse_pos[0]) * cols) / cols
-        y1 = floor(saturate(self.owner.mouse_pos[1]) * rows) / rows
+        x0 = floor(saturate2(self.start_mouse_pos[0]) * cols) / cols
+        y0 = floor(saturate2(self.start_mouse_pos[1]) * rows) / rows
+        x1 = floor(saturate2(self.owner.mouse_pos[0]) * cols) / cols
+        y1 = floor(saturate2(self.owner.mouse_pos[1]) * rows) / rows
         self.rect = Rect(min(x0, x1), min(y0, y1), max(x0, x1) + 1 / cols, max(y0, y1) + 1 / rows)
         test_rect = self.rect.expand(-SMALL_NUMBER)
 

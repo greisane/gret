@@ -8,6 +8,7 @@ SMALL_NUMBER = 1e-8
 KINDA_SMALL_NUMBER = 1e-4
 
 saturate = lambda x: min(1.0, max(0.0, x))
+saturate2 = lambda x: min(1.0 - SMALL_NUMBER, max(0.0, x))
 grid_snap = lambda x, grid: x if grid == 0.0 else floor((x + (grid * 0.5)) / grid) * grid
 equals = lambda a, b, threshold=SMALL_NUMBER: abs(a - b) <= threshold
 lerp = lambda a, b, t: t * b + (1.0 - t) * a

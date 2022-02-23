@@ -13,7 +13,7 @@ from ..drawing import (
     icon_size,
     UVSheetTheme,
 )
-from ..math import Rect, saturate, SMALL_NUMBER
+from ..math import Rect, saturate, saturate2, SMALL_NUMBER
 from ..operator import StateMachineMixin, StateMachineBaseState
 
 theme = UVSheetTheme()
@@ -63,10 +63,10 @@ class UVPickerCustomRegionState(UVPickerBaseState):
 
         if self.grid_snap:
             cols, rows = uv_sheet.grid_cols, uv_sheet.grid_rows
-            x0 = floor(saturate(start_x) * cols) / cols
-            y0 = floor(saturate(start_y) * rows) / rows
-            x1 = floor(saturate(x) * cols) / cols
-            y1 = floor(saturate(y) * rows) / rows
+            x0 = floor(saturate2(start_x) * cols) / cols
+            y0 = floor(saturate2(start_y) * rows) / rows
+            x1 = floor(saturate2(x) * cols) / cols
+            y1 = floor(saturate2(y) * rows) / rows
             x0, y0, x1, y1 = min(x0, x1), min(y0, y1), max(x0, x1) + 1 / cols, max(y0, y1) + 1 / rows
         else:
             x0 = saturate(start_x)
@@ -136,7 +136,7 @@ class UVPickerBaseControl:
     def on_exit(self):
         pass
 
-class UVPickerPickerControl(UVPickerBaseControl):
+class UVPickerSelectorControl(UVPickerBaseControl):
     def __init__(self, owner):
         super().__init__(owner)
         self.region_index = -1
@@ -329,7 +329,7 @@ class GRET_GT_uv_picker_gizmo(bpy.types.Gizmo, StateMachineMixin):
         self.controls = [
             UVPickerHelpControl(self),
             UVPickerResizeControl(self),
-            UVPickerPickerControl(self),
+            UVPickerSelectorControl(self),
         ]
         self.active_control = None
 
