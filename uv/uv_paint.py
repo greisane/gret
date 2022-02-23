@@ -100,7 +100,7 @@ def get_quad(obj, face, uv_layer_name):
         # Not a uv_sheet material
         return Quad.invalid
 
-    uv_layer = mesh.uv_layers.get(uv_layer_name)
+    uv_layer = mesh.uv_layers.get(uv_layer_name) if uv_layer_name else mesh.uv_layers.active
     if not uv_layer:
         # Invalid UVs
         return Quad.invalid
@@ -146,7 +146,7 @@ def set_quad(obj, face, quad, uv_layer_name):
         simple_nodes.build(mat.node_tree, {'image': uv_sheet.id_data})
         do_fill = True
 
-    uv_layer = mesh.uv_layers.get(uv_layer_name)
+    uv_layer = mesh.uv_layers.get(uv_layer_name) if uv_layer_name else mesh.uv_layers.active
     if not uv_layer:
         uv_layer = mesh.uv_layers.new(name=uv_layer_name)
         do_fill = True
@@ -231,7 +231,8 @@ class GRET_OT_uv_paint(bpy.types.Operator):
     )
     uv_layer_name: bpy.props.StringProperty(
         name="UV Layer",
-        description="Target UV layer name. Defaults can be changed in addon preferences",
+        description="""UV layer to paint to. Leave empty to use the active UV layer.
+Defaults can be changed in addon preferences""",
         default="",
     )
     mode: bpy.props.EnumProperty(

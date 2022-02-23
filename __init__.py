@@ -68,8 +68,8 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
     )
     uv_paint_layer_name: bpy.props.StringProperty(
         name="Default UV Layer",
-        description="Name of the default UV layer for UV paint",
-        default="UVMap",
+        description="Default UV layer to paint to. Leave empty to use the active UV layer",
+        default="",
     )
     debug: bpy.props.BoolProperty(
         name="Debug Mode",
