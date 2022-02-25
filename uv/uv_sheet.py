@@ -7,8 +7,10 @@ import traceback
 from ..drawing import *
 from ..math import Rect, saturate2, SMALL_NUMBER
 from ..operator import StateMachineBaseState, StateMachineMixin, DrawHooksMixin
+from ..log import log, logd
 
 theme = UVSheetTheme()
+color_none = (0.0, 0.0, 0.0, 0.0)
 
 def is_event_single_press(event, types={}):
     return not event.is_repeat and event.value == 'PRESS' and event.type in types
@@ -18,18 +20,18 @@ def draw_region_rect(rect, color, emboss=False):
     draw_point(*rect.center, color, size=theme.point_size)
 
 class Region:
-    def __init__(self, x0, y0, x1, y1, solid=False):
+    def __init__(self, x0, y0, x1, y1, color=color_none):
         self.rect = Rect(x0, y0, x1, y1)
-        self.solid = solid
+        self.color = color
 
     @classmethod
     def from_property_group(cls, pg):
-        return cls(*pg.v0, *pg.v1, pg.solid)
+        return cls(*pg.v0, *pg.v1, pg.color)
 
     def fill_property_group(self, pg):
         pg.v0 = self.rect.x0, self.rect.y0
         pg.v1 = self.rect.x1, self.rect.y1
-        pg.solid = self.solid
+        pg.color = self.color
 
 class UVSheetBaseState(StateMachineBaseState):
     def on_event(self, context, event):
@@ -75,8 +77,8 @@ class UVSheetCreateRegionState(UVSheetBaseState):
                 region_idx -= 1
 
             # Add new region
-            region = self.owner.regions.append(Region(*self.rect))
-            self.owner.batch_rects = self.owner.batch_points = None
+            self.owner.regions.append(Region(*self.rect))
+            self.owner.regions_updated()
             self.owner.pop_state()
 
             if not num_removed:
@@ -158,8 +160,7 @@ class UVSheetEditRegionState(UVSheetBaseState):
             if self.deleting and is_valid_region:
                 # Remove hovered region
                 self.owner.regions.pop(self.region_index)
-                self.owner.batch_rects = self.owner.batch_points = None
-                self.region_index = -1
+                self.owner.regions_updated()
                 self.owner.report({'INFO'}, "Deleted region.")
                 return True
 
@@ -167,12 +168,12 @@ class UVSheetEditRegionState(UVSheetBaseState):
 
     def do_reset(self, intialize_grid=False):
         self.owner.regions.clear()
-        self.owner.batch_rects = self.owner.batch_points = None
         if intialize_grid:
             gw, gh = 1.0 / self.owner.grid_cols, 1.0 / self.owner.grid_rows
             for y in range(self.owner.grid_rows):
                 for x in range(self.owner.grid_cols):
                     self.owner.regions.append(Region(x * gw, y * gh, (x + 1) * gw, (y + 1) * gh))
+        self.owner.regions_updated()
         self.update()
 
     def on_enter(self):
@@ -189,9 +190,10 @@ class UVSheetEditRegionState(UVSheetBaseState):
     def on_draw_post_pixel(self, context):
         self.owner.draw_region_rects(theme.unselected)
 
+        # Draw hovered region
         if self.region_index != -1 and not self.deleting:
             region = self.owner.regions[self.region_index]
-            draw_region_rect(region.rect, theme.selected, emboss=False)
+            draw_region_rect(region.rect, theme.selected)
 
 class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixin):
     #tooltip
@@ -253,7 +255,12 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
         draw_solid_batch(self.batch_rects, color, line_width=2.0)
         draw_solid_batch(self.batch_points, color, point_size=theme.point_size)
 
-    def commit(self):
+    def regions_updated(self):
+        self.batch_rects = self.batch_points = None
+        self.region_index = -1
+
+    def commit(self, context):
+        wm = context.window_manager
         image = bpy.data.images.get(self.image)
         if not image:
             return
@@ -261,10 +268,39 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
         uv_sheet.grid_rows = self.grid_rows
         uv_sheet.grid_cols = self.grid_cols
         uv_sheet.regions.clear()
-        for region in self.regions:
-            region.fill_property_group(uv_sheet.regions.add())
+
+        # Accessing Image.pixels is really slow, do color stuff here instead of when regions are added
+        pixels = image.pixels[:]
+        w, h = image.size
+        def get_pixel_color(x, y):
+            offset = (int(x) + int(y) * w) * 4
+            return pixels[offset:offset + 4]
+
+        logd(f"Committing {len(self.regions)} regions")
+        num_colored = 0
+        wm.progress_begin(0, len(self.regions))
+        for region_idx, region in enumerate(self.regions):
+            wm.progress_update(region_idx)
+            color = color_none
+            px0, py0 = int(region.rect.x0 * w), int(region.rect.y0 * h)
+            px1, py1 = int(region.rect.x1 * w), int(region.rect.y1 * h)
+            xstep, ystep = 1, 1
+            color = get_pixel_color(px0, py0)
+            for py in range(py0, py1, ystep):
+                for px in range(px0, px1, xstep):
+                    if get_pixel_color(px, py) != color:
+                        color = color_none
+                        break
+            num_colored += color != color_none
+
+            pg_region = uv_sheet.regions.add()
+            region.fill_property_group(pg_region)
+            pg_region.color = color
+        wm.progress_end()
+
         if uv_sheet.active_index > len(uv_sheet.regions):
             uv_sheet.active_index = -1
+
         self.committed = True
 
     def modal(self, context, event):
@@ -296,7 +332,7 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
                 if is_event_single_press(event, {'ESC', 'RIGHTMOUSE'}):
                     self.wants_quit = True
                 elif is_event_single_press(event, {'RET', 'NUMPAD_ENTER'}):
-                    self.commit()
+                    self.commit(context)
                     self.wants_quit = True
                 elif event.type in {'MIDDLEMOUSE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE'}:
                     # Allow navigation
@@ -356,9 +392,12 @@ class GRET_PG_uv_region(bpy.types.PropertyGroup):
         size=2,
         default=(0.0, 0.0),
     )
-    solid: bpy.props.BoolProperty(
-        name="Solid Region",
-        description="Allows UVs to be collapsed to the center of the region",
+    color: bpy.props.FloatVectorProperty(
+        name="Uniform Color",
+        description="Color of every pixel in this region. Allows UVs to be collapsed",
+        size=4,
+        subtype='COLOR',
+        default=color_none,
     )
 
 class GRET_PG_uv_sheet(bpy.types.PropertyGroup):
@@ -382,6 +421,11 @@ class GRET_PG_uv_sheet(bpy.types.PropertyGroup):
         type=GRET_PG_uv_region,
     )
     use_custom_region: bpy.props.BoolProperty()
+    use_palette_uv: bpy.props.BoolProperty(
+        name="Use Palette UVs",
+        description="Collapse UVs to a point when the region is an uniform color",
+        default=False,
+    )
 
 classes = (
     GRET_OT_uv_sheet_edit,

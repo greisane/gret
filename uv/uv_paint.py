@@ -36,12 +36,15 @@ class Quad(namedtuple("Quad", ["uv_sheet", "x0", "y0", "x1", "y1", "rotation"]))
         if not uv_sheet:
             return cls.invalid
         if uv_sheet.use_custom_region:
-            region = uv_sheet.custom_region
+            return cls(uv_sheet, *uv_sheet.custom_region.v0, *uv_sheet.custom_region.v1, rotation)
         elif uv_sheet.active_index >= 0 and uv_sheet.active_index < len(uv_sheet.regions):
             region = uv_sheet.regions[uv_sheet.active_index]
-        else:
-            return cls.invalid
-        return cls(uv_sheet, *region.v0, *region.v1, rotation)
+            if uv_sheet.use_palette_uv and region.color != (0.0, 0.0, 0.0, 0.0):
+                cx, cy = (region.v0[0] + region.v1[0]) * 0.5, (region.v0[1] + region.v1[1]) * 0.5
+                return cls(uv_sheet, cx, cy, cx, cy, rotation)
+            else:
+                return cls(uv_sheet, *region.v0, *region.v1, rotation)
+        return cls.invalid
 
     def to_uv_sheet(self, uv_sheet):
         for region_idx, region in enumerate(uv_sheet.regions):
@@ -222,7 +225,7 @@ def get_ray_hit(context, mouse_x, mouse_y):
 
 class GRET_OT_uv_paint(bpy.types.Operator):
     bl_idname = 'gret.uv_paint'
-    bl_label = "Paint Face"
+    bl_label = "UV Paint"
     bl_options = {'INTERNAL', 'UNDO'}
 
     image: bpy.props.StringProperty(
@@ -391,7 +394,6 @@ class GRET_TT_uv_paint(bpy.types.WorkSpaceTool):
         col.use_property_decorate = False
         row = col.row(align=True)
         row.prop_search(props, "image", bpy.data, "images", text="")
-        # row.operator('gret.uv_sheet_reload', icon='FILE_REFRESH', text="")
         row.operator('image.reload', icon='FILE_REFRESH', text="")  # TODO this reloads what?
         row.operator('image.open', icon='ADD', text="")
 
@@ -399,7 +401,8 @@ class GRET_TT_uv_paint(bpy.types.WorkSpaceTool):
         if not image:
             col.label(text="No image selected.")
             return
-        elif not image.uv_sheet.regions:
+        has_uv_sheet = bool(image.uv_sheet.regions)
+        if not has_uv_sheet:
             col.label(text="No UV sheet defined.")
         else:
             col.prop(props, 'uv_layer_name', icon='UV')
@@ -407,11 +410,13 @@ class GRET_TT_uv_paint(bpy.types.WorkSpaceTool):
             col.prop(props, 'random', icon='FORCE_VORTEX', text="Random")
 
         col.separator()
-        col = layout.column(align=True)
-        col.alert = not image.uv_sheet.regions
+        col2 = layout.column(align=False)
+        col2.alert = not has_uv_sheet
         text = "Edit UV Sheet" if image.uv_sheet.regions else "Create UV Sheet"
-        op = col.operator('gret.uv_sheet_edit', icon='MESH_GRID', text=text)
+        op = col2.operator('gret.uv_sheet_edit', icon='MESH_GRID', text=text)
         op.image = image.name
+        if has_uv_sheet:
+            col2.prop(image.uv_sheet, 'use_palette_uv')
 
 classes = (
     GRET_OT_uv_paint,

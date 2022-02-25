@@ -62,7 +62,6 @@ class Rect(namedtuple("Rect", ["x0", "y0", "x1", "y1"])):
         return x * self.width + self.x0, y * self.height + self.y0
 
     def inverse_transform_point(self, x, y):
-        # x, y, _ = self.to_trs_matrix().inverted() @ Vector((x, y, 0.0))
         return (x - self.x0) / self.width, (y - self.y0) / self.height
 
 def calc_bounds(points):
