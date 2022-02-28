@@ -49,19 +49,16 @@ class Quad(namedtuple("Quad", ["uv_sheet", "x0", "y0", "x1", "y1", "rotation"]))
         return cls.invalid
 
     def to_uv_sheet(self, uv_sheet):
+        eq = equals
         for region_idx, region in enumerate(uv_sheet.regions):
-            if (equals(self.x0, region.v0[0]) and equals(self.y0, region.v0[1]) and
-                equals(self.x1, region.v1[0]) and equals(self.y1, region.v1[1])):
+            x0, y0, x1, y1 = *region.v0, *region.v1
+            # Check if corners match, or if they're all inside in case of a solid color region
+            if ((eq(self.x0, x0) and eq(self.y0, y0) and eq(self.x1, y0) and eq(self.y1, y1)) or
+                (uv_sheet.use_palette_uv and not is_color_none(region.color) and
+                self.x0 >= x0 and self.y0 >= y0 and self.x1 <= x1 and self.y1 <= y1)):
                 uv_sheet.use_custom_region = False
                 uv_sheet.active_index = region_idx
                 return
-            elif uv_sheet.use_palette_uv and not is_color_none(region.color):
-                cx, cy = (self.x0 + self.x1) * 0.5, (self.y0 + self.y1) * 0.5
-                if (equals(cx, (region.v0[0] + region.v1[0]) * 0.5, 1e-4) and
-                    equals(cy, (region.v0[1] + region.v1[1]) * 0.5, 1e-4)):
-                    uv_sheet.use_custom_region = False
-                    uv_sheet.active_index = region_idx
-                    return
         uv_sheet.use_custom_region = True
         uv_sheet.custom_region.v0 = self.x0, self.y0
         uv_sheet.custom_region.v1 = self.x1, self.y1
