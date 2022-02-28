@@ -11,8 +11,7 @@ from ..math import (
     get_point_dist_to_line_sq,
     get_range_pct,
 )
-from ..helpers import remove_extra_data
-from .helpers import TempModifier
+from ..helpers import remove_extra_data, TempModifier
 
 # make_collision TODO:
 # - When creating collision from vertices, sometimes the result is offset
