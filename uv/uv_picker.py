@@ -171,23 +171,24 @@ class UVPickerSelectorControl(UVPickerBaseControl):
             return (rect.transform_point(*image_rect.inverse_transform_point(*region.v0))
                 + rect.transform_point(*image_rect.inverse_transform_point(*region.v1)))
 
-        # Draw bordered image
+        # Draw bordered image, or help text if no image
         draw_box(*rect, theme.border)
         if not image:
             draw_box_fill(*rect, theme.background)
             draw_text(*rect.center, "Select an image in the Tool tab.", theme.border, rect)
             return
 
+        uv_sheet = image.uv_sheet
         draw_image(*rect, image, (0.7, 0.7, 0.7, 1.0), self.get_target_rect().corners, nearest=True)
 
         # Draw region rectangles
-        # TODO Not actually caching since it's difficult to figure out when regions have changed,
-        # and bpy.msgbus isn't doing the trick. Drawing all rects together is still an improvement
-        uv_sheet = image.uv_sheet
-        if True or not self.batch_rects:
-            rects = [transform_region(region) for region in uv_sheet.regions]
-            self.batch_rects = batch_rects(rects)
-        draw_solid_batch(self.batch_rects, theme.unselected, line_width=1.0, use_clip=True)
+        if context.scene.gret.uv_picker_show_grid:
+            # TODO Not actually caching since it's difficult to figure out when regions have changed,
+            # and bpy.msgbus isn't doing the trick. Drawing all rects together is still an improvement
+            if True or not self.batch_rects:
+                rects = [transform_region(region) for region in uv_sheet.regions]
+                self.batch_rects = batch_rects(rects)
+            draw_solid_batch(self.batch_rects, theme.unselected, line_width=1.0, use_clip=True)
 
         # Draw hovered region
         if self.region_index >= 0 and self.region_index < len(uv_sheet.regions):
@@ -233,6 +234,19 @@ class UVPickerQuadControl(UVPickerBaseControl):
     def invoke(self, context, event):
         if event.type == 'LEFTMOUSE' and event.value == 'PRESS' and not event.is_repeat:
             context.scene.gret.uv_picker_quad = ((context.scene.gret.uv_picker_quad + 2) % 5) - 1
+            context.area.tag_redraw()
+
+class UVPickerGridControl(UVPickerBaseControl):
+    def get_rect(self, image):
+        picker_rect = self.owner.controls[-1].get_rect(image)
+        return Rect.from_size(picker_rect.x1 - icon_size[0], picker_rect.y1 + 4.0, *icon_size)
+
+    def draw(self, context, image):
+        draw_icon(*self.get_rect(image), 'GRID', theme.hovered if self.is_active else theme.border)
+
+    def invoke(self, context, event):
+        if event.type == 'LEFTMOUSE' and event.value == 'PRESS' and not event.is_repeat:
+            context.scene.gret.uv_picker_show_grid = not context.scene.gret.uv_picker_show_grid
             context.area.tag_redraw()
 
 class UVPickerResizeControl(UVPickerBaseControl):
@@ -356,6 +370,7 @@ class GRET_GT_uv_picker_gizmo(bpy.types.Gizmo, StateMachineMixin):
         self.controls = [
             UVPickerHelpControl(self),
             UVPickerResizeControl(self),
+            UVPickerGridControl(self),
             # UVPickerQuadControl(self),
             UVPickerSelectorControl(self),
         ]
@@ -407,24 +422,29 @@ def register(settings):
         bpy.utils.register_class(cls)
 
     settings.add_property('uv_picker_pos', bpy.props.FloatVectorProperty(
-        name="UV Paint Picker Position",
+        name="UV Picker Position",
         description="Offset of the UV picker from the lower left corner of the viewport",
         size=2,
         default=(30.0, 30.0),
     ))
     settings.add_property('uv_picker_size', bpy.props.FloatProperty(
-        name="UV Paint Picker Size",
+        name="UV Picker Size",
         description="Size in pixels of the UV picker",
         default=256.0,
         min=64.0,
         max=1024.0,
     ))
     settings.add_property('uv_picker_quad', bpy.props.IntProperty(
-        name="UV Paint Picker Quad",
+        name="UV Picker Quad",
         description="Portion of the UV sheet image shown",
         default=-1,
         min=-1,
         max=3,
+    ))
+    settings.add_property('uv_picker_show_grid', bpy.props.BoolProperty(
+        name="UV Picker Show Grid",
+        description="Display the UV picker grid",
+        default=True,
     ))
 
 def unregister():
