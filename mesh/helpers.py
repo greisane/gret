@@ -444,3 +444,64 @@ def bmesh_vertex_group_bleed(bm, vertex_group_index, distance, power=1.0, only_t
                     else:
                         openset[other_vert] = -other_vert_w
                     set_weight(other_vert, other_vert_w)
+
+def _walk_island(vert):
+    vert.tag = True
+    yield(vert)
+    linked_verts = [e.other_vert(vert) for e in vert.link_edges if not e.other_vert(vert).tag]
+    for vert in linked_verts:
+        if vert.tag:
+            continue
+        yield from _walk_island(vert)
+
+def bmesh_find_islands(bm, verts=[]):
+    """Takes input verts and finds unconnected islands. Outputs lists of vertices."""
+    # From https://blender.stackexchange.com/a/105142
+
+    def set_tag(verts, value):
+        for vert in verts:
+            vert.tag = value
+    set_tag(bm.verts, True)
+    set_tag(verts, False)
+    ret = {"islands": []}
+    verts = set(verts)
+    while verts:
+        vert = verts.pop()
+        verts.add(vert)
+        island = set(_walk_island(vert))
+        ret["islands"].append(list(island))
+        set_tag(island, False)
+        verts -= island
+    return ret
+
+def _walk_coplanar(face, max_dot):
+    face.tag = True
+    yield(face)
+    for edge in face.edges:
+        for other_face in edge.link_faces:
+            if other_face.tag:
+                continue
+            if face.normal.dot(other_face.normal) <= max_dot:
+                continue
+            yield from _walk_coplanar(other_face, max_dot)
+
+def bmesh_find_coplanar(bm, angle_limit, faces=[]):
+    """Takes input faces and finds islands limited by angle. Outputs lists of faces."""
+    # Based on https://blender.stackexchange.com/a/105142
+
+    max_dot = cos(angle_limit)
+    def set_tag(faces, value):
+        for face in faces:
+            face.tag = value
+    set_tag(bm.faces, True)
+    set_tag(faces, False)
+    ret = {"islands": []}
+    faces = set(faces)
+    while faces:
+        face = faces.pop()
+        faces.add(face)
+        island = set(_walk_coplanar(face, max_dot))
+        ret["islands"].append(list(island))
+        set_tag(island, False)
+        faces -= island
+    return ret
