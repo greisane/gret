@@ -19,6 +19,22 @@ def draw_region_rect(rect, color, emboss=False):
     draw_box(*rect, color, width=4.0 if emboss else 2.0)
     draw_point(*rect.center, color, size=theme.point_size)
 
+def _MT(tx, ty):
+    m = Matrix()
+    m[0][3], m[1][3] = tx, ty
+    return m
+
+def _MS(sx, sy):
+    m = Matrix()
+    m[0][0], m[1][1] = sx, sy
+    return m
+
+def _MTS(tx, ty, sx, sy):
+    m = Matrix()
+    m[0][3], m[1][3] = tx, ty
+    m[0][0], m[1][1] = sx, sy
+    return m
+
 class Region:
     def __init__(self, x0, y0, x1, y1, color=color_none):
         self.rect = Rect(x0, y0, x1, y1)
@@ -106,6 +122,17 @@ class UVSheetCreateRegionState(UVSheetBaseState):
 
         draw_box(*self.start_mouse_pos, *self.owner.mouse_pos, theme.marquee)
 
+class UVSheetScrollState(UVSheetBaseState):
+    def on_event(self, context, event):
+        if event.type == 'MOUSEMOVE':
+            mt = _MT(event.mouse_x - event.mouse_prev_x, event.mouse_y - event.mouse_prev_y)
+            self.owner.matrix_view = mt @ self.owner.matrix_view
+
+        elif (event.type == 'MIDDLEMOUSE' and event.value == 'RELEASE' or
+            is_event_single_press(event, {'ESC', 'RIGHTMOUSE'})):
+            self.owner.pop_state()
+            return True
+
 class UVSheetEditRegionState(UVSheetBaseState):
     region_index = -1
     deleting = False
@@ -128,6 +155,11 @@ class UVSheetEditRegionState(UVSheetBaseState):
             self.owner.push_state(UVSheetCreateRegionState)
             return True
 
+        elif event.type == 'MIDDLEMOUSE' and event.value == 'PRESS':
+            # Begin scrolling
+            self.owner.push_state(UVSheetScrollState)
+            return True
+
         elif (event.type == 'WHEELUPMOUSE' or event.type == 'WHEELDOWNMOUSE') and event.ctrl:
             # Adjust grid
             x, y = self.owner.mouse_pos[0] - 0.5, self.owner.mouse_pos[1] - 0.5
@@ -143,6 +175,13 @@ class UVSheetEditRegionState(UVSheetBaseState):
                 if new_grid_cols != self.owner.grid_cols:
                     self.owner.grid_cols = new_grid_cols
                     self.owner.report({'INFO'}, f"Grid columns {verb} to {new_grid_cols}.")
+            return True
+
+        elif (event.type == 'WHEELUPMOUSE' or event.type == 'WHEELDOWNMOUSE'):
+            # Zoom
+            change = 1.25 if event.type == 'WHEELUPMOUSE' else 0.8
+            mt, ms = _MT(event.mouse_x, event.mouse_y), _MS(change, change)
+            self.owner.matrix_view = mt @ ms @ mt.inverted() @ self.owner.matrix_view
             return True
 
         elif event.type in {'X', 'DEL'}:
@@ -334,9 +373,6 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
                 elif is_event_single_press(event, {'RET', 'NUMPAD_ENTER'}):
                     self.commit(context)
                     self.wants_quit = True
-                elif event.type in {'MIDDLEMOUSE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE'}:
-                    # Allow navigation
-                    return {'PASS_THROUGH'}
 
         if self.wants_quit:
             self.unhook()
@@ -361,11 +397,8 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
         scale = image.size[0] / max(image.size), image.size[1] / max(image.size)
         region_rect = Rect.from_size(region.x, region.y, region.width, region.height)
         view_rect = region_rect.resize(max_size * scale[0], max_size * scale[1])
-        self.matrix_view = Matrix()
-        self.matrix_view[0][3] = view_rect.x0 - region_rect.x0
-        self.matrix_view[1][3] = view_rect.y0 - region_rect.y0
-        self.matrix_view[0][0] = view_rect.width
-        self.matrix_view[1][1] = view_rect.height
+        self.matrix_view = _MTS(view_rect.x0 - region_rect.x0, view_rect.y0 - region_rect.y0,
+            view_rect.width, view_rect.height)
         self.mouse_pos = (0, 0)
         self.mouse_region_pos = (0, 0)
         self.is_mouse_pos_in_bounds = False

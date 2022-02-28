@@ -366,8 +366,8 @@ class GRET_GGT_uv_picker_gizmo_group(bpy.types.GizmoGroup):
         # self.gizmo.use_draw_hover = True  # Only draw while cursor is on the picker
         # self.gizmo.use_operator_tool_properties = True  # ?
         # self.gizmo.use_event_handle_all = True  # Swallow all events while hovered
-        self.gizmo.position = settings.uv_picker_picker_pos
-        self.gizmo.size = settings.uv_picker_picker_size
+        self.gizmo.position = settings.uv_picker_pos
+        self.gizmo.size = settings.uv_picker_size
 
 classes = (
     GRET_GT_uv_picker_gizmo,
@@ -378,15 +378,15 @@ def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    settings.add_property('uv_picker_picker_pos', bpy.props.FloatVectorProperty(
+    settings.add_property('uv_picker_pos', bpy.props.FloatVectorProperty(
         name="UV Paint Picker Position",
-        description="Offset of the UV picker gizmo from the lower left corner of the viewport",
+        description="Offset of the UV picker from the lower left corner of the viewport",
         size=2,
         default=(30.0, 30.0),
     ))
-    settings.add_property('uv_picker_picker_size', bpy.props.FloatProperty(
+    settings.add_property('uv_picker_size', bpy.props.FloatProperty(
         name="UV Paint Picker Size",
-        description="Size in pixels of the UV picker gizmo",
+        description="Size in pixels of the UV picker",
         default=256.0,
         min=64.0,
         max=1024.0,
