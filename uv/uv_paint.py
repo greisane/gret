@@ -30,6 +30,8 @@ simple_nodes = (Node('OutputMaterial')
     )
 ))
 
+is_color_none = lambda c: c[0] == 0.0 and c[1] == 0.0 and c[2] == 0.0 and c[3] == 0.0
+
 class Quad(namedtuple("Quad", ["uv_sheet", "x0", "y0", "x1", "y1", "rotation"])):
     @classmethod
     def from_uv_sheet(cls, uv_sheet, rotation=-1):
@@ -39,7 +41,7 @@ class Quad(namedtuple("Quad", ["uv_sheet", "x0", "y0", "x1", "y1", "rotation"]))
             return cls(uv_sheet, *uv_sheet.custom_region.v0, *uv_sheet.custom_region.v1, rotation)
         elif uv_sheet.active_index >= 0 and uv_sheet.active_index < len(uv_sheet.regions):
             region = uv_sheet.regions[uv_sheet.active_index]
-            if uv_sheet.use_palette_uv and region.color != (0.0, 0.0, 0.0, 0.0):
+            if uv_sheet.use_palette_uv and not is_color_none(region.color):
                 cx, cy = (region.v0[0] + region.v1[0]) * 0.5, (region.v0[1] + region.v1[1]) * 0.5
                 return cls(uv_sheet, cx, cy, cx, cy, rotation)
             else:
@@ -53,6 +55,13 @@ class Quad(namedtuple("Quad", ["uv_sheet", "x0", "y0", "x1", "y1", "rotation"]))
                 uv_sheet.use_custom_region = False
                 uv_sheet.active_index = region_idx
                 return
+            elif uv_sheet.use_palette_uv and not is_color_none(region.color):
+                cx, cy = (self.x0 + self.x1) * 0.5, (self.y0 + self.y1) * 0.5
+                if (equals(cx, (region.v0[0] + region.v1[0]) * 0.5, 1e-4) and
+                    equals(cy, (region.v0[1] + region.v1[1]) * 0.5, 1e-4)):
+                    uv_sheet.use_custom_region = False
+                    uv_sheet.active_index = region_idx
+                    return
         uv_sheet.use_custom_region = True
         uv_sheet.custom_region.v0 = self.x0, self.y0
         uv_sheet.custom_region.v1 = self.x1, self.y1
