@@ -89,12 +89,14 @@ class UVPickerResizeState(UVPickerBaseState):
         max_size = min(context.region.width, context.region.height) - 100.0
         new_size = min(max_size, self.start_size + delta_size)
         self.owner.size = new_size
-        context.scene.gret.uv_picker_picker_size = self.owner.size
 
     def on_enter(self, context, event, control):
         self.start_mouse_pos = event.mouse_region_x, event.mouse_region_y
         self.start_size = self.owner.matrix_basis[0][0]
         self.control = control
+
+    def on_exit(self, context, cancel):
+        context.scene.gret.uv_picker_size = self.owner.size
 
     def on_modal(self, context, event, tweak):
         if event.type == 'MOUSEMOVE' and event.value == 'PRESS':
