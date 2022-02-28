@@ -48,6 +48,9 @@ class Rect(namedtuple("Rect", ["x0", "y0", "x1", "y1"])):
         cx, cy = self.center
         return Rect(cx - w, cy - h, cx + w, cy + h)
 
+    def move(self, x, y):
+        return Rect(self.x0 + x, self.y0 + y, self.x1 + x, self.y1 + y)
+
     def to_screen(self, view2d):
         x0, y0 = view2d.view_to_region(self.x0, self.y0, clip=False)
         x1, y1 = view2d.view_to_region(self.x1, self.y1, clip=False)

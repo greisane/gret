@@ -194,7 +194,7 @@ def batch_points(points):
     batch = batch_for_shader(shader_solid, 'POINTS', {"pos": points})
     return batch
 
-def draw_solid_batch(batch, color, line_width=None, point_size=None):
+def draw_solid_batch(batch, color, line_width=None, point_size=None, use_clip=False):
     if len(color) == 3:
         color = *color, 1.0
     use_blend = color[3] < 1.0
@@ -202,6 +202,9 @@ def draw_solid_batch(batch, color, line_width=None, point_size=None):
     shader_solid.uniform_float("color", color)
     if use_blend:
         gpu.state.blend_set('ALPHA')
+    use_clip = False  # XXX Once again, using bgl breaks things...
+    if use_clip:
+        bgl.glEnable(bgl.GL_SCISSOR_TEST)
     if line_width is not None:
         gpu.state.line_width_set(line_width)
     if point_size is not None:
@@ -209,6 +212,8 @@ def draw_solid_batch(batch, color, line_width=None, point_size=None):
     batch.draw(shader_solid)
     if use_blend:
         gpu.state.blend_set('NONE')
+    if use_clip:
+        bgl.glDisable(bgl.GL_SCISSOR_TEST)
 
 def draw_grid(x, y, grid_width, grid_height, num_cols, num_rows, color, width=1.0):
     if len(color) == 3:

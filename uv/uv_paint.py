@@ -11,7 +11,6 @@ from ..material.helpers import Node, get_material, set_material
 from ..math import SMALL_NUMBER, equals, calc_bounds_2d, calc_center_2d
 
 # TODO:
-# - toggle image quadrant
 # - paint flipped uvs?
 # - gravity paint?
 # - trim alignment

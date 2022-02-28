@@ -8,9 +8,7 @@ from ..operator import StateMachineMixin, StateMachineBaseState
 from .uv_paint import GRET_TT_uv_paint, GRET_OT_uv_paint
 
 theme = UVSheetTheme()
-
-def rect_transform_region(rect, region):
-    return rect.transform_point(*region.v0) + rect.transform_point(*region.v1)
+quad_xy = [(0, 1), (1, 1), (0, 0), (1, 0)]
 
 class UVPickerBaseState(StateMachineBaseState):
     def on_enter(self, context, event, control):
@@ -142,6 +140,13 @@ class UVPickerSelectorControl(UVPickerBaseControl):
         size = self.owner.size
         return Rect.from_size(*self.owner.position, size * scale_x, size * scale_y)
 
+    def get_target_rect(self):
+        quad = bpy.context.scene.gret.uv_picker_quad
+        if quad >= 0 and quad < 4:
+            x0, y0 = quad_xy[quad][0] * 0.5, quad_xy[quad][1] * 0.5
+            return Rect(x0, y0, x0 + 0.5, y0 + 0.5)
+        return Rect(0.0, 0.0, 1.0, 1.0)
+
     def test_select(self, context, image, mx, my):
         self.region_index = -1
         if not image:
@@ -161,6 +166,10 @@ class UVPickerSelectorControl(UVPickerBaseControl):
 
     def draw(self, context, image):
         rect = self.get_rect(image)
+        image_rect = self.get_target_rect()
+        def transform_region(region):
+            return (rect.transform_point(*image_rect.inverse_transform_point(*region.v0))
+                + rect.transform_point(*image_rect.inverse_transform_point(*region.v1)))
 
         # Draw bordered image
         draw_box(*rect, theme.border)
@@ -169,34 +178,30 @@ class UVPickerSelectorControl(UVPickerBaseControl):
             draw_text(*rect.center, "Select an image in the Tool tab.", theme.border, rect)
             return
 
-        x0, y0 = 0.0, 0.0
-        w, h = 1.0, 1.0
-        x1, y1 = x0 + w, y0 + h
-        texcoords = (x0, y0), (x1, y0), (x1, y1), (x0, y1)
-        draw_image(*rect, image, (0.7, 0.7, 0.7, 1.0), texcoords, nearest=True)
+        draw_image(*rect, image, (0.7, 0.7, 0.7, 1.0), self.get_target_rect().corners, nearest=True)
 
         # Draw region rectangles
         # TODO Not actually caching since it's difficult to figure out when regions have changed,
         # and bpy.msgbus isn't doing the trick. Drawing all rects together is still an improvement
         uv_sheet = image.uv_sheet
         if True or not self.batch_rects:
-            rects = [rect_transform_region(rect, region) for region in uv_sheet.regions]
+            rects = [transform_region(region) for region in uv_sheet.regions]
             self.batch_rects = batch_rects(rects)
-        draw_solid_batch(self.batch_rects, theme.unselected, line_width=1.0)
+        draw_solid_batch(self.batch_rects, theme.unselected, line_width=1.0, use_clip=True)
 
         # Draw hovered region
         if self.region_index >= 0 and self.region_index < len(uv_sheet.regions):
             region = uv_sheet.regions[self.region_index]
-            draw_box(*rect_transform_region(rect, region), theme.hovered)
+            draw_box(*transform_region(region), theme.hovered)
 
         # Draw active region
         if not uv_sheet.use_custom_region:
             if uv_sheet.active_index >= 0 and uv_sheet.active_index < len(uv_sheet.regions):
                 region = uv_sheet.regions[uv_sheet.active_index]
-                draw_box(*rect_transform_region(rect, region), theme.selected, width=2.0)
+                draw_box(*transform_region(region), theme.selected, width=2.0)
         else:
             region = uv_sheet.custom_region
-            x0, y0, x1, y1 = rect_transform_region(rect, region)
+            x0, y0, x1, y1 = transform_region(region)
             if abs(x0 - x1) < 4.0 and abs(y0 - y1) < 4.0:
                 # Custom region is too small and won't be visible with draw_box
                 draw_point(x0, y0, theme.bad, size=theme.point_size)
@@ -209,6 +214,26 @@ class UVPickerSelectorControl(UVPickerBaseControl):
                 self.owner.push_state(UVPickerCustomRegionState, context, event, self)
             else:
                 self.owner.push_state(UVPickerSelectState, context, event, self)
+
+class UVPickerQuadControl(UVPickerBaseControl):
+    def get_rect(self, image):
+        picker_rect = self.owner.controls[-1].get_rect(image)
+        return Rect.from_size(picker_rect.x0, picker_rect.y1 + 4.0, *icon_size)
+
+    def draw(self, context, image):
+        rect = self.get_rect(image)
+        w, h = rect.width, rect.height
+        rect = rect.resize(w * 0.5, h * 0.5).expand(-1)
+        quad = context.scene.gret.uv_picker_quad
+        draw_box_fill(*rect.move(w * -0.25, h * +0.25), theme.hovered if quad == 0 else theme.border)
+        draw_box_fill(*rect.move(w * +0.25, h * +0.25), theme.hovered if quad == 1 else theme.border)
+        draw_box_fill(*rect.move(w * -0.25, h * -0.25), theme.hovered if quad == 2 else theme.border)
+        draw_box_fill(*rect.move(w * +0.25, h * -0.25), theme.hovered if quad == 3 else theme.border)
+
+    def invoke(self, context, event):
+        if event.type == 'LEFTMOUSE' and event.value == 'PRESS' and not event.is_repeat:
+            context.scene.gret.uv_picker_quad = ((context.scene.gret.uv_picker_quad + 2) % 5) - 1
+            context.area.tag_redraw()
 
 class UVPickerResizeControl(UVPickerBaseControl):
     def get_rect(self, image):
@@ -331,6 +356,7 @@ class GRET_GT_uv_picker_gizmo(bpy.types.Gizmo, StateMachineMixin):
         self.controls = [
             UVPickerHelpControl(self),
             UVPickerResizeControl(self),
+            # UVPickerQuadControl(self),
             UVPickerSelectorControl(self),
         ]
         self.active_control = None
@@ -392,6 +418,13 @@ def register(settings):
         default=256.0,
         min=64.0,
         max=1024.0,
+    ))
+    settings.add_property('uv_picker_quad', bpy.props.IntProperty(
+        name="UV Paint Picker Quad",
+        description="Portion of the UV sheet image shown",
+        default=-1,
+        min=-1,
+        max=3,
     ))
 
 def unregister():
