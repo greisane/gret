@@ -3,8 +3,16 @@ from math import pi
 import bmesh
 import bpy
 
-from .helpers import get_vgroup, get_modifier, TempModifier, edit_mesh_elements, bmesh_vertex_group_bleed
-from ..helpers import get_context, link_properties, load_selection, save_selection
+from .helpers import edit_mesh_elements, bmesh_vertex_group_bleed
+from ..helpers import (
+    get_context,
+    get_modifier,
+    get_vgroup,
+    link_properties,
+    load_selection,
+    save_selection,
+    TempModifier,
+)
 
 temp_boundary_vg_name = "__boundary"
 face_map_name = "Graft"

@@ -5,8 +5,8 @@ import bmesh
 import bpy
 
 from ..math import get_direction_safe
-from ..helpers import get_context, get_collection
-from .helpers import get_vgroup, TempModifier, bmesh_vertex_group_bleed
+from ..helpers import get_context, get_collection, get_vgroup, TempModifier
+from .helpers import bmesh_vertex_group_bleed
 
 temp_boundary_vg_name = "__boundary"
 temp_collection_name = "__merge"

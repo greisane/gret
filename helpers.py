@@ -99,6 +99,59 @@ def get_collection(context, name, clean=True):
         context.scene.collection.children.link(collection)
     return collection
 
+def get_vgroup(obj, name, clean=True):
+    """Ensures that a vertex group with the given name exists."""
+
+    vgroup = obj.vertex_groups.get(name)
+    if not vgroup:
+        vgroup = obj.vertex_groups.new(name=name)
+    elif clean:
+        vgroup.remove(range(len(obj.data.vertices)))
+    return vgroup
+
+def get_modifier(obj, type, name="", index=None):
+    """Ensures that a modifier with the given name exists."""
+
+    if name:
+        modifier = obj.modifiers.get(name)
+    else:
+        modifier = next((m for m in obj.modifiers if m.type == type), None)
+    if not modifier or modifier.type != type:
+        modifier = obj.modifiers.new(type=type, name=name)
+    if index is not None:
+        index %= len(obj.modifiers)
+        if index != obj.modifiers.find(modifier.name):
+            ctx = get_context(obj)
+            bpy.ops.object.modifier_move_to_index(ctx, modifier=modifier.name, index=index)
+    return modifier
+
+class TempModifier:
+    """Convenient modifier wrapper to use in a `with` block to be automatically applied at the end."""
+
+    def __init__(self, obj, type):
+        self.obj = obj
+        self.type = type
+
+    def __enter__(self):
+        self.saved_mode = bpy.context.mode
+        if bpy.context.mode == 'EDIT_MESH':
+            bpy.ops.object.editmode_toggle()
+
+        self.modifier = self.obj.modifiers.new(type=self.type, name="")
+        # Move first to avoid the warning on applying
+        ctx = get_context(self.obj)
+        bpy.ops.object.modifier_move_to_index(ctx, modifier=self.modifier.name, index=0)
+
+        return self.modifier
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        ctx = get_context(self.obj)
+
+        bpy.ops.object.modifier_apply(ctx, modifier=self.modifier.name)
+
+        if self.saved_mode == 'EDIT_MESH':
+            bpy.ops.object.editmode_toggle()
+
 SelectionState = namedtuple('SelectionState', [
     'selected',
     'active',
