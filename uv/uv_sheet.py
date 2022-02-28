@@ -5,7 +5,7 @@ import gpu
 import traceback
 
 from ..drawing import *
-from ..math import Rect, saturate2, SMALL_NUMBER
+from ..math import Rect, saturate, saturate2, SMALL_NUMBER
 from ..operator import StateMachineBaseState, StateMachineMixin, DrawHooksMixin
 from ..log import log, logd
 
@@ -59,14 +59,22 @@ class UVSheetBaseState(StateMachineBaseState):
 class UVSheetCreateRegionState(UVSheetBaseState):
     start_mouse_pos = (0, 0)
     rect = None
+    grid_snap = True
 
     def update(self):
-        cols, rows = self.owner.grid_cols, self.owner.grid_rows
-        x0 = floor(saturate2(self.start_mouse_pos[0]) * cols) / cols
-        y0 = floor(saturate2(self.start_mouse_pos[1]) * rows) / rows
-        x1 = floor(saturate2(self.owner.mouse_pos[0]) * cols) / cols
-        y1 = floor(saturate2(self.owner.mouse_pos[1]) * rows) / rows
-        self.rect = Rect(min(x0, x1), min(y0, y1), max(x0, x1) + 1 / cols, max(y0, y1) + 1 / rows)
+        if self.grid_snap:
+            cols, rows = self.owner.grid_cols, self.owner.grid_rows
+            x0 = floor(saturate2(self.start_mouse_pos[0]) * cols) / cols
+            y0 = floor(saturate2(self.start_mouse_pos[1]) * rows) / rows
+            x1 = floor(saturate2(self.owner.mouse_pos[0]) * cols) / cols
+            y1 = floor(saturate2(self.owner.mouse_pos[1]) * rows) / rows
+            self.rect = Rect(min(x0, x1), min(y0, y1), max(x0, x1) + 1 / cols, max(y0, y1) + 1 / rows)
+        else:
+            x0 = saturate(self.start_mouse_pos[0])
+            y0 = saturate(self.start_mouse_pos[1])
+            x1 = saturate(self.owner.mouse_pos[0])
+            y1 = saturate(self.owner.mouse_pos[1])
+            self.rect = Rect(min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
         test_rect = self.rect.expand(-SMALL_NUMBER)
 
         self.is_intersecting = False
@@ -107,8 +115,9 @@ class UVSheetCreateRegionState(UVSheetBaseState):
             self.owner.pop_state()
             return True
 
-    def on_enter(self):
+    def on_enter(self, grid_snap=True):
         self.start_mouse_pos = self.owner.mouse_pos
+        self.grid_snap = grid_snap
         self.update()
         self.owner.help_title = "Create Region"
         self.owner.help_texts = ["(Escape/RMB) Cancel."]
@@ -120,7 +129,7 @@ class UVSheetCreateRegionState(UVSheetBaseState):
         color = theme.selected if not self.is_intersecting else theme.bad
         draw_region_rect(self.rect, color, emboss=True)
 
-        draw_box(*self.start_mouse_pos, *self.owner.mouse_pos, theme.marquee)
+        # draw_box(*self.start_mouse_pos, *self.owner.mouse_pos, theme.marquee)
 
 class UVSheetScrollState(UVSheetBaseState):
     def on_event(self, context, event):
@@ -152,7 +161,7 @@ class UVSheetEditRegionState(UVSheetBaseState):
 
         if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
             # Begin creating new region
-            self.owner.push_state(UVSheetCreateRegionState)
+            self.owner.push_state(UVSheetCreateRegionState, grid_snap=not event.ctrl)
             return True
 
         elif event.type == 'MIDDLEMOUSE' and event.value == 'PRESS':
