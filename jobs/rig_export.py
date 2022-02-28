@@ -217,6 +217,9 @@ class GRET_OT_rig_export(bpy.types.Operator):
                 bpy.ops.gret.vertex_color_mapping_add(ctx)
             bpy.ops.gret.vertex_color_mapping_refresh(ctx, invert=True)
             bpy.ops.gret.vertex_color_mapping_clear(ctx)
+            if len(obj.data.vertex_colors) > 1:
+                logd(f"More than one vertex color layer, is this intended?",
+                    ", ".join(vc.name for vc in obj.data.vertex_colors))
 
             # Ensure proper mesh state
             self.sanitize_mesh(obj)

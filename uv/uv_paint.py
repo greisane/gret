@@ -52,7 +52,7 @@ class Quad(namedtuple("Quad", ["uv_sheet", "x0", "y0", "x1", "y1", "rotation"]))
         for region_idx, region in enumerate(uv_sheet.regions):
             x0, y0, x1, y1 = *region.v0, *region.v1
             # Check if corners match, or if they're all inside in case of a solid color region
-            if ((eq(self.x0, x0) and eq(self.y0, y0) and eq(self.x1, y0) and eq(self.y1, y1)) or
+            if ((eq(self.x0, x0) and eq(self.y0, y0) and eq(self.x1, x1) and eq(self.y1, y1)) or
                 (uv_sheet.use_palette_uv and not is_color_none(region.color) and
                 self.x0 >= x0 and self.y0 >= y0 and self.x1 <= x1 and self.y1 <= y1)):
                 uv_sheet.use_custom_region = False

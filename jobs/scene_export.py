@@ -270,6 +270,9 @@ class GRET_OT_scene_export(bpy.types.Operator):
                 bpy.ops.gret.vertex_color_mapping_add(ctx)
             bpy.ops.gret.vertex_color_mapping_refresh(ctx, invert=True)
             bpy.ops.gret.vertex_color_mapping_clear(ctx)
+            if len(obj.data.vertex_colors) > 1:
+                logd(f"More than one vertex color layer, is this intended?",
+                    ", ".join(vc.name for vc in obj.data.vertex_colors))
 
             # Put the objects in a group
             cl = job_cl.get_collection(context) if job_cl else item.original.users_collection[0]

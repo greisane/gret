@@ -1,4 +1,5 @@
 from fnmatch import fnmatch
+from math import cos
 from mathutils import Vector
 import bmesh
 import bpy
@@ -301,7 +302,8 @@ def apply_modifiers(obj, key=None, keep_armature=False):
                 log(f"Restoring UV layer {name} from attributes")
                 uvs = [0.0] * (len(attr.data) * 2)
                 attr.data.foreach_get('vector', uvs)
-                uv_layer = obj.data.uv_layers.new(name=attr.name, do_init=False)
+                obj.data.attributes.remove(attr)  # Avoid collisions
+                uv_layer = obj.data.uv_layers.new(name=name, do_init=False)
                 uv_layer.data.foreach_set('uv', uvs)
             elif attr:
                 log(f"Can't restore UV layer {name}, attribute has wrong domain or data type")
@@ -316,7 +318,8 @@ def apply_modifiers(obj, key=None, keep_armature=False):
                 log(f"Restoring vertex color layer {name} from attributes")
                 colors = [0.0] * (len(attr.data) * 4)
                 attr.data.foreach_get('color', colors)
-                vertex_color = obj.data.vertex_colors.new(name=attr.name, do_init=False)
+                obj.data.attributes.remove(attr)  # Avoid collisions
+                vertex_color = obj.data.vertex_colors.new(name=name, do_init=False)
                 vertex_color.data.foreach_set('color', colors)
             elif attr:
                 log(f"Can't restore vertex color layer {name}, attribute has wrong domain or data type")
@@ -486,7 +489,7 @@ def _walk_coplanar(face, max_dot):
             yield from _walk_coplanar(other_face, max_dot)
 
 def bmesh_find_coplanar(bm, angle_limit, faces=[]):
-    """Takes input faces and finds islands limited by angle. Outputs lists of faces."""
+    """Takes input faces and finds islands limited by angle (in radians). Outputs lists of faces."""
     # Based on https://blender.stackexchange.com/a/105142
 
     max_dot = cos(angle_limit)
