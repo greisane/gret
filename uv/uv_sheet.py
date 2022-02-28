@@ -4,6 +4,7 @@ import bpy
 import gpu
 import traceback
 
+from ..color import rgb2lab
 from ..drawing import *
 from ..math import Rect, saturate, saturate2, SMALL_NUMBER
 from ..operator import StateMachineBaseState, StateMachineMixin, DrawHooksMixin
@@ -325,10 +326,10 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
             return pixels[offset:offset + 4]
 
         logd(f"Committing {len(self.regions)} regions")
-        num_colored = 0
         wm.progress_begin(0, len(self.regions))
         for region_idx, region in enumerate(self.regions):
             wm.progress_update(region_idx)
+
             color = color_none
             px0, py0 = int(region.rect.x0 * w), int(region.rect.y0 * h)
             px1, py1 = int(region.rect.x1 * w), int(region.rect.y1 * h)
@@ -339,11 +340,11 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
                     if get_pixel_color(px, py) != color:
                         color = color_none
                         break
-            num_colored += color != color_none
 
             pg_region = uv_sheet.regions.add()
             region.fill_property_group(pg_region)
             pg_region.color = color
+            pg_region.color_lab = rgb2lab(color)
         wm.progress_end()
 
         if uv_sheet.active_index > len(uv_sheet.regions):
@@ -441,6 +442,7 @@ class GRET_PG_uv_region(bpy.types.PropertyGroup):
         subtype='COLOR',
         default=color_none,
     )
+    color_lab: bpy.props.FloatVectorProperty(size=3)
 
 class GRET_PG_uv_sheet(bpy.types.PropertyGroup):
     grid_rows: bpy.props.IntProperty(
