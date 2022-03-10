@@ -3,6 +3,9 @@ import bpy
 from .. import prefs
 from ..log import log, logger
 from ..rig.helpers import is_object_arp
+from .scene_export import scene_export
+from .rig_export import rig_export
+from .anim_export import anim_export
 
 class GRET_OT_export_job_preset(bpy.types.Operator):
     #tooltip
@@ -178,6 +181,9 @@ class GRET_OT_export_job_move_down(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_export(bpy.types.Operator):
+    #tooltip
+    """Execute the export job"""
+
     bl_idname = 'gret.export'
     bl_label = "Export"
     bl_context = 'objectmode'
@@ -199,11 +205,11 @@ class GRET_OT_export(bpy.types.Operator):
 
         job = context.scene.gret.export_jobs[self.index]
         if job.what == 'SCENE':
-            bpy.ops.gret.scene_export(self.index)
+            scene_export(self, context, job)
         elif job.what == 'RIG':
-            bpy.ops.gret.rig_export(self.index)
+            rig_export(self, context, job)
         elif job.what == 'ANIMATION':
-            bpy.ops.gret.animation_export(self.index)
+            anim_export(self, context, job)
 
         return {'FINISHED'}
 

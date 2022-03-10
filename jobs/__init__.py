@@ -1,10 +1,10 @@
 import bpy
 
 module_names = [
-    'export',
     'anim_export',
     'rig_export',
     'scene_export',
+    'export',  # Depends on all others
 ]
 from .. import import_or_reload_modules
 modules = import_or_reload_modules(module_names, __name__)
