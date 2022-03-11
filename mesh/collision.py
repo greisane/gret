@@ -11,22 +11,20 @@ from ..math import (
     get_point_dist_to_line_sq,
     get_range_pct,
 )
-from ..helpers import remove_extra_data, TempModifier
+from ..helpers import get_collection, remove_extra_data, TempModifier
 
 # make_collision TODO:
 # - When creating collision from vertices, sometimes the result is offset
 # - Non-axis aligned boxes
 # - Symmetrize for convex isn't good
 # - Wall collision should try to decompose into boxes
+# - Convex decomposition with v-hacd?
 
-def find_collection_in_scene(scene, name):
-    colls = [scene.collection]
-    while colls:
-        coll = colls.pop()
-        if re.match(rf"^{name}(?:\.\d\d\d)?$", coll.name):
-            return coll
-        colls.extend(coll.children)
-    return None
+collision_prefixes = ("UCX", "UBX", "UCP", "USP")
+
+def get_collision_objects(context, obj):
+    pattern = r"^(?:%s)_%s_\d+$" % ('|'.join(collision_prefixes), obj.name)
+    return [o for o in context.scene.objects if re.match(pattern, o.name)]
 
 def find_free_col_name(prefix, name):
     n = 0
@@ -50,7 +48,6 @@ class GRET_OT_collision_assign(bpy.types.Operator):
         return len(context.selected_objects) > 1 and context.object and context.mode == 'OBJECT'
 
     def execute(self, context):
-        collision_prefixes = ("UCX", "UBX", "UCP", "USP")
         for obj in context.selected_objects[:]:
             if obj == context.active_object:
                 continue
@@ -277,11 +274,7 @@ class GRET_OT_collision_make(bpy.types.Operator):
         if not self.collection:
             collection = context.scene.collection
         else:
-            collection = find_collection_in_scene(context.scene, self.collection)
-            if not collection:
-                collection = bpy.data.collections.new(self.collection)
-                context.scene.collection.children.link(collection)
-        if bpy.app.version >= (2, 91):
+            collection = get_collection(context, self.collection, allow_duplicate=True, clean=False)
             collection.color_tag = 'COLOR_04'
         collection.objects.link(col_obj)
         return col_obj

@@ -28,6 +28,7 @@ from ..mesh.helpers import (
     merge_basis_shape_keys,
     unsubdivide_preserve_uvs,
 )
+from ..mesh.collision import collision_prefixes, get_collision_objects
 
 def export_fbx(filepath, context, objects):
     select_only(context, objects)
@@ -103,8 +104,6 @@ def swap_object_names(self, obj1, obj2):
     obj1.name = name2
 
 def _scene_export(self, context, job):
-    collision_prefixes = ("UCX", "UBX", "UCP", "USP")
-
     if job.to_collection and job.clean_collection:
         # Clean the target collection first
         log(f"Cleaning target collection")
@@ -197,8 +196,7 @@ def _scene_export(self, context, job):
 
         # If enabled, pick up UE4 collision objects
         if job.export_collision:
-            pattern = r"^(?:%s)_%s_\d+$" % ('|'.join(collision_prefixes), item.original.name)
-            item.col_objs.extend(o for o in context.scene.objects if re.match(pattern, o.name))
+            item.col_objs.extend(get_collision_objects(context, item.original))
         if item.col_objs:
             log(f"Collected {len(item.col_objs)} collision primitives")
 

@@ -104,7 +104,6 @@ def get_collection(context, name, allow_duplicate=False, clean=True):
     elif clean:
         for obj in collection.objects[:]:
             collection.objects.unlink(obj)
-    assert not collection.objects
     if name not in context.scene.collection.children:
         context.scene.collection.children.link(collection)
     return collection
