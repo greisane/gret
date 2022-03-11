@@ -196,7 +196,7 @@ class GRET_OT_vertex_color_mapping_clear(bpy.types.Operator):
 
 class GRET_OT_vertex_color_mapping_copy_to_linked(bpy.types.Operator):
     #tooltip
-    """Clear vertex color mapping"""
+    """Copy vertex color mapping from active to linked objects"""
 
     bl_idname = 'gret.vertex_color_mapping_copy_to_linked'
     bl_label = "Copy Vertex Color Mapping to Linked"
@@ -217,7 +217,7 @@ class GRET_OT_vertex_color_mapping_copy_to_linked(bpy.types.Operator):
 
 class GRET_OT_vertex_color_mapping_copy_to_selected(bpy.types.Operator):
     #tooltip
-    """Clear vertex color mapping"""
+    """Copy vertex color mapping from active to selected objects"""
 
     bl_idname = 'gret.vertex_color_mapping_copy_to_selected'
     bl_label = "Copy Vertex Color Mapping to Selected"

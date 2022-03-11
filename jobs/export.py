@@ -189,7 +189,10 @@ class GRET_OT_export(bpy.types.Operator):
     bl_context = 'objectmode'
     bl_options = {'REGISTER'}
 
-    index: bpy.props.IntProperty(options={'HIDDEN'})
+    index: bpy.props.IntProperty(
+        name="Index",
+        description="Index of the job to export",
+    )
 
     @classmethod
     def poll(cls, context):

@@ -37,11 +37,11 @@ def find_free_col_name(prefix, name):
             break
     return col_name
 
-class GRET_OT_assign_collision(bpy.types.Operator):
+class GRET_OT_collision_assign(bpy.types.Operator):
     #tooltip
-    """Assigns (renames) the selected collision meshes to the active object"""
+    """Assign selected collision meshes to the active object"""
 
-    bl_idname = 'gret.assign_collision'
+    bl_idname = 'gret.collision_assign'
     bl_label = "Assign Collision"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -68,11 +68,11 @@ def is_box(bm):
     avg_d_sq = sum(get_dist_sq(vert.co, c) for vert in bm.verts) / len(bm.verts)
     return all(isclose(avg_d_sq, get_dist_sq(vert.co, c), abs_tol=0.0001) for vert in bm.verts)
 
-class GRET_OT_make_collision(bpy.types.Operator):
+class GRET_OT_collision_make(bpy.types.Operator):
     #tooltip
     """Generate collision for the selected geometry"""
 
-    bl_idname = 'gret.make_collision'
+    bl_idname = 'gret.collision_make'
     bl_label = "Make Collision"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -575,12 +575,12 @@ def draw_panel(self, context):
     col.label(text="Collision", icon='MESH_CUBE')
 
     row = col.row(align=True)
-    row.operator('gret.make_collision', text="Make")
-    row.operator('gret.assign_collision', text="Assign")
+    row.operator('gret.collision_make', text="Make")
+    row.operator('gret.collision_assign', text="Assign")
 
 classes = (
-    GRET_OT_assign_collision,
-    GRET_OT_make_collision,
+    GRET_OT_collision_assign,
+    GRET_OT_collision_make,
 )
 
 def register(settings):
