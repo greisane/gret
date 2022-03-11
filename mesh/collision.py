@@ -183,12 +183,6 @@ class GRET_OT_collision_make(bpy.types.Operator):
         subtype='DISTANCE',
         min=0.001,
     )
-    aabb_center: bpy.props.FloatVectorProperty(
-        name="Center",
-        description="Bounding box center",
-        subtype='TRANSLATION',
-        size=3,
-    )
 
     # Cylinder settings
     cyl_caps: bpy.props.BoolProperty(
@@ -362,14 +356,14 @@ class GRET_OT_collision_make(bpy.types.Operator):
 
         bm = bmesh.new()
         verts = bmesh.ops.create_cube(bm, calc_uvs=False)['verts']
-        verts[0].co = self.aabb_center.x - v.x, self.aabb_center.y - v.y, self.aabb_center.z - v.z
-        verts[1].co = self.aabb_center.x - v.x, self.aabb_center.y - v.y, self.aabb_center.z + v.z
-        verts[2].co = self.aabb_center.x - v.x, self.aabb_center.y + v.y, self.aabb_center.z - v.z
-        verts[3].co = self.aabb_center.x - v.x, self.aabb_center.y + v.y, self.aabb_center.z + v.z
-        verts[4].co = self.aabb_center.x + v.x, self.aabb_center.y - v.y, self.aabb_center.z - v.z
-        verts[5].co = self.aabb_center.x + v.x, self.aabb_center.y - v.y, self.aabb_center.z + v.z
-        verts[6].co = self.aabb_center.x + v.x, self.aabb_center.y + v.y, self.aabb_center.z - v.z
-        verts[7].co = self.aabb_center.x + v.x, self.aabb_center.y + v.y, self.aabb_center.z + v.z
+        verts[0].co = self.location.x - v.x, self.location.y - v.y, self.location.z - v.z
+        verts[1].co = self.location.x - v.x, self.location.y - v.y, self.location.z + v.z
+        verts[2].co = self.location.x - v.x, self.location.y + v.y, self.location.z - v.z
+        verts[3].co = self.location.x - v.x, self.location.y + v.y, self.location.z + v.z
+        verts[4].co = self.location.x + v.x, self.location.y - v.y, self.location.z - v.z
+        verts[5].co = self.location.x + v.x, self.location.y - v.y, self.location.z + v.z
+        verts[6].co = self.location.x + v.x, self.location.y + v.y, self.location.z - v.z
+        verts[7].co = self.location.x + v.x, self.location.y + v.y, self.location.z + v.z
 
         if self.hollow:
             self.create_split_col_object_from_bm(context, obj, bm, self.thickness, self.offset)
@@ -378,9 +372,9 @@ class GRET_OT_collision_make(bpy.types.Operator):
         bm.free()
 
     def make_cylinder_collision(self, context, obj):
-        mat = Matrix.Translation(self.aabb_center)
+        mat = Matrix.Translation(self.location)
         if self.cyl_rotate:
-            mat = Matrix.Rotation(pi / self.cyl_sides, 4, 'Z') @ mat
+            mat @= Matrix.Rotation(pi / self.cyl_sides, 4, 'Z')
         bm = bmesh.new()
         cap_ends = not self.hollow or self.cyl_caps
         bmesh.ops.create_cone(bm, cap_ends=cap_ends, cap_tris=False, segments=self.cyl_sides,
@@ -393,7 +387,7 @@ class GRET_OT_collision_make(bpy.types.Operator):
         bm.free()
 
     def make_capsule_collision(self, context, obj):
-        mat = Matrix.Translation(self.aabb_center) @ self.cap_rotation.to_matrix().to_4x4()
+        mat = Matrix.Translation(self.location) @ self.cap_rotation.to_matrix().to_4x4()
         bm = bmesh.new()
         bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=8,
             radius1=self.cap_radius, radius2=self.cap_radius, depth=self.cap_depth,
@@ -405,7 +399,7 @@ class GRET_OT_collision_make(bpy.types.Operator):
         bm.free()
 
     def make_sphere_collision(self, context, obj):
-        mat = Matrix.Translation(self.aabb_center)
+        mat = Matrix.Translation(self.location)
         bm = bmesh.new()
         bmesh.ops.create_icosphere(bm, subdivisions=2, radius=self.sph_radius*0.5,
             calc_uvs=False, matrix=mat)
@@ -535,7 +529,7 @@ class GRET_OT_collision_make(bpy.types.Operator):
         self.aabb_depth = abs(corner1.x - corner2.x)
         self.aabb_width = abs(corner1.y - corner2.y)
         self.aabb_height = abs(corner1.z - corner2.z)
-        self.aabb_center = center = (corner1 + corner2) * 0.5
+        self.location = center = (corner1 + corner2) * 0.5
 
         # Cylinder radius
         self.cyl_radius1 = self.cyl_radius2 = 0.001
