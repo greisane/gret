@@ -9,6 +9,7 @@ from .. import prefs
 from ..helpers import select_only
 from ..material.helpers import Node, get_material, set_material
 from ..math import SMALL_NUMBER, equals, calc_bounds_2d, calc_center_2d
+from .uv_sheet import GRET_PT_uv_sheet_presets
 
 # TODO:
 # - paint flipped uvs?
@@ -413,15 +414,17 @@ class GRET_TT_uv_paint(bpy.types.WorkSpaceTool):
             col.prop(props, 'uv_layer_name', icon='UV')
             col.prop(props, 'delimit')
             col.prop(props, 'random', icon='FORCE_VORTEX', text="Random")
-
         col.separator()
-        col2 = layout.column(align=False)
-        col2.alert = not has_uv_sheet
+
+        col = layout.column(align=False)
+        col.alert = not has_uv_sheet
         text = "Edit UV Sheet" if image.uv_sheet.regions else "Create UV Sheet"
-        op = col2.operator('gret.uv_sheet_edit', icon='MESH_GRID', text=text)
+        row = col.row(align=True)
+        op = row.operator('gret.uv_sheet_edit', icon='MESH_GRID', text=text)
         op.image = image.name
+        row.popover(panel=GRET_PT_uv_sheet_presets.__name__, icon='PRESET', text="")
         if has_uv_sheet:
-            col2.prop(image.uv_sheet, 'use_palette_uv')
+            col.prop(image.uv_sheet, 'use_palette_uv')
 
 classes = (
     GRET_OT_uv_paint,

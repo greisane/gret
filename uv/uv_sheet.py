@@ -1,3 +1,5 @@
+from bl_operators.presets import AddPresetBase
+from bl_ui.utils import PresetPanel
 from math import floor
 from mathutils import Vector, Matrix
 import bpy
@@ -471,10 +473,43 @@ class GRET_PG_uv_sheet(bpy.types.PropertyGroup):
         default=False,
     )
 
+class GRET_MT_uv_sheet_presets(bpy.types.Menu):
+    bl_label = "UV Paint Presets"
+    preset_subdir = "gret/uv_paint"
+    preset_operator = 'script.execute_preset'
+    draw = bpy.types.Menu.draw_preset
+
+class GRET_OT_uv_sheet_add_preset(AddPresetBase, bpy.types.Operator):
+    bl_idname = 'gret.uv_paint_add_preset'
+    bl_label = "Add UV Paint Preset"
+    preset_menu = GRET_MT_uv_sheet_presets.__name__
+    preset_subdir = GRET_MT_uv_sheet_presets.preset_subdir
+    preset_defines = [
+        "from gret.uv.uv_paint import GRET_TT_uv_paint, GRET_OT_uv_paint",
+        "tool = bpy.context.workspace.tools.get(GRET_TT_uv_paint.bl_idname)",
+        "props = tool.operator_properties(GRET_OT_uv_paint.bl_idname)",
+        "image = bpy.data.images.get(props.image)",
+    ]
+    preset_values = [
+        # "props.uv_layer_name",
+        # "props.delimit",
+        # "props.random",
+        "image.uv_sheet.regions",
+    ]
+
+class GRET_PT_uv_sheet_presets(PresetPanel, bpy.types.Panel):
+    bl_label = "UV Paint Presets"
+    preset_subdir = GRET_MT_uv_sheet_presets.preset_subdir
+    preset_add_operator = GRET_OT_uv_sheet_add_preset.bl_idname
+    preset_operator = 'script.execute_preset'
+
 classes = (
+    GRET_MT_uv_sheet_presets,
+    GRET_OT_uv_sheet_add_preset,
     GRET_OT_uv_sheet_edit,
     GRET_PG_uv_region,
     GRET_PG_uv_sheet,
+    GRET_PT_uv_sheet_presets,
 )
 
 def register(settings):
