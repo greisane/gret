@@ -85,10 +85,20 @@ def get_context(active_obj=None, selected_objs=None):
         ctx['selected_objects'] = ctx['selected_editable_objects'] = [active_obj]
     return ctx
 
-def get_collection(context, name, clean=True):
+def get_collection(context, name, allow_duplicate=False, clean=True):
     """Ensures that a collection with the given name exists in the scene."""
 
-    collection = bpy.data.collections.get(name)
+    # collection = bpy.data.collections.get(name)
+    collection = None
+    collections = [context.scene.collection]
+    while collections:
+        cl = collections.pop()
+        if cl.name == name or allow_duplicate and re.match(rf"^{name}(?:\.\d\d\d)?$", cl.name):
+            collection = cl
+            break
+        collections.extend(cl.children)
+        cl = None
+
     if not collection:
         collection = bpy.data.collections.new(name)
     elif clean:
