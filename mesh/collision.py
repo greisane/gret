@@ -1,5 +1,5 @@
 from itertools import chain
-from math import radians, sqrt, isclose
+from math import pi, radians, sqrt, isclose
 from mathutils import Matrix, Vector
 import bmesh
 import bpy
@@ -54,6 +54,8 @@ class GRET_OT_collision_assign(bpy.types.Operator):
             prefix = obj.name[:3]
             if prefix in collision_prefixes:
                 obj.name = find_free_col_name(prefix, context.active_object.name)
+                if obj.data.users == 1:
+                    obj.data.name = obj.name
 
         return {'FINISHED'}
 
@@ -134,7 +136,7 @@ class GRET_OT_collision_make(bpy.types.Operator):
     wire: bpy.props.BoolProperty(
         name="Wire",
         description="How to display the collision objects in viewport",
-        default=True,
+        default=False,
     )
     hollow: bpy.props.BoolProperty(
         name="Hollow",
@@ -200,6 +202,10 @@ class GRET_OT_collision_make(bpy.types.Operator):
         description="Number of sides",
         default=8,
         min=3,
+    )
+    cyl_rotate: bpy.props.BoolProperty(
+        name="Rotate",
+        description="Rotate cylinder by half",
     )
     cyl_radius1: bpy.props.FloatProperty(
         name="Radius 1",
@@ -374,6 +380,8 @@ class GRET_OT_collision_make(bpy.types.Operator):
 
     def make_cylinder_collision(self, context, obj):
         mat = Matrix.Translation(self.location)
+        if self.cyl_rotate:
+            mat = Matrix.Rotation(pi / self.cyl_sides, 4, 'Z') @ mat
         bm = bmesh.new()
         cap_ends = not self.hollow or self.cyl_caps
         bmesh.ops.create_cone(bm, cap_ends=cap_ends, cap_tris=False, segments=self.cyl_sides,
@@ -580,6 +588,7 @@ class GRET_OT_collision_make(bpy.types.Operator):
             col.prop(self, 'aabb_height')
             col.prop(self, 'aabb_depth')
         elif self.shape == 'CYLINDER':
+            col.prop(self, 'cyl_rotate')
             col.prop(self, 'cyl_sides')
             col.prop(self, 'cyl_radius1')
             col.prop(self, 'cyl_radius2')
