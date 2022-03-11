@@ -57,8 +57,49 @@ class GRET_OT_collision_assign(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class GRET_OT_collision_copy_to_linked(bpy.types.Operator):
+    #tooltip
+    """Copy collision meshes from active to linked objects"""
+
+    bl_idname = 'gret.collision_copy_to_linked'
+    bl_label = "Copy Collision to Linked"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return bool(context.active_object)
+
+    def execute(self, context):
+        obj = context.active_object
+        col_objs = get_collision_objects(context, obj)
+        if not col_objs:
+            self.report({'WARNING'}, "Active object has no collision assigned.")
+            return {'CANCELLED'}
+
+        for other_obj in bpy.data.objects:
+            if other_obj != obj and other_obj.data == obj.data:
+                # Clean collision
+                for old_col_obj in get_collision_objects(context, other_obj):
+                    bpy.data.objects.remove(old_col_obj, do_unlink=True)
+
+                # Copy collision to other object's location
+                obj_to_other = obj.matrix_world.inverted() @ other_obj.matrix_world
+                for col_obj in col_objs:
+                    name = find_free_col_name(col_obj.name[:3], other_obj.name)
+                    new_col_obj = bpy.data.objects.new(name, col_obj.data)
+                    new_col_obj.matrix_world = (other_obj.matrix_world @
+                        (obj.matrix_world.inverted() @ col_obj.matrix_world))
+                    new_col_obj.show_wire = col_obj.show_wire
+                    new_col_obj.display_type = col_obj.display_type
+                    new_col_obj.display.show_shadows = col_obj.display.show_shadows
+                    for collection in col_obj.users_collection:
+                        collection.objects.link(new_col_obj)
+
+        return {'FINISHED'}
+
 def is_box(bm):
     """Check if the mesh can be represented by a box collision shape."""
+
     if len(bm.verts) != 8:
         return False
     c = sum((vert.co for vert in bm.verts), Vector()) / len(bm.verts)
@@ -573,6 +614,7 @@ def draw_panel(self, context):
 
 classes = (
     GRET_OT_collision_assign,
+    GRET_OT_collision_copy_to_linked,
     GRET_OT_collision_make,
 )
 
