@@ -14,7 +14,6 @@ from ..math import (
 from ..helpers import get_collection, remove_extra_data, TempModifier
 
 # make_collision TODO:
-# - When creating collision from vertices, sometimes the result is offset
 # - Non-axis aligned boxes
 # - Symmetrize for convex isn't good
 # - Wall collision should try to decompose into boxes
@@ -379,7 +378,7 @@ class GRET_OT_collision_make(bpy.types.Operator):
         bm.free()
 
     def make_cylinder_collision(self, context, obj):
-        mat = Matrix.Translation(self.location)
+        mat = Matrix.Translation(self.aabb_center)
         if self.cyl_rotate:
             mat = Matrix.Rotation(pi / self.cyl_sides, 4, 'Z') @ mat
         bm = bmesh.new()
@@ -394,7 +393,7 @@ class GRET_OT_collision_make(bpy.types.Operator):
         bm.free()
 
     def make_capsule_collision(self, context, obj):
-        mat = Matrix.Translation(self.location) @ self.cap_rotation.to_matrix().to_4x4()
+        mat = Matrix.Translation(self.aabb_center) @ self.cap_rotation.to_matrix().to_4x4()
         bm = bmesh.new()
         bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=8,
             radius1=self.cap_radius, radius2=self.cap_radius, depth=self.cap_depth,
@@ -406,7 +405,7 @@ class GRET_OT_collision_make(bpy.types.Operator):
         bm.free()
 
     def make_sphere_collision(self, context, obj):
-        mat = Matrix.Translation(self.location)
+        mat = Matrix.Translation(self.aabb_center)
         bm = bmesh.new()
         bmesh.ops.create_icosphere(bm, subdivisions=2, radius=self.sph_radius*0.5,
             calc_uvs=False, matrix=mat)
@@ -520,8 +519,7 @@ class GRET_OT_collision_make(bpy.types.Operator):
         if len(vert_cos) < 3:
             raise RuntimeError("Requires at least three vertices")
 
-        axis, center = calc_best_fit_line(vert_cos)
-        self.location = center
+        axis, _ = calc_best_fit_line(vert_cos)
 
         corner1 = vert_cos[0].copy()
         corner2 = vert_cos[1].copy()
@@ -537,9 +535,9 @@ class GRET_OT_collision_make(bpy.types.Operator):
         self.aabb_depth = abs(corner1.x - corner2.x)
         self.aabb_width = abs(corner1.y - corner2.y)
         self.aabb_height = abs(corner1.z - corner2.z)
-        self.aabb_center = (corner1 + corner2) * 0.5
+        self.aabb_center = center = (corner1 + corner2) * 0.5
 
-        # Cylinder radiuss
+        # Cylinder radius
         self.cyl_radius1 = self.cyl_radius2 = 0.001
         for co in vert_cos:
             dx = center.x - co.x
