@@ -205,7 +205,7 @@ def anim_export(self, context, job):
 
     try:
         start_time = time.time()
-        self._execute(context, job, rig)
+        _anim_export(self, context, job, rig)
         # Finished without errors
         elapsed = time.time() - start_time
         self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))

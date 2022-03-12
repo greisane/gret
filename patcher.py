@@ -89,8 +89,9 @@ class FunctionPatcher(dict):
     def __enter__(self):
         module = self.get_module(self.module_or_module_name)
         if not module:
-            logd(f"Importing module {module_name}")
-            module = importlib.import_module(module_name)
+            logd(f"Importing module {self.module_or_module_name}")
+            import importlib
+            module = importlib.import_module(self.module_or_module_name)
         if module:
             base_func = self.get_func(module, self.function_name)
             if base_func:
