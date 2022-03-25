@@ -89,7 +89,7 @@ def _anim_export(self, context, job, rig):
             self.new_fcurves.append((action, dst_fc))
 
             log(f"Baking {desc}")
-            for frame_idx in range(0, int(action.frame_range[1]) + 1):
+            for frame_idx in range(0, int(action.frame_end) + 1):
                 val = src_fc.evaluate(frame_idx)
                 dst_fc.keyframe_points.insert(frame_idx, val)
 
@@ -136,10 +136,10 @@ def _anim_export(self, context, job, rig):
 
         # TODO save this
         rig.animation_data.action = export_group.action
-        context.scene.frame_preview_start = export_group.action.frame_range[0]
-        context.scene.frame_preview_end = export_group.action.frame_range[1]
+        context.scene.frame_preview_start = int(export_group.action.frame_start)
+        context.scene.frame_preview_end = int(export_group.action.frame_end)
         context.scene.use_preview_range = True
-        context.scene.frame_current = export_group.action.frame_range[0]
+        context.scene.frame_current = context.scene.frame_preview_start
         bpy.context.evaluated_depsgraph_get().update()
 
         markers = export_group.action.pose_markers

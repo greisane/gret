@@ -230,7 +230,7 @@ class PoseBlender:
 
         # Temporary datapath->fcurve map for fast searching
         fcurves_map = {fc.data_path:fc for fc in self.pose_lib.fcurves}
-        start_frame, last_frame = self.pose_lib.frame_range
+        start_frame, last_frame = self.pose_lib.curve_frame_range
 
         # base_pose_name = self.pose_lib.pose_markers[0].name # TODO let user choose
 

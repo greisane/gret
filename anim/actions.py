@@ -41,9 +41,10 @@ class GRET_OT_action_set(bpy.types.Operator):
                 obj.animation_data.action = action
 
                 # Set preview range. Use start and end markers if they exist
-                context.scene.frame_preview_start = action.frame_range[0]
-                context.scene.frame_preview_end = action.frame_range[1] #- 1
+                context.scene.frame_preview_start = int(action.curve_frame_range[0])
+                context.scene.frame_preview_end = int(action.curve_frame_range[1]) #- 1
                 for marker in action.pose_markers:
+                    # This is ARP stuff, should remove eventually
                     if marker.name.lower() == "start":
                         context.scene.frame_preview_start = marker.frame
                     elif marker.name.lower() == "end":
@@ -51,7 +52,7 @@ class GRET_OT_action_set(bpy.types.Operator):
                 context.scene.use_preview_range = True
 
                 if self.play:
-                    context.scene.frame_current = action.frame_range[0]
+                    context.scene.frame_current = int(action.curve_frame_range[0])
                     bpy.ops.screen.animation_cancel(restore_frame=False)
                     bpy.ops.screen.animation_play()
 
