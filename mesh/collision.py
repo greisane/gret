@@ -76,9 +76,15 @@ class GRET_OT_collision_copy_to_linked(bpy.types.Operator):
         if not col_objs:
             self.report({'WARNING'}, "Active object has no collision assigned.")
             return {'CANCELLED'}
+        if obj.data.users == 1:
+            self.report({'WARNING'}, "Active object data has no other users.")
+            return {'CANCELLED'}
 
+        num_linked = 0
         for other_obj in bpy.data.objects:
             if other_obj != obj and other_obj.data == obj.data:
+                num_linked += 1
+
                 # Clean collision
                 for old_col_obj in get_collision_objects(context, other_obj):
                     bpy.data.objects.remove(old_col_obj, do_unlink=True)
@@ -96,6 +102,7 @@ class GRET_OT_collision_copy_to_linked(bpy.types.Operator):
                     for collection in col_obj.users_collection:
                         collection.objects.link(new_col_obj)
 
+        self.report({'INFO'}, f"Copied collision to {num_linked} other objects.")
         return {'FINISHED'}
 
 def is_box(bm):
