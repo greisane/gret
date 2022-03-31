@@ -99,7 +99,10 @@ def _rig_export(self, context, job, rig):
         # Currently not checking whether the rig is in here, it will probably explode
         log(f"Cleaning target collection")
         for obj in job.export_collection.objects:
+            data = obj.data
             bpy.data.objects.remove(obj, do_unlink=True)
+            if data.users == 0 and isinstance(data, bpy.types.Mesh):
+                bpy.data.meshes.remove(data, do_unlink=True)
 
     # Find and clone objects to be exported
     # Original objects that aren't exported will be hidden for render, only for driver purposes
