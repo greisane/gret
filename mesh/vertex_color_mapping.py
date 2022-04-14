@@ -422,10 +422,12 @@ def register(settings):
     bpy.types.Object.vertex_color_mapping = bpy.props.CollectionProperty(
         type=GRET_PG_vertex_color_mapping,
     )
-    bpy.types.DATA_PT_vertex_colors.append(vcol_panel_draw)
+    if hasattr(bpy.types, "DATA_PT_vertex_colors"):
+        bpy.types.DATA_PT_vertex_colors.append(vcol_panel_draw)
 
 def unregister():
-    bpy.types.DATA_PT_vertex_colors.remove(vcol_panel_draw)
+    if hasattr(bpy.types, "DATA_PT_vertex_colors"):
+        bpy.types.DATA_PT_vertex_colors.remove(vcol_panel_draw)
     del bpy.types.Object.vertex_color_mapping
 
     for cls in reversed(classes):
