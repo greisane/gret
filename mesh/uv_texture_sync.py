@@ -124,7 +124,7 @@ col.operator('gret.uv_texture_sync', icon='UV_SYNC_SELECT', text="")
 
 class UVTexturePanelPatcher(PanelPatcher):
     fallback_func = staticmethod(draw_uv_texture_panel_addon)
-    panel_type = bpy.types.DATA_PT_uv_texture
+    panel_type = getattr(bpy.types, "DATA_PT_uv_texture", None)
 
     def visit_Call(self, node):
         super().generic_visit(node)

@@ -151,7 +151,7 @@ sub.separator()
 
 class ShapeKeyPanelPatcher(PanelPatcher):
     fallback_func = staticmethod(draw_shape_key_panel_addon)
-    panel_type = bpy.types.DATA_PT_shape_keys
+    panel_type = getattr(bpy.types, "DATA_PT_shape_keys", None)
 
     def visit_Call(self, node):
         super().generic_visit(node)

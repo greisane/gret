@@ -34,7 +34,10 @@ class PanelPatcher(ast.NodeTransformer):
     panel_type = None
 
     def patch(self, debug=False):
-        assert self.panel_type
+        if self.panel_type is None:
+            # Fail silently if the panel doesn't exist, it seems this is a thing that can happen
+            return
+
         if not self.panel_type.is_extended():
             # Force panel to be extended to avoid issues. This overrides draw() and adds _draw_funcs
             self.panel_type.append(_dummy)
@@ -50,6 +53,9 @@ class PanelPatcher(ast.NodeTransformer):
             self.panel_type.append(self.fallback_func)
 
     def unpatch(self):
+        if self.panel_type is None:
+            return
+
         if self.saved_draw_func:
             self.panel_type.draw._draw_funcs[0] = self.saved_draw_func
         elif self.fallback_func:
