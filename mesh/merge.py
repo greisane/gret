@@ -5,7 +5,7 @@ import bmesh
 import bpy
 
 from ..math import get_direction_safe
-from ..helpers import get_context, get_collection, get_vgroup, TempModifier
+from ..helpers import get_context, get_collection, get_vgroup, TempModifier, select_only
 from .helpers import bmesh_vertex_group_bleed
 
 temp_boundary_vg_name = "__boundary"
@@ -131,15 +131,16 @@ Requires meshes to have an open boundary, which is used to find the edge loops""
 
     def cache_boolean_bm(self, context, dst_obj, objs):
         # Boolean modifier behaves very differently on compound meshes even with use_self
+        select_only(context, objs)
         bpy.ops.object.editmode_toggle()
         bpy.ops.mesh.separate(type='LOOSE')
         bpy.ops.object.editmode_toggle()
+        objs[:] = [o for o in context.selected_objects if o.type == 'MESH']
 
         bool_collection = get_collection(context, "__merge")
         dg = context.evaluated_depsgraph_get()
 
         # Preprocess meshes
-        new_objs = []
         for obj in objs:
             if obj.data.users > 1:
                 obj.data = obj.data.copy()
@@ -170,10 +171,6 @@ Requires meshes to have an open boundary, which is used to find the edge loops""
             bool_mod.solver = 'EXACT'
             if bpy.app.version >= (2, 93):
                 bool_mod.use_hole_tolerant = False
-
-        # Clean up
-        for obj in new_objs:
-            delete_obj_with_mesh(obj)
 
         # Write to cache
         self.cached_boolean_bm = bmesh.new()
