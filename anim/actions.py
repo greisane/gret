@@ -1,13 +1,14 @@
 import bpy
 import os
 
+from .. import prefs
 from ..rig.helpers import clear_pose, try_key
 
 class GRET_OT_action_set(bpy.types.Operator):
     #tooltip
     """Edit this action. Ctrl-click to rename"""
 
-    bl_idname = 'gret.action_set'
+    bl_idname = "gret.action_set"
     bl_label = "Set Action"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -26,35 +27,37 @@ class GRET_OT_action_set(bpy.types.Operator):
             return {'FINISHED'}
 
         action = bpy.data.actions.get(self.name, None)
-        if action:
-            # Always save it, just in case
-            action.use_fake_user = True
+        if not action:
+            return {'CANCELLED'}
 
-            if self.new_name:
-                # Rename
-                action.name = self.new_name
-            elif not self.play and obj.animation_data.action == action:
-                # Action was already active, stop editing
-                obj.animation_data.action = None
+        # Always save it, just in case
+        action.use_fake_user = True
+
+        if self.new_name:
+            # Rename
+            action.name = self.new_name
+        elif not self.play and obj.animation_data.action == action:
+            # Action was already active, stop editing
+            obj.animation_data.action = None
+        else:
+            clear_pose(obj)
+            obj.animation_data.action = action
+
+            # Set preview range. Use start and end markers if they exist
+            # Use new Blender 3.1 Frame Range feature
+            if action.use_frame_range:
+                context.scene.frame_preview_start = int(action.frame_start)
+                context.scene.frame_preview_end = int(action.frame_end)
             else:
-                clear_pose(obj)
-                obj.animation_data.action = action
+                context.scene.frame_preview_start = int(action.curve_frame_range[0])
+                context.scene.frame_preview_end = int(action.curve_frame_range[1])
 
-                # Set preview range. Use start and end markers if they exist
-                # Use new Blender 3.1 Frame Range feature
-                if action.use_frame_range:
-                    context.scene.frame_preview_start = int(action.frame_start)
-                    context.scene.frame_preview_end = int(action.frame_end)
-                else:
-                    context.scene.frame_preview_start = int(action.curve_frame_range[0])
-                    context.scene.frame_preview_end = int(action.curve_frame_range[1])
+            context.scene.use_preview_range = True
 
-                context.scene.use_preview_range = True
-
-                if self.play:
-                    context.scene.frame_current = int(action.curve_frame_range[0])
-                    bpy.ops.screen.animation_cancel(restore_frame=False)
-                    bpy.ops.screen.animation_play()
+            if self.play:
+                context.scene.frame_current = int(action.curve_frame_range[0])
+                bpy.ops.screen.animation_cancel(restore_frame=False)
+                bpy.ops.screen.animation_play()
 
         return {'FINISHED'}
 
@@ -71,7 +74,7 @@ class GRET_OT_action_add(bpy.types.Operator):
     #tooltip
     """Add a new action"""
 
-    bl_idname = 'gret.action_add'
+    bl_idname = "gret.action_add"
     bl_label = "Add Action"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -97,7 +100,7 @@ class GRET_OT_action_remove(bpy.types.Operator):
     #tooltip
     """Delete the action"""
 
-    bl_idname = 'gret.action_remove'
+    bl_idname = "gret.action_remove"
     bl_label = "Remove Action"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -121,7 +124,7 @@ class GRET_OT_action_duplicate(bpy.types.Operator):
     #tooltip
     """Duplicate this action"""
 
-    bl_idname = 'gret.action_duplicate'
+    bl_idname = "gret.action_duplicate"
     bl_label = "Duplicate Action"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -146,7 +149,7 @@ class GRET_OT_pose_set(bpy.types.Operator):
     #tooltip
     """Go to the frame for this pose. Ctrl-click to rename"""
 
-    bl_idname = 'gret.pose_set'
+    bl_idname = "gret.pose_set"
     bl_label = "Set Pose"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -190,7 +193,7 @@ class GRET_OT_pose_make(bpy.types.Operator):
     #tooltip
     """Creates a pose marker for every frame in the action"""
 
-    bl_idname = 'gret.pose_make'
+    bl_idname = "gret.pose_make"
     bl_label = "Make Poses"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -237,7 +240,7 @@ def draw_panel(self, context):
         box = layout.box()
         row = box.row(align=True)
         row.label(text="Available Actions", icon='ACTION')
-        row.operator('gret.action_add', icon='ADD', text="")
+        row.operator("gret.action_add", icon='ADD', text="")
 
         rig_actions = list(get_actions_for_rig(obj))
         active_action = obj.animation_data.action if obj.animation_data else None
@@ -246,26 +249,45 @@ def draw_panel(self, context):
             for action in rig_actions:
                 selected = action == active_action
                 row = col.row(align=True)
+
+                sub = row.column(align=True)
+                sub.ui_units_x = 1.0
                 if selected and context.screen.is_animation_playing:
-                    op = row.operator('screen.animation_cancel', icon='PAUSE', text="", emboss=False)
+                    op = sub.operator("screen.animation_cancel", icon='PAUSE', text="", emboss=False)
                     op.restore_frame = False
                 else:
                     icon = 'PLAY' if selected else 'TRIA_RIGHT'
-                    op = row.operator('gret.action_set', icon=icon, text="", emboss=False)
+                    op = sub.operator("gret.action_set", icon=icon, text="", emboss=False)
                     op.name = action.name
                     op.play = True
-                op = row.operator('gret.action_set', text=action.name)
+
+                op = row.operator("gret.action_set", text=action.name)
                 op.name = action.name
                 op.play = False
-                row.operator('gret.action_duplicate', icon='DUPLICATE', text="").name = action.name
-                row.operator('gret.action_remove', icon='X', text="").name = action.name
+                row.operator("gret.action_duplicate", icon='DUPLICATE', text="").name = action.name
+                row.operator("gret.action_remove", icon='X', text="").name = action.name
+
+                if prefs.actions__show_frame_range and selected:
+                    row = col.row(align=True)
+                    sub = row.column(align=True)
+                    sub.ui_units_x = 0.95  # Eyeballed to make it line up, beats split() madness
+                    sub.separator()
+
+                    row.prop(active_action, "use_frame_range", text="Range")
+                    sub = row.row(align=True)
+                    sub.prop(active_action, "frame_start", text="")
+                    sub.prop(active_action, "frame_end", text="")
+                    sub.prop(active_action, "use_cyclic", icon='CON_FOLLOWPATH', text="")
+                    sub.enabled = active_action.use_frame_range
+                    col.separator()
 
         if active_action:
+
             box = layout.box()
             row = box.row(align=True)
             row.label(text="Pose Markers", icon='BOOKMARKS')
-            row.prop(settings, 'poses_sorted', icon='SORTALPHA', text="")
-            row.operator('gret.pose_make', icon='ADD', text="")
+            row.prop(settings, "poses_sorted", icon='SORTALPHA', text="")
+            row.operator("gret.pose_make", icon='ADD', text="")
 
             if active_action.pose_markers:
                 col = box.column(align=True)
@@ -277,7 +299,7 @@ def draw_panel(self, context):
                     selected = marker.frame == context.scene.frame_current
                     row = col.row(align=True)
                     row.label(text="", icon='PMARKER_ACT' if selected else 'PMARKER_SEL')
-                    op = row.operator('gret.pose_set', text=marker.name)
+                    op = row.operator("gret.pose_set", text=marker.name)
                     op.name = marker.name
 
 classes = (
@@ -293,7 +315,7 @@ def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    settings.add_property('poses_sorted', bpy.props.BoolProperty(
+    settings.add_property("poses_sorted", bpy.props.BoolProperty(
         name="Sort Poses",
         description="Displays pose markers sorted alphabetically",
         default=False,
