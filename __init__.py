@@ -61,6 +61,11 @@ def prefs_updated(self, context):
         if hasattr(module, 'on_prefs_updated'):
             module.on_prefs_updated()
 
+needs_restart = False
+def registered_updated(self, context):
+    global needs_restart
+    needs_restart = True
+
 class GretAddonPreferences(bpy.types.AddonPreferences):
     # This must match the addon name, use '__package__'
     # when defining this in a submodule of a python package.
@@ -97,6 +102,12 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         default=True,
         update=prefs_updated,
     )
+    rig__register_autoname_bone_chain: bpy.props.BoolProperty(
+        name="Register \"Auto-Name Bone Chain\"",
+        description="Automatically renames a chain of bones starting at the selected bone",
+        default=True,
+        update=registered_updated,
+    )
     debug: bpy.props.BoolProperty(
         name="Debug Mode",
         description="Enables verbose output",
@@ -106,7 +117,6 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
 
     def draw(self, context):
         layout = self.layout
-        layout.use_property_split = True
 
         if not self.categories:
             # Cache grouped props by category (the part left of the double underscore "__")
@@ -117,17 +127,28 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
                 d[category_name].append(prop_name)
             self.categories = [(k, sorted(d[k])) for k in sorted(d.keys())]
 
+        if needs_restart:
+            alert_row = layout.row()
+            alert_row.alert = True
+            alert_row.operator("gret.save_userpref_and_quit_blender", icon='ERROR',
+                text="Blender restart is required")
+
         # Display properties in two columns of boxes side to side
-        sub = layout.split(factor=0.5)
-        boxes = sub.column(align=False)
-        boxes2 = sub.column(align=False)
+        # Avoiding use_property_split because the indent is too big
+        split = layout.split(factor=0.5)
+        boxes = split.column(align=True)
+        boxes2 = split.column(align=True)
         for category_name, prop_names in self.categories:
-            boxes, boxes2 = boxes2, boxes
             box = boxes.box()
-            col = box.column(align=True)
-            col.label(text=category_name + ":", icon='DOT')
+            # box = box.column(align=True)
+            box.label(text=category_name + ":", icon='DOT')
+            split = box.split(factor=0.05)
+            split.separator()
+            col = split.column(align=True)
             for prop_name in prop_names:
                 col.prop(self, prop_name)
+            col.separator()
+            boxes, boxes2 = boxes2, boxes
 
 class GRET_PG_settings(bpy.types.PropertyGroup):
     @classmethod
@@ -135,6 +156,20 @@ class GRET_PG_settings(bpy.types.PropertyGroup):
         if not hasattr(cls, '__annotations__'):
             cls.__annotations__ = {}
         cls.__annotations__[name] = annotation
+
+class GRET_OT_save_userpref_and_quit_blender(bpy.types.Operator):
+    #tooltip
+    """Make the current preferences default then quit blender"""
+
+    bl_idname = 'gret.save_userpref_and_quit_blender'
+    bl_label = "Save Preferences and Quit"
+    bl_options = {'INTERNAL'}
+
+    def execute(self, context):
+        bpy.ops.wm.save_userpref()
+        bpy.ops.wm.quit_blender()
+
+        return {'FINISHED'}
 
 @persistent
 def load_post(_):
@@ -150,6 +185,7 @@ def register():
             module.register(GRET_PG_settings)
         submodules.extend(getattr(module, 'modules', []))
     bpy.utils.register_class(GRET_PG_settings)
+    bpy.utils.register_class(GRET_OT_save_userpref_and_quit_blender)
 
     bpy.types.Scene.gret = bpy.props.PointerProperty(type=GRET_PG_settings)
     bpy.app.handlers.load_post.append(load_post)
@@ -158,6 +194,7 @@ def unregister():
     bpy.app.handlers.load_post.remove(load_post)
     del bpy.types.Scene.gret
 
+    bpy.utils.unregister_class(GRET_OT_save_userpref_and_quit_blender)
     bpy.utils.unregister_class(GRET_PG_settings)
     for module in reversed(modules):
         if hasattr(module, 'unregister'):
