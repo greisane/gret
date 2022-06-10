@@ -163,7 +163,7 @@ def arp_save(base, *args, **kwargs):
     return base(*args, **kwargs)
 
 @intercept(error_result={'CANCELLED'})
-def export_autorig(filepath, context, rig, objects=[], actions=[], options={}):
+def export_autorig(filepath, context, rig, objects=[], action=None, options={}):
     scn = context.scene
 
     ik_bones_not_found = [s for s in ik_bone_names if
@@ -196,6 +196,7 @@ def export_autorig(filepath, context, rig, objects=[], actions=[], options={}):
     scn.arp_units_x100 = True
 
     # Unreal Options
+    scn.arp_ue4 = True
     scn.arp_ue_root_motion = True
     scn.arp_rename_for_ue = True
     scn.arp_ue_ik = add_ik_bones
@@ -203,20 +204,26 @@ def export_autorig(filepath, context, rig, objects=[], actions=[], options={}):
     scn.arp_mannequin_axes = True
 
     # Animation
-    if not actions:
+    if not action:
         scn.arp_bake_anim = False
     else:
         scn.arp_bake_anim = True
-        scn.arp_bake_only_active = False
-        scn.arp_only_containing = False
+        scn.arp_bake_type = 'ACTIONS'
+        scn.arp_export_separate_fbx = False
+        scn.arp_frame_range_type = 'CUSTOM'
+        if action.use_frame_range:
+            scn.arp_export_start_frame = int(action.frame_start)
+            scn.arp_export_end_frame = int(action.frame_end)
+        else:
+            scn.arp_export_start_frame = int(action.curve_frame_range[0])
+            scn.arp_export_end_frame = int(action.curve_frame_range[1])
+        scn.arp_export_act_name = 'DEFAULT'
+        scn.arp_simplify_fac = 0.0
         scn.arp_export_use_actlist = True
         scn.arp_export_actlist.clear()
         arp_actlist = scn.arp_export_actlist.add()
-        for action in actions:
-            arp_action = arp_actlist.actions.add()
-            arp_action.action = action
-        scn.arp_frame_range_type = 'MARKERS'
-        scn.arp_simplify_fac = 0.0
+        arp_action = arp_actlist.actions.add()
+        arp_action.action = action
 
     # Misc
     scn.arp_global_scale = 1.0
@@ -229,6 +236,7 @@ def export_autorig(filepath, context, rig, objects=[], actions=[], options={}):
     scn.arp_bone_axis_primary_export = 'Y'
     scn.arp_bone_axis_secondary_export = 'X'
     scn.arp_export_rig_name = 'root'
+    scn.arp_export_tex = False
 
     rig.data.pose_position = 'POSE'
     clear_pose(rig)
@@ -242,7 +250,7 @@ def export_autorig(filepath, context, rig, objects=[], actions=[], options={}):
         return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})
-def export_autorig_universal(filepath, context, rig, objects=[], actions=[], options={}):
+def export_autorig_universal(filepath, context, rig, objects=[], action=None, options={}):
     scn = context.scene
 
     # Configure Auto-Rig and then finally export
@@ -263,20 +271,26 @@ def export_autorig_universal(filepath, context, rig, objects=[], actions=[], opt
     scn.arp_ue_root_motion = True
 
     # Animation
-    if not actions:
+    if not action:
         scn.arp_bake_anim = False
     else:
         scn.arp_bake_anim = True
-        scn.arp_bake_only_active = False
-        scn.arp_only_containing = False
+        scn.arp_bake_type = 'ACTIONS'
+        scn.arp_export_separate_fbx = False
+        scn.arp_frame_range_type = 'CUSTOM'
+        if action.use_frame_range:
+            scn.arp_export_start_frame = int(action.frame_start)
+            scn.arp_export_end_frame = int(action.frame_end)
+        else:
+            scn.arp_export_start_frame = int(action.curve_frame_range[0])
+            scn.arp_export_end_frame = int(action.curve_frame_range[1])
+        scn.arp_export_act_name = 'DEFAULT'
+        scn.arp_simplify_fac = 0.0
         scn.arp_export_use_actlist = True
         scn.arp_export_actlist.clear()
         arp_actlist = scn.arp_export_actlist.add()
-        for action in actions:
-            arp_action = arp_actlist.actions.add()
-            arp_action.action = action
-        scn.arp_frame_range_type = 'MARKERS'
-        scn.arp_simplify_fac = 0.0
+        arp_action = arp_actlist.actions.add()
+        arp_action.action = action
 
     # Misc
     scn.arp_global_scale = 1.0
@@ -289,6 +303,7 @@ def export_autorig_universal(filepath, context, rig, objects=[], actions=[], opt
     scn.arp_bone_axis_primary_export = 'Y'
     scn.arp_bone_axis_secondary_export = 'X'
     scn.arp_export_rig_name = 'root'
+    scn.arp_export_tex = False
 
     rig.data.pose_position = 'POSE'
     clear_pose(rig)
@@ -302,9 +317,14 @@ def export_autorig_universal(filepath, context, rig, objects=[], actions=[], opt
         return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})
-def export_fbx(filepath, context, rig, objects=[], actions=[], options={}):
-    if actions:
+def export_fbx(filepath, context, rig, objects=[], action=None, options={}):
+    if action:
         # TODO Put action in the timeline
+        # rig.animation_data.action = action
+        # context.scene.frame_preview_start = int(action.frame_start)
+        # context.scene.frame_preview_end = int(action.frame_end)
+        # context.scene.use_preview_range = True
+        # context.scene.frame_current = context.scene.frame_preview_start
         raise NotImplementedError
 
     if options.get('minimize_bones'):

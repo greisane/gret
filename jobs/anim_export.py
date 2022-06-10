@@ -134,14 +134,6 @@ def _anim_export(self, context, job, rig):
             exporter = export_fbx
         logger.indent += 1
 
-        # TODO save this
-        rig.animation_data.action = export_group.action
-        context.scene.frame_preview_start = int(export_group.action.frame_start)
-        context.scene.frame_preview_end = int(export_group.action.frame_end)
-        context.scene.use_preview_range = True
-        context.scene.frame_current = context.scene.frame_preview_start
-        bpy.context.evaluated_depsgraph_get().update()
-
         markers = export_group.action.pose_markers
         if markers and job.export_markers:
             # Export action markers as a comma separated list
@@ -158,11 +150,11 @@ def _anim_export(self, context, job, rig):
                         fields = [marker.name, marker.frame, marker.frame / fps]
                         print(csv_separator.join(str(field) for field in fields), file=fout)
             else:
-                log(f"Skipping {csv_filename} as it would overwrite a file that was " \
-                    "just exported")
+                log(f"Skipping {csv_filename} as it would overwrite a file that was just exported")
 
         options = {'export_twist': not job.disable_twist_bones}
-        result = exporter(filepath, context, rig, actions=[export_group.action], options=options)
+        result = exporter(filepath, context, rig, action=export_group.action, options=options)
+
         if result == {'FINISHED'}:
             self.exported_files.append(filepath)
         else:
