@@ -391,8 +391,8 @@ class GRET_TT_uv_paint(bpy.types.WorkSpaceTool):
 
     def draw_settings(context, layout, tool):
         props = tool.operator_properties(GRET_OT_uv_paint.bl_idname)
-        if not props.uv_layer_name and prefs.uv_paint_layer_name:
-            props.uv_layer_name = prefs.uv_paint_layer_name
+        if not props.uv_layer_name and prefs.uv_paint__layer_name:
+            props.uv_layer_name = prefs.uv_paint__layer_name
         image = bpy.data.images.get(props.image)
 
         col = layout.column(align=False)

@@ -625,7 +625,7 @@ class GRET_OT_texture_bake_add(bpy.types.Operator):
     def execute(self, context):
         mat = context.active_object.active_material
         bake = mat.texture_bakes.add()
-        bake.uv_layer_name = prefs.texture_bake_uv_layer_name
+        bake.uv_layer_name = prefs.texture_bake__uv_layer_name
 
         return {'FINISHED'}
 

@@ -386,7 +386,7 @@ class GRET_PT_export_jobs(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return prefs.jobs_panel_enable
+        return prefs.jobs__panel_enable
 
     def draw(self, context):
         layout = self.layout

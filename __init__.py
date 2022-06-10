@@ -9,6 +9,7 @@ bl_info = {
 }
 
 from bpy.app.handlers import persistent
+from collections import defaultdict
 import bpy
 import importlib
 import sys
@@ -52,47 +53,69 @@ module_names = [
 ]
 modules = import_or_reload_modules(module_names, __name__)
 
+from .helpers import titlecase
+
 class GretAddonPreferences(bpy.types.AddonPreferences):
     # This must match the addon name, use '__package__'
     # when defining this in a submodule of a python package.
     bl_idname = __name__
 
-    jobs_panel_enable: bpy.props.BoolProperty(
-        name="Jobs Panel",
+    jobs__panel_enable: bpy.props.BoolProperty(
+        name="Enable Panel",
         description="Show the export jobs panel",
         default=False,
     )
-    texture_bake_uv_layer_name: bpy.props.StringProperty(
-        name="Default UV Layer",
+    jobs__beep: bpy.props.BoolProperty(
+        name="Beep At End",
+        description="Beep after the job is done",
+        default=True,
+    )
+    texture_bake__uv_layer_name: bpy.props.StringProperty(
+        name="UV Layer",
         description="Name of the default UV layer for texture bakes",
         default="UVMap",
     )
-    uv_paint_layer_name: bpy.props.StringProperty(
-        name="Default UV Layer",
+    uv_paint__layer_name: bpy.props.StringProperty(
+        name="UV Layer",
         description="Default UV layer to paint to. Leave empty to use the active UV layer",
         default="",
+    )
+    actions__show_frame_range: bpy.props.BoolProperty(
+        name="Show Frame Range",
+        description="Show custom frame range controls in the action panel",
+        default=True,
     )
     debug: bpy.props.BoolProperty(
         name="Debug Mode",
         description="Enables verbose output",
         default=False,
     )
+    categories = None
 
     def draw(self, context):
         layout = self.layout
-        col = layout.column(align=True)
+        layout.use_property_split = True
 
-        col.prop(self, 'jobs_panel_enable')
-        col.prop(self, 'debug')
-        col.separator()
+        if not self.categories:
+            # Cache grouped props by category (the part left of the double underscore "__")
+            d = defaultdict(list)
+            for prop_name in self.__annotations__:
+                cpos = prop_name.find("__")
+                category_name = titlecase(prop_name[:cpos]) if cpos > 0 else "Miscellaneous"
+                d[category_name].append(prop_name)
+            self.categories = [(k, sorted(d[k])) for k in sorted(d.keys())]
 
-        col.label(text='Texture Bake:')
-        col.prop(self, 'texture_bake_uv_layer_name')
-        col.separator()
-
-        col.label(text='UV Paint:')
-        col.prop(self, 'uv_paint_layer_name')
-        col.separator()
+        # Display properties in two columns of boxes side to side
+        sub = layout.split(factor=0.5)
+        boxes = sub.column(align=False)
+        boxes2 = sub.column(align=False)
+        for category_name, prop_names in self.categories:
+            boxes, boxes2 = boxes2, boxes
+            box = boxes.box()
+            col = box.column(align=True)
+            col.label(text=category_name + ":", icon='DOT')
+            for prop_name in prop_names:
+                col.prop(self, prop_name)
 
 class GRET_PG_settings(bpy.types.PropertyGroup):
     @classmethod
