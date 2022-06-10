@@ -1,47 +1,33 @@
 import time
 from functools import partial
 
-from . import prefs
-
 class Logger:
-    """Simple logger. Can be used as a mixin."""
+    categories = {}
+    logs = []
+    start_time = None
+    defer_print = False
+    indent = 0
+    prefix = ""
 
-    def start_logging(self, filepath=None, defer_print=True, timestamps=True):
-        if not self.is_logging():
-            self.logs = []
-            self.start_time = time.time()
-            self.file = open(filepath, 'w') if filepath else None
-            self.defer_print = defer_print
-            self.timestamps = timestamps
-            self.prefix = ""
-            self.indent = 0
-            self.started = 0
-            self.categories = []
-            if prefs.debug:
-                self.categories.append('DEBUG')
-        self.started += 1
+    def start_logging(self, timestamps=True):
+        self.start_time = time.time() if timestamps else None
+        self.defer_print = True
+        self.indent = 0
+        self.prefix = ""
 
     def end_logging(self):
-        assert self.is_logging(), "start_logging must be called first"
-        self.started -= 1
-        if self.started > 0:
-            return
-        if self.defer_print:
-            for log in self.logs:
-                self._print_log(*log)
-        del self.logs
-        if self.file:
-            self.file.close()
-            self.file = None
+        self.flush()
+        self.start_time = None
+        self.defer_print = False
+        self.indent = 0
+        self.prefix = ""
 
-    def is_logging(self):
-        return hasattr(self, 'logs')
+    def flush(self):
+        for log in self.logs:
+            self._print_log(*log)
+        self.logs.clear()
 
     def log(self, *args, sep=' ', category=None):
-        if not self.is_logging():
-            # start_logging wasn't called, so just print
-            print(*args, sep=sep)
-            return
         message = sep.join(str(arg) for arg in args)
         if category:
             message = f"({str(category)}) {message}"
@@ -49,21 +35,20 @@ class Logger:
             message = f"{str(self.prefix)} {message}"
         if self.indent > 0:
             message = "  " * self.indent + message
-        self.logs.append((time.time(), message, category))
-        if not self.defer_print:
-            self._print_log(*self.logs[-1])
+        log_entry = (time.time(), message, category)
+        if self.defer_print:
+            self.logs.append(log_entry)
+        else:
+            self._print_log(*log_entry)
 
     def _print_log(self, timestamp, message, category):
-        if not category or category in self.categories:
-            if self.timestamps:
-                line = f"{timestamp - self.start_time:6.2f}s | {message}"
-            else:
-                line = message
-            print(line)
-            if self.file:
-                print(line, file=self.file)
+        if category and category not in self.categories:
+            return
+        if self.start_time is not None:
+            message = f"{timestamp - self.start_time:6.2f}s | {message}"
+        print(message)
 
-# Singleton instance
+# Global instance
 logger = Logger()
 log = logger.log
 logd = partial(log, category='DEBUG')
