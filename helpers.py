@@ -380,11 +380,6 @@ def get_topmost_parent(obj):
         obj = obj.parent
     return obj
 
-def get_children_recursive(obj):
-    for child in obj.children:
-        yield child
-        yield from get_children_recursive(child)
-
 def get_flipped_name(name):
     """Returns the given name with flipped L/R affixes, or None if not applicable."""
 

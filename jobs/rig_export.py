@@ -10,7 +10,6 @@ import time
 from ..helpers import (
     beep,
     fail_if_invalid_export_path,
-    get_children_recursive,
     get_context,
     get_export_path,
     get_name_safe,
