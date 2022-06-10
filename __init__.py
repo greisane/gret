@@ -120,8 +120,8 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
     )
     actions__register_pose_blender: bpy.props.BoolProperty(
         name="Enable Pose Blender",
-        description="""Allows blending poses together, similar to the UE4 AnimGraph node
-DISABLED, NEEDS UPDATING TO 3.0""",
+        description="""Allows blending poses together, similar to the UE4 AnimGraph node.
+NEEDS UPDATING TO 3.0""",
         default=False,
         update=registered_updated,
     )
@@ -214,7 +214,10 @@ def load_post(_):
 def register():
     # Register prefs first so that modules can access them through gret.prefs
     bpy.utils.register_class(GretAddonPreferences)
-    debug_updated()
+    if prefs.debug:
+        logger.categories.add("DEBUG")
+    else:
+        logger.categories.discard("DEBUG")
 
     # Each module adds its own settings to the main group via add_property()
     global registered_modules
