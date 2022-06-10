@@ -1,7 +1,9 @@
+from functools import partial
 import bpy
 import os
 
 from .. import prefs
+from ..log import log, logd
 from ..rig.helpers import clear_pose, try_key
 
 class GRET_OT_action_set(bpy.types.Operator):
@@ -42,17 +44,7 @@ class GRET_OT_action_set(bpy.types.Operator):
         else:
             clear_pose(obj)
             obj.animation_data.action = action
-
-            # Set preview range. Use start and end markers if they exist
-            # Use new Blender 3.1 Frame Range feature
-            if action.use_frame_range:
-                context.scene.frame_preview_start = int(action.frame_start)
-                context.scene.frame_preview_end = int(action.frame_end)
-            else:
-                context.scene.frame_preview_start = int(action.curve_frame_range[0])
-                context.scene.frame_preview_end = int(action.curve_frame_range[1])
-
-            context.scene.use_preview_range = True
+            sync_frame_range()
 
             if self.play:
                 context.scene.frame_current = int(action.curve_frame_range[0])
@@ -219,7 +211,7 @@ class GRET_OT_pose_make(bpy.types.Operator):
                 # Docs read that new() takes a frame kwarg, this doesn't seem to be the case
                 new_marker.frame = frame
         for marker in unused_markers:
-            print(f"Removed unused pose marker '{marker.name}'")
+            log(f"Removed unused pose marker '{marker.name}'")
             action.pose_markers.remove(marker)
 
         return {'FINISHED'}
@@ -271,8 +263,7 @@ def draw_panel(self, context):
                     row = col.row(align=True)
                     sub = row.column(align=True)
                     sub.ui_units_x = 0.95  # Eyeballed to make it line up, beats split() madness
-                    sub.separator()
-
+                    sub.separator()  # Whitespace
                     row.prop(active_action, "use_frame_range", text="Range")
                     sub = row.row(align=True)
                     sub.prop(active_action, "frame_start", text="")
@@ -282,7 +273,6 @@ def draw_panel(self, context):
                     col.separator()
 
         if active_action:
-
             box = layout.box()
             row = box.row(align=True)
             row.label(text="Pose Markers", icon='BOOKMARKS')
@@ -311,6 +301,38 @@ classes = (
     GRET_OT_pose_set,
 )
 
+def sync_frame_range():
+    if not prefs.actions__sync_frame_range:
+        return
+    context = bpy.context
+    if context.object and context.object.animation_data and context.object.animation_data.action:
+        action = context.object.animation_data.action
+        if action.use_frame_range:
+            context.scene.frame_preview_start = int(action.frame_start)
+            context.scene.frame_preview_end = int(action.frame_end)
+        else:
+            context.scene.frame_preview_start = int(action.curve_frame_range[0])
+            context.scene.frame_preview_end = int(action.curve_frame_range[1])
+        context.scene.use_preview_range = True
+
+owner = object()
+def subscribe_all():
+    subscribe = partial(bpy.msgbus.subscribe_rna, owner=owner, args=())
+    subscribe(key=(bpy.types.Action, "use_frame_range"), notify=sync_frame_range)
+    subscribe(key=(bpy.types.Action, "frame_start"), notify=sync_frame_range)
+    subscribe(key=(bpy.types.Action, "frame_end"), notify=sync_frame_range)
+
+def unsubscribe_all():
+    bpy.msgbus.clear_by_owner(owner)
+
+def on_prefs_updated():
+    if prefs.actions__sync_frame_range:
+        unsubscribe_all()
+        subscribe_all()
+        sync_frame_range()
+    else:
+        unsubscribe_all()
+
 def register(settings):
     for cls in classes:
         bpy.utils.register_class(cls)
@@ -321,6 +343,11 @@ def register(settings):
         default=False,
     ))
 
+    if prefs.actions__sync_frame_range:
+        subscribe_all()
+
 def unregister():
+    unsubscribe_all()
+
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

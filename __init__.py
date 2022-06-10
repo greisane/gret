@@ -52,8 +52,14 @@ module_names = [
     'jobs',  # Depends on mesh, rig
 ]
 modules = import_or_reload_modules(module_names, __name__)
+submodules = []
 
 from .helpers import titlecase
+
+def prefs_updated(self, context):
+    for module in submodules:
+        if hasattr(module, 'on_prefs_updated'):
+            module.on_prefs_updated()
 
 class GretAddonPreferences(bpy.types.AddonPreferences):
     # This must match the addon name, use '__package__'
@@ -84,6 +90,12 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         name="Show Frame Range",
         description="Show custom frame range controls in the action panel",
         default=True,
+    )
+    actions__sync_frame_range: bpy.props.BoolProperty(
+        name="Sync Frame Range",
+        description="Keep preview range in sync with the action's custom frame range",
+        default=True,
+        update=prefs_updated,
     )
     debug: bpy.props.BoolProperty(
         name="Debug Mode",
@@ -124,6 +136,10 @@ class GRET_PG_settings(bpy.types.PropertyGroup):
             cls.__annotations__ = {}
         cls.__annotations__[name] = annotation
 
+@persistent
+def load_post(_):
+    prefs_updated(bpy.context.preferences.addons[__package__].preferences, bpy.context)
+
 def register():
     # Register prefs first so that modules can access them through gret.prefs
     bpy.utils.register_class(GretAddonPreferences)
@@ -132,11 +148,14 @@ def register():
     for module in modules:
         if hasattr(module, 'register'):
             module.register(GRET_PG_settings)
+        submodules.extend(getattr(module, 'modules', []))
     bpy.utils.register_class(GRET_PG_settings)
 
     bpy.types.Scene.gret = bpy.props.PointerProperty(type=GRET_PG_settings)
+    bpy.app.handlers.load_post.append(load_post)
 
 def unregister():
+    bpy.app.handlers.load_post.remove(load_post)
     del bpy.types.Scene.gret
 
     bpy.utils.unregister_class(GRET_PG_settings)
