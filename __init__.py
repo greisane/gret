@@ -76,10 +76,10 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         description="Show the export jobs panel",
         default=False,
     )
-    jobs__beep: bpy.props.BoolProperty(
-        name="Beep At End",
-        description="Beep after the job is done",
-        default=True,
+    use_beeps: bpy.props.BoolProperty(
+        name="Beep",
+        description="Play a beep sound after an export job or texture bake finishes",
+        default=False,
     )
     texture_bake__uv_layer_name: bpy.props.StringProperty(
         name="UV Layer",

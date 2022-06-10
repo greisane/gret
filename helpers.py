@@ -406,6 +406,8 @@ def swap_object_names(obj1, obj2):
     obj1.name = name2
 
 def beep(pitch=0, num=2):
+    if not prefs.use_beeps:
+        return
     try:
         import winsound
         freq = 800 + 100 * pitch
