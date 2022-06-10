@@ -414,15 +414,10 @@ def unsubdivide_preserve_uvs(obj, levels):
     bm.to_mesh(obj.data)
     bm.free()
 
-def bmesh_vertex_group_bleed(bm, vertex_group_index, distance, power=1.0, only_tagged=False):
-    if distance <= 0.0 or power <= 0.0:
+def bmesh_vertex_group_bleed_internal(bm, get_weight, set_weight, distance, only_tagged=False):
+    # TODO Probably faster if weights were to be cached
+    if distance <= 0.0:
         return
-
-    deform_layer = bm.verts.layers.deform.verify()
-    def get_weight(vert):
-        return vert[deform_layer].get(vertex_group_index, 0.0) ** power
-    def set_weight(vert, value):
-        vert[deform_layer][vertex_group_index] = value ** (1.0 / power)
 
     openset = heapdict()
     for vert in bm.verts:
@@ -447,6 +442,23 @@ def bmesh_vertex_group_bleed(bm, vertex_group_index, distance, power=1.0, only_t
                     else:
                         openset[other_vert] = -other_vert_w
                     set_weight(other_vert, other_vert_w)
+
+def bmesh_vertex_group_bleed(bm, vertex_group_index, distance, power=1.0, only_tagged=False):
+    if distance <= 0.0 or power <= 0.0:
+        return
+
+    recp_power = 1.0 / power
+    deform_layer = bm.verts.layers.deform.verify()
+    def get_weight(vert):
+        return vert[deform_layer].get(vertex_group_index, 0.0) ** power
+    def set_weight(vert, value):
+        vert[deform_layer][vertex_group_index] = value ** recp_power
+    bmesh_vertex_group_bleed_internal(bm, get_weight, set_weight, distance, only_tagged)
+
+# Internal mesh walkers are unfortunately not exposed for scripting
+# https://github.com/blender/blender/blob/master/source/blender/editors/mesh/editmesh_select.c
+# https://github.com/blender/blender/blob/master/source/blender/bmesh/intern/bmesh_walkers_impl.c
+# https://devtalk.blender.org/t/walking-edge-loops-across-a-mesh-from-c-to-python
 
 def _walk_island(vert):
     vert.tag = True

@@ -37,6 +37,7 @@ module_names = [
     'helpers',
     'math',
     'drawing',
+    'cache',
     'operator',
     'patcher',
     'rbf',
