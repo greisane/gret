@@ -304,6 +304,7 @@ classes = (
 def sync_frame_range():
     if not prefs.actions__sync_frame_range:
         return
+
     context = bpy.context
     if context.object and context.object.animation_data and context.object.animation_data.action:
         action = context.object.animation_data.action
@@ -333,7 +334,7 @@ def on_prefs_updated():
     else:
         unsubscribe_all()
 
-def register(settings):
+def register(settings, prefs):
     for cls in classes:
         bpy.utils.register_class(cls)
 

@@ -31,7 +31,6 @@ from ..mesh.helpers import (
     mirror_shape_keys,
     unsubdivide_preserve_uvs,
 )
-from .. import prefs
 from ..log import logger, log, logd
 from ..rig.helpers import (
     clear_pose,

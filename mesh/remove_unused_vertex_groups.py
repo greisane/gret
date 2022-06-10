@@ -53,7 +53,7 @@ class GRET_OT_vertex_group_remove_unused(bpy.types.Operator):
 def draw_menu(self, context):
     self.layout.operator(GRET_OT_vertex_group_remove_unused.bl_idname, icon='X')
 
-def register(settings):
+def register(settings, prefs):
     bpy.utils.register_class(GRET_OT_vertex_group_remove_unused)
     bpy.types.MESH_MT_vertex_group_context_menu.append(draw_menu)
 

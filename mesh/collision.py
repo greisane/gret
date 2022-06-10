@@ -626,7 +626,7 @@ classes = (
     GRET_OT_collision_make,
 )
 
-def register(settings):
+def register(settings, prefs):
     for cls in classes:
         bpy.utils.register_class(cls)
 

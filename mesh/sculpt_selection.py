@@ -36,7 +36,7 @@ def draw_menu(self, context):
     self.layout.separator()
     self.layout.operator(GRET_OT_sculpt_selection.bl_idname)
 
-def register(settings):
+def register(settings, prefs):
     bpy.utils.register_class(GRET_OT_sculpt_selection)
     bpy.types.VIEW3D_MT_select_edit_mesh.append(draw_menu)
 

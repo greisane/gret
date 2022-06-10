@@ -512,7 +512,7 @@ classes = (
     GRET_PT_uv_sheet_presets,
 )
 
-def register(settings):
+def register(settings, prefs):
     for cls in classes:
         bpy.utils.register_class(cls)
 

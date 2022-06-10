@@ -103,7 +103,7 @@ class GRET_OT_replace_references(bpy.types.Operator):
 def draw_menu(self, context):
     self.layout.operator(GRET_OT_replace_references.bl_idname)
 
-def register(settings):
+def register(settings, prefs):
     bpy.utils.register_class(GRET_OT_replace_references)
     bpy.types.TOPBAR_MT_file_cleanup.append(draw_menu)
 

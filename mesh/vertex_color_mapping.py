@@ -415,7 +415,7 @@ classes = (
     GRET_PG_vertex_color_mapping,
 )
 
-def register(settings):
+def register(settings, prefs):
     for cls in classes:
         bpy.utils.register_class(cls)
 

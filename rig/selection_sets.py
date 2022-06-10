@@ -248,7 +248,7 @@ classes = (
     GRET_OT_selection_set_toggle,
 )
 
-def register(settings):
+def register(settings, prefs):
     for cls in classes:
         bpy.utils.register_class(cls)
 

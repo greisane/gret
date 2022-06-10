@@ -13,7 +13,6 @@ from ..helpers import (
     load_selection,
     save_selection,
 )
-from .. import prefs
 from ..log import logger, log, logd
 from ..rig.helpers import (
     clear_pose,

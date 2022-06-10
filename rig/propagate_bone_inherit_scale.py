@@ -22,7 +22,7 @@ class GRET_OT_propagate_bone_inherit_scale(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def register(settings):
+def register(settings, prefs):
     bpy.utils.register_class(GRET_OT_propagate_bone_inherit_scale)
 
 def unregister():

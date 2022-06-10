@@ -177,7 +177,7 @@ Modifiers and shape keys are applied, optionally other data may be removed"""
 def draw_menu(self, context):
     self.layout.operator(GRET_OT_copybuffer_flatten.bl_idname)
 
-def register(settings):
+def register(settings, prefs):
     bpy.utils.register_class(GRET_OT_copybuffer_flatten)
     bpy.types.VIEW3D_MT_object.append(draw_menu)
 

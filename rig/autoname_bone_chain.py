@@ -1,8 +1,6 @@
 import bpy
 import re
 
-from .. import prefs
-
 class GRET_OT_autoname_bone_chain(bpy.types.Operator):
     #tooltip
     """Automatically renames a chain of bones starting at the selected bone"""
@@ -53,14 +51,15 @@ class GRET_OT_autoname_bone_chain(bpy.types.Operator):
 def draw_menu(self, context):
     self.layout.operator(GRET_OT_autoname_bone_chain.bl_idname)
 
-def register(settings):
-    if prefs.rig__register_autoname_bone_chain:
-        bpy.utils.register_class(GRET_OT_autoname_bone_chain)
-        bpy.types.VIEW3D_MT_edit_armature_names.append(draw_menu)
-        bpy.types.VIEW3D_MT_pose_names.append(draw_menu)
+def register(settings, prefs):
+    if not prefs.rig__register_autoname_bone_chain:
+        return False
+
+    bpy.utils.register_class(GRET_OT_autoname_bone_chain)
+    bpy.types.VIEW3D_MT_edit_armature_names.append(draw_menu)
+    bpy.types.VIEW3D_MT_pose_names.append(draw_menu)
 
 def unregister():
-    if prefs.rig__register_autoname_bone_chain:
-        bpy.types.VIEW3D_MT_pose_names.remove(draw_menu)
-        bpy.types.VIEW3D_MT_edit_armature_names.remove(draw_menu)
-        bpy.utils.unregister_class(GRET_OT_autoname_bone_chain)
+    bpy.types.VIEW3D_MT_pose_names.remove(draw_menu)
+    bpy.types.VIEW3D_MT_edit_armature_names.remove(draw_menu)
+    bpy.utils.unregister_class(GRET_OT_autoname_bone_chain)

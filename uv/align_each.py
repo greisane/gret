@@ -43,7 +43,7 @@ class GRET_OT_align_each(bpy.types.Operator):
 def draw_menu(self, context):
     self.layout.operator(GRET_OT_align_each.bl_idname)
 
-def register(settings):
+def register(settings, prefs):
     bpy.utils.register_class(GRET_OT_align_each)
     bpy.types.IMAGE_MT_uvs_align.append(draw_menu)
 

@@ -71,7 +71,7 @@ class GRET_OT_bone_lock(bpy.types.Operator):
 def draw_menu(self, context):
     self.layout.operator(GRET_OT_bone_lock.bl_idname)
 
-def register(settings):
+def register(settings, prefs):
     bpy.utils.register_class(GRET_OT_bone_lock)
     bpy.types.VIEW3D_MT_pose_constraints.append(draw_menu)
 

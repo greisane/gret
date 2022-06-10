@@ -785,7 +785,7 @@ classes = (
     GRET_PT_export_jobs,
 )
 
-def register(settings):
+def register(settings, prefs):
     for cls in classes:
         bpy.utils.register_class(cls)
 

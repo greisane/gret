@@ -334,7 +334,7 @@ class GRET_OT_vertex_group_smooth_loops(bpy.types.Operator):
 def draw_menu(self, context):
     self.layout.operator(GRET_OT_vertex_group_smooth_loops.bl_idname)
 
-def register(settings):
+def register(settings, prefs):
     bpy.utils.register_class(GRET_OT_vertex_group_smooth_loops)
     bpy.types.VIEW3D_MT_paint_weight.append(draw_menu)
 

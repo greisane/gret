@@ -765,7 +765,7 @@ classes = (
     GRET_PT_texture_bake,
 )
 
-def register(settings):
+def register(settings, prefs):
     for cls in classes:
         bpy.utils.register_class(cls)
 

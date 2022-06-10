@@ -184,7 +184,7 @@ classes = (
     GRET_PG_shape_key_storage,
 )
 
-def register(settings):
+def register(settings, prefs):
     for cls in classes:
         bpy.utils.register_class(cls)
 

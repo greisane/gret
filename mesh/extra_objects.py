@@ -354,7 +354,7 @@ def draw_menu(self, context):
     layout.operator('gret.rope_add', icon='MOD_SCREW', text="Rope")
     # layout.operator('gret.wall_add', icon='MOD_BUILD', text="Wall")
 
-def register(settings):
+def register(settings, prefs):
     for cls in classes:
         bpy.utils.register_class(cls)
 

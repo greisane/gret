@@ -80,7 +80,7 @@ Basis will change if Min is negative"""
 def draw_menu(self, context):
     self.layout.operator(GRET_OT_shape_key_normalize.bl_idname)
 
-def register(settings):
+def register(settings, prefs):
     bpy.utils.register_class(GRET_OT_shape_key_normalize)
     bpy.types.MESH_MT_shape_key_context_menu.append(draw_menu)
 

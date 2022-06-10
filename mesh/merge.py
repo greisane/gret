@@ -364,7 +364,7 @@ def draw_panel(self, context):
     col = layout.column(align=True)
     col.operator('gret.merge', icon='MOD_BOOLEAN')
 
-def register(settings):
+def register(settings, prefs):
     bpy.utils.register_class(GRET_OT_merge)
 
 def unregister():

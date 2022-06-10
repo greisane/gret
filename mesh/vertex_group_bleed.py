@@ -76,7 +76,7 @@ The result is stable, running the operator more than once won't cause any change
 def draw_menu(self, context):
     self.layout.operator(GRET_OT_vertex_group_bleed.bl_idname)
 
-def register(settings):
+def register(settings, prefs):
     bpy.utils.register_class(GRET_OT_vertex_group_bleed)
     bpy.types.VIEW3D_MT_paint_weight.append(draw_menu)
 

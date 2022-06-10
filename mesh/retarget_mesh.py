@@ -202,7 +202,7 @@ def retarget_dst_items(self, context):
                 items.append(('s_' + sk.name, sk.name, f"Shape Key '{sk.name}'", 'SHAPEKEY_DATA', len(items)))
     return items
 
-def register(settings):
+def register(settings, prefs):
     bpy.utils.register_class(GRET_OT_retarget_mesh)
 
     settings.add_property('retarget_src', bpy.props.PointerProperty(

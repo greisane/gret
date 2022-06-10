@@ -417,7 +417,7 @@ classes = (
     GRET_GGT_uv_picker_gizmo_group,
 )
 
-def register(settings):
+def register(settings, prefs):
     for cls in classes:
         bpy.utils.register_class(cls)
 

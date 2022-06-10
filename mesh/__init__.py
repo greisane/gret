@@ -19,7 +19,7 @@ module_names = [
     'vertex_group_bleed',
     'vertex_group_smooth_loops',
 ]
-from .. import import_or_reload_modules
+from .. import import_or_reload_modules, register_submodules, unregister_submodules
 modules = import_or_reload_modules(module_names, __name__)
 
 class GRET_PT_mesh(bpy.types.Panel):
@@ -39,20 +39,13 @@ class GRET_PT_mesh(bpy.types.Panel):
         for draw_func in __class__.draw_funcs:
             draw_func(self, context)
 
-def register(settings):
-    for module in modules:
-        if hasattr(module, 'register'):
-            module.register(settings)
-        if hasattr(module, 'draw_panel'):
-            GRET_PT_mesh.draw_funcs.append(module.draw_panel)
+def register(settings, prefs):
+    global registered_modules
+    registered_modules = register_submodules(modules, settings, GRET_PT_mesh.draw_funcs)
 
     bpy.utils.register_class(GRET_PT_mesh)
 
 def unregister():
     bpy.utils.unregister_class(GRET_PT_mesh)
 
-    GRET_PT_mesh.draw_funcs.clear()
-
-    for module in reversed(modules):
-        if hasattr(module, 'unregister'):
-            module.unregister()
+    unregister_submodules(registered_modules, GRET_PT_mesh.draw_funcs)

@@ -773,8 +773,10 @@ def load_pre_handler(scene):
         pose_blender.unhook()
     pose_blenders.clear()
 
-@persistent
-def register(settings):
+def register(settings, prefs):
+    if not prefs.actions__register_pose_blender:
+        return False
+
     for cls in classes:
         bpy.utils.register_class(cls)
 

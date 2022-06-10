@@ -5,15 +5,12 @@ module_names = [
     'deduplicate_materials',
     'replace_references',
 ]
-from .. import import_or_reload_modules
+from .. import import_or_reload_modules, register_submodules, unregister_submodules
 modules = import_or_reload_modules(module_names, __name__)
 
-def register(settings):
-    for module in modules:
-        if hasattr(module, 'register'):
-            module.register(settings)
+def register(settings, prefs):
+    global registered_modules
+    registered_modules = register_submodules(modules, settings)
 
 def unregister():
-    for module in reversed(modules):
-        if hasattr(module, 'unregister'):
-            module.unregister()
+    unregister_submodules(registered_modules)

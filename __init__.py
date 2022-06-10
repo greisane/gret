@@ -14,6 +14,9 @@ import bpy
 import importlib
 import sys
 
+from .log import log, logd, logger
+# logger.categories.add("DEBUG")
+
 # Names here will be accessible as imports from other modules
 class AddonPreferencesWrapper:
     def __getattr__(self, attr):
@@ -25,6 +28,7 @@ def import_or_reload_modules(module_names, package_name):
     module_names = [ensure_starts_with(name, f'{package_name}.') for name in module_names]
     modules = []
     for module_name in module_names:
+        logd(f"Importing module {module_name}")
         module = sys.modules.get(module_name)
         if module:
             module = importlib.reload(module)
@@ -33,12 +37,30 @@ def import_or_reload_modules(module_names, package_name):
         modules.append(module)
     return modules
 
+def register_submodules(modules, settings, draw_funcs=[]):
+    registered_modules = []
+    for module in modules:
+        if hasattr(module, 'register'):
+            logd(f"Registering module {module.__name__}")
+            # Explicitly check for False to avoid having to return True every time
+            if module.register(settings, prefs) != False:
+                registered_modules.append(module)
+                if hasattr(module, 'draw_panel'):
+                    draw_funcs.append(module.draw_panel)
+    return registered_modules
+
+def unregister_submodules(modules, draw_funcs=[]):
+    for module in reversed(modules):
+        if hasattr(module, 'unregister'):
+            logd(f"Unregistering module {module.__name__}")
+            module.unregister()
+    draw_funcs.clear()
+    modules.clear()
+
 module_names = [
-    'log',
     'helpers',
     'math',
     'drawing',
-    'cache',
     'operator',
     'patcher',
     'rbf',
@@ -52,19 +74,24 @@ module_names = [
     'jobs',  # Depends on mesh, rig
 ]
 modules = import_or_reload_modules(module_names, __name__)
-submodules = []
-
-from .helpers import titlecase
+registered_modules = []
 
 def prefs_updated(self, context):
-    for module in submodules:
-        if hasattr(module, 'on_prefs_updated'):
-            module.on_prefs_updated()
+    for module in registered_modules:
+        for submodule in getattr(module, "registered_modules", []):
+            if hasattr(submodule, "on_prefs_updated"):
+                submodule.on_prefs_updated()
 
 needs_restart = False
 def registered_updated(self, context):
     global needs_restart
     needs_restart = True
+
+def debug_updated(self, context):
+    if prefs.debug:
+        logger.categories.add("DEBUG")
+    else:
+        logger.categories.discard("DEBUG")
 
 class GretAddonPreferences(bpy.types.AddonPreferences):
     # This must match the addon name, use '__package__'
@@ -91,6 +118,13 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         description="Default UV layer to paint to. Leave empty to use the active UV layer",
         default="",
     )
+    actions__register_pose_blender: bpy.props.BoolProperty(
+        name="Enable Pose Blender",
+        description="""Allows blending poses together, similar to the UE4 AnimGraph node
+DISABLED, NEEDS UPDATING TO 3.0""",
+        default=False,
+        update=registered_updated,
+    )
     actions__show_frame_range: bpy.props.BoolProperty(
         name="Show Frame Range",
         description="Show custom frame range controls in the action panel",
@@ -112,6 +146,7 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         name="Debug Mode",
         description="Enables verbose output",
         default=False,
+        update=debug_updated,
     )
     categories = None
 
@@ -120,6 +155,7 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
 
         if not self.categories:
             # Cache grouped props by category (the part left of the double underscore "__")
+            from .helpers import titlecase
             d = defaultdict(list)
             for prop_name in self.__annotations__:
                 cpos = prop_name.find("__")
@@ -178,12 +214,12 @@ def load_post(_):
 def register():
     # Register prefs first so that modules can access them through gret.prefs
     bpy.utils.register_class(GretAddonPreferences)
+    debug_updated()
 
     # Each module adds its own settings to the main group via add_property()
-    for module in modules:
-        if hasattr(module, 'register'):
-            module.register(GRET_PG_settings)
-        submodules.extend(getattr(module, 'modules', []))
+    global registered_modules
+    registered_modules = register_submodules(modules, GRET_PG_settings)
+
     bpy.utils.register_class(GRET_PG_settings)
     bpy.utils.register_class(GRET_OT_save_userpref_and_quit_blender)
 
@@ -196,9 +232,8 @@ def unregister():
 
     bpy.utils.unregister_class(GRET_OT_save_userpref_and_quit_blender)
     bpy.utils.unregister_class(GRET_PG_settings)
-    for module in reversed(modules):
-        if hasattr(module, 'unregister'):
-            module.unregister()
+
+    unregister_submodules(registered_modules)
 
     bpy.utils.unregister_class(GretAddonPreferences)
 

@@ -2,7 +2,7 @@ import time
 from functools import partial
 
 class Logger:
-    categories = {}
+    categories = set()
     logs = []
     start_time = None
     defer_print = False
