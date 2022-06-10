@@ -75,20 +75,40 @@ def is_object_arp_humanoid(obj):
         return False
     return True
 
-def clear_pose(obj, clear_armature_properties=True, clear_bone_properties=True):
+def clear_pose(obj, clear_gret_props=True, clear_armature_props=False, clear_bone_props=True):
     """Resets the given armature."""
 
     if not obj or obj.type != 'ARMATURE':
         return
 
-    if clear_armature_properties:
+    if clear_gret_props:
+        properties = obj.get('properties', [])
+        for prop_path in properties:
+            try:
+                bpy_prop = obj.path_resolve(prop_path, False)
+                prop_data = bpy_prop.data
+                dot_pos = prop_path.rfind(".")
+                if dot_pos >= 0:
+                    # Native property
+                    prop_name = prop_path[dot_pos+1:]
+                    default_value = prop_data.bl_rna.properties[prop_name].default
+                    setattr(prop_data, prop_name, default_value)
+                else:
+                    # Custom property
+                    prop_name = prop_path[2:-2]
+                    default_value = prop_data.id_properties_ui(prop_name).as_dict()["default"]
+                    prop_data[prop_name] = default_value
+            except Exception as e:
+                logd(f"Couldn't clear property \"{prop_path}\": {e}")
+
+    if clear_armature_props:
         for prop_name, prop_value in obj.items():
             if isinstance(prop_value, float):
                 obj[prop_name] = 0.0
 
     is_arp = is_object_arp(obj)
     for pose_bone in obj.pose.bones:
-        if clear_bone_properties:
+        if clear_bone_props:
             for prop_name, prop_value in pose_bone.items():
                 if is_arp and prop_name in arp_default_pose_values:
                     value = arp_default_pose_values[prop_name]
