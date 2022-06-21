@@ -60,7 +60,7 @@ def do_union(context, objs, dst_obj):
 
 @lru_cache(maxsize=20)
 def do_clean(union_bm, weld_uv_direction, weld_uv_distance, weld_iterations, delete_non_manifold):
-    """Reducing bmesh excess geometry and ensure it is watertight. Returns the resulting bmesh."""
+    """Reduce bmesh excess geometry and ensure it is watertight. Returns the resulting bmesh."""
 
     bm = union_bm.copy()
     sq_weld_uv_distance = weld_uv_distance * weld_uv_distance
@@ -120,7 +120,7 @@ def do_clean(union_bm, weld_uv_direction, weld_uv_distance, weld_iterations, del
 
 @lru_cache(maxsize=20)
 def do_curvature_mask(clean_bm, factor, distance):
-    """Get mesh curvature at every vertex and smooth it to nearby vertices.
+    """Calculate mesh curvature at every vertex and bleed it to nearby vertices.
     Returns a list of (k, k, k) tuples for each vertex where k is a [0..1] factor."""
 
     if factor <= 0.0:

@@ -9,9 +9,12 @@ KINDA_SMALL_NUMBER = 1e-4
 
 saturate = lambda x: min(1.0, max(0.0, x))
 saturate2 = lambda x: min(1.0 - SMALL_NUMBER, max(0.0, x))
+clamp = lambda x, mn, mx: min(mx, max(mn, x))
 grid_snap = lambda x, grid: x if grid == 0.0 else floor((x + (grid * 0.5)) / grid) * grid
 equals = lambda a, b, threshold=SMALL_NUMBER: abs(a - b) <= threshold
 lerp = lambda a, b, t: t * b + (1.0 - t) * a
+avg = lambda l, f: sum(f(el) for el in l) / len(l)
+frac = lambda x: x - int(x)
 
 class Rect(namedtuple("Rect", ["x0", "y0", "x1", "y1"])):
     @classmethod

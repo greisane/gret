@@ -766,6 +766,9 @@ classes = (
 )
 
 def register(settings, prefs):
+    if not prefs.texture_bake__enable:
+        return False
+
     for cls in classes:
         bpy.utils.register_class(cls)
 
