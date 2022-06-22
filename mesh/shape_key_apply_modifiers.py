@@ -308,8 +308,8 @@ class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
         num_shape_keys = len(obj.data.shape_keys.key_blocks) if obj.data.shape_keys else 0
         if not num_shape_keys:
             # No shape keys, just apply the modifiers
-            for modifier in obj.modifiers[:]:
-                if should_apply_modifier(modifier):
+            for modifier, mask in zip(obj.modifiers[:], self.modifier_mask):
+                if mask:
                     apply_modifier(modifier)
             return {'FINISHED'}
 

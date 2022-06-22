@@ -286,7 +286,7 @@ def apply_modifiers(obj, key=None, keep_armature=False):
     uv_layer_names = [uv_layer.name for uv_layer in obj.data.uv_layers]
     vertex_color_names = [vertex_color.name for vertex_color in obj.data.vertex_colors]
 
-    bpy.ops.gret.shape_key_apply_modifiers(ctx, get_modifier_mask(obj, key))
+    bpy.ops.gret.shape_key_apply_modifiers(ctx, modifier_mask=get_modifier_mask(obj, key))
 
     for modifier in obj.modifiers[:]:
         if modifier.type == 'ARMATURE' and keep_armature:
