@@ -117,16 +117,16 @@ def _rig_export(self, context, job, rig):
 
     # Process individual meshes
     job_tags = job.modifier_tags.split(' ')
-    def should_enable_modifier(mod):
-        if mod.type == 'ARMATURE':
+    def should_apply_modifier(modifier):
+        if modifier.type == 'ARMATURE':
             return False
-        for tag in re.findall(r"g:(\S+)", mod.name):
+        for tag in re.findall(r"g:(\S+)", modifier.name):
             if tag.startswith('!'):
                 # Blacklisted tag
                 return tag[1:] not in job_tags
             else:
                 return tag in job_tags
-        return mod.show_render
+        return modifier.show_render
 
     for item in items:
         log(f"Processing {item.original.name}")
@@ -152,7 +152,7 @@ def _rig_export(self, context, job, rig):
             mirror_shape_keys(obj, job.side_vgroup_name)
 
         if job.apply_modifiers:
-            apply_modifiers(obj, key=should_enable_modifier, keep_armature=True)
+            apply_modifiers(obj, key=should_apply_modifier, keep_armature=True)
 
         # Remap materials, any objects or faces with no material won't be exported
         all_none = lambda iterable: all(not el for el in iterable)

@@ -271,28 +271,29 @@ def encode_shape_keys(obj, shape_key_names=["*"], keep=False):
     if mesh.shape_keys and len(mesh.shape_keys.key_blocks) == 1:
         obj.shape_key_clear()
 
+def get_modifier_mask(obj, key=None):
+    """Return a modifier mask for use with gret.shape_key_apply_modifiers"""
+
+    mask = [key(modifier) if key else True for modifier in obj.modifiers]
+    return mask[:32] + [True] * (32 - len(mask))
+
 def apply_modifiers(obj, key=None, keep_armature=False):
     """Apply modifiers while preserving shape keys and UV layers."""
 
     ctx = get_context(obj)
 
-    for mod in obj.modifiers:
-        enable = key(mod) if key else True
-        logd(f"{'Enabled' if enable else 'Disabled'} {mod.type} modifier {mod.name}")
-        mod.show_viewport = enable
-
     # Remember layer names in case they're destroyed by geometry nodes
     uv_layer_names = [uv_layer.name for uv_layer in obj.data.uv_layers]
     vertex_color_names = [vertex_color.name for vertex_color in obj.data.vertex_colors]
 
-    bpy.ops.gret.shape_key_apply_modifiers(ctx, keep_modifiers=True)
+    bpy.ops.gret.shape_key_apply_modifiers(ctx, get_modifier_mask(obj, key))
 
-    for mod in obj.modifiers[:]:
-        if mod.type == 'ARMATURE' and keep_armature:
-            mod.show_viewport = True
+    for modifier in obj.modifiers[:]:
+        if modifier.type == 'ARMATURE' and keep_armature:
+            modifier.show_viewport = True
         else:
-            logd(f"Removed {mod.type} modifier {mod.name}")
-            bpy.ops.object.modifier_remove(ctx, modifier=mod.name)
+            logd(f"Removed {modifier.type} modifier {modifier.name}")
+            bpy.ops.object.modifier_remove(ctx, modifier=modifier.name)
 
     # Restore UV layers from attributes
     for name in uv_layer_names:

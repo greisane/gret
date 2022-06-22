@@ -4,6 +4,8 @@ import bpy
 
 from ..math import get_dist_sq
 from ..log import log, logd
+from ..helpers import get_context
+from .helpers import get_modifier_mask
 
 # shape_key_apply_modifiers TODO:
 # - Specialcase more merging modifiers, solidify for example
@@ -52,38 +54,30 @@ def weld_mesh(mesh, weld_map):
     bm.to_mesh(mesh)
     bm.free()
 
-def apply_modifier(obj, name, keep_if_disabled=False):
-    ctx = {'object': obj}
-    modifier = obj.modifiers[name]
-
-    if modifier.show_viewport:
-        try:
-            bpy.ops.object.modifier_apply(ctx, modifier=name)
-        except RuntimeError:
-            logd(f"Couldn't apply {modifier.type} modifier {name}")
-            if not keep_if_disabled:
-                bpy.ops.object.modifier_remove(ctx, modifier=name)
-    elif not keep_if_disabled:
-        bpy.ops.object.modifier_remove(ctx, modifier=name)
+def apply_modifier(modifier):
+    try:
+        bpy.ops.object.modifier_apply(get_context(modifier.id_data), modifier=modifier.name)
+    except RuntimeError:
+        logd(f"Couldn't apply {modifier.type} modifier {modifier.name}")
 
 class ModifierHandler:
     """Subclass this to define special behavior when applying different modifiers."""
 
-    type = None
-    name = None
+    modifier_type = None
+    modifier_name = None
 
     def __init__(self, modifier):
-        self.name = modifier.name
+        self.modifier_name = modifier.name
 
     @classmethod
     def poll(cls, modifier):
-        return not cls.type or modifier.type == cls.type
+        return cls.modifier_type is None or modifier.type == cls.modifier_type
 
-    def apply(self, obj, keep_if_disabled=False):
-        apply_modifier(obj, self.name, keep_if_disabled)
+    def apply(self, obj):
+        apply_modifier(obj.modifiers[self.modifier_name])
 
 class MirrorModifierHandler(ModifierHandler):
-    type = 'MIRROR'
+    modifier_type = 'MIRROR'
     weld_map = None  # Specifies vertex pairs to be welded
 
     def __init__(self, modifier):
@@ -95,16 +89,15 @@ class MirrorModifierHandler(ModifierHandler):
     def poll(cls, modifier):
         return super().poll(modifier) and modifier.use_mirror_merge and any(modifier.use_axis)
 
-    def apply(self, obj, keep_if_disabled=False):
-        modifier = obj.modifiers[self.name]
-        if not modifier.show_viewport:
-            super().apply(obj, keep_if_disabled)
-        else:
-            modifier.use_mirror_merge = False
-            bpy.ops.object.modifier_apply({'object': obj}, modifier=modifier.name)
-            if not self.weld_map:
-                self.fill_weld_map(obj)
-            weld_mesh(obj.data, self.weld_map)
+    def apply(self, obj):
+        modifier = obj.modifiers[self.modifier_name]
+
+        modifier.use_mirror_merge = False
+        bpy.ops.object.modifier_apply(get_context(obj), modifier=modifier.name)
+
+        if not self.weld_map:
+            self.fill_weld_map(obj)
+        weld_mesh(obj.data, self.weld_map)
 
     def fill_weld_map(self, obj):
         mesh = obj.data
@@ -141,7 +134,7 @@ class MirrorModifierHandler(ModifierHandler):
             weld_map_reverse[dst_idx].append(src_idx)
 
 class WeldModifierHandler(ModifierHandler):
-    type = 'WELD'
+    modifier_type = 'WELD'
     weld_map = None  # Specifies vertex pairs to be welded
 
     def __init__(self, modifier):
@@ -154,15 +147,14 @@ class WeldModifierHandler(ModifierHandler):
     def poll(cls, modifier):
         return super().poll(modifier) and modifier.mode == 'ALL'
 
-    def apply(self, obj, keep_if_disabled=False):
-        modifier = obj.modifiers[self.name]
-        if not modifier.show_viewport:
-            super().apply(obj, keep_if_disabled)
-        else:
-            bpy.ops.object.modifier_remove({'object': obj}, modifier=modifier.name)
-            if not self.weld_map:
-                self.fill_weld_map(obj)
-            weld_mesh(obj.data, self.weld_map)
+    def apply(self, obj):
+        modifier = obj.modifiers[self.modifier_name]
+
+        bpy.ops.object.modifier_remove(get_context(obj), modifier=modifier.name)
+
+        if not self.weld_map:
+            self.fill_weld_map(obj)
+        weld_mesh(obj.data, self.weld_map)
 
     def fill_weld_map(self, obj):
         mesh = obj.data
@@ -188,6 +180,69 @@ modifier_handler_classes = (
     ModifierHandler,
 )
 
+# Incomplete map of modifier type to icon
+modifier_icons = {
+    'DATA_TRANSFER': 'MOD_DATA_TRANSFER',
+    'MESH_CACHE': 'MOD_MESHDEFORM',
+    'MESH_SEQUENCE_CACHE': 'MOD_MESHDEFORM',
+    'NORMAL_EDIT': 'MOD_NORMALEDIT',
+    'WEIGHTED_NORMAL': 'MOD_NORMALEDIT',
+    'UV_PROJECT': 'MOD_UVPROJECT',
+    'UV_WARP': 'MOD_UVPROJECT',
+    'VERTEX_WEIGHT_EDIT': 'MOD_VERTEX_WEIGHT',
+    'VERTEX_WEIGHT_MIX': 'MOD_VERTEX_WEIGHT',
+    'VERTEX_WEIGHT_PROXIMITY': 'MOD_VERTEX_WEIGHT',
+
+    'ARRAY': 'MOD_ARRAY',
+    'BEVEL': 'MOD_BEVEL',
+    'BOOLEAN': 'MOD_BOOLEAN',
+    'BUILD': 'MOD_BUILD',
+    'DECIMATE': 'MOD_DECIM',
+    'EDGE_SPLIT': 'MOD_EDGESPLIT',
+    'NODES': 'NODETREE',
+    'MASK': 'MOD_MASK',
+    'MIRROR': 'MOD_MIRROR',
+    'MULTIRES': 'MOD_MULTIRES',
+    'REMESH': 'MOD_REMESH',
+    'SCREW': 'MOD_SCREW',
+    'SKIN': 'MOD_SKIN',
+    'SOLIDIFY': 'MOD_SOLIDIFY',
+    'SUBSURF': 'MOD_SUBSURF',
+    'TRIANGULATE': 'MOD_TRIANGULATE',
+    'VOLUME_TO_MESH': 'VOLUME_DATA',
+    'WELD': 'AUTOMERGE_OFF',
+    'WIREFRAME': 'MOD_WIREFRAME',
+
+    'ARMATURE': 'MOD_ARMATURE',
+    'CAST': 'MOD_CAST',
+    'CURVE': 'MOD_CURVE',
+    'DISPLACE': 'MOD_DISPLACE',
+    'HOOK': 'HOOK',
+    'LAPLACIANDEFORM': 'MOD_MESHDEFORM',
+    'LATTICE': 'MOD_LATTICE',
+    'MESH_DEFORM': 'MOD_MESHDEFORM',
+    'SHRINKWRAP': 'MOD_SHRINKWRAP',
+    'SIMPLE_DEFORM': 'MOD_SIMPLEDEFORM',
+    'SMOOTH': 'MOD_SMOOTH',
+    'CORRECTIVE_SMOOTH': 'MOD_SMOOTH',
+    'LAPLACIANSMOOTH': 'MOD_SMOOTH',
+    'SURFACE_DEFORM': 'MOD_MESHDEFORM',
+    'WARP': 'MOD_WARP',
+    'WAVE': 'MOD_WAVE',
+}
+
+ignored_modifier_types = frozenset((
+    'CLOTH',
+    'COLLISION',
+    'DYNAMIC_PAINT',
+    'EXPLODE',
+    'FLUID',
+    'OCEAN',
+    'PARTICLE_INSTANCE',
+    'PARTICLE_SYSTEM',
+    'SOFT_BODY',
+))
+
 class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
     #tooltip
     """Applies viewport modifiers while preserving shape keys"""
@@ -197,20 +252,52 @@ class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
     bl_context = "objectmode"
     bl_options = {'REGISTER', 'UNDO'}
 
-    keep_modifiers: bpy.props.BoolProperty(
-        name="Keep Disabled Modifiers",
-        description="Keep muted or disabled modifiers",
-        default=True,
+    modifier_mask: bpy.props.BoolVectorProperty(
+        name="Apply Modifier",
+        description="Whether this modifier should be applied",
+        size=32,  # Maximum allowed by Blender, will need some hack if more are required
+        default=[True] * 32,
     )
+
+    modifier_info = []  # Only used to draw buttons when operator is invoked
 
     @classmethod
     def poll(cls, context):
         return context.mode == 'OBJECT' and context.object and context.object.type == 'MESH'
 
-    def execute(self, context):
+    def draw(self, context):
+        layout = self.layout
+        layout.ui_units_x = 10.0
         obj = context.object
 
-        if not any(mod.show_viewport for mod in obj.modifiers):
+        layout.label(text="Select modifiers to apply:")
+
+        col = layout.column(align=True)
+        for modifier_index, (modifier_type, modifier_name) in enumerate(self.modifier_info):
+            if modifier_type in ignored_modifier_types:
+                continue
+
+            icon = modifier_icons.get(modifier_type, 'BLANK1')
+            col.prop(self, 'modifier_mask', index=modifier_index, icon=icon, text=modifier_name)
+
+    def invoke(self, context, event):
+        obj = context.object
+
+        # Cache modifier info to be shown on panel. Otherwise redo_last won't work correctly
+        # Side note: the displayed icon for show_viewport is hardcoded to change when toggled on
+        def should_apply_modifier(mod):
+            return (mod.show_viewport
+                and mod.type not in ignored_modifier_types
+                and mod.type != 'ARMATURE')  # Don't apply armatures by default
+        self.modifier_info = [(mod.type, mod.name) for mod in obj.modifiers]
+        self.modifier_mask = get_modifier_mask(obj, should_apply_modifier)
+
+        return context.window_manager.invoke_props_dialog(self)
+
+    def execute(self, context):
+        obj = context.active_object
+
+        if not any(self.modifier_mask[:len(obj.modifiers)]):
             # There are no modifiers to apply
             return {'FINISHED'}
 
@@ -222,7 +309,8 @@ class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
         if not num_shape_keys:
             # No shape keys, just apply the modifiers
             for modifier in obj.modifiers[:]:
-                apply_modifier(obj, modifier.name, self.keep_modifiers)
+                if should_apply_modifier(modifier):
+                    apply_modifier(modifier)
             return {'FINISHED'}
 
         log(f"Applying modifiers with {num_shape_keys} shape keys")
@@ -246,13 +334,14 @@ class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
         # Handle modifiers accordingly. This means recording welded vertex pairs for mirrors and such
         obj.shape_key_clear()
         modifier_handlers = []
-        for modifier in obj.modifiers[:]:
-            for modifier_handler_cls in modifier_handler_classes:
-                if modifier_handler_cls.poll(modifier):
-                    modifier_handler = modifier_handler_cls(modifier)
-                    modifier_handler.apply(obj, keep_if_disabled=self.keep_modifiers)
-                    modifier_handlers.append(modifier_handler)
-                    break
+        for modifier, mask in zip(obj.modifiers[:], self.modifier_mask):
+            if mask:
+                for modifier_handler_cls in modifier_handler_classes:
+                    if modifier_handler_cls.poll(modifier):
+                        modifier_handler = modifier_handler_cls(modifier)
+                        modifier_handler.apply(obj)
+                        modifier_handlers.append(modifier_handler)
+                        break
 
         # Store vertex coordinates of each shape key with modifiers applied
         for sk_info, sk_obj in zip(shape_key_infos, shape_key_objs):
@@ -277,7 +366,7 @@ class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
             shape_key.value = shape_key_info.value
             shape_key.vertex_group = shape_key_info.vertex_group
             if len(shape_key.data) * 3 != len(shape_key_info.coords):
-                self.report({'ERROR'}, f"Vertex count for '{shape_key.name}' did not match, "
+                self.report({'ERROR'}, f"Vertex count for {shape_key.name} did not match, "
                     "the shape key will be lost.")
                 continue
             shape_key_info.put_coords_into(shape_key.data)
