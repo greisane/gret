@@ -45,7 +45,7 @@ class GRET_OT_property_add(bpy.types.Operator):
 
     path: bpy.props.StringProperty(
         name="Property Path",
-        description="Path to an existing property",
+        description="Path to an existing property or name of a new custom property",
         default="",
     )
 
@@ -59,6 +59,15 @@ class GRET_OT_property_add(bpy.types.Operator):
         if not self.path:
             return {'CANCELLED'}
 
+        # Simple name, not a path. Assume user wants to get or create a custom property on the rig
+        if not any(c in self.path for c in '."[]'):
+            if self.path not in obj:
+                obj[self.path] = 0.0
+                obj.id_properties_ui(self.path).update(min=0.0, max=1.0,
+                    soft_min=0.0, soft_max=1.0, default=0.0)
+                obj.update_tag()
+            self.path = f'["{self.path}"]'
+
         properties = list(obj.get('properties', []))
         properties.append(self.path)
         properties.sort(key=lambda prop_path: parse_prop_path(obj, prop_path)[2])
@@ -67,12 +76,20 @@ class GRET_OT_property_add(bpy.types.Operator):
         return {'FINISHED'}
 
     def invoke(self, context, event):
+        # Check if the clipboard already has a correct path and paste it
         clipboard = bpy.context.window_manager.clipboard
-        if parse_prop_path(context.object, clipboard)[0]:
-            # Clipboard has a correct path, don't bring up the dialog
-            self.path = clipboard
-            return self.execute(context)
+        self.path = clipboard if parse_prop_path(context.object, clipboard)[0] else ""
         return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.ui_units_x = 20.0
+
+        col = layout.column(align=True)
+        col.label(text="Enter a path or name of a new property.")
+        col.label(text="You can Shift-Ctrl-C any field (like the influence of a constraint) to get its path.")
+        col.separator()
+        col.prop(self, 'path', text="")
 
 class GRET_OT_property_remove(bpy.types.Operator):
     #tooltip
