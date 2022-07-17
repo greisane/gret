@@ -20,8 +20,9 @@ def get_object_filepath(obj):
     """Return source filepath of a proxy or library override, otherwise return the working filepath."""
 
     try:
-        if obj.proxy and obj.proxy.library:
-            return obj.proxy.library.filepath
+        if bpy.app.version < (3, 2, 0):
+            if obj.proxy and obj.proxy.library:
+                return obj.proxy.library.filepath
         if obj.override_library and obj.override_library.reference:
             return obj.override_library.reference.library.filepath
     except:
@@ -552,24 +553,6 @@ def levenshtein_distance(string1, string2):
     l2 = levenshtein_distance(string1[1:], string2)
     l3 = levenshtein_distance(string1[1:], string2[1:])
     return 1 + min(l1, l2, l3)
-
-def remove_extra_data(obj):
-    """Removes all data from a mesh object, except for the mesh itself."""
-
-    obj.vertex_groups.clear()
-    obj.shape_key_clear()
-    if obj.type == 'MESH':
-        mesh = obj.data
-        mesh.use_customdata_vertex_bevel = False
-        mesh.use_customdata_edge_bevel = False
-        mesh.use_customdata_edge_crease = False
-        # mesh.materials.clear() seems to crash
-        while mesh.materials:
-            mesh.materials.pop()
-        while mesh.vertex_colors.active:
-            mesh.vertex_colors.remove(mesh.vertex_colors.active)
-        while mesh.uv_layers.active:
-            mesh.uv_layers.remove(mesh.uv_layers.active)
 
 def link_properties(from_obj, from_data_path, to_obj, to_data_path, invert=False):
     """Creates a simple driver linking properties between two objects."""

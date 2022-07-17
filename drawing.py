@@ -37,7 +37,7 @@ p_font_size = 15
 line_height_h1 = int(1.3 * h1_font_size)
 line_height_p = int(1.3 * p_font_size)
 font_id = 0
-rect_texcoords = (0, 0), (1, 0), (1, 1), (0, 1)
+rect_texcoords = (0, 0), (1, 0), (0, 1), (1, 1)
 rect_indices = (0, 1), (1, 2), (2, 3), (3, 0)
 
 class UVSheetTheme:
@@ -115,8 +115,8 @@ def draw_image(x0, y0, x1, y1, image, color, texcoords=rect_texcoords, nearest=F
         shader_image_alpha.uniform_sampler("image", texture)
         shader_image_alpha.uniform_float("color", color)
     gpu.state.blend_set('ALPHA')
-    batch_for_shader(shader_image_alpha, 'TRI_FAN', {
-        "pos": ((x0, y0), (x1, y0), (x1, y1), (x0, y1)),
+    batch_for_shader(shader_image_alpha, 'TRI_STRIP', {
+        "pos": ((x0, y0), (x1, y0), (x0, y1), (x1, y1)),
         "texCoord": texcoords,
     }).draw(shader_image_alpha)
     gpu.state.blend_set('NONE')
@@ -132,8 +132,8 @@ def draw_icon(x0, y0, x1, y1, icon_id, color):
     shader_image_alpha.uniform_sampler("image", texture)
     shader_image_alpha.uniform_float("color", color)
     gpu.state.blend_set('ALPHA')
-    batch_for_shader(shader_image_alpha, 'TRI_FAN', {
-        "pos": ((x0, y0), (x1, y0), (x1, y1), (x0, y1)),
+    batch_for_shader(shader_image_alpha, 'TRI_STRIP', {
+        "pos": ((x0, y0), (x1, y0), (x0, y1), (x1, y1)),
         "texCoord": rect_texcoords,
     }).draw(shader_image_alpha)
     gpu.state.blend_set('NONE')
@@ -161,8 +161,8 @@ def draw_box_fill(x0, y0, x1, y1, color):
     shader_solid.uniform_float("color", color)
     if use_blend:
         gpu.state.blend_set('ALPHA')
-    batch_for_shader(shader_solid, 'TRI_FAN', {
-        "pos": ((x0, y0), (x1, y0), (x1, y1), (x0, y1)),
+    batch_for_shader(shader_solid, 'TRI_STRIP', {
+        "pos": ((x0, y0), (x1, y0), (x0, y1), (x1, y1)),
     }).draw(shader_solid)
     if use_blend:
         gpu.state.blend_set('NONE')
@@ -176,8 +176,8 @@ def draw_box(x0, y0, x1, y1, color, width=1.0):
     if use_blend:
         gpu.state.blend_set('ALPHA')
     gpu.state.line_width_set(width)
-    batch_for_shader(shader_solid, 'LINE_LOOP', {
-        "pos": ((x0, y0), (x1, y0), (x1, y1), (x0, y1)),
+    batch_for_shader(shader_solid, 'LINE_STRIP', {
+        "pos": ((x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)),
     }).draw(shader_solid)
     if use_blend:
         gpu.state.blend_set('NONE')

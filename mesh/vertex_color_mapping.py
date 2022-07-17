@@ -240,7 +240,7 @@ class GRET_PG_vertex_color_mapping(bpy.types.PropertyGroup):
     vertex_color_layer_name: bpy.props.StringProperty(
         name="Vertex Color Layer",
         description="Name of the target vertex color layer",
-        default="Col",
+        default="",
     )
     r: bpy.props.EnumProperty(
         name="Vertex Color R Source",

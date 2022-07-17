@@ -11,7 +11,7 @@ from ..math import (
     get_point_dist_to_line_sq,
     get_range_pct,
 )
-from ..helpers import get_collection, remove_extra_data, TempModifier
+from ..helpers import get_collection, TempModifier
 
 # make_collision TODO:
 # - Non-axis aligned boxes
@@ -33,6 +33,25 @@ def find_free_col_name(prefix, name):
         if col_name not in bpy.context.scene.objects:
             break
     return col_name
+
+def remove_extra_data(obj):
+    assert obj.type == 'MESH'
+
+    obj.vertex_groups.clear()
+    obj.shape_key_clear()
+
+    mesh = obj.data
+    mesh.use_customdata_vertex_bevel = False
+    mesh.use_customdata_edge_bevel = False
+    mesh.use_customdata_edge_crease = False
+
+    # mesh.materials.clear() seems to crash
+    while mesh.materials:
+        mesh.materials.pop()
+    while mesh.uv_layers.active:
+        mesh.uv_layers.remove(mesh.uv_layers.active)
+    while mesh.attributes.active:
+        mesh.attributes.remove(mesh.attributes.active)
 
 class GRET_OT_collision_assign(bpy.types.Operator):
     #tooltip

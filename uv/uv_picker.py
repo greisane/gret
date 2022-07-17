@@ -37,7 +37,7 @@ class UVPickerSelectState(UVPickerBaseState):
         self.update(context, event.mouse_region_x, event.mouse_region_y)
 
     def on_modal(self, context, event, tweak):
-        if event.type == 'MOUSEMOVE' and event.value == 'PRESS':
+        if event.type == 'MOUSEMOVE':
             self.update(context, event.mouse_region_x, event.mouse_region_y)
 
 class UVPickerCustomRegionState(UVPickerBaseState):
@@ -77,7 +77,7 @@ class UVPickerCustomRegionState(UVPickerBaseState):
         self.update(context, *self.start_mouse_pos)
 
     def on_modal(self, context, event, tweak):
-        if event.type == 'MOUSEMOVE' and event.value == 'PRESS':
+        if event.type == 'MOUSEMOVE':
             self.grid_snap = True
             self.update(context, event.mouse_region_x, event.mouse_region_y)
 
@@ -97,7 +97,7 @@ class UVPickerResizeState(UVPickerBaseState):
         context.scene.gret.uv_picker_size = self.owner.size
 
     def on_modal(self, context, event, tweak):
-        if event.type == 'MOUSEMOVE' and event.value == 'PRESS':
+        if event.type == 'MOUSEMOVE':
             self.update(context, event.mouse_region_x, event.mouse_region_y)
 
 class UVPickerBaseControl:

@@ -759,8 +759,7 @@ Requires a mirror modifier""",
             for obj in cl.objects:
                 if types and obj.type not in types:
                     continue  # Not in the requested object types
-                if (armature and obj.find_armature() != armature and
-                    (not armature.proxy or obj.find_armature() != armature.proxy)):
+                if armature and obj.find_armature() != armature:
                     continue  # Wrong armature
                 if not (not obj.hide_viewport and job_cl.export_viewport
                     or not obj.hide_render and job_cl.export_render):
