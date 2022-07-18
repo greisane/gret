@@ -203,8 +203,9 @@ def _rig_export(self, context, job, rig):
         # It's more intuitive to author masks starting from black, however UE4 defaults to white
         # Invert vertex colors, materials should use OneMinus to get the original value
         if not obj.data.vertex_colors and not obj.vertex_color_mapping:
+            logd("Created default vertex color mapping")
             bpy.ops.gret.vertex_color_mapping_add(ctx)
-        bpy.ops.gret.vertex_color_mapping_refresh(ctx, invert=True)
+        bpy.ops.gret.vertex_color_mapping_refresh(ctx, invert=job.invert_vertex_color_mappings)
         bpy.ops.gret.vertex_color_mapping_clear(ctx)
         if len(obj.data.vertex_colors) > 1:
             logd(f"More than one vertex color layer, is this intended?",

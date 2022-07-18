@@ -258,6 +258,7 @@ def draw_job(layout, jobs, job_index):
             add_collection_layout().enabled = not job.selection_only
 
             col = box.column()
+            col.prop(job, 'invert_vertex_color_mappings')
             row = col.row(align=True)
             row.prop(job, 'apply_modifiers')
             sub = row.split(align=True)
@@ -298,6 +299,7 @@ def draw_job(layout, jobs, job_index):
             add_collection_layout()
 
             col = box.column()
+            col.prop(job, 'invert_vertex_color_mappings')
             row = col.row(align=True)
             row.prop(job, 'apply_modifiers')
             sub = row.split(align=True)
@@ -602,6 +604,12 @@ class GRET_PG_export_job(bpy.types.PropertyGroup):
     )
 
     # Shared scene and export rig options
+    invert_vertex_color_mappings: bpy.props.BoolProperty(
+        name="Invert Vertex Color Mappings",
+        description="""Invert vertex colors generated from mappings.
+Meshes with existing vertex color layers won't be affected""",
+        default=True,
+    )
     apply_modifiers: bpy.props.BoolProperty(
         name="Apply Modifiers",
         description="Apply render modifiers",
