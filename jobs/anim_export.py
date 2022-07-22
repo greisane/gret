@@ -96,11 +96,12 @@ def _anim_export(self, context, job, rig):
 
     if job.disable_auto_eyelid:
         for bone_name in ('c_eyelid_base.l', 'c_eyelid_base.r'):
-            pb = rig.pose.bones.get('c_eyelid_base.l')
+            pb = rig.pose.bones.get(bone_name)
             if pb:
-                for constraint in (con for con in pb.constraints if not con.mute):
-                    constraint.mute = True
-                    self.saved_unmuted_constraints.append(constraint)
+                for constraint in pb.constraints:
+                    if not constraint.mute:
+                        constraint.mute = True
+                        self.saved_unmuted_constraints.append(constraint)
 
     # Don't want shape keys animated as I'm using armature custom props to drive them
     # export_fbx_bin.py will skip over absolute shape keys so use that to disable them
