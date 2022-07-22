@@ -113,6 +113,17 @@ def _anim_export(self, context, job, rig):
                 self.saved_meshes_with_relative_shape_keys.append(mesh)
                 mesh.shape_keys.use_relative = False
 
+    # Auto-Rig is not exporting some bones properly when there are strips in the NLA
+    # I don't want to dig into the mess that is ARP code, so temporarily mute strips as a workaround
+    for obj in bpy.data.objects:
+        if obj.animation_data:
+            for track in obj.animation_data.nla_tracks:
+                for strip in track.strips:
+                    if not strip.mute:
+                        logd(f"Muting strip {strip.name}")
+                        strip.mute = True
+                        self.saved_unmuted_strips.append(strip)
+
     # Finally export
     for export_group in export_groups:
         path_fields['action'] = export_group.action.name
@@ -189,6 +200,7 @@ def anim_export(self, context, job):
     saved_scene_object_names = [o.name for o in context.scene.objects]
     context.preferences.edit.use_global_undo = False
     self.exported_files = []
+    self.saved_unmuted_strips = []
     self.saved_unmuted_constraints = []
     self.saved_meshes_with_relative_shape_keys = []
     self.new_fcurves = []  # List of (action, fcurve)
@@ -212,11 +224,14 @@ def anim_export(self, context, job):
         # Clean up
         for mesh in self.saved_meshes_with_relative_shape_keys:
             mesh.shape_keys.use_relative = True
+        for strip in self.saved_unmuted_strips:
+            strip.mute = False
         for modifier in self.saved_unmuted_constraints:
             modifier.mute = False
         for action, fcurve in self.new_fcurves:
             action.fcurves.remove(fcurve)
         del self.saved_meshes_with_relative_shape_keys
+        del self.saved_unmuted_strips
         del self.saved_unmuted_constraints
         del self.new_fcurves
         rig.data.pose_position = saved_pose_position
