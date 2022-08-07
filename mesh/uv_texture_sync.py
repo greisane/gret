@@ -80,7 +80,7 @@ class GRET_OT_uv_texture_sync(bpy.types.Operator):
 
     def execute(self, context):
         src_uv_layers = context.active_object.data.uv_layers
-        active_render_name = next(uv.name for uv in src_uv_layers if uv.active_render)
+        active_render_name = next((uv.name for uv in src_uv_layers if uv.active_render), None)
 
         for obj in context.selected_objects:
             if obj.type != 'MESH' or obj == context.active_object:
@@ -100,7 +100,8 @@ class GRET_OT_uv_texture_sync(bpy.types.Operator):
                 move_uv_layer_last(dst_uv_layers, index)
             # Sync active and active render state
             dst_uv_layers.active_index = src_uv_layers.active_index
-            dst_uv_layers[active_render_name].active_render = True
+            if active_render_name is not None:
+                dst_uv_layers[active_render_name].active_render = True
 
         return {'FINISHED'}
 
