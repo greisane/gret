@@ -33,7 +33,6 @@ from ..mesh.helpers import (
 )
 from ..log import logger, log, logd
 from ..rig.helpers import (
-    clear_pose,
     copy_drivers,
     export_autorig,
     export_autorig_universal,
@@ -220,7 +219,7 @@ def _rig_export(self, context, job, rig):
         # Put the objects in a group
         path_fields = {
             'rigfile': rig_basename,
-            'rig': rig.name,
+            'rig': rig.name.remove_suffix('_rig'),
             'object': item.original.name,
             'collection': job_cl.get_collection(context).name,
         }

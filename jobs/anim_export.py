@@ -15,7 +15,6 @@ from ..helpers import (
 )
 from ..log import logger, log, logd
 from ..rig.helpers import (
-    clear_pose,
     export_autorig,
     export_autorig_universal,
     export_fbx,
@@ -35,7 +34,7 @@ def _anim_export(self, context, job, rig):
     rig_filepath = get_object_filepath(rig)
     path_fields = {
         'rigfile': os.path.splitext(bpy.path.basename(rig_filepath))[0],
-        'rig': rig.name,
+        'rig': rig.name.remove_suffix('_rig'),
     }
 
     # Select actions to export
