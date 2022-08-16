@@ -219,7 +219,7 @@ def _rig_export(self, context, job, rig):
         # Put the objects in a group
         path_fields = {
             'rigfile': rig_basename,
-            'rig': rig.name.remove_suffix('_rig'),
+            'rig': rig.name.removesuffix('_rig'),
             'object': item.original.name,
             'collection': job_cl.get_collection(context).name,
         }

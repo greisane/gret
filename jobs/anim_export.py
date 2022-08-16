@@ -34,7 +34,7 @@ def _anim_export(self, context, job, rig):
     rig_filepath = get_object_filepath(rig)
     path_fields = {
         'rigfile': os.path.splitext(bpy.path.basename(rig_filepath))[0],
-        'rig': rig.name.remove_suffix('_rig'),
+        'rig': rig.name.removesuffix('_rig'),
     }
 
     # Select actions to export
