@@ -278,6 +278,12 @@ def draw_job(layout, jobs, job_index):
             col.prop(job, 'keep_transforms')
             col.prop(job, 'ensure_uv_layers')
 
+            row = col.row(align=True)
+            row.prop(job, 'use_postprocess_script', text="Post Process")
+            sub = row.split(align=True)
+            sub.prop(job, 'postprocess_script', text="")
+            sub.enabled = job.use_postprocess_script
+
             col = box.column(align=True)
             col.label(text="Remap Materials:")
             for remap_material in job.remap_materials:
@@ -636,6 +642,16 @@ Separate tags with a space. Tag modifiers with 'g:tag'""",
         description="""Shape keys suffixed '_UV' are encoded in UV channels instead of being exported.
 UVn+1: deltaXY, UVn+2: deltaZnormalX, UVn+3: normalYZ. All values are remapped to a [0..1] UV range""",
         default=False,
+    )
+    use_postprocess_script: bpy.props.BoolProperty(
+        name="Use Post Process Script",
+        description="Run script on each processed mesh, after modifiers are applied",
+        default=False,
+    )
+    postprocess_script: bpy.props.PointerProperty(
+        name="Post Process Script",
+        description="Script to run. `obj` is the object to modify and `ctx` is its context",
+        type=bpy.types.Text,
     )
     remap_materials: bpy.props.CollectionProperty(
         type=GRET_PG_remap_material,

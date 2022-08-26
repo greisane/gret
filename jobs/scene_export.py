@@ -162,6 +162,13 @@ def _scene_export(self, context, job):
         if job.apply_modifiers:
             apply_modifiers(obj, key=should_apply_modifier)
 
+        if job.use_postprocess_script and job.postprocess_script:
+            try:
+                log(f"Running post-process script {job.postprocess_script.name}")
+                exec(job.postprocess_script.as_string(), globals(), {'ctx': ctx, 'obj': obj})
+            except:
+                raise
+
         # Remap materials, any objects or faces with no material won't be exported
         all_none = lambda iterable: all(not el for el in iterable)
 
