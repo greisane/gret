@@ -103,6 +103,12 @@ def swap_object_names(self, obj1, obj2):
     obj2.name = name1
     obj1.name = name2
 
+def set_parent_keep_parent_inverse(objs, new_parent):
+    for obj in objs:
+        m = obj.matrix_parent_inverse.copy()
+        obj.parent = new_parent
+        obj.matrix_parent_inverse = m
+
 def _scene_export(self, context, job):
     if job.to_collection and job.clean_collection:
         # Clean the target collection first
@@ -168,6 +174,17 @@ def _scene_export(self, context, job):
                 exec(job.postprocess_script.as_string(), globals(), {'ctx': ctx, 'obj': obj})
             except:
                 raise
+
+        if obj.instance_type != 'NONE' and item.original.children:
+            # Instancing is a bit annoying since it relies on hierarchy and matrices get reset
+            original_children = item.original.children[:]
+            set_parent_keep_parent_inverse(original_children, obj)
+            bpy.ops.object.duplicates_make_real(ctx, use_base_parent=True)
+            set_parent_keep_parent_inverse(original_children, item.original)
+            if obj.children:
+                logd(f"Joining {len(obj.children)} instanced objects")
+                ctx = get_context(active_obj=obj, selected_objs=obj.children)
+                bpy.ops.object.join(ctx)
 
         # Remap materials, any objects or faces with no material won't be exported
         all_none = lambda iterable: all(not el for el in iterable)
