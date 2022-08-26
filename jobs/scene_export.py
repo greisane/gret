@@ -194,7 +194,7 @@ def _scene_export(self, context, job):
             logger.indent -= 1
             continue
 
-        if remapped_to_none:
+        if remapped_to_none or any(mat for mat in obj.data.materials):
             delete_faces_with_no_material(obj)
             if not obj.data.polygons:
                 log(f"Object has no faces and won't be exported")
