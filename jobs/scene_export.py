@@ -231,9 +231,10 @@ def _scene_export(self, context, job):
         if job.material_name_prefix:
             for mat_slot in obj.material_slots:
                 mat = mat_slot.material
-                if not mat.name.startswith(job.material_name_prefix):
-                    self.saved_material_names[mat] = mat.name
-                    mat.name = job.material_name_prefix + mat.name
+                if mat:
+                    if not mat.name.startswith(job.material_name_prefix):
+                        self.saved_material_names[mat] = mat.name
+                        mat.name = job.material_name_prefix + mat.name
 
         obj.data.transform(obj.matrix_basis, shape_keys=True)
         obj.matrix_basis.identity()
