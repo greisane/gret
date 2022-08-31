@@ -134,6 +134,15 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         description="Copy image color from the UV picker to the clipboard on click",
         default=False,
     )
+    uv_paint__picker_copy_color_format: bpy.props.StringProperty(
+        name="Clipboard Color Format",
+        description="""Specifies the color format when copied to clipboard. Examples:
+
+Hex -- "#{R:X}{G:X}{B:X}{A:X}" (use "x" for lowercase)
+RGB -- "{R},{G},{B}"
+UE4 -- "(R={r:f},G={g:f},B={b:f},A={a:f})\"""",
+        default="#{R:X}{G:X}{B:X}{A:X}",
+    )
     actions__register_pose_blender: bpy.props.BoolProperty(
         name="Enable Pose Blender",
         description="""Allows blending poses together, similar to the UE4 AnimGraph node.

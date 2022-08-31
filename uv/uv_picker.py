@@ -228,9 +228,14 @@ class UVPickerSelectorControl(UVPickerBaseControl):
                 self.owner.push_state(UVPickerCustomRegionState, context, event, self)
             else:
                 if prefs.uv_paint__picker_copy_color and self.image_uv is not None:
-                    image, _ = self.owner.get_active_image_info(context)
-                    rgba = image_get_rgba(image, *self.image_uv)
-                    bpy.context.window_manager.clipboard = fmt_frgba(*rgba)
+                    try:
+                        image, _ = self.owner.get_active_image_info(context)
+                        r, g, b, a = image_get_rgba(image, *self.image_uv)
+                        text = prefs.uv_paint__picker_copy_color_format.format(
+                            r=r, g=g, b=b, a=a, R=int(r*255), G=int(g*255), B=int(b*255), A=int(a*255))
+                        bpy.context.window_manager.clipboard = text
+                    except:
+                        pass
                 self.owner.push_state(UVPickerSelectState, context, event, self)
 
 class UVPickerQuadControl(UVPickerBaseControl):
