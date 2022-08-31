@@ -1,5 +1,7 @@
 from math import atan2, cos, exp, pi, sin, sqrt
 
+fmt_frgba = lambda r, g, b, a: "#%02X%02X%02X%02X" % (int(r*255), int(g*255), int(b*255), int(a*255))
+
 def rgb2xyz(rgb):
     """Converts RGB color into XYZ format."""
 

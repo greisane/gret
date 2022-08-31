@@ -124,6 +124,16 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         description="Default UV layer to paint to. Leave empty to use the active UV layer",
         default="",
     )
+    uv_paint__picker_show_info: bpy.props.BoolProperty(
+        name="Show UV Picker Info",
+        description="Display information when hovering the UV picker",
+        default=True,
+    )
+    uv_paint__picker_copy_color: bpy.props.BoolProperty(
+        name="Clicking UV Picker Copies Color",
+        description="Copy image color from the UV picker to the clipboard on click",
+        default=False,
+    )
     actions__register_pose_blender: bpy.props.BoolProperty(
         name="Enable Pose Blender",
         description="""Allows blending poses together, similar to the UE4 AnimGraph node.

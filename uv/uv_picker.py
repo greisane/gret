@@ -2,13 +2,22 @@ from math import floor
 import bpy
 import gpu
 
+from .. import prefs
 from ..drawing import *
-from ..math import Rect, saturate, saturate2
+from ..color import fmt_frgba
+from ..math import Rect, saturate, saturate2, frac
 from ..operator import StateMachineMixin, StateMachineBaseState
 from .uv_paint import GRET_TT_uv_paint, GRET_OT_uv_paint
 
 theme = UVSheetTheme()
 quad_xy = [(0, 1), (1, 1), (0, 0), (1, 0)]
+
+def image_get_rgba(image, uvx, uvy):
+    if image is not None:
+        px, py = int(frac(uvx) * image.size[0]), int(frac(uvy) * image.size[1])
+        cidx = (py * image.size[0] + px) * 4
+        return image.pixels[cidx:cidx+4]
+    return 0, 0, 0, 0
 
 class UVPickerBaseState(StateMachineBaseState):
     def on_enter(self, context, event, control):
@@ -131,6 +140,7 @@ class UVPickerSelectorControl(UVPickerBaseControl):
     def __init__(self, owner):
         super().__init__(owner)
         self.region_index = -1
+        self.image_uv = None
 
     def get_rect(self, image):
         if image:
@@ -149,12 +159,14 @@ class UVPickerSelectorControl(UVPickerBaseControl):
 
     def test_select(self, context, image, mx, my):
         self.region_index = -1
+        self.image_uv = None
         if not image:
             return
         uv_sheet = image.uv_sheet
 
         rect = self.get_rect(image)
         if rect.contains(mx, my):
+            self.image_uv = rect.inverse_transform_point(mx, my)
             # Update index of hovered region
             x, y = rect.inverse_transform_point(mx, my)
             for region_idx, region in enumerate(uv_sheet.regions):
@@ -175,7 +187,8 @@ class UVPickerSelectorControl(UVPickerBaseControl):
         draw_box(*rect, theme.border)
         if not image:
             draw_box_fill(*rect, theme.background)
-            draw_text(*rect.center, "Select an image in the Tool tab.", theme.border, rect)
+            draw_text(*rect.center, "Select an image in the Tool tab.", theme.border,
+                pivot=(0.5, 0.5), clip_rect=rect)
             return
 
         uv_sheet = image.uv_sheet
@@ -214,11 +227,15 @@ class UVPickerSelectorControl(UVPickerBaseControl):
             if event.ctrl:
                 self.owner.push_state(UVPickerCustomRegionState, context, event, self)
             else:
+                if prefs.uv_paint__picker_copy_color and self.image_uv is not None:
+                    image, _ = self.owner.get_active_image_info(context)
+                    rgba = image_get_rgba(image, *self.image_uv)
+                    bpy.context.window_manager.clipboard = fmt_frgba(*rgba)
                 self.owner.push_state(UVPickerSelectState, context, event, self)
 
 class UVPickerQuadControl(UVPickerBaseControl):
     def get_rect(self, image):
-        picker_rect = self.owner.controls[-1].get_rect(image)
+        picker_rect = self.owner.picker.get_rect(image)
         return Rect.from_size(picker_rect.x0, picker_rect.y1 + 4.0, *icon_size)
 
     def draw(self, context, image):
@@ -238,7 +255,7 @@ class UVPickerQuadControl(UVPickerBaseControl):
 
 class UVPickerGridControl(UVPickerBaseControl):
     def get_rect(self, image):
-        picker_rect = self.owner.controls[-1].get_rect(image)
+        picker_rect = self.owner.picker.get_rect(image)
         return Rect.from_size(picker_rect.x1 - icon_size[0], picker_rect.y1 + 4.0, *icon_size)
 
     def draw(self, context, image):
@@ -251,7 +268,7 @@ class UVPickerGridControl(UVPickerBaseControl):
 
 class UVPickerResizeControl(UVPickerBaseControl):
     def get_rect(self, image):
-        picker_rect = self.owner.controls[-1].get_rect(image)
+        picker_rect = self.owner.picker.get_rect(image)
         return Rect.from_size(picker_rect.x1 + 4.0, picker_rect.y1 + 4.0, *icon_size)
 
     def draw(self, context, image):
@@ -260,6 +277,33 @@ class UVPickerResizeControl(UVPickerBaseControl):
     def invoke(self, context, event):
         if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
             self.owner.push_state(UVPickerResizeState, context, event, self)
+
+class UVPickerInfoControl(UVPickerBaseControl):
+    def get_rect(self, image):
+        picker_rect = self.owner.picker.get_rect(image)
+        return Rect(picker_rect.x0, picker_rect.y1 + 8.0, picker_rect.x1 - 20.0, picker_rect.y1 + 14.0)
+
+    def draw(self, context, image):
+        if prefs.uv_paint__picker_show_info and self.owner.picker.image_uv is not None:
+            uvx, uvy = self.owner.picker.image_uv
+            rect = self.get_rect(image)
+            cols, rows = image.uv_sheet.grid_cols, image.uv_sheet.grid_rows
+            px, py = int(uvx * image.size[0]), int(uvy * image.size[1])
+            gx, gy = floor(saturate2(uvx) * cols), floor(saturate2(1.0 - uvy) * rows)
+            rgba = image_get_rgba(image, uvx, uvy)
+
+            texts = [
+                f"Pixel: ({px}, {py})",
+                f"Grid: ({gx}, {gy})",
+                f"Color: {fmt_frgba(*rgba)}",
+            ]
+            text_color = theme.border #theme.hovered
+            line_height = 0
+            if line_height <= 0:
+                draw_text(rect.x0, rect.y0, "  |  ".join(texts), text_color)  # Single line
+            else:
+                for n, text in enumerate(texts):
+                    draw_text(rect.x0, rect.y0 + line_height * n, text, text_color)
 
 class UVPickerHelpControl(UVPickerBaseControl):
     help_boxes = [
@@ -283,7 +327,7 @@ class UVPickerHelpControl(UVPickerBaseControl):
     ]
 
     def get_rect(self, image):
-        picker_rect = self.owner.controls[-1].get_rect(image)
+        picker_rect = self.owner.picker.get_rect(image)
         return Rect.from_size(picker_rect.x1 + 4.0, picker_rect.y1 - icon_size[1], *icon_size)
 
     def draw(self, context, image):
@@ -368,12 +412,14 @@ class GRET_GT_uv_picker_gizmo(bpy.types.Gizmo, StateMachineMixin):
 
     def setup(self):
         self.controls = [
+            UVPickerInfoControl(self),
             UVPickerHelpControl(self),
             UVPickerResizeControl(self),
             UVPickerGridControl(self),
             # UVPickerQuadControl(self),
             UVPickerSelectorControl(self),
         ]
+        self.picker = self.controls[-1]
         self.active_control = None
 
     def invoke(self, context, event):
@@ -443,7 +489,7 @@ def register(settings, prefs):
     ))
     settings.add_property('uv_picker_show_grid', bpy.props.BoolProperty(
         name="UV Picker Show Grid",
-        description="Display the UV picker grid",
+        description="Draw a grid on UV picker grid",
         default=True,
     ))
 

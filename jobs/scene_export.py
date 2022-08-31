@@ -182,9 +182,9 @@ def _scene_export(self, context, job):
             bpy.ops.object.duplicates_make_real(ctx, use_base_parent=True)
             set_parent_keep_parent_inverse(original_children, item.original)
             if obj.children:
-                logd(f"Joining {len(obj.children)} instanced objects")
                 ctx = get_context(active_obj=obj, selected_objs=obj.children)
                 bpy.ops.object.join(ctx)
+                log(f"Joined {len(obj.children)} instanced objects")
 
         # Remap materials, any objects or faces with no material won't be exported
         all_none = lambda iterable: all(not el for el in iterable)
