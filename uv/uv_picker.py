@@ -1,4 +1,5 @@
 from math import floor
+from mathutils import Color
 import bpy
 import gpu
 
@@ -231,8 +232,12 @@ class UVPickerSelectorControl(UVPickerBaseControl):
                     try:
                         image, _ = self.owner.get_active_image_info(context)
                         r, g, b, a = image_get_rgba(image, *self.image_uv)
+                        lin = Color((r, g, b)).from_srgb_to_scene_linear()
                         text = prefs.uv_paint__picker_copy_color_format.format(
-                            r=r, g=g, b=b, a=a, R=int(r*255), G=int(g*255), B=int(b*255), A=int(a*255))
+                            r=r, g=g, b=b, a=a,
+                            lr=lin.r, lg=lin.g, lb=lin.b, la=a,
+                            R=int(r*255), G=int(g*255), B=int(b*255), A=int(a*255),
+                            LR=int(lin.r*255), LG=int(lin.g*255), LB=int(lin.b*255), LA=int(a*255))
                         bpy.context.window_manager.clipboard = text
                     except:
                         pass

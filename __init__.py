@@ -136,11 +136,13 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
     )
     uv_paint__picker_copy_color_format: bpy.props.StringProperty(
         name="Clipboard Color Format",
-        description="""Specifies the color format when copied to clipboard. Examples:
+        description="""Specifies the color format when copied to clipboard.
+Use `rgb` for floats and `RGB` for bytes. Color space is sRGB, prefix `l` or `L` for linear.
+Examples:
 
 Hex -- "#{R:X}{G:X}{B:X}{A:X}" (use "x" for lowercase)
 RGB -- "{R},{G},{B}"
-UE4 -- "(R={r:f},G={g:f},B={b:f},A={a:f})\"""",
+UE4 -- "(R={lr:f},G={lg:f},B={lb:f},A={a:f})\"""",
         default="#{R:X}{G:X}{B:X}{A:X}",
     )
     actions__register_pose_blender: bpy.props.BoolProperty(
