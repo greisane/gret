@@ -455,6 +455,15 @@ class GRET_PG_export_collection(bpy.types.PropertyGroup):
         else:
             return self.collection
 
+    def get_child_collections(self, context, include_self=True):
+        collection = self.get_collection(context)
+        if not collection:
+            return []
+        elif include_self:
+            return [collection] + collection.children_recursive
+        else:
+            return collection.children_recursive
+
 def on_action_updated(self, context):
     jobs = context.scene.gret.export_jobs
     job = jobs[self.job_index]
@@ -771,26 +780,25 @@ Requires a mirror modifier""",
         subtype='FILE_PATH',
     )
 
-    def get_export_objects(self, context, types=set(), armature=None, unique=False):
+    def get_export_objects(self, context, types=set(), armature=None):
         objs, objs_job_cl = [], []
         for job_cl in self.collections:
-            cl = job_cl.get_collection(context)
-            if not cl:
-                continue
-            if not (not cl.hide_viewport and job_cl.export_viewport
-                or not cl.hide_render and job_cl.export_render):
-                continue  # Collection filtered by visibility
-            for obj in cl.objects:
-                if types and obj.type not in types:
-                    continue  # Not in the requested object types
-                if armature and obj.find_armature() != armature:
-                    continue  # Wrong armature
-                if not (not obj.hide_viewport and job_cl.export_viewport
-                    or not obj.hide_render and job_cl.export_render):
-                    continue  # Object filtered by visibility
-                if not unique or obj not in objs:
-                    objs.append(obj)
-                    objs_job_cl.append(job_cl)
+            for cl in job_cl.get_child_collections(context):
+                if not (not cl.hide_viewport and job_cl.export_viewport
+                    or not cl.hide_render and job_cl.export_render):
+                    continue  # Collection filtered by visibility
+                for obj in cl.objects:
+                    if types and obj.type not in types:
+                        continue  # Not in the requested object types
+                    if armature and obj.find_armature() != armature:
+                        continue  # Wrong armature
+                    if not (not obj.hide_viewport and job_cl.export_viewport
+                        or not obj.hide_render and job_cl.export_render):
+                        continue  # Object filtered by visibility
+                    if obj not in objs:
+                        # Check object not already added
+                        objs.append(obj)
+                        objs_job_cl.append(job_cl)
         return objs, objs_job_cl
 
 classes = (
