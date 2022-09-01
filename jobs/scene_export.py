@@ -165,6 +165,10 @@ def _scene_export(self, context, job):
         if job.merge_basis_shape_keys:
             merge_basis_shape_keys(obj, shlex.split(job.basis_shape_key_pattern))
 
+        # Clear shape keys if they won't be needed later
+        if not job.encode_shape_keys:
+            obj.shape_key_clear()
+
         if job.apply_modifiers:
             apply_modifiers(obj, key=should_apply_modifier)
 

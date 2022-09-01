@@ -23,6 +23,7 @@ from .helpers import SolidPixels, Node
 # TODO
 # - AO floor
 # - Allow Quick Unwrap from object mode
+# - Report progress, see io_scene_obj/export_obj.py and bpy_extras.wm_utils.progress_report
 
 def reverse_morton3(x):
     x &= 0x09249249

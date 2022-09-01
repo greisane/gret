@@ -274,8 +274,8 @@ def encode_shape_keys(obj, shape_key_names=["*"], keep=False):
 def get_modifier_mask(obj, key=None):
     """Return a modifier mask for use with gret.shape_key_apply_modifiers"""
 
-    mask = [key(modifier) if key else True for modifier in obj.modifiers]
-    return mask[:32] + [True] * (32 - len(mask))
+    mask = [key(modifier) if callable(key) else True for modifier in obj.modifiers]
+    return mask[:32] + [False] * (32 - len(mask))
 
 def apply_modifiers(obj, key=None, keep_armature=False):
     """Apply modifiers while preserving shape keys and UV layers."""
@@ -286,14 +286,32 @@ def apply_modifiers(obj, key=None, keep_armature=False):
     uv_layer_names = [uv_layer.name for uv_layer in obj.data.uv_layers]
     vertex_color_names = [vertex_color.name for vertex_color in obj.data.vertex_colors]
 
-    bpy.ops.gret.shape_key_apply_modifiers(ctx, modifier_mask=get_modifier_mask(obj, key))
+    modifier_mask = get_modifier_mask(obj, key)
+    num_modifiers = sum(modifier_mask)
+    if num_modifiers:
+        if not obj.data.shape_keys and not keep_armature:
+            # Geometry nodes will affect data transfer modifiers, even if the data transfer
+            # is first in the stack. Possible bug or very unintuitive behavior?
+            # If there are no shape keys or modifiers to keep then it's safe to just flatten.
 
-    for modifier in obj.modifiers[:]:
-        if modifier.type == 'ARMATURE' and keep_armature:
-            modifier.show_viewport = True
+            log(f"Flattening with {num_modifiers} modifiers")
+            for modifier, mask in zip(obj.modifiers, modifier_mask):
+                modifier.show_viewport = mask
+            dg = bpy.context.evaluated_depsgraph_get()
+            bm = bmesh.new()
+            bm.from_object(obj, dg)
+            bm.to_mesh(obj.data)
+            obj.modifiers.clear()
         else:
-            logd(f"Removed {modifier.type} modifier {modifier.name}")
-            bpy.ops.object.modifier_remove(ctx, modifier=modifier.name)
+            log(f"Applying {num_modifiers} modifiers")
+            bpy.ops.gret.shape_key_apply_modifiers(ctx, modifier_mask=modifier_mask)
+
+            for modifier in obj.modifiers[:]:
+                if modifier.type == 'ARMATURE' and keep_armature:
+                    modifier.show_viewport = True
+                else:
+                    logd(f"Removed {modifier.type} modifier {modifier.name}")
+                    bpy.ops.object.modifier_remove(ctx, modifier=modifier.name)
 
     # Restore UV layers from attributes
     for name in uv_layer_names:
