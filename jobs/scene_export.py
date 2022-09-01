@@ -64,11 +64,12 @@ def copy_obj(self, obj):
         new_obj.name = obj.name + "_"
         new_data = obj.data.copy()
         new_obj.data = new_data
+        new_obj.parent = None
     else:
         dg = bpy.context.evaluated_depsgraph_get()
         new_data = bpy.data.meshes.new_from_object(obj, preserve_all_data_layers=True, depsgraph=dg)
         new_obj = bpy.data.objects.new(obj.name + "_", new_data)
-        new_obj.matrix_world = obj.matrix_world
+    new_obj.matrix_world = obj.matrix_world
     self.new_objs.append(new_obj)
     assert isinstance(new_data, bpy.types.Mesh)
     assert new_data.users == 1
@@ -233,27 +234,20 @@ def _scene_export(self, context, job):
 
         # If enabled, move main object to world center while keeping collision relative transforms
         if not job.keep_transforms:
-            was_parented = obj.parent is not None
-            if was_parented:
-                pivot_obj = get_topmost_parent(obj)
-                if pivot_obj == obj.parent:
-                    logd(f"Unparenting {obj.name} from {obj.parent.name}")
-                else:
-                    logd(f"Unparenting {obj.name} from {obj.parent.name} (top: {pivot_obj.name})")
-                pivot_tm_inverse = pivot_obj.matrix_world.inverted()
-                obj.parent = None
-                obj.matrix_world = pivot_tm_inverse @ obj.matrix_world
+            if item.original.parent:
+                pivot_obj = get_topmost_parent(item.original)
+                world_to_pivot = pivot_obj.matrix_world.inverted()
+                obj.matrix_world = world_to_pivot @ obj.matrix_world
+                logd(f"Zero transform for {obj.name} relative to {pivot_obj.name}")
             else:
-                pivot_tm_inverse = obj.matrix_world.inverted()
+                world_to_pivot = obj.matrix_world.inverted()
+                obj.matrix_world.identity()
+                logd(f"Zero transform for {obj.name}")
 
             for other_obj in chain(item.col_objs, item.socket_objs):
                 logd(f"Moving collision/socket {other_obj.name}")
                 self.saved_transforms[other_obj] = other_obj.matrix_world.copy()
-                other_obj.matrix_world = pivot_tm_inverse @ other_obj.matrix_world
-
-            if not was_parented:
-                logd(f"Zero transform for {obj.name}")
-                obj.matrix_world.identity()
+                other_obj.matrix_world = world_to_pivot @ other_obj.matrix_world
 
         # If set, ensure prefix for exported materials
         if job.material_name_prefix:
