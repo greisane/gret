@@ -1,4 +1,5 @@
 from collections import namedtuple, defaultdict
+import numpy as np
 import bmesh
 import bpy
 
@@ -19,7 +20,7 @@ class ShapeKeyInfo(namedtuple('ShapeKeyInfo', ['coords', 'interpolation', 'mute'
     @classmethod
     def from_shape_key_with_empty_data(cls, shape_key):
         return cls(
-            coords=[],
+            coords=np.empty(0, dtype=np.single),
             interpolation=shape_key.interpolation,
             mute=shape_key.mute,
             name=shape_key.name,
@@ -37,7 +38,7 @@ class ShapeKeyInfo(namedtuple('ShapeKeyInfo', ['coords', 'interpolation', 'mute'
         return info
 
     def get_coords_from(self, vertices):
-        self.coords[:] = [0.0] * (len(vertices) * 3)
+        self.coords.resize(len(vertices) * 3, refcheck=False)
         vertices.foreach_get('co', self.coords)
 
     def put_coords_into(self, vertices):
