@@ -251,15 +251,6 @@ def _scene_export(self, context, job):
                 self.saved_transforms[other_obj] = other_obj.matrix_world.copy()
                 other_obj.matrix_world = world_to_pivot @ other_obj.matrix_world
 
-        # If set, ensure prefix for exported materials
-        if job.material_name_prefix:
-            for mat_slot in obj.material_slots:
-                mat = mat_slot.material
-                if mat:
-                    if not mat.name.startswith(job.material_name_prefix):
-                        self.saved_material_names[mat] = mat.name
-                        mat.name = job.material_name_prefix + mat.name
-
         obj.data.transform(obj.matrix_basis, shape_keys=True)
         obj.matrix_basis.identity()
 
@@ -282,7 +273,7 @@ def _scene_export(self, context, job):
         bpy.ops.gret.vertex_color_mapping_refresh(ctx, invert=job.invert_vertex_color_mappings)
         bpy.ops.gret.vertex_color_mapping_clear(ctx)
         if len(obj.data.vertex_colors) > 1:
-            logd(f"More than one vertex color layer, is this intended?",
+            log(f"More than one vertex color layer, is this intended?",
                 ", ".join(vc.name for vc in obj.data.vertex_colors))
 
         # Put the objects in a group
@@ -299,6 +290,15 @@ def _scene_export(self, context, job):
     # Export each file
     for filepath, items in sorted(groups.items()):
         for item in items:
+            # If set, ensure prefix for exported materials
+            if job.material_name_prefix:
+                for mat_slot in item.obj.material_slots:
+                    mat = mat_slot.material
+                    if mat:
+                        if not mat.name.startswith(job.material_name_prefix):
+                            self.saved_material_names[mat] = mat.name
+                            mat.name = job.material_name_prefix + mat.name
+
             swap_object_names(self, item.original, item.obj)
             # Rename sockets to lose the .001 .002 suffix while avoiding name collisions
             # Normally it's not possible to have two objects with the same name in Blender
