@@ -31,8 +31,7 @@ class GRET_PT_mesh(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        obj = context.object
-        return obj and obj.type == 'MESH'
+        return context.active_object and context.active_object.type == 'MESH' and cls.draw_funcs
 
     def draw(self, context):
         for draw_func in __class__.draw_funcs:

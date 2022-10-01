@@ -17,8 +17,10 @@ class GRET_PT_anim(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        obj = context.object
-        return obj and obj.type == 'ARMATURE' and context.mode in {'OBJECT', 'POSE'}
+        return (context.active_object
+            and context.active_object.type == 'ARMATURE'
+            and context.mode in {'OBJECT', 'POSE'}
+            and cls.draw_funcs)
 
     def draw(self, context):
         for draw_func in __class__.draw_funcs:
