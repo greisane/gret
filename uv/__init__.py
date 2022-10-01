@@ -4,6 +4,7 @@ module_names = [
     'align_each',
     'helpers',
     'relax_loops',
+    'uv_texture_sync',
     'uv_sheet',
     'uv_paint',  # Depends on uv_sheet (only so idnames aren't hardcoded)
     'uv_picker',  # Depends on uv_paint (same)
