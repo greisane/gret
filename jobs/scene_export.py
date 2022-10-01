@@ -176,7 +176,9 @@ def _scene_export(self, context, job):
         if job.use_postprocess_script and job.postprocess_script:
             try:
                 log(f"Running post-process script {job.postprocess_script.name}")
-                exec(job.postprocess_script.as_string(), globals(), {'ctx': ctx, 'obj': obj})
+                global_dict = globals().copy()
+                global_dict.update({'ctx': ctx, 'obj': obj})
+                exec(job.postprocess_script.as_string(), global_dict, global_dict)
             except:
                 raise
 

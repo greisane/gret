@@ -108,7 +108,7 @@ def get_range_pct(min_value, max_value, value):
     """Calculates the percentage along a line from min_value to max_value."""
 
     divisor = max_value - min_value
-    if divisor <= SMALL_NUMBER:
+    if abs(divisor) <= SMALL_NUMBER:
         return 1.0 if value >= max_value else 0.0
     return (value - min_value) / divisor
 
