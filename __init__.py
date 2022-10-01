@@ -179,6 +179,7 @@ NEEDS UPDATING TO 3.0""",
 
     def draw(self, context):
         layout = self.layout
+        layout.use_property_split = True
 
         if not self.categories:
             # Cache grouped props by category (the part left of the double underscore "__")
@@ -194,24 +195,28 @@ NEEDS UPDATING TO 3.0""",
             alert_row = layout.row()
             alert_row.alert = True
             alert_row.operator("gret.save_userpref_and_quit_blender", icon='ERROR',
-                text="Blender restart is required")
+                text="Save preferences and restart Blender")
 
-        # Display properties in two columns of boxes side to side
-        # Avoiding use_property_split because the indent is too big
-        split = layout.split(factor=0.5)
-        boxes = split.column(align=True)
-        boxes2 = split.column(align=True)
+        row0 = layout.row(align=False)
+        row0.alignment = 'CENTER'
+        col0 = row0.column()
+        col0.scale_x = 0.9
+        use_combining_undescore = False  # Looks wonky
+
         for category_name, prop_names in self.categories:
-            box = boxes.box()
-            # box = box.column(align=True)
-            box.label(text=category_name + ":", icon='DOT')
-            split = box.split(factor=0.05)
-            split.separator()
-            col = split.column(align=True)
+            box = col0.box()
+            col = box.column(align=True)
+            if use_combining_undescore:
+                col.label(text="\u0332".join(category_name), icon='DOT')
+            else:
+                row = col.row()
+                row.ui_units_y = 0.4
+                row.label(text=category_name, icon='DOT')
+                col.label(text=" " * 8 + "\u2014" * 8)
             for prop_name in prop_names:
                 col.prop(self, prop_name)
             col.separator()
-            boxes, boxes2 = boxes2, boxes
+            col0.separator()
 
 class GRET_PG_settings(bpy.types.PropertyGroup):
     @classmethod
