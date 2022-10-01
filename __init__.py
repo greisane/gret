@@ -263,36 +263,46 @@ UE4 -- "(R={lr:f},G={lg:f},B={lb:f},A={a:f})\"""",
             # Cache grouped props by category (the part left of the double underscore "__")
             from .helpers import titlecase
             d = defaultdict(list)
+            unnamed_category_name = "Miscellaneous"
             for prop_name in self.__annotations__:
                 cpos = prop_name.find("__")
-                category_name = titlecase(prop_name[:cpos]) if cpos > 0 else "Miscellaneous"
+                category_name = titlecase(prop_name[:cpos]) if cpos > 0 else unnamed_category_name
+                print(category_name, prop_name)
                 d[category_name].append(prop_name)
-            self.categories = [(k, sorted(d[k])) for k in sorted(d.keys())]
+            prop_sort_key = lambda s: "" if s.endswith("__enable") else s  # Main toggle first
+            category_sort_key = lambda s: "ZZ" if s == unnamed_category_name else s  # Unnamed last
+            self.categories = [(k, sorted(d[k], key=prop_sort_key))
+                for k in sorted(d.keys(), key=category_sort_key)]
 
         if needs_restart:
             alert_row = layout.row()
             alert_row.alert = True
             alert_row.operator("gret.save_userpref_and_quit_blender", icon='ERROR',
-                text="Save preferences and restart Blender")
+                text="Save preferences and quit Blender")
 
         row0 = layout.row(align=False)
-        row0.alignment = 'CENTER'
+        row0.alignment = 'CENTER'  # For padding
         col0 = row0.column()
-        col0.scale_x = 0.9
-        use_combining_undescore = False  # Looks wonky
+        col0.ui_units_x = 20  # Otherwise it becomes tiny with no textboxes
+        use_combining_underscores = False
 
         for category_name, prop_names in self.categories:
             box = col0.box()
             col = box.column(align=True)
-            if use_combining_undescore:
-                col.label(text="\u0332".join(category_name), icon='DOT')
+            if use_combining_underscores:
+                # Renders correctly, though the line is very uneven
+                col.label(text="\u0332".join(category_name), icon='BLANK1')  # Icon just for margin
             else:
+                # Label overlay. Use em-dashes since underscores have gaps in the default font
                 row = col.row()
                 row.ui_units_y = 0.4
-                row.label(text=category_name, icon='DOT')
+                row.label(text=category_name, icon='BLANK1')  # Icon just for margin
                 col.label(text=" " * 8 + "\u2014" * 8)
             for prop_name in prop_names:
                 col.prop(self, prop_name)
+                if prop_name.endswith("__enable") and not getattr(self, prop_name):
+                    # Category main toggle is off, don't show the other propeties
+                    break
             col.separator()
             col0.separator()
 
