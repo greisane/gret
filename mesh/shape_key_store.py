@@ -185,6 +185,9 @@ classes = (
 )
 
 def register(settings, prefs):
+    if not prefs.mesh__enable_shape_key_store:
+        return False
+
     for cls in classes:
         bpy.utils.register_class(cls)
 

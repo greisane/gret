@@ -1,4 +1,5 @@
 from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
+from bpy.ops import op_as_string
 from collections import namedtuple
 from functools import wraps, lru_cache
 from mathutils import Vector, Quaternion, Euler
@@ -407,8 +408,6 @@ def swap_object_names(obj1, obj2):
     obj1.name = name2
 
 def beep(pitch=0, num=2):
-    if not prefs.use_beeps:
-        return
     try:
         import winsound
         freq = 800 + 100 * pitch
@@ -484,14 +483,10 @@ def fail_if_invalid_export_path(path, field_names):
     except OSError:
         pass  # Directory already exists
 
-def fail_if_no_operator(bl_idname, submodule=bpy.ops.object):
-    """Raises an exception if the operator is not available."""
+def gret_operator_exists(bl_idname):
+    """Returns whether the operator is available."""
 
-    try:
-        # Use getattr, hasattr seems to always return True
-        getattr(submodule, bl_idname)
-    except AttributeError:
-        raise Exception(f"Operator {bl_idname} is required and couldn't be found.")
+    return hasattr(bpy.types, "GRET_OT_" + bl_idname.removeprefix("gret."))
 
 def get_nice_export_report(filepaths, elapsed):
     """Returns text informing the user of the files that were exported."""

@@ -488,7 +488,8 @@ All faces from all objects assigned to the active material are assumed to contri
             # Finished without errors
             elapsed = time.time() - start_time
             self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
-            beep(pitch=3, num=1)
+            if prefs.texture_bake__beep_on_finish:
+                beep(pitch=3, num=1)
         finally:
             # Clean up
             while self.new_objs:

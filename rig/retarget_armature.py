@@ -219,6 +219,9 @@ def retarget_dst_items(self, context):
     return items
 
 def register(settings, prefs):
+    if not prefs.rig__enable_retarget_armature:
+        return False
+
     bpy.utils.register_class(GRET_OT_retarget_armature)
 
     settings.add_property('retarget_src', bpy.props.PointerProperty(

@@ -52,9 +52,6 @@ def draw_menu(self, context):
     self.layout.operator(GRET_OT_autoname_bone_chain.bl_idname)
 
 def register(settings, prefs):
-    if not prefs.rig__register_autoname_bone_chain:
-        return False
-
     bpy.utils.register_class(GRET_OT_autoname_bone_chain)
     bpy.types.VIEW3D_MT_edit_armature_names.append(draw_menu)
     bpy.types.VIEW3D_MT_pose_names.append(draw_menu)

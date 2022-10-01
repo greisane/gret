@@ -1,7 +1,7 @@
 import bpy
 
-from .. import prefs
 from ..log import log, logger
+from ..helpers import gret_operator_exists
 from ..rig.helpers import is_object_arp
 from .scene_export import scene_export
 from .rig_export import rig_export
@@ -258,7 +258,8 @@ def draw_job(layout, jobs, job_index):
             add_collection_layout().enabled = not job.selection_only
 
             col = box.column()
-            col.prop(job, 'invert_vertex_color_mappings')
+            if gret_operator_exists("gret.vertex_color_mapping_add"):
+                col.prop(job, 'invert_vertex_color_mappings')
             row = col.row(align=True)
             row.prop(job, 'apply_modifiers')
             sub = row.split(align=True)
@@ -391,10 +392,6 @@ class GRET_PT_export_jobs(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = "Jobs"
     bl_label = "Export Jobs"
-
-    @classmethod
-    def poll(cls, context):
-        return prefs.jobs__panel_enable
 
     def draw(self, context):
         layout = self.layout
@@ -817,6 +814,9 @@ classes = (
 )
 
 def register(settings, prefs):
+    if not prefs.jobs__enable:
+        return False
+
     for cls in classes:
         bpy.utils.register_class(cls)
 

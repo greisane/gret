@@ -355,6 +355,9 @@ def draw_menu(self, context):
     # layout.operator('gret.wall_add', icon='MOD_BUILD', text="Wall")
 
 def register(settings, prefs):
+    if not prefs.mesh__enable_add_rope:
+        return False
+
     for cls in classes:
         bpy.utils.register_class(cls)
 

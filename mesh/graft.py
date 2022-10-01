@@ -19,7 +19,7 @@ face_map_name = "Graft"
 
 class GRET_OT_graft(bpy.types.Operator):
     #tooltip
-    """Connects boundaries of selected objects to the active object"""
+    """Connect boundaries of selected objects to the active object"""
 
     bl_idname = 'gret.graft'
     bl_label = "Graft"
@@ -307,6 +307,9 @@ def draw_panel(self, context):
     col.operator('gret.graft', icon='AUTOMERGE_ON')
 
 def register(settings, prefs):
+    if not prefs.mesh__enable_graft:
+        return False
+
     bpy.utils.register_class(GRET_OT_graft)
 
 def unregister():

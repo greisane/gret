@@ -4,6 +4,7 @@ import bpy
 import os
 import time
 
+from .. import prefs
 from ..helpers import (
     beep,
     fail_if_invalid_export_path,
@@ -213,7 +214,8 @@ def anim_export(self, context, job):
         elapsed = time.time() - start_time
         self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
         log("Job complete")
-        beep(pitch=1)
+        if prefs.jobs__beep_on_finish:
+            beep(pitch=1)
     finally:
         # ARP has started leaving behind objects and it breaks subsequent exports
         for obj in context.scene.objects[:]:

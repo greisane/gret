@@ -259,7 +259,7 @@ def draw_panel(self, context):
                 row.operator("gret.action_duplicate", icon='DUPLICATE', text="").name = action.name
                 row.operator("gret.action_remove", icon='X', text="").name = action.name
 
-                if prefs.actions__show_frame_range and selected:
+                if prefs.animation__show_action_frame_range and selected:
                     row = col.row(align=True)
                     sub = row.column(align=True)
                     sub.ui_units_x = 0.95  # Eyeballed to make it line up, beats split() madness
@@ -302,7 +302,7 @@ classes = (
 )
 
 def sync_frame_range():
-    if not prefs.actions__sync_frame_range:
+    if not prefs.animation__sync_action_frame_range:
         return
 
     context = bpy.context
@@ -327,7 +327,7 @@ def unsubscribe_all():
     bpy.msgbus.clear_by_owner(owner)
 
 def on_prefs_updated():
-    if prefs.actions__sync_frame_range:
+    if prefs.animation__sync_action_frame_range:
         unsubscribe_all()
         subscribe_all()
         sync_frame_range()
@@ -344,7 +344,7 @@ def register(settings, prefs):
         default=False,
     ))
 
-    if prefs.actions__sync_frame_range:
+    if prefs.animation__sync_action_frame_range:
         subscribe_all()
 
 def unregister():

@@ -249,6 +249,9 @@ classes = (
 )
 
 def register(settings, prefs):
+    if not prefs.rig__enable_selection_sets:
+        return False
+
     for cls in classes:
         bpy.utils.register_class(cls)
 

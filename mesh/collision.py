@@ -135,7 +135,7 @@ def is_box(bm):
 
 class GRET_OT_collision_make(bpy.types.Operator):
     #tooltip
-    """Generate collision for the selected geometry"""
+    """Generate collision for selected geometry"""
 
     bl_idname = 'gret.collision_make'
     bl_label = "Make Collision"
@@ -646,6 +646,9 @@ classes = (
 )
 
 def register(settings, prefs):
+    if not prefs.mesh__enable_make_collision:
+        return False
+
     for cls in classes:
         bpy.utils.register_class(cls)
 

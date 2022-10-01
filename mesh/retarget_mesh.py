@@ -203,6 +203,9 @@ def retarget_dst_items(self, context):
     return items
 
 def register(settings, prefs):
+    if not prefs.mesh__enable_retarget_mesh:
+        return False
+
     bpy.utils.register_class(GRET_OT_retarget_mesh)
 
     settings.add_property('retarget_src', bpy.props.PointerProperty(

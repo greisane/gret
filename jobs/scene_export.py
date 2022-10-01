@@ -6,6 +6,7 @@ import re
 import shlex
 import time
 
+from .. import prefs
 from ..helpers import (
     beep,
     fail_if_invalid_export_path,
@@ -14,6 +15,7 @@ from ..helpers import (
     get_name_safe,
     get_nice_export_report,
     get_topmost_parent,
+    gret_operator_exists,
     intercept,
     load_selection,
     save_selection,
@@ -267,14 +269,15 @@ def _scene_export(self, context, job):
 
         # It's more intuitive to author masks starting from black, however UE4 defaults to white
         # Invert vertex colors, materials should use OneMinus to get the original value
-        if not obj.data.vertex_colors and not obj.vertex_color_mapping:
-            logd("Created default vertex color mapping")
-            bpy.ops.gret.vertex_color_mapping_add(ctx)
-        bpy.ops.gret.vertex_color_mapping_refresh(ctx, invert=job.invert_vertex_color_mappings)
-        bpy.ops.gret.vertex_color_mapping_clear(ctx)
-        if len(obj.data.vertex_colors) > 1:
-            log(f"More than one vertex color layer, is this intended?",
-                ", ".join(vc.name for vc in obj.data.vertex_colors))
+        if gret_operator_exists("gret.vertex_color_mapping_add"):
+            if not obj.data.vertex_colors and not obj.vertex_color_mapping:
+                logd("Created default vertex color mapping")
+                bpy.ops.gret.vertex_color_mapping_add(ctx)
+            bpy.ops.gret.vertex_color_mapping_refresh(ctx, invert=job.invert_vertex_color_mappings)
+            bpy.ops.gret.vertex_color_mapping_clear(ctx)
+            if len(obj.data.vertex_colors) > 1:
+                log(f"More than one vertex color layer, is this intended?",
+                    ", ".join(vc.name for vc in obj.data.vertex_colors))
 
         # Put the objects in a group
         cl = job_cl.get_collection(context) if job_cl else item.original.users_collection[0]
@@ -363,7 +366,8 @@ def scene_export(self, context, job):
         elapsed = time.time() - start_time
         self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
         log("Job complete")
-        beep(pitch=2, num=1)
+        if prefs.jobs__beep_on_finish:
+            beep(pitch=2, num=1)
     finally:
         # Clean up
         restore_saved_object_names(self)

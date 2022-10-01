@@ -98,19 +98,38 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
     # when defining this in a submodule of a python package.
     bl_idname = __name__
 
-    jobs__panel_enable: bpy.props.BoolProperty(
-        name="Enable Panel",
-        description="Show the export jobs panel",
+    animation__register_pose_blender: bpy.props.BoolProperty(
+        name="Enable Pose Blender",
+        description="""Allows blending poses together, similar to the UE4 AnimGraph node.
+NEEDS UPDATING TO 3.0""",
         default=False,
+        update=registered_updated,
     )
-    use_beeps: bpy.props.BoolProperty(
-        name="Beep",
-        description="Play a beep sound after an export job or texture bake finishes",
+    animation__show_action_frame_range: bpy.props.BoolProperty(
+        name="Show Action Frame Range",
+        description="Show custom frame range controls in the action panel",
+        default=True,
+    )
+    animation__sync_action_frame_range: bpy.props.BoolProperty(
+        name="Sync Action Frame Range",
+        description="Keep preview range in sync with the action's custom frame range",
+        default=True,
+        update=prefs_updated,
+    )
+    jobs__enable: bpy.props.BoolProperty(
+        name="Enable",
+        description="Jobs automate the export process for multiple objects or complex setups",
+        default=False,
+        update=registered_updated,
+    )
+    jobs__beep_on_finish: bpy.props.BoolProperty(
+        name="Beep On Finish",
+        description="Play a beep sound after an export job finishes",
         default=False,
     )
     texture_bake__enable: bpy.props.BoolProperty(
         name="Enable",
-        description="Enable this feature",
+        description="One-click bake and export of curvature and AO masks",
         default=True,
         update=registered_updated,
     )
@@ -118,6 +137,89 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         name="UV Layer",
         description="Name of the default UV layer for texture bakes",
         default="UVMap",
+    )
+    texture_bake__beep_on_finish: bpy.props.BoolProperty(
+        name="Beep On Finish",
+        description="Play a beep sound after a texture bake finishes",
+        default=False,
+    )
+    mesh__enable_make_collision: bpy.props.BoolProperty(
+        name="Enable \"Make Collision\"",
+        description="Generate collision selected geometry",
+        default=True,
+        update=registered_updated,
+    )
+    mesh__enable_add_rope: bpy.props.BoolProperty(
+        name="Enable \"Add Rope\"",
+        description="Construct a rope mesh following the selected curve",
+        default=True,
+        update=registered_updated,
+    )
+    mesh__enable_graft: bpy.props.BoolProperty(
+        name="Enable \"Graft\"",
+        description="Connect boundaries of selected objects to the active object",
+        default=True,
+        update=registered_updated,
+    )
+    mesh__enable_merge: bpy.props.BoolProperty(
+        name="Enable \"Merge\"",
+        description="Boolean merge one or more objects, cleaning up the result for normal transfer",
+        default=True,
+        update=registered_updated,
+    )
+    mesh__enable_retarget_mesh: bpy.props.BoolProperty(
+        name="Enable \"Retarget Mesh\"",
+        description="Retarget meshes to fit a modified version of the source mesh",
+        default=True,
+        update=registered_updated,
+    )
+    mesh__enable_shape_key_store: bpy.props.BoolProperty(
+        name="Enable \"Shape Key Store\"",
+        description="Adds buttons to load and save shape key values",
+        default=True,
+        update=registered_updated,
+    )
+    mesh__enable_vertex_color_mapping: bpy.props.BoolProperty(
+        name="Enable \"Vertex Color Mapping\"",
+        description="Procedurally generates vertex colors from various sources",
+        default=True,
+        update=registered_updated,
+    )
+    rig__enable_retarget_armature: bpy.props.BoolProperty(
+        name="Enable \"Retarget Armature\"",
+        description="Retarget an armature or selected bones to fit a modified version of the source mesh",
+        default=True,
+        update=registered_updated,
+    )
+    rig__enable_properties: bpy.props.BoolProperty(
+        name="Enable \"Rig Properties\"",
+        description="""Panel for frequently used rig or bone properties""",
+        default=True,
+        update=registered_updated,
+    )
+    rig__enable_selection_sets: bpy.props.BoolProperty(
+        name="Enable \"Selection Sets\"",
+        description="""Panel for quick bone selection""",
+        default=True,
+        update=registered_updated,
+    )
+    rig__enable_selection_sets: bpy.props.BoolProperty(
+        name="Enable \"Selection Sets\"",
+        description="""Panel for quick bone selection""",
+        default=True,
+        update=registered_updated,
+    )
+    uv__texture_sync: bpy.props.BoolProperty(
+        name="Enable \"Reorder UV Maps\"",
+        description="Adds a few buttons that allow reordering UV maps",
+        default=True,
+        update=registered_updated,
+    )
+    uv_paint__enable: bpy.props.BoolProperty(
+        name="Enable",
+        description="Assign UVs from a previously configured tileset or trim sheet",
+        default=True,
+        update=registered_updated,
     )
     uv_paint__layer_name: bpy.props.StringProperty(
         name="UV Layer",
@@ -144,30 +246,6 @@ Hex -- "#{R:X}{G:X}{B:X}{A:X}" (use "x" for lowercase)
 RGB -- "{R},{G},{B}"
 UE4 -- "(R={lr:f},G={lg:f},B={lb:f},A={a:f})\"""",
         default="#{R:X}{G:X}{B:X}{A:X}",
-    )
-    actions__register_pose_blender: bpy.props.BoolProperty(
-        name="Enable Pose Blender",
-        description="""Allows blending poses together, similar to the UE4 AnimGraph node.
-NEEDS UPDATING TO 3.0""",
-        default=False,
-        update=registered_updated,
-    )
-    actions__show_frame_range: bpy.props.BoolProperty(
-        name="Show Frame Range",
-        description="Show custom frame range controls in the action panel",
-        default=True,
-    )
-    actions__sync_frame_range: bpy.props.BoolProperty(
-        name="Sync Frame Range",
-        description="Keep preview range in sync with the action's custom frame range",
-        default=True,
-        update=prefs_updated,
-    )
-    rig__register_autoname_bone_chain: bpy.props.BoolProperty(
-        name="Register \"Auto-Name Bone Chain\"",
-        description="Automatically renames a chain of bones starting at the selected bone",
-        default=True,
-        update=registered_updated,
     )
     debug: bpy.props.BoolProperty(
         name="Debug Mode",

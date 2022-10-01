@@ -152,6 +152,9 @@ classes = (
 )
 
 def register(settings, prefs):
+    if not prefs.uv__texture_sync:
+        return False
+
     for cls in classes:
         bpy.utils.register_class(cls)
 

@@ -7,6 +7,7 @@ import re
 import shlex
 import time
 
+from .. import prefs
 from ..helpers import (
     beep,
     fail_if_invalid_export_path,
@@ -15,6 +16,7 @@ from ..helpers import (
     get_name_safe,
     get_nice_export_report,
     get_object_filepath,
+    gret_operator_exists,
     load_properties,
     load_selection,
     save_properties,
@@ -201,14 +203,15 @@ def _rig_export(self, context, job, rig):
         # Refresh vertex color and clear the mappings to avoid issues when meshes are merged
         # It's more intuitive to author masks starting from black, however UE4 defaults to white
         # Invert vertex colors, materials should use OneMinus to get the original value
-        if not obj.data.vertex_colors and not obj.vertex_color_mapping:
-            logd("Created default vertex color mapping")
-            bpy.ops.gret.vertex_color_mapping_add(ctx)
-        bpy.ops.gret.vertex_color_mapping_refresh(ctx, invert=job.invert_vertex_color_mappings)
-        bpy.ops.gret.vertex_color_mapping_clear(ctx)
-        if len(obj.data.vertex_colors) > 1:
-            logd(f"More than one vertex color layer, is this intended?",
-                ", ".join(vc.name for vc in obj.data.vertex_colors))
+        if gret_operator_exists("gret.vertex_color_mapping_add"):
+            if not obj.data.vertex_colors and not obj.vertex_color_mapping:
+                logd("Created default vertex color mapping")
+                bpy.ops.gret.vertex_color_mapping_add(ctx)
+            bpy.ops.gret.vertex_color_mapping_refresh(ctx, invert=job.invert_vertex_color_mappings)
+            bpy.ops.gret.vertex_color_mapping_clear(ctx)
+            if len(obj.data.vertex_colors) > 1:
+                logd(f"More than one vertex color layer, is this intended?",
+                    ", ".join(vc.name for vc in obj.data.vertex_colors))
 
         # Ensure proper mesh state
         sanitize_mesh(obj)
@@ -361,7 +364,8 @@ def rig_export(self, context, job):
         elapsed = time.time() - start_time
         self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
         log("Job complete")
-        beep(pitch=0)
+        if prefs.jobs__beep_on_finish:
+            beep(pitch=0)
     finally:
         # Clean up
         while self.new_objs:

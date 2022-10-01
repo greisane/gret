@@ -774,7 +774,7 @@ def load_pre_handler(scene):
     pose_blenders.clear()
 
 def register(settings, prefs):
-    if not prefs.actions__register_pose_blender:
+    if not prefs.animation__register_pose_blender:
         return False
 
     for cls in classes:
