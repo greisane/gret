@@ -340,9 +340,9 @@ class GRET_OT_rope_add(bpy.types.Operator):
         return {'FINISHED'}
 
 classes = (
-    # GRET_OT_wall_add,
-    GRET_OT_strap_add,
     GRET_OT_rope_add,
+    # GRET_OT_strap_add,
+    # GRET_OT_wall_add,
 )
 
 def draw_menu(self, context):
@@ -350,8 +350,8 @@ def draw_menu(self, context):
     layout.operator_context = 'INVOKE_REGION_WIN'
 
     layout.separator()
-    layout.operator('gret.strap_add', icon='EDGESEL', text="Strap")
     layout.operator('gret.rope_add', icon='MOD_SCREW', text="Rope")
+    # layout.operator('gret.strap_add', icon='EDGESEL', text="Strap")
     # layout.operator('gret.wall_add', icon='MOD_BUILD', text="Wall")
 
 def register(settings, prefs):

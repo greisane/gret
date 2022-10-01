@@ -96,13 +96,9 @@ Adds a few buttons that allow reordering UV maps. *Sync UV Maps* works on all se
 
 ![Buttons](../readme/syncuvmaps.png?raw=true)
 
-## Mesh: Add Strap
-
-Similar in function to an extruded curve. Since it's mesh and not curve based, typical mesh operators can be used to edit it. Use case is adding belts to characters.
-
 ## Mesh: Add Rope
 
-Generates helicoid meshes, mostly useful as ropes. Can edit the base shape once created.
+Generates helicoid meshes like ropes or drill bits. Can edit the base shape once created.
 
 ![Demo](../readme/rope-demo.gif?raw=true)
 
