@@ -28,7 +28,9 @@ Blender 2.93 or later required.
 
 # Configuration
 
-TODO
+Everything is enabled by default except [Export Jobs](#export-jobs). Most tools can be individually toggled off to avoid clutter.
+
+![Preferences](../readme/preferences.png?raw=true)
 
 
 
@@ -44,19 +46,21 @@ Connects boundaries of selected objects to the active object. I wrote it to deal
 
 ## Mesh: Merge
 
-Boolean merges one or more objects, with options to fix the resulting normals. Does a lot of cleanup and, if possible, it will only merge vertices belonging to the same edge loops in order to preserve geometry and UVs. Though it's no substitute for proper retopo it can be a decent starting point.
+Boolean merges one or more objects, with options to tweak the resulting normals. Though it's no substitute for proper retopo it can be a decent starting point.
 
 ![Demo](../readme/merge-demo.gif?raw=true)
 
+![Examples](../readme/merge-examples.png?raw=true)
+
+> Merging vertices exclusively along the UV direction to keep seams intact.
+
 ## Mesh: Retarget
 
-Given two versions of the same mesh, allows retargeting meshes or bones originally fit for the first version to fit the second version instead.
+Uses [radial basis functions](https://www.marcuskrautwurst.com/2017/12/rbf-node.html) to retarget meshes or armatures. It can transfer shape keys from characters to clothes, refit clothing or make a character's skeleton follow modified body proportions.
 
-Ideal to transfer shape keys from characters to clothing, or to make a character's skeleton follow changes after modifying body proportions.
+Source and destination meshes can look completely different but *must* share topology and vertex order. Shape keys as destination will always work correctly. Best results with T-posed or starfish-posed characters as there is less potential for ambiguity.
 
-![Demo](../readme/retargetmesh-demo.gif?raw=true)
-
-> If retargeting to a different mesh, make sure they share topology and vertex order. If the result is polygon soup then it's probably the vertex order. Try using an addon like [Transfer Vert Order](https://gumroad.com/l/copy_verts_ids) to fix it.
+![Examples](../readme/retargetmesh-examples.png?raw=true)
 
 ## Mesh: Make Collision
 
@@ -72,13 +76,13 @@ Intended for use with UE4, generates collision shapes for selected geometry. For
 
 Procedurally generates vertex colors from various sources. Sources can be vertex groups, object or vertex position, or a random value. Useful for exporting masks to game engines.
 
-![Panel](../readme/vcolmapping.png?raw=true)
+![Panel](../readme/vertexcolormapping.png?raw=true)
 
 ## Mesh: Vertex Group Bleed
 
 The Smooth operator with "Expand" tends to either clip values or smear them way too much. Bleed provides finer control and guarantees that new weights will never be lower than the input weights.
 
-Works in your favor when you want to create a clean weight gradient radiating from an edge loop, or to soften skinning without weakening the overall deformation.
+Use to create precise weight gradients or to soften skinning without weakening the overall deformation.
 
 ## Mesh: Vertex Group Smooth Loops
 
@@ -90,15 +94,15 @@ Skinning tool to separately smooth weights on parallel loops, like belts and suc
 
 The much needed ability to apply modifiers on a mesh with shape keys. Mirrors are specially handled to fix shape keys that move vertices off the center axis. Found in Shape Keys → Specials Menu → Apply Modifiers with Shape Keys.
 
-## Mesh: Sync UV Maps
+## Mesh: Shape Key Store
 
-Adds a few buttons that allow reordering UV maps. *Sync UV Maps* works on all selected objects to ensure UV layer names and order are consistent with the active object. It can also be used to simply switch the active UV layer for multiple objects.
+Ctrl-Click a letter button to save current shape key values to that slot, click to restore and apply those values. Note that this doesn't store the shape keys themselves, only their influence. Comes in handy sometimes if you use a lot of shape keys.
 
-![Buttons](../readme/syncuvmaps.png?raw=true)
+![Panel](../readme/shapekeystore.png?raw=true)
 
 ## Mesh: Add Rope
 
-Generates helicoid meshes like ropes or drill bits. Can edit the base shape once created.
+Generates helicoid meshes like ropes or drill bits. Can also be edited manually once created.
 
 ![Demo](../readme/rope-demo.gif?raw=true)
 
@@ -116,13 +120,17 @@ A panel for quick access to actions and working with pose libraries. Pose librar
 
 ![Panel](../readme/actions-panel.png?raw=True)
 
-## Animation: Rig Panel
+## Animation: Rig Properties
 
-Add any frequently used rig or bone properties here. To find the data path of a property, right click it then select *Copy Data Path*.
+Panel for frequently used rig or bone properties. To add a property, first find its data path (right click and select *Copy Data Path*) then click the plus sign.
 
-The addon [Bone Selection Sets](https://docs.blender.org/manual/en/latest/addons/animation/bone_selection_sets.html) must be enabled for the second panel to show. I don't find bone pickers to be comfortable to use, and this is a workable alternative. Add and delete buttons make it easy to create temporary sets while animating.
+![Panel](../readme/rigproperties-demo.gif?raw=True)
 
-![Panel](../readme/rig-panel.png?raw=True)
+## Animation: Selection Sets
+
+Panel for quick bone selection if you don't find graphical bone pickers comfortable. Built-in addon [Bone Selection Sets](https://docs.blender.org/manual/en/latest/addons/animation/bone_selection_sets.html) must be enabled.
+
+![Panel](../readme/selectionsets-panel.png?raw=True)
 
 ## Material: Texture Bake
 
@@ -130,17 +138,25 @@ One-click bake and export. Intended for quickly baking out curvature and AO mask
 
 ![Panel](../readme/texturebake.png?raw=true)
 
-## Material: Tile Paint
+## UV: UV Paint
 
-Rudimentary tool to create tile-based UV maps. For anything more complicated use [Sprytile](https://github.com/Sprytile/Sprytile) instead.
+Work-in-progress tool to assign UVs from a previously configured tileset or trim sheet.
 
 ![Demo](../readme/tilepaint-demo.gif?raw=true)
+
+> Above is an older video of the tool, but the functionality is the same.
 
 ## UV: Relax Loops
 
 Relaxes selected UV edge loops to their respective length on the mesh. Together with pins it can be used to rectify non-grid meshes that TexTools Rectify won't work on. Found in UV Editor → UV → Relax Loops.
 
 ![Demo](../readme/uvrelax-demo.gif?raw=true)
+
+## UV: Reorder UV Maps
+
+Adds a few buttons that allow reordering UV maps. *Sync UV Maps* works on all selected objects to ensure UV layer names and order are consistent with the active object. Can be used to just switch the active UV layer for multiple objects.
+
+![Buttons](../readme/syncuvmaps.png?raw=true)
 
 ## Other
 
