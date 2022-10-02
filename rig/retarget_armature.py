@@ -164,15 +164,23 @@ def draw_panel(self, context):
     row.label(text="", icon='FORWARD')
     row.prop(settings, 'retarget_dst', text="")
 
-    row = col.row(align=True)
-    row.prop(settings, 'retarget_function', text="")
-    row.prop(settings, 'retarget_radius', text="")
+    row = col.row()
+    row.alignment = 'LEFT'
+    icon = 'DOWNARROW_HLT' if settings.retarget_show_advanced else 'RIGHTARROW'
+    row.prop(settings, 'retarget_show_advanced', icon=icon, emboss=False)
 
-    col.prop(settings, 'retarget_only_selection')
-    col.prop(settings, 'retarget_high_quality')
-    col.prop(settings, 'retarget_use_mirror_x')
-    col.prop(settings, 'retarget_lock_length')
-    col.prop(settings, 'retarget_lock_direction')
+    if settings.retarget_show_advanced:
+        row = col.row(align=True)
+        row.prop(settings, 'retarget_function', text="")
+        row.prop(settings, 'retarget_radius', text="")
+
+        col.prop(settings, 'retarget_only_selection')
+        col.prop(settings, 'retarget_high_quality')
+        col.prop(settings, 'retarget_use_mirror_x')
+        col.prop(settings, 'retarget_lock_length')
+        col.prop(settings, 'retarget_lock_direction')
+
+    col.separator()
 
     if obj and obj.data and getattr(obj.data, 'use_mirror_x', False):
         col.label(text="X-Axis Mirror is enabled.")
@@ -226,7 +234,7 @@ def register(settings, prefs):
 
     settings.add_property('retarget_src', bpy.props.PointerProperty(
         name="Mesh Retarget Source",
-        description="Base mesh that the meshes are fit to",
+        description="Original mesh that the meshes are fit to",
         type=bpy.types.Object,
         poll=lambda self, obj: obj and obj.type == 'MESH',
         update=retarget_src_update,
@@ -236,6 +244,10 @@ def register(settings, prefs):
         description="""Mesh or shape key to retarget to.
 Expected to share topology and vertex order with the source mesh""",
         items=retarget_dst_items,
+    ))
+    settings.add_property('retarget_show_advanced', bpy.props.BoolProperty(
+        name="Advanced Options",
+        description="Show advanced options",
     ))
     retarget_props = GRET_OT_retarget_armature.__annotations__
     settings.add_property('retarget_function', retarget_props['function'])
