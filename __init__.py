@@ -267,7 +267,6 @@ UE4 -- "(R={lr:f},G={lg:f},B={lb:f},A={a:f})\"""",
             for prop_name in self.__annotations__:
                 cpos = prop_name.find("__")
                 category_name = titlecase(prop_name[:cpos]) if cpos > 0 else unnamed_category_name
-                print(category_name, prop_name)
                 d[category_name].append(prop_name)
             prop_sort_key = lambda s: "" if s.endswith("__enable") else s  # Main toggle first
             category_sort_key = lambda s: "ZZ" if s == unnamed_category_name else s  # Unnamed last
