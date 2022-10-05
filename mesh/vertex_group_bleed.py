@@ -1,7 +1,7 @@
 import bmesh
 import bpy
 
-from .helpers import bmesh_vertex_group_bleed
+from .helpers import bmesh_vertex_group_bleed, get_operator_target_vertex_groups
 
 class GRET_OT_vertex_group_bleed(bpy.types.Operator):
     #tooltip
@@ -21,6 +21,11 @@ The result is stable, running the operator more than once won't cause any change
         ),
         description="Subset of vertex groups to modify",
         default='ACTIVE',
+    )
+    only_unlocked: bpy.props.BoolProperty(
+        name="Unlocked Only",
+        description="Ignore vertex groups that are locked",
+        default=False,
     )
     distance: bpy.props.FloatProperty(
         name="Distance",
@@ -43,22 +48,13 @@ The result is stable, running the operator more than once won't cause any change
 
     def execute(self, context):
         obj = context.active_object
+        vg_idxs = get_operator_target_vertex_groups(obj, self.group_select_mode, self.only_unlocked)
+        if not vg_idxs:
+            return {'FINISHED'}
+
         bm = bmesh.new()
         bm.from_mesh(obj.data)
         bm.verts.ensure_lookup_table()
-
-        # Get list of vertex groups to work on
-        if self.group_select_mode == 'ACTIVE':
-            vg_idxs = [obj.vertex_groups.active_index]
-        elif self.group_select_mode == 'BONE_DEFORM':
-            vg_idxs = []
-            armature = obj.find_armature()
-            if armature:
-                bones = armature.data.bones
-                vg_idxs = [vg.index for vg in obj.vertex_groups
-                    if vg.name in bones and bones[vg.name].use_deform]
-        elif self.group_select_mode == 'ALL':
-            vg_idxs = list(range(len(obj.vertex_groups)))
 
         if obj.data.use_paint_mask_vertex:
             for vert in bm.verts:

@@ -5,6 +5,7 @@ import bmesh
 import bpy
 import re
 
+from .. import prefs
 from ..heapdict import heapdict
 from ..helpers import get_flipped_name, get_context, select_only, fmt_fraction
 from ..log import logger, log, logd
@@ -271,8 +272,28 @@ def encode_shape_keys(obj, shape_key_names=["*"], keep=False):
     if mesh.shape_keys and len(mesh.shape_keys.key_blocks) == 1:
         obj.shape_key_clear()
 
+def get_operator_target_vertex_groups(obj, group_select_mode, only_unlocked=False):
+    """Returns list of vertex groups to work on."""
+
+    vgroup_idxs = []
+    if group_select_mode == 'ACTIVE':
+        vgroup_idxs = [obj.vertex_groups.active_index]
+    elif group_select_mode == 'BONE_DEFORM':
+        vgroup_idxs = []
+        armature = obj.find_armature()
+        if armature:
+            bones = armature.data.bones
+            vgroup_idxs = [vgroup.index for vgroup in obj.vertex_groups
+                if (not only_unlocked or not vgroup.lock_weight)
+                and vgroup.name in bones
+                and bones[vgroup.name].use_deform]
+    elif group_select_mode == 'ALL':
+        vgroup_idxs = [vgroup.index for vgroup in obj.vertex_groups
+            if (not only_unlocked or not vgroup.lock_weight)]
+    return vgroup_idxs
+
 def get_modifier_mask(obj, key=None):
-    """Return a modifier mask for use with gret.shape_key_apply_modifiers"""
+    """Return a modifier mask for use with gret.shape_key_apply_modifiers."""
 
     mask = [key(modifier) if callable(key) else True for modifier in obj.modifiers]
     return mask[:32] + [False] * (32 - len(mask))
