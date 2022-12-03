@@ -140,7 +140,7 @@ def try_key(obj, prop_path, frame=0):
 def copy_drivers(src, dst, overwrite=False):
     """Copies drivers. src and dst should be of type bpy.types.ID with an AnimData slot."""
 
-    if src and src.animation_data:
+    if src and src.animation_data and dst:
         src_name = src.user.name if src.user else src.name
         for src_fc in src.animation_data.drivers:
             if dst.animation_data is None:
