@@ -236,8 +236,12 @@ def _rig_export(self, context, job, rig):
         if len(items) <= 1:
             continue
 
-        # Pick the densest object to receive all the others
-        merged_item = max(items, key=lambda it: len(it.obj.data.vertices))
+        # Pick the object that all others will be merged into
+        # First choice should be the character's body, otherwise pick the densest mesh
+        merged_item = next((it for it in items if it.original.name.lower() == 'body'), None)
+        if merged_item is None:
+            merged_item = max(items, key=lambda it: len(it.obj.data.vertices))
+
         log(f"Merging {', '.join(it.original.name for it in items if it is not merged_item)} "
             f"into {merged_item.original.name}")
         logger.indent += 1
