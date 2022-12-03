@@ -93,10 +93,15 @@ def _rig_export(self, context, job, rig):
     rig_basename = os.path.splitext(bpy.path.basename(rig_filepath))[0]
     rig.data.pose_position = 'REST'
 
+    use_auto_smooth = False
     if job.to_collection and job.clean_collection:
         # Clean the target collection first
         # Currently not checking whether the rig is in here, it will probably explode
         log(f"Cleaning target collection")
+        if len(job.export_collection.objects) == 1:
+            # Remember auto smooth setting
+            only_obj = job.export_collection.objects[0]
+            use_auto_smooth = only_obj.type == 'MESH' and only_obj.data.use_auto_smooth
         for obj in job.export_collection.objects:
             data = obj.data
             bpy.data.objects.remove(obj, do_unlink=True)
@@ -290,7 +295,7 @@ def _rig_export(self, context, job, rig):
             job.export_collection.objects.link(obj)
             context.scene.collection.objects.unlink(obj)
             # Disable features on output meshes for performance
-            obj.data.use_auto_smooth = False
+            obj.data.use_auto_smooth = use_auto_smooth
             obj.data.use_customdata_vertex_bevel = False
             obj.data.use_customdata_edge_bevel = False
             obj.data.use_customdata_edge_crease = False
