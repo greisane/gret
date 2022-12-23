@@ -28,7 +28,7 @@ from ..mesh.helpers import (
     apply_shape_keys_with_vertex_groups,
     delete_faces_with_no_material,
     encode_shape_keys,
-    merge_basis_shape_keys,
+    merge_shape_keys,
     merge_freestyle_edges,
     mirror_shape_keys,
     unsubdivide_preserve_uvs,
@@ -152,7 +152,7 @@ def _rig_export(self, context, job, rig):
         obj.data.auto_smooth_angle = pi
 
         if job.merge_basis_shape_keys:
-            merge_basis_shape_keys(obj, shlex.split(job.basis_shape_key_pattern))
+            merge_shape_keys(obj, shlex.split(job.basis_shape_key_pattern))
 
         if job.mirror_shape_keys:
             mirror_shape_keys(obj, job.side_vgroup_name)

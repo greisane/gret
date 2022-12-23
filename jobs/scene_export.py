@@ -27,7 +27,7 @@ from ..mesh.helpers import (
     apply_modifiers,
     delete_faces_with_no_material,
     encode_shape_keys,
-    merge_basis_shape_keys,
+    merge_shape_keys,
     unsubdivide_preserve_uvs,
 )
 from ..mesh.collision import collision_prefixes, get_collision_objects
@@ -166,7 +166,7 @@ def _scene_export(self, context, job):
             unsubdivide_preserve_uvs(obj, -levels)
 
         if job.merge_basis_shape_keys:
-            merge_basis_shape_keys(obj, shlex.split(job.basis_shape_key_pattern))
+            merge_shape_keys(obj, shlex.split(job.basis_shape_key_pattern))
 
         # Clear shape keys if they won't be needed later
         if not job.encode_shape_keys:

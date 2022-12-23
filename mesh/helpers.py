@@ -121,10 +121,18 @@ def duplicate_shape_key(obj, name, new_name):
 
     return new_shape_key
 
-def merge_basis_shape_keys(obj, shape_key_names=["*"]):
+def merge_shape_keys(obj, shape_key_names=["*"], target_shape_key_name=""):
+    """Merges one or more shape keys into the basis, or target shape key if specified."""
+
     mesh = obj.data
     if not mesh.shape_keys or not mesh.shape_keys.key_blocks:
         # No shape keys
+        return
+
+    basis_shape_key_name = mesh.shape_keys.key_blocks[0].name
+    target_shape_key_name = target_shape_key_name or basis_shape_key_name
+    if target_shape_key_name not in mesh.shape_keys.key_blocks:
+        log(f"Can't merge shape keys, target shape key {target_shape_key_name} doesn't exist")
         return
 
     # Store state
@@ -132,7 +140,7 @@ def merge_basis_shape_keys(obj, shape_key_names=["*"]):
 
     # Mute all but the ones to be merged
     for sk in mesh.shape_keys.key_blocks[1:]:
-        if any(fnmatch(sk.name, s) for s in shape_key_names):
+        if any(fnmatch(sk.name, s) for s in shape_key_names) or sk.name == target_shape_key_name:
             if sk.mute:
                 # Delete candidate shapekeys that won't be used
                 # This ensures muted shapekeys don't unexpectedly return when objects are merged
@@ -142,23 +150,30 @@ def merge_basis_shape_keys(obj, shape_key_names=["*"]):
 
     unmuted_shape_keys = [sk for sk in mesh.shape_keys.key_blocks[1:] if not sk.mute]
     if unmuted_shape_keys:
-        log(f"Merging {len(unmuted_shape_keys)} shape keys to basis: " +
+        log(f"Merging {len(unmuted_shape_keys)} shape keys to {target_shape_key_name}: " +
             ", ".join(fmt_shape_key(sk) for sk in unmuted_shape_keys))
 
-        # Replace basis with merged
-        new_basis = obj.shape_key_add(name="New Basis", from_mix=True)
+        # Replace target shape key with mix. While the basis layer *does* exist in bmesh
+        # changing it doesn't seem to have any effect, hence the two code paths
+        merged_sk = obj.shape_key_add(name="__merged", from_mix=True)
         bm = bmesh.new()
         bm.from_mesh(mesh)
-        new_basis_layer = bm.verts.layers.shape[new_basis.name]
-        for vert in bm.verts:
-            vert.co[:] = vert[new_basis_layer]
+        merged_layer = bm.verts.layers.shape[merged_sk.name]
+        if target_shape_key_name != basis_shape_key_name:
+            target_layer = bm.verts.layers.shape[target_shape_key_name]
+            for vert in bm.verts:
+                vert[target_layer] = vert[merged_layer]
+        else:
+            for vert in bm.verts:
+                vert.co = vert[merged_layer]
         bm.to_mesh(mesh)
         bm.free()
-        obj.shape_key_remove(new_basis)
+        obj.shape_key_remove(merged_sk)
 
         # Remove the merged shapekeys
         for sk in unmuted_shape_keys:
-            obj.shape_key_remove(sk)
+            if sk.name != target_shape_key_name:
+                obj.shape_key_remove(sk)
 
     # Restore state
     for sk in saved_unmuted_shape_keys:
