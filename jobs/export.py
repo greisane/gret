@@ -634,19 +634,21 @@ Separate tags with a space. Tag modifiers with 'g:tag'""",
         default="",
     )
     merge_basis_shape_keys: bpy.props.BoolProperty(
-        name="Merge Basis Keys",
-        description="Blends matching shape keys into the basis shape",
+        name="Merge Shape Keys",
+        description="Merge shape keys by name, into the basis or another shape key",
         default=True,
     )
     basis_shape_key_pattern: bpy.props.StringProperty(
-        name="Basis Shape Key Pattern",
-        description="Pattern for shape keys to be merged into basis (wildcards allowed)",
+        name="Shape Key Merge Patterns",
+        description="""Patterns for shape keys to be merged into basis, wildcards are allowed.
+Can also specify the target shape key with an arrow, e.g. 'SmileTweak->Smile'""",
         default='"Key [0-9]*" b_*',
     )
     encode_shape_keys: bpy.props.BoolProperty(
         name="Encode Shape Keys",
         description="""Shape keys suffixed '_UV' are encoded in UV channels instead of being exported.
-UVn+1: deltaXY, UVn+2: deltaZnormalX, UVn+3: normalYZ. All values are remapped to a [0..1] UV range""",
+UVn+1: deltaXY, UVn+2: deltaZnormalX, UVn+3: normalYZ.
+All values are remapped to a [0..1] UV range""",
         default=False,
     )
     use_postprocess_script: bpy.props.BoolProperty(

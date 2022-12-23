@@ -152,7 +152,12 @@ def _rig_export(self, context, job, rig):
         obj.data.auto_smooth_angle = pi
 
         if job.merge_basis_shape_keys:
-            merge_shape_keys(obj, shlex.split(job.basis_shape_key_pattern))
+            for shape_key_pattern in shlex.split(job.basis_shape_key_pattern):
+                try:
+                    shape_key_pattern, target_shape_key_name = shape_key_pattern.split("->")
+                    merge_shape_keys(obj, [shape_key_pattern], target_shape_key_name)
+                except ValueError:
+                    merge_shape_keys(obj, [shape_key_pattern])
 
         if job.mirror_shape_keys:
             mirror_shape_keys(obj, job.side_vgroup_name)

@@ -166,7 +166,12 @@ def _scene_export(self, context, job):
             unsubdivide_preserve_uvs(obj, -levels)
 
         if job.merge_basis_shape_keys:
-            merge_shape_keys(obj, shlex.split(job.basis_shape_key_pattern))
+            for shape_key_pattern in shlex.split(job.basis_shape_key_pattern):
+                try:
+                    shape_key_pattern, target_shape_key_name = shape_key_pattern.split("->")
+                    merge_shape_keys(obj, [shape_key_pattern], target_shape_key_name)
+                except ValueError:
+                    merge_shape_keys(obj, [shape_key_pattern])
 
         # Clear shape keys if they won't be needed later
         if not job.encode_shape_keys:
