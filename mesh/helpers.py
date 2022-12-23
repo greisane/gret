@@ -132,7 +132,7 @@ def merge_shape_keys(obj, shape_key_names=["*"], target_shape_key_name=""):
     basis_shape_key_name = mesh.shape_keys.key_blocks[0].name
     target_shape_key_name = target_shape_key_name or basis_shape_key_name
     if target_shape_key_name not in mesh.shape_keys.key_blocks:
-        log(f"Can't merge shape keys, target shape key {target_shape_key_name} doesn't exist")
+        logd(f"Can't merge shape keys, target shape key {target_shape_key_name} doesn't exist")
         return
 
     # Store state
@@ -141,20 +141,30 @@ def merge_shape_keys(obj, shape_key_names=["*"], target_shape_key_name=""):
     # Mute all but the ones to be merged
     for sk in mesh.shape_keys.key_blocks[1:]:
         if any(fnmatch(sk.name, s) for s in shape_key_names) or sk.name == target_shape_key_name:
-            if sk.mute:
-                # Delete candidate shapekeys that won't be used
-                # This ensures muted shapekeys don't unexpectedly return when objects are merged
+            # Remove any drivers related to shape keys that will be deleted
+            if mesh.shape_keys.animation_data:
+                sk_data_path = f'key_blocks["{sk.name}"]'
+                for fc in mesh.shape_keys.animation_data.drivers:
+                    if fc.data_path.startswith(sk_data_path):
+                        if fc.data_path.endswith('.value'):
+                            # Influence was being driven, assume user would want to merge it fully
+                            sk.value = sk.slider_max
+                        mesh.shape_keys.animation_data.drivers.remove(fc)
+            if sk.mute or sk.value == 0.0:
+                # Muted candidates are handled as if merged at 0% and deleted
+                # Removing ensures shape keys don't unexpectedly return when objects are merged
                 obj.shape_key_remove(sk)
         else:
             sk.mute = True
 
-    unmuted_shape_keys = [sk for sk in mesh.shape_keys.key_blocks[1:] if not sk.mute]
-    if unmuted_shape_keys:
-        log(f"Merging {len(unmuted_shape_keys)} shape keys to {target_shape_key_name}: " +
-            ", ".join(fmt_shape_key(sk) for sk in unmuted_shape_keys))
+    source_shape_keys = [sk for sk in mesh.shape_keys.key_blocks[1:]
+        if not sk.mute and sk.name != target_shape_key_name]
+    if source_shape_keys:
+        log(f"Merging {len(source_shape_keys)} shape keys to {target_shape_key_name}: " +
+            ", ".join(fmt_shape_key(sk) for sk in source_shape_keys))
 
         # Replace target shape key with mix. While the basis layer *does* exist in bmesh
-        # changing it doesn't seem to have any effect, hence the two code paths
+        # changing it doesn't seem to have any effect, hence the split code path
         merged_sk = obj.shape_key_add(name="__merged", from_mix=True)
         bm = bmesh.new()
         bm.from_mesh(mesh)
@@ -171,9 +181,8 @@ def merge_shape_keys(obj, shape_key_names=["*"], target_shape_key_name=""):
         obj.shape_key_remove(merged_sk)
 
         # Remove the merged shapekeys
-        for sk in unmuted_shape_keys:
-            if sk.name != target_shape_key_name:
-                obj.shape_key_remove(sk)
+        for sk in source_shape_keys:
+            obj.shape_key_remove(sk)
 
     # Restore state
     for sk in saved_unmuted_shape_keys:
