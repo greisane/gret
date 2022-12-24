@@ -6,7 +6,7 @@ A collection of Blender tools I've written for myself over the years. I use thes
 
 # Installation
 
-Blender 3.3 or later required.
+Blender 3.4 or later required.
 
 1. Download the [latest release](https://github.com/greisane/gret/releases/latest).
 
