@@ -299,11 +299,9 @@ def _rig_export(self, context, job, rig):
                 obj.data.name = job.export_collection.name
             job.export_collection.objects.link(obj)
             context.scene.collection.objects.unlink(obj)
-            # Disable features on output meshes for performance
+            # Auto-smooth has a noticeable impact in performance while animating,
+            # disable unless the user explicitly enabled it back in the previous build result
             obj.data.use_auto_smooth = use_auto_smooth
-            obj.data.use_customdata_vertex_bevel = False
-            obj.data.use_customdata_edge_bevel = False
-            obj.data.use_customdata_edge_crease = False
             # Don't delete this
             self.new_objs.discard(obj)
             self.new_meshes.discard(obj.data)

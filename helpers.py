@@ -441,6 +441,14 @@ def intercept(_func=None, error_result=None):
     else:
         return decorator(_func)
 
+def try_call(f, *args, **kwargs):
+    try:
+        f(*args, **kwargs)
+        return True
+    except RuntimeError:
+        pass
+    return False
+
 def get_export_path(path, fields):
     """Returns an absolute path from an export path."""
 

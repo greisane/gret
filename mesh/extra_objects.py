@@ -284,7 +284,6 @@ class GRET_OT_rope_add(bpy.types.Operator):
         mesh.from_pydata(vertices, [], faces)
         for face in mesh.polygons:
             face.use_smooth = self.use_smooth_shade
-        mesh.use_customdata_edge_crease = True
         mesh.use_auto_smooth = True
         mesh.auto_smooth_angle = pi
         for edge in (mesh.edges[4], mesh.edges[8]):
@@ -318,7 +317,7 @@ class GRET_OT_rope_add(bpy.types.Operator):
         mod.deform_axis = 'Z'
 
         mod = obj.modifiers.new(type='ARRAY', name="")
-        mod.count = self.number_of_rows
+        mod.count = self.rows
         mod.relative_offset_displace = [0.0, 0.0, 1.0]
         mod.use_merge_vertices = True
         mod.merge_threshold = 1e-5

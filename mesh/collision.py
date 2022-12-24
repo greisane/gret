@@ -11,7 +11,7 @@ from ..math import (
     get_point_dist_to_line_sq,
     get_range_pct,
 )
-from ..helpers import get_collection, TempModifier
+from ..helpers import try_call, get_context, get_collection, TempModifier
 
 # make_collision TODO:
 # - Non-axis aligned boxes
@@ -34,19 +34,33 @@ def find_free_col_name(prefix, name):
             break
     return col_name
 
+def clear_customdata(obj, sculpt_mask_data=True, skin_data=True, custom_split_normals=True,
+    edge_bevel_weight=True, vertex_bevel_weight=True, edge_crease=True, vertex_crease=True):
+    ctx = get_context(obj)
+    if sculpt_mask_data:
+        try_call(bpy.ops.mesh.customdata_mask_clear, ctx)
+    if skin_data:
+        try_call(bpy.ops.mesh.customdata_skin_clear, ctx)
+    if custom_split_normals:
+        try_call(bpy.ops.mesh.customdata_custom_splitnormals_clear, ctx)
+    if edge_bevel_weight:
+        try_call(bpy.ops.mesh.customdata_bevel_weight_edge_clear, ctx)
+    if vertex_bevel_weight:
+        try_call(bpy.ops.mesh.customdata_bevel_weight_vertex_clear, ctx)
+    if edge_crease:
+        try_call(bpy.ops.mesh.customdata_crease_edge_clear, ctx)
+    if vertex_crease:
+        try_call(bpy.ops.mesh.customdata_crease_vertex_clear, ctx)
+
 def remove_extra_data(obj):
     assert obj.type == 'MESH'
 
     obj.vertex_groups.clear()
     obj.shape_key_clear()
+    clear_customdata(obj)
 
     mesh = obj.data
-    mesh.use_customdata_vertex_bevel = False
-    mesh.use_customdata_edge_bevel = False
-    mesh.use_customdata_edge_crease = False
-
-    # mesh.materials.clear() seems to crash
-    while mesh.materials:
+    while mesh.materials:  # mesh.materials.clear() seems to crash
         mesh.materials.pop()
     while mesh.uv_layers.active:
         mesh.uv_layers.remove(mesh.uv_layers.active)

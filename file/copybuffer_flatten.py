@@ -1,6 +1,13 @@
 import bpy
 import re
-from ..helpers import get_context, select_only, load_selection, save_selection, swap_object_names
+from ..helpers import (
+    get_context,
+    load_selection,
+    save_selection,
+    select_only,
+    swap_object_names,
+    try_call,
+)
 
 # TODO
 # - Make flattening optional and rename to Copy Advanced
@@ -19,14 +26,6 @@ def clear_pointers(obj):
         elif prop.type == 'POINTER' and prop.is_runtime and not prop.is_readonly:
             if getattr(obj, prop_id) != my_data:
                 setattr(obj, prop_id, None)
-
-def try_call(f, *args, **kwargs):
-    try:
-        f(*args, **kwargs)
-        return True
-    except RuntimeError:
-        pass
-    return False
 
 class GRET_OT_copybuffer_flatten(bpy.types.Operator):
     #tooltip
