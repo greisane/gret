@@ -192,6 +192,16 @@ def merge_shape_keys(obj, shape_key_names=["*"], target_shape_key_name=""):
     if mesh.shape_keys and len(mesh.shape_keys.key_blocks) == 1:
         obj.shape_key_clear()
 
+def remove_shape_keys(obj, shape_key_names=["*"]):
+    mesh = obj.data
+    if not mesh.shape_keys or not mesh.shape_keys.key_blocks:
+        # No shape keys
+        return
+
+    for sk in mesh.shape_keys.key_blocks[1:]:
+        if any(fnmatch(sk.name, s) for s in shape_key_names):
+            obj.shape_key_remove(sk)
+
 def mirror_shape_keys(obj, side_vgroup_name):
     if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:
         # No shape keys

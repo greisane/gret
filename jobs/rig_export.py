@@ -28,9 +28,10 @@ from ..mesh.helpers import (
     apply_shape_keys_with_vertex_groups,
     delete_faces_with_no_material,
     encode_shape_keys,
-    merge_shape_keys,
     merge_freestyle_edges,
+    merge_shape_keys,
     mirror_shape_keys,
+    remove_shape_keys,
     unsubdivide_preserve_uvs,
 )
 from ..log import logger, log, logd
@@ -283,6 +284,8 @@ def _rig_export(self, context, job, rig):
 
         if job.encode_shape_keys:
             encode_shape_keys(obj, ["*_UV"])
+        else:
+            remove_shape_keys(obj, ["*_UV"])
 
         # Ensure proper mesh state
         sanitize_mesh(obj)
