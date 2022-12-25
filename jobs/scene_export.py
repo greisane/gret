@@ -168,8 +168,12 @@ def _scene_export(self, context, job):
         if job.merge_basis_shape_keys:
             for shape_key_pattern in shlex.split(job.basis_shape_key_pattern):
                 try:
+                    # Check for A->B format which specifies the target shape key instead of basis
                     shape_key_pattern, target_shape_key_name = shape_key_pattern.split("->")
-                    merge_shape_keys(obj, [shape_key_pattern], target_shape_key_name)
+                    if not target_shape_key_name or target_shape_key_name == "_":
+                        remove_shape_keys(obj, [shape_key_pattern])
+                    else:
+                        merge_shape_keys(obj, [shape_key_pattern], target_shape_key_name)
                 except ValueError:
                     merge_shape_keys(obj, [shape_key_pattern])
 
