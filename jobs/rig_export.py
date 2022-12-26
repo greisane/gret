@@ -22,7 +22,6 @@ from ..helpers import (
     save_properties,
     save_selection,
     split_sequence,
-    TempModifier,
     viewport_reveal_all,
 )
 from ..mesh.helpers import (
@@ -31,6 +30,7 @@ from ..mesh.helpers import (
     delete_faces_with_no_material,
     edit_mesh_elements,
     encode_shape_keys,
+    get_modifier_mask,
     merge_islands,
     merge_shape_keys,
     mirror_shape_keys,
@@ -304,10 +304,12 @@ def _rig_export(self, context, job, rig):
             items.append(item)
 
             if item.subd_level > 0:
-                with TempModifier(item.obj, type='SUBSURF') as subd_mod:
-                    subd_mod.levels = item.subd_level
-                    subd_mod.use_creases = True
-                    subd_mod.use_custom_normals = True
+                subd_mod = item.obj.modifiers.new(type='SUBSURF', name="")
+                subd_mod.levels = item.subd_level
+                subd_mod.use_creases = True
+                subd_mod.use_custom_normals = True
+                bpy.ops.gret.shape_key_apply_modifiers(get_context(item.obj),
+                    modifier_mask=get_modifier_mask(item.obj, key=lambda mod: mod == subd_mod))
                 log(f"Subdivided {item.original.name} {item.subd_level} times")
                 item.subd_level = 0
 
