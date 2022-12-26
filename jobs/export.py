@@ -438,10 +438,11 @@ class GRET_PG_export_collection(bpy.types.PropertyGroup):
     )
     subdivision_levels: bpy.props.IntProperty(
         name="Subdivision Levels",
-        description="Subdivision levels to apply to the collection. Negative values will simplify",
+        description="""Subdivide collection if positive, simplify if negative.
+Performed after merging so that welded seams are smoothed correctly""",
         default=0,
-        soft_min=-6,
-        soft_max=6,
+        soft_min=-2,
+        soft_max=2,
     )
 
     def get_collection(self, context):

@@ -587,6 +587,18 @@ def remove_subsequence(seq, subseq):
             break
     return seq
 
+def split_sequence(seq, function=None):
+    """Returns two lists containing items for which function(item) returns true or false respectively.
+    If function is None, bool(element) is tested instead."""
+
+    a, b = [], []
+    for el in seq:
+        if function is None:
+            (a if bool(el) else b).append(el)
+        else:
+            (a if function(el) else b).append(el)
+    return a, b
+
 def get_visible_objects_and_duplis(context):
     """Loop over (object, matrix) pairs."""
 

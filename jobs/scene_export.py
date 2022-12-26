@@ -162,9 +162,15 @@ def _scene_export(self, context, job):
         logger.indent += 1
 
         # Simplify if specified in job collection
-        levels = job_cl.subdivision_levels if job_cl else 0
-        if levels < 0:
-            unsubdivide_preserve_uvs(obj, -levels)
+        subd_level = job_cl.subdivision_levels if job_cl else 0
+        if subd_level < 0:
+            unsubdivide_preserve_uvs(obj, -subd_level)
+            log(f"Unsubdivided {-subd_level} times")
+        elif subd_level > 0:
+            subd_mod = self.obj.modifiers.new(type='SUBSURF', name="")
+            subd_mod.subd_level = subd_level
+            subd_mod.use_creases = True
+            subd_mod.use_custom_normals = True
 
         if job.merge_basis_shape_keys:
             for shape_key_pattern in shlex.split(job.basis_shape_key_pattern):

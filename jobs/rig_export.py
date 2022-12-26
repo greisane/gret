@@ -21,12 +21,15 @@ from ..helpers import (
     load_selection,
     save_properties,
     save_selection,
+    split_sequence,
+    TempModifier,
     viewport_reveal_all,
 )
 from ..mesh.helpers import (
     apply_modifiers,
     apply_shape_keys_with_vertex_groups,
     delete_faces_with_no_material,
+    edit_mesh_elements,
     encode_shape_keys,
     merge_freestyle_edges,
     merge_shape_keys,
@@ -114,14 +117,20 @@ def _rig_export(self, context, job, rig):
     # Original objects that aren't exported will be hidden for render, only for driver purposes
     export_objs, job_cls = job.get_export_objects(context, types={'MESH'}, armature=rig)
 
-    ExportItem = namedtuple('ExportItem', ['original', 'obj', 'job_collection'])
+    class ExportItem:
+        def __init__(item, original, job_collection):
+            item.original = original
+            item.obj = copy_obj(self, obj)
+            item.job_collection = job_collection
+            item.subd_level = job_collection.subdivision_levels
+
     items = []
     groups = defaultdict(list)  # Filepath to list of ExportItems
     for obj in context.scene.objects:
         obj.hide_render = True
     for obj, job_cl in zip(export_objs, job_cls):
         obj.hide_render = False
-        items.append(ExportItem(obj, copy_obj(self, obj), job_cl))
+        items.append(ExportItem(obj, job_cl))
 
     # Process individual meshes
     job_tags = job.modifier_tags.split(' ')
@@ -143,10 +152,11 @@ def _rig_export(self, context, job, rig):
         ctx = get_context(obj)
         logger.indent += 1
 
-        # Simplify if specified in job collection
-        levels = job_cl.subdivision_levels
-        if levels < 0:
-            unsubdivide_preserve_uvs(obj, -levels)
+        # Simplify now if specified in job collection. Subdivision is handled after merging
+        if item.subd_level < 0:
+            unsubdivide_preserve_uvs(obj, -item.subd_level)
+            log(f"Unsubdivided {-item.subd_level} times")
+            item.subd_level = 0
 
         # Ensure mesh has custom normals so that they won't be recalculated on masking
         bpy.ops.mesh.customdata_custom_splitnormals_add(ctx)
@@ -247,20 +257,15 @@ def _rig_export(self, context, job, rig):
         logger.indent -= 1
     del items  # These objects might become invalid soon
 
-    # Process groups. Meshes in each group are merged together
-    for filepath, items in sorted(groups.items()):
+    def merge_items(items):
         if len(items) <= 1:
-            continue
+            return items[0]
 
         # Pick the object that all others will be merged into
         # First choice should be the character's body, otherwise pick the densest mesh
         merged_item = next((it for it in items if it.original.name.lower() == 'body'), None)
         if merged_item is None:
             merged_item = max(items, key=lambda it: len(it.obj.data.vertices))
-
-        log(f"Merging {', '.join(it.original.name for it in items if it is not merged_item)} "
-            f"into {merged_item.original.name}")
-        logger.indent += 1
 
         # TODO this sucks
         for obj in (it.obj for it in items if it is not merged_item):
@@ -270,15 +275,47 @@ def _rig_export(self, context, job, rig):
         objs = [item.obj for item in items]
         ctx = get_context(active_obj=obj, selected_objs=objs)
         bpy.ops.object.join(ctx)
-        groups[filepath] = [merged_item]
+        del objs
 
-        # Joining objects loses drivers, restore them
-        for item in items:
-            copy_drivers(item.original.data.shape_keys, obj.data.shape_keys)
+        log(f"Merged {', '.join(it.original.name for it in items if it is not merged_item)} "
+            f"into {merged_item.original.name}")
 
         num_verts_merged = merge_freestyle_edges(obj)
         if num_verts_merged > 0:
             log(f"Welded {num_verts_merged} verts (edges were marked freestyle)")
+
+        items[:] = [merged_item]
+        return merged_item
+
+    # Process groups. Meshes in each group are merged together
+    for filepath, group_items in sorted(groups.items()):
+        if filepath:
+            log(f"Processing {bpy.path.basename(filepath)}")
+        else:
+            log(f"Processing unnamed group")
+        logger.indent += 1
+
+        items = group_items[:]
+        while len(items) > 1:
+            # Merge items with the same requested subdiv level. Repeat until there's one item left
+            max_subd_level = max(it.subd_level for it in items)
+            items_to_merge, items = split_sequence(items, lambda it: it.subd_level == max_subd_level)
+            item = merge_items(items_to_merge)
+            items.append(item)
+
+            if item.subd_level > 0:
+                with TempModifier(item.obj, type='SUBSURF') as subd_mod:
+                    subd_mod.levels = item.subd_level
+                    subd_mod.use_creases = True
+                    subd_mod.use_custom_normals = True
+                log(f"Subdivided {item.original.name} {item.subd_level} times")
+                item.subd_level = 0
+
+        # Joining objects loses drivers, restore them
+        for item in group_items:
+            copy_drivers(item.original.data.shape_keys, items[0].obj.data.shape_keys)
+
+        group_items[:] = items
         logger.indent -= 1
 
     # Post-process
