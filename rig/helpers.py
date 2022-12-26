@@ -387,7 +387,7 @@ def export_fbx(filepath, context, rig, objects=[], action=None, options={}):
         , secondary_bone_axis='X'
         , use_armature_deform_only=True
         , armature_nodetype='NULL'
-        , bake_anim=len(actions) > 0
+        , bake_anim=action is not None
         , bake_anim_use_all_bones=False
         , bake_anim_use_nla_strips=False
         , bake_anim_use_all_actions=True
