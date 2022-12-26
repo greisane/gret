@@ -323,9 +323,9 @@ def draw_job(layout, jobs, job_index):
 
             row = col.row(align=True)
             row.prop(job, 'mirror_shape_keys')
-            sub = row.split(align=True)
-            sub.prop(job, 'side_vgroup_name', text="")
-            sub.enabled = job.mirror_shape_keys
+            # sub = row.split(align=True)
+            # sub.prop(job, 'side_vgroup_name', text="")
+            # sub.enabled = job.mirror_shape_keys
 
             col.prop(job, 'minimize_bones')
 
