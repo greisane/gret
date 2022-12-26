@@ -261,10 +261,10 @@ def draw_job(layout, jobs, job_index):
             if gret_operator_exists("gret.vertex_color_mapping_add"):
                 col.prop(job, 'invert_vertex_color_mappings')
             row = col.row(align=True)
-            row.prop(job, 'apply_modifiers')
+            row.prop(job, 'use_modifier_tags')
             sub = row.split(align=True)
             sub.prop(job, 'modifier_tags', text="")
-            sub.enabled = job.apply_modifiers
+            sub.enabled = job.use_modifier_tags
 
             row = col.row(align=True)
             row.prop(job, 'merge_basis_shape_keys')
@@ -308,10 +308,10 @@ def draw_job(layout, jobs, job_index):
             col = box.column()
             col.prop(job, 'invert_vertex_color_mappings')
             row = col.row(align=True)
-            row.prop(job, 'apply_modifiers')
+            row.prop(job, 'use_modifier_tags')
             sub = row.split(align=True)
             sub.prop(job, 'modifier_tags', text="")
-            sub.enabled = job.apply_modifiers
+            sub.enabled = job.use_modifier_tags
 
             row = col.row(align=True)
             row.prop(job, 'merge_basis_shape_keys')
@@ -623,15 +623,15 @@ class GRET_PG_export_job(bpy.types.PropertyGroup):
 Meshes with existing vertex color layers won't be affected""",
         default=True,
     )
-    apply_modifiers: bpy.props.BoolProperty(
-        name="Apply Modifiers",
-        description="Apply render modifiers",
-        default=True,
+    use_modifier_tags: bpy.props.BoolProperty(
+        name="Use Modifier Tags",
+        description="Allows selecting which render modifiers should be applied",
+        default=False,
     )
     modifier_tags: bpy.props.StringProperty(
         name="Modifier Tags",
         description="""Tagged modifiers are only applied if the tag is found in this list.
-Separate tags with a space. Tag modifiers with 'g:tag'""",
+Separate tags with spaces. Tag modifiers by adding 'g:tag' to the modifier name""",
         default="",
     )
     merge_basis_shape_keys: bpy.props.BoolProperty(

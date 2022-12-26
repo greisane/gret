@@ -146,12 +146,13 @@ def _scene_export(self, context, job):
     # Process individual meshes
     job_tags = job.modifier_tags.split(' ')
     def should_apply_modifier(modifier):
-        for tag in re.findall(r"g:(\S+)", modifier.name):
-            if tag.startswith('!'):
-                # Blacklisted tag
-                return tag[1:] not in job_tags
-            else:
-                return tag in job_tags
+        if job.use_modifier_tags:
+            for tag in re.findall(r"g:(\S+)", modifier.name):
+                if tag.startswith('!'):
+                    # Blacklisted tag
+                    return tag[1:] not in job_tags
+                else:
+                    return tag in job_tags
         return modifier.show_render
 
     for item in items:
@@ -188,8 +189,7 @@ def _scene_export(self, context, job):
         if not job.encode_shape_keys:
             obj.shape_key_clear()
 
-        if job.apply_modifiers:
-            apply_modifiers(obj, key=should_apply_modifier)
+        apply_modifiers(obj, key=should_apply_modifier)
 
         if job.use_postprocess_script and job.postprocess_script:
             try:

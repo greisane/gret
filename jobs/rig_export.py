@@ -137,12 +137,13 @@ def _rig_export(self, context, job, rig):
     def should_apply_modifier(modifier):
         if modifier.type == 'ARMATURE':
             return False
-        for tag in re.findall(r"g:(\S+)", modifier.name):
-            if tag.startswith('!'):
-                # Blacklisted tag
-                return tag[1:] not in job_tags
-            else:
-                return tag in job_tags
+        if job.use_modifier_tags:
+            for tag in re.findall(r"g:(\S+)", modifier.name):
+                if tag.startswith('!'):
+                    # Blacklisted tag
+                    return tag[1:] not in job_tags
+                else:
+                    return tag in job_tags
         return modifier.show_render
 
     for item in items:
@@ -178,8 +179,7 @@ def _rig_export(self, context, job, rig):
         if job.mirror_shape_keys:
             mirror_shape_keys(obj, job.side_vgroup_name)
 
-        if job.apply_modifiers:
-            apply_modifiers(obj, key=should_apply_modifier, keep_armature=True)
+        apply_modifiers(obj, key=should_apply_modifier, keep_armature=True)
 
         # Remap materials, any objects or faces with no material won't be exported
         all_none = lambda iterable: all(not el for el in iterable)
