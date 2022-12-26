@@ -68,6 +68,7 @@ def get_bake_objects(context, material, out_objects, out_meshes):
         for mat_idx, mat_slot in enumerate(obj.material_slots):
             if mat_slot.link == 'OBJECT':
                 new_data.materials[mat_idx] = mat_slot.material
+                new_obj.material_slots[mat_idx].link = 'DATA'
 
         # Restore modifiers
         for mod, show_viewport in zip(obj.modifiers, saved_modifier_show_viewport):

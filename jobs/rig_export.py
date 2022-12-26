@@ -60,6 +60,7 @@ def copy_obj(self, obj, copy_data=True):
     for mat_idx, mat_slot in enumerate(obj.material_slots):
         if mat_slot.link == 'OBJECT':
             new_data.materials[mat_idx] = mat_slot.material
+            new_obj.material_slots[mat_idx].link = 'DATA'
 
     # New objects are moved to the scene collection, ensuring they're visible
     bpy.context.scene.collection.objects.link(new_obj)
@@ -178,11 +179,11 @@ def _rig_export(self, context, job, rig):
             if remap.source:
                 for mat_idx, mat in enumerate(obj.data.materials):
                     if mat and mat == remap.source:
-                        logd(f"Remapped material {mat.name} to {get_name_safe(remap.destination)}")
+                        log(f"Remapped material {mat.name} to {get_name_safe(remap.destination)}")
                         obj.data.materials[mat_idx] = remap.destination
                         remapped_to_none = remapped_to_none or not remap.destination
             elif remap.destination and all_none(obj.data.materials):
-                logd(f"Added material {get_name_safe(remap.destination)}")
+                log(f"Added material {get_name_safe(remap.destination)}")
                 obj.data.materials.append(remap.destination)
 
         if all_none(obj.data.materials):
