@@ -307,6 +307,8 @@ def viewport_reveal_all():
     for layer in get_layers_recursive(bpy.context.view_layer.layer_collection):
         layer.hide_viewport = False
         layer.exclude = False
+    if bpy.context.space_data and bpy.context.space_data.local_view:
+        bpy.ops.view3d.localview()
 
 def save_properties(obj):
     """Returns a dictionary storing the properties of a Blender object."""
