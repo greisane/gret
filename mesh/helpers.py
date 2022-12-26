@@ -416,15 +416,24 @@ def apply_shape_keys_with_vertex_groups(obj):
                 except RuntimeError:
                     vert.co[:] = v0
 
-def merge_freestyle_edges(obj):
+def merge_islands(obj, mode='ALWAYS', threshold=1e-3):
     """Does 'Remove Doubles' on freestyle marked edges. Returns the number of vertices merged."""
     # Reverted to using bpy.ops because bmesh is failing to merge normals correctly
+    # TODO This should consider that each vertex has its pair (and only one pair) in another island
 
     saved_mode = obj.mode
 
-    edit_mesh_elements(obj, 'EDGE', key=lambda e: e.use_freestyle_mark)
+    if mode == 'ALWAYS':
+        edit_mesh_elements(obj, 'EDGE')
+    elif mode == 'BOUNDARY':
+        edit_mesh_elements(obj, 'EDGE')
+        bpy.ops.mesh.region_to_loop()
+    elif mode == 'TAGGED':
+        edit_mesh_elements(obj, 'EDGE', key=lambda e: e.use_freestyle_mark)
+    else:
+        return 0
     old_num_verts = len(obj.data.vertices)
-    bpy.ops.mesh.remove_doubles(threshold=1e-5, use_unselected=False)
+    bpy.ops.mesh.remove_doubles(threshold=threshold, use_unselected=False)
 
     # mesh = obj.data
     # bm = bmesh.new()

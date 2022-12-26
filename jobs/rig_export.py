@@ -31,7 +31,7 @@ from ..mesh.helpers import (
     delete_faces_with_no_material,
     edit_mesh_elements,
     encode_shape_keys,
-    merge_freestyle_edges,
+    merge_islands,
     merge_shape_keys,
     mirror_shape_keys,
     remove_shape_keys,
@@ -280,9 +280,9 @@ def _rig_export(self, context, job, rig):
         log(f"Merged {', '.join(it.original.name for it in items if it is not merged_item)} "
             f"into {merged_item.original.name}")
 
-        num_verts_merged = merge_freestyle_edges(obj)
+        num_verts_merged = merge_islands(obj, mode=job.weld_mode, threshold=job.weld_distance)
         if num_verts_merged > 0:
-            log(f"Welded {num_verts_merged} verts (edges were marked freestyle)")
+            log(f"Welded {num_verts_merged} vertices")
 
         items[:] = [merged_item]
         return merged_item

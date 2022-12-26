@@ -306,6 +306,13 @@ def draw_job(layout, jobs, job_index):
             add_collection_layout()
 
             col = box.column()
+
+            row = col.row(align=True)
+            row.prop(job, 'weld_mode', text="Weld")
+            sub = row.split(align=True)
+            sub.prop(job, 'weld_distance', text="")
+            sub.enabled = job.weld_mode != 'NEVER'
+
             col.prop(job, 'invert_vertex_color_mappings')
             row = col.row(align=True)
             row.prop(job, 'use_modifier_tags')
@@ -709,6 +716,24 @@ Requires a mirror modifier""",
         name="Side Vertex Group Name",
         description="Name of the vertex group that will be created on mirroring shape keys",
         default="_side.l",
+    )
+    weld_mode: bpy.props.EnumProperty(
+        items=[
+            ('NEVER', "Never", "No welding step"),
+            ('ALWAYS', "Always", "All vertices are considered for welding"),
+            ('BOUNDARY', "Boundary", "Boundary vertices are considered for welding"),
+            ('TAGGED', "Freestyle", "Only edges marked freestyle are considered for welding"),
+        ],
+        name="Weld",
+        description="Allows welding merged parts to eliminate shading discontinuities",
+        default='NEVER',
+    )
+    weld_distance: bpy.props.FloatProperty(
+        name="Weld Distance",
+        description="Limit below which to merge vertices",
+        subtype='DISTANCE',
+        default=1e-3,
+        min=0.0,
     )
     minimize_bones: bpy.props.BoolProperty(
         name="Minimize Bone Hierarchy",
