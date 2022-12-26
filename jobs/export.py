@@ -582,17 +582,20 @@ class GRET_PG_export_job(bpy.types.PropertyGroup):
         name="Show Expanded",
         description="Set export job expanded in the user interface",
         default=True,
+        options=set(),
     )
     name: bpy.props.StringProperty(
         name="Name",
         description="Export job name",
         default="Job",
+        options=set(),
     )
     rig: bpy.props.PointerProperty(
         name="Rig",
         description="Armature to operate on",
         type=bpy.types.Object,
         poll=lambda self, obj: obj and obj.type == 'ARMATURE',
+        options=set(),
     )
     what: bpy.props.EnumProperty(
         items=[
@@ -603,24 +606,29 @@ class GRET_PG_export_job(bpy.types.PropertyGroup):
         name="Export Type",
         description="What to export",
         update=on_what_updated,
+        options=set(),
     )
     export_collection: bpy.props.PointerProperty(
         name="Export Collection",
         description="Collection where to place export products",
         type=bpy.types.Collection,
+        options=set(),
     )
     selection_only: bpy.props.BoolProperty(
         name="Selection Only",
         description="Exports the current selection",
         default=True,
+        options=set(),
     )
     collections: bpy.props.CollectionProperty(
         type=GRET_PG_export_collection,
+        options=set(),
     )
     material_name_prefix: bpy.props.StringProperty(
         name="Material Prefix",
         description="Ensures that exported material names begin with a prefix",
         default="MI_",
+        options=set(),
     )
 
     # Shared scene and export rig options
@@ -629,28 +637,33 @@ class GRET_PG_export_job(bpy.types.PropertyGroup):
         description="""Invert vertex colors generated from mappings.
 Meshes with existing vertex color layers won't be affected""",
         default=True,
+        options=set(),
     )
     use_modifier_tags: bpy.props.BoolProperty(
         name="Use Modifier Tags",
         description="Allows selecting which render modifiers should be applied",
         default=False,
+        options=set(),
     )
     modifier_tags: bpy.props.StringProperty(
         name="Modifier Tags",
         description="""Tagged modifiers are only applied if the tag is found in this list.
 Separate tags with spaces. Tag modifiers by adding 'g:tag' to the modifier name""",
         default="",
+        options=set(),
     )
     merge_basis_shape_keys: bpy.props.BoolProperty(
         name="Merge Shape Keys",
         description="Merge shape keys by name, into the basis or another shape key",
         default=True,
+        options=set(),
     )
     basis_shape_key_pattern: bpy.props.StringProperty(
         name="Shape Key Merge Patterns",
         description="""Patterns for shape keys to be merged into basis, wildcards are allowed.
 Can also specify the target shape key with an arrow, e.g. 'SmileTweak->Smile'""",
         default='"Key [0-9]*" b_*',
+        options=set(),
     )
     encode_shape_keys: bpy.props.BoolProperty(
         name="Encode Shape Keys",
@@ -658,19 +671,23 @@ Can also specify the target shape key with an arrow, e.g. 'SmileTweak->Smile'"""
 UVn+1: deltaXY, UVn+2: deltaZnormalX, UVn+3: normalYZ.
 All values are remapped to a [0..1] UV range""",
         default=False,
+        options=set(),
     )
     use_postprocess_script: bpy.props.BoolProperty(
         name="Use Post Process Script",
         description="Run script on each processed mesh, after modifiers are applied",
         default=False,
+        options=set(),
     )
     postprocess_script: bpy.props.PointerProperty(
         name="Post Process Script",
         description="Script to run. `obj` is the object to modify and `ctx` is its context",
         type=bpy.types.Text,
+        options=set(),
     )
     remap_materials: bpy.props.CollectionProperty(
         type=GRET_PG_remap_material,
+        options=set(),
     )
 
     # Scene export options
@@ -678,21 +695,25 @@ All values are remapped to a [0..1] UV range""",
         name="Export Collision",
         description="Exports collision objects that follow the UE4 naming pattern",
         default=True,
+        options=set(),
     )
     export_sockets: bpy.props.BoolProperty(
         name="Export Sockets",
         description="Export any Empty parented to an object as a UE4 static mesh socket",
         default=True,
+        options=set(),
     )
     keep_transforms: bpy.props.BoolProperty(
         name="Keep Transforms",
         description="Keep the position and rotation of objects relative to world center",
         default=False,
+        options=set(),
     )
     ensure_uv_layers: bpy.props.BoolProperty(
         name="Ensure UV Layers",
         description="Create an empty UV layer for objects that have none",
         default=True,
+        options=set(),
     )
     scene_export_path: bpy.props.StringProperty(
         name="Export Path",
@@ -703,6 +724,7 @@ All values are remapped to a [0..1] UV range""",
 {collection} = Name of the collection the object belongs to""",
         default="//export/S_{object}.fbx",
         subtype='FILE_PATH',
+        options=set(),
     )
 
     # Rig export options
@@ -711,11 +733,13 @@ All values are remapped to a [0..1] UV range""",
         description="""Creates mirrored versions of shape keys that have side suffixes.
 Requires a mirror modifier""",
         default=True,
+        options=set(),
     )
     side_vgroup_name: bpy.props.StringProperty(
         name="Side Vertex Group Name",
         description="Name of the vertex group that will be created on mirroring shape keys",
         default="_side.l",
+        options=set(),
     )
     weld_mode: bpy.props.EnumProperty(
         items=[
@@ -727,6 +751,7 @@ Requires a mirror modifier""",
         name="Weld",
         description="Allows welding merged parts to eliminate shading discontinuities",
         default='NEVER',
+        options=set(),
     )
     weld_distance: bpy.props.FloatProperty(
         name="Weld Distance",
@@ -734,21 +759,25 @@ Requires a mirror modifier""",
         subtype='DISTANCE',
         default=1e-3,
         min=0.0,
+        options=set(),
     )
     minimize_bones: bpy.props.BoolProperty(
         name="Minimize Bone Hierarchy",
         description="Only export bones that the meshes are weighted to",
         default=False,
+        options=set(),
     )
     to_collection: bpy.props.BoolProperty(
         name="To Collection",
         description="Produced meshes are put in a collection instead of being exported",
         default=False,
+        options=set(),
     )
     clean_collection: bpy.props.BoolProperty(
         name="Clean Collection",
         description="Clean the target collection",
         default=False,
+        options=set(),
     )
     rig_export_path: bpy.props.StringProperty(
         name="Export Path",
@@ -760,26 +789,31 @@ Requires a mirror modifier""",
 {collection} = Name of the collection the object belongs to""",
         default="//export/SK_{rigfile}.fbx",
         subtype='FILE_PATH',
+        options=set(),
     )
 
     # Animation export options
     actions: bpy.props.CollectionProperty(
         type=GRET_PG_export_action,
+        options=set(),
     )
     disable_auto_eyelid: bpy.props.BoolProperty(
         name="Disable Auto-Eyelid",
         description="Disables Auto-Eyelid. ARP only",
         default=True,
+        options=set(),
     )
     disable_twist_bones: bpy.props.BoolProperty(
         name="Disable Twist Bones",
         description="Don't export twist bone animation. ARP only",
         default=True,
+        options=set(),
     )
     export_markers: bpy.props.BoolProperty(
         name="Export Markers",
         description="Export markers names and frame times as a list of comma-separated values",
         default=False,
+        options=set(),
     )
     markers_export_path: bpy.props.StringProperty(
         name="Markers Export Path",
@@ -790,9 +824,11 @@ Requires a mirror modifier""",
 {action} = Name of the action being exported""",
         default="//export/DT_{rigfile}_{action}.csv",
         subtype='FILE_PATH',
+        options=set(),
     )
     copy_properties: bpy.props.CollectionProperty(
         type=GRET_PG_copy_property,
+        options=set(),
     )
     animation_export_path: bpy.props.StringProperty(
         name="Export Path",
@@ -803,6 +839,7 @@ Requires a mirror modifier""",
 {action} = Name of the action being exported, if exporting animation""",
         default="//export/A_{rigfile}_{action}.fbx",
         subtype='FILE_PATH',
+        options=set(),
     )
 
     def get_export_objects(self, context, types=set(), armature=None):
