@@ -121,7 +121,7 @@ def duplicate_shape_key(obj, name, new_name):
 
     return new_shape_key
 
-def merge_shape_keys(obj, shape_key_names=["*"], target_shape_key_name=""):
+def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name=""):
     """Merges one or more shape keys into the basis, or target shape key if specified."""
 
     mesh = obj.data
@@ -130,17 +130,17 @@ def merge_shape_keys(obj, shape_key_names=["*"], target_shape_key_name=""):
         return
 
     basis_shape_key_name = mesh.shape_keys.key_blocks[0].name
-    target_shape_key_name = target_shape_key_name or basis_shape_key_name
-    if target_shape_key_name not in mesh.shape_keys.key_blocks:
-        logd(f"Can't merge shape keys, target shape key {target_shape_key_name} doesn't exist")
-        return
+    if not target_shape_key_name:
+        target_shape_key_name = basis_shape_key_name
+    elif target_shape_key_name not in mesh.shape_keys.key_blocks:
+        obj.shape_key_add(name=target_shape_key_name)
 
     # Store state
     saved_unmuted_shape_keys = [sk for sk in mesh.shape_keys.key_blocks if not sk.mute]
 
     # Mute all but the ones to be merged
     for sk in mesh.shape_keys.key_blocks[1:]:
-        if any(fnmatch(sk.name, s) for s in shape_key_names) or sk.name == target_shape_key_name:
+        if fnmatch(sk.name, shape_key_name) or sk.name == target_shape_key_name:
             # Remove any drivers related to shape keys that will be deleted
             if mesh.shape_keys.animation_data:
                 sk_data_path = f'key_blocks["{sk.name}"]'
@@ -192,14 +192,14 @@ def merge_shape_keys(obj, shape_key_names=["*"], target_shape_key_name=""):
     if mesh.shape_keys and len(mesh.shape_keys.key_blocks) == 1:
         obj.shape_key_clear()
 
-def remove_shape_keys(obj, shape_key_names=["*"]):
+def remove_shape_keys(obj, shape_key_name="*"):
     mesh = obj.data
     if not mesh.shape_keys or not mesh.shape_keys.key_blocks:
         # No shape keys
         return
 
     for sk in mesh.shape_keys.key_blocks[1:]:
-        if any(fnmatch(sk.name, s) for s in shape_key_names):
+        if fnmatch(sk.name, shape_key_name):
             obj.shape_key_remove(sk)
 
 def mirror_shape_keys(obj, side_vgroup_name):
@@ -260,7 +260,7 @@ def mirror_shape_keys(obj, side_vgroup_name):
 
             logger.indent -= 1
 
-def encode_shape_keys(obj, shape_key_names=["*"], keep=False):
+def encode_shape_keys(obj, shape_key_name="*", keep=False):
     mesh = obj.data
     if not mesh.shape_keys or not mesh.shape_keys.key_blocks:
         # No shape keys
@@ -269,7 +269,7 @@ def encode_shape_keys(obj, shape_key_names=["*"], keep=False):
     ensure_uv_map = lambda name: mesh.uv_layers.get(name) or mesh.uv_layers.new(name=name)
 
     for sk in mesh.shape_keys.key_blocks[1:]:
-        if any(fnmatch(sk.name, s) for s in shape_key_names):
+        if fnmatch(sk.name, shape_key_name):
             uv_map_names = (
                 ensure_uv_map(f"{sk.name}_WPOxy").name,
                 ensure_uv_map(f"{sk.name}_WPOzNORx").name,

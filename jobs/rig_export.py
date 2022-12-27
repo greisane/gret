@@ -170,11 +170,11 @@ def _rig_export(self, context, job, rig):
                     # Check for A->B format which specifies the target shape key instead of basis
                     shape_key_pattern, target_shape_key_name = shape_key_pattern.split("->")
                     if not target_shape_key_name or target_shape_key_name == "_":
-                        remove_shape_keys(obj, [shape_key_pattern])
+                        remove_shape_keys(obj, shape_key_pattern)
                     else:
-                        merge_shape_keys(obj, [shape_key_pattern], target_shape_key_name)
+                        merge_shape_keys(obj, shape_key_pattern, target_shape_key_name)
                 except ValueError:
-                    merge_shape_keys(obj, [shape_key_pattern])
+                    merge_shape_keys(obj, shape_key_pattern)
 
         if job.mirror_shape_keys:
             mirror_shape_keys(obj, job.side_vgroup_name)
@@ -327,9 +327,9 @@ def _rig_export(self, context, job, rig):
         logger.indent += 1
 
         if job.encode_shape_keys:
-            encode_shape_keys(obj, ["*_UV"])
+            encode_shape_keys(obj, "*_UV")
         else:
-            remove_shape_keys(obj, ["*_UV"])
+            remove_shape_keys(obj, "*_UV")
 
         # Ensure proper mesh state
         sanitize_mesh(obj)

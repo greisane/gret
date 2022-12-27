@@ -19,7 +19,7 @@ class GRET_OT_shape_key_encode(bpy.types.Operator):
 
     def execute(self, context):
         obj = context.active_object
-        encode_shape_keys(obj, [obj.active_shape_key.name], keep=True)
+        encode_shape_keys(obj, obj.active_shape_key.name, keep=True)
 
         return {'FINISHED'}
 
