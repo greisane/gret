@@ -304,11 +304,15 @@ def _rig_export(self, context, job, rig):
             items.append(item)
 
             if item.subd_level > 0:
+                ctx = get_context(item.obj)
+                # Meshes can deform unpredictably if weights weren't normalized before subdivision
+                bpy.ops.object.vertex_group_normalize_all(ctx,
+                    group_select_mode='BONE_DEFORM', lock_active=False)
                 subd_mod = item.obj.modifiers.new(type='SUBSURF', name="")
                 subd_mod.levels = item.subd_level
                 subd_mod.use_creases = True
                 subd_mod.use_custom_normals = True
-                bpy.ops.gret.shape_key_apply_modifiers(get_context(item.obj),
+                bpy.ops.gret.shape_key_apply_modifiers(ctx,
                     modifier_mask=get_modifier_mask(item.obj, key=lambda mod: mod == subd_mod))
                 log(f"Subdivided {item.original.name} {item.subd_level} times")
                 item.subd_level = 0
