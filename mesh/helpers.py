@@ -9,6 +9,7 @@ from .. import prefs
 from ..heapdict import heapdict
 from ..helpers import get_flipped_name, get_context, select_only, fmt_fraction
 from ..log import logger, log, logd
+from ..math import lerp
 
 one_vector = Vector((1, 1, 1))
 half_vector = Vector((0.5, 0.5, 0.5))
@@ -121,7 +122,30 @@ def duplicate_shape_key(obj, name, new_name):
 
     return new_shape_key
 
-def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name=""):
+def merge_shape_keys_pattern(obj, shape_key_pattern):
+    def parse_target_shape_key(s):
+        """Parses A->B format which specifies the target shape key instead of basis."""
+        try:
+            a, b = s.split("->")
+            return a, b
+        except ValueError:
+            return s, None
+    def parse_override_weights(s):
+        """Parses A=1.0 format which specifies shape key values as a percentage."""
+        try:
+            s, floats = s.split("=")
+            return s, float(floats)
+        except ValueError:
+            return s, None
+
+    shape_key_pattern, target_shape_key_name = parse_target_shape_key(shape_key_pattern)
+    shape_key_pattern, override_weights = parse_override_weights(shape_key_pattern)
+    if target_shape_key_name == "" or target_shape_key_name == "_":
+        remove_shape_keys(obj, shape_key_pattern)
+    else:
+        merge_shape_keys(obj, shape_key_pattern, target_shape_key_name, override_weights)
+
+def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name="", override_weight=None):
     """Merges one or more shape keys into the basis, or target shape key if specified."""
 
     mesh = obj.data
@@ -150,6 +174,8 @@ def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name=""):
                             # Influence was being driven, assume user would want to merge it fully
                             sk.value = sk.slider_max
                         mesh.shape_keys.animation_data.drivers.remove(fc)
+            if override_weight is not None:
+                sk.value = lerp(sk.slider_min, sk.slider_max, override_weight)
             if sk.mute or sk.value == 0.0:
                 # Muted candidates are handled as if merged at 0% and deleted
                 # Removing ensures shape keys don't unexpectedly return when objects are merged

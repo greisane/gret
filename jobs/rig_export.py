@@ -32,7 +32,7 @@ from ..mesh.helpers import (
     encode_shape_keys,
     get_modifier_mask,
     merge_islands,
-    merge_shape_keys,
+    merge_shape_keys_pattern,
     mirror_shape_keys,
     remove_shape_keys,
     unsubdivide_preserve_uvs,
@@ -166,15 +166,7 @@ def _rig_export(self, context, job, rig):
 
         if job.merge_basis_shape_keys:
             for shape_key_pattern in shlex.split(job.basis_shape_key_pattern):
-                try:
-                    # Check for A->B format which specifies the target shape key instead of basis
-                    shape_key_pattern, target_shape_key_name = shape_key_pattern.split("->")
-                    if not target_shape_key_name or target_shape_key_name == "_":
-                        remove_shape_keys(obj, shape_key_pattern)
-                    else:
-                        merge_shape_keys(obj, shape_key_pattern, target_shape_key_name)
-                except ValueError:
-                    merge_shape_keys(obj, shape_key_pattern)
+                merge_shape_keys_pattern(obj, shape_key_pattern)
 
         if job.mirror_shape_keys:
             mirror_shape_keys(obj, job.side_vgroup_name)

@@ -27,7 +27,7 @@ from ..mesh.helpers import (
     apply_modifiers,
     delete_faces_with_no_material,
     encode_shape_keys,
-    merge_shape_keys,
+    merge_shape_keys_pattern,
     unsubdivide_preserve_uvs,
 )
 from ..mesh.collision import collision_prefixes, get_collision_objects
@@ -175,15 +175,7 @@ def _scene_export(self, context, job):
 
         if job.merge_basis_shape_keys:
             for shape_key_pattern in shlex.split(job.basis_shape_key_pattern):
-                try:
-                    # Check for A->B format which specifies the target shape key instead of basis
-                    shape_key_pattern, target_shape_key_name = shape_key_pattern.split("->")
-                    if not target_shape_key_name or target_shape_key_name == "_":
-                        remove_shape_keys(obj, shape_key_pattern)
-                    else:
-                        merge_shape_keys(obj, shape_key_pattern, target_shape_key_name)
-                except ValueError:
-                    merge_shape_keys(obj, shape_key_pattern)
+                merge_shape_keys_pattern(obj, shape_key_pattern)
 
         # Clear shape keys if they won't be needed later
         if not job.encode_shape_keys:
