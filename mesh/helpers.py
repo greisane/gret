@@ -130,7 +130,7 @@ def merge_shape_keys_pattern(obj, shape_key_pattern):
             return a, b
         except ValueError:
             return s, None
-    def parse_override_weights(s):
+    def parse_override_value(s):
         """Parses A=1.0 format which specifies shape key values as a percentage."""
         try:
             s, floats = s.split("=")
@@ -139,13 +139,13 @@ def merge_shape_keys_pattern(obj, shape_key_pattern):
             return s, None
 
     shape_key_pattern, target_shape_key_name = parse_target_shape_key(shape_key_pattern)
-    shape_key_pattern, override_weights = parse_override_weights(shape_key_pattern)
+    shape_key_pattern, override_value = parse_override_value(shape_key_pattern)
     if target_shape_key_name == "" or target_shape_key_name == "_":
         remove_shape_keys(obj, shape_key_pattern)
     else:
-        merge_shape_keys(obj, shape_key_pattern, target_shape_key_name, override_weights)
+        merge_shape_keys(obj, shape_key_pattern, target_shape_key_name, override_value)
 
-def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name="", override_weight=None):
+def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name="", override_value=None):
     """Merges one or more shape keys into the basis, or target shape key if specified."""
 
     mesh = obj.data
@@ -174,8 +174,9 @@ def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name="", override
                             # Influence was being driven, assume user would want to merge it fully
                             sk.value = sk.slider_max
                         mesh.shape_keys.animation_data.drivers.remove(fc)
-            if override_weight is not None:
-                sk.value = lerp(sk.slider_min, sk.slider_max, override_weight)
+            if override_value is not None:
+                sk.mute = False
+                sk.value = lerp(sk.slider_min, sk.slider_max, override_value)
             if sk.mute or sk.value == 0.0:
                 # Muted candidates are handled as if merged at 0% and deleted
                 # Removing ensures shape keys don't unexpectedly return when objects are merged
