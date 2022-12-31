@@ -369,7 +369,10 @@ def _rig_export(self, context, job, rig):
             logger.indent += 1
             logd(f"{len(objs)} objects in group")
 
-            options = {'minimize_bones': job.minimize_bones}
+            options = {
+                'minimize_bones': job.minimize_bones,
+                'remove_bones': shlex.split(job.remove_bone_names) if job.remove_bones else [],
+            }
             result = exporter(filepath, context, rig, objects=objs, options=options)
             if result == {'FINISHED'}:
                 self.exported_files.append(filepath)

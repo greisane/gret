@@ -154,6 +154,20 @@ def copy_drivers(src, dst, overwrite=False):
                 dst_drivers.from_existing(src_driver=src_fc)
                 logd(f"Copied driver for {src_fc.data_path} from {src_name}")
 
+def unmark_bones(rig, bone_names):
+    bones = rig.data.bones
+    num_undeform = 0
+    for bone_name in bone_names:
+        bone = bones.get(bone_name)
+        if bone.use_deform:
+            num_undeform += 1
+            bone.use_deform = False
+        for child_bone in bone.children_recursive:
+            if child_bone.use_deform:
+                num_undeform += 1
+                child_bone.use_deform = False
+    log(f"{num_undeform} additional bones won't be exported")
+
 def unmark_unused_bones(rig, objs):
     """Unmarks deform for all bones that aren't relevant to the given meshes."""
 
@@ -180,6 +194,9 @@ def arp_save(base, *args, **kwargs):
     logd(f"arp_save overriden with options: {options}")
     if options.get('minimize_bones'):
         unmark_unused_bones(context.active_object, context.selected_objects)
+    remove_bone_names = options.get('remove_bones', [])
+    if remove_bone_names:
+        unmark_bones(context.active_object, remove_bone_names)
     return base(*args, **kwargs)
 
 @intercept(error_result={'CANCELLED'})

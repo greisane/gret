@@ -334,8 +334,6 @@ def draw_job(layout, jobs, job_index):
             # sub.prop(job, 'side_vgroup_name', text="")
             # sub.enabled = job.mirror_shape_keys
 
-            col.prop(job, 'minimize_bones')
-
             col = box.column(align=True)
             col.label(text="Remap Materials:")
             for remap_material in job.remap_materials:
@@ -347,11 +345,20 @@ def draw_job(layout, jobs, job_index):
 
             col = box.column(align=True)
             col.prop(job, 'to_collection')
+
             if job.to_collection:
                 row = col.row(align=True)
                 row.prop(job, 'export_collection', text="")
                 row.prop(job, 'clean_collection', icon='TRASH', text="")
             else:
+                col.prop(job, 'minimize_bones')
+
+                row = col.row(align=True)
+                row.prop(job, 'remove_bones')
+                sub = row.split(align=True)
+                sub.prop(job, 'remove_bone_names', text="")
+                sub.enabled = job.remove_bones
+
                 col.prop(job, 'rig_export_path', text="")
 
         op = col.operator('gret.export', icon='INDIRECT_ONLY_ON', text="Execute")
@@ -763,8 +770,20 @@ Requires a mirror modifier""",
     )
     minimize_bones: bpy.props.BoolProperty(
         name="Minimize Bone Hierarchy",
-        description="Only export bones that the meshes are weighted to",
+        description="Remove bones not affecting deformation of the meshes being exported",
         default=False,
+        options=set(),
+    )
+    remove_bones: bpy.props.BoolProperty(
+        name="Remove Bones",
+        description="Remove additional bones",
+        default=False,
+        options=set(),
+    )
+    remove_bone_names: bpy.props.StringProperty(
+        name="Remove Bone Names",
+        description="Names of bones to remove (including their children)",
+        default="",
         options=set(),
     )
     to_collection: bpy.props.BoolProperty(
