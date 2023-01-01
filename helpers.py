@@ -342,7 +342,7 @@ def restore_viewports():
                 if saved_show_overlays is not None:
                     space.overlay.show_overlays = saved_show_overlays
                 for field_name in view3d_shading_field_names:
-                    saved_value = space.shading.pop('saved_type', None)
+                    saved_value = space.shading.pop('saved_' + field_name, None)
                     if saved_value is not None:
                         setattr(space.shading, field_name, saved_value)
 

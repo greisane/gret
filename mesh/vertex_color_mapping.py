@@ -54,6 +54,71 @@ def values_to_vcol(mesh, src_values, dst_vcol, dst_channel_idx, invert=False):
             value = 1.0 - value
         dst_vcol.data[loop_idx].color[dst_channel_idx] = value
 
+def get_distance_values(obj, src_obj, extents=0.0, along_curve=False):
+    assert obj and src_obj
+    mesh = obj.data
+    obj_to_src = src_obj.matrix_world.inverted() @ obj.matrix_world
+    dg = bpy.context.evaluated_depsgraph_get()
+    values = 0.0
+
+    if src_obj.type == 'MESH':
+        bvh = BVHTree.FromObject(src_obj, dg)
+
+        extents = max(extents, SMALL_NUMBER)
+        values = [1.0] * len(mesh.vertices)
+        for vert_idx, vert in enumerate(mesh.vertices):
+            loc, norm, index, dist = bvh.find_nearest(obj_to_src @ vert.co, extents)
+            if dist is not None:
+                values[vert_idx] = dist / extents
+
+    elif src_obj.type == 'CURVE' and not along_curve:
+        # Convert curve to a temporary mesh. Curve API is very limited, doing the math here
+        # would be a huge mess and likely slower. See https://blender.stackexchange.com/a/34276
+        src_mesh = src_obj.to_mesh(preserve_all_data_layers=False, depsgraph=dg)
+        bm = bmesh.new()
+        bm.from_mesh(src_mesh)
+        if not bm.faces:
+            bmesh.ops.extrude_edge_only(bm, edges=bm.edges)
+        bvh = BVHTree.FromBMesh(bm)
+        bm.free()
+        src_obj.to_mesh_clear()
+
+        extents = max(extents, SMALL_NUMBER)
+        values = [0.0] * len(mesh.vertices)
+        for vert_idx, vert in enumerate(mesh.vertices):
+            co, norm, index, dist = bvh.find_nearest(obj_to_src @ vert.co, extents)
+            if dist is not None:
+                values[vert_idx] = dist / extents
+
+    elif src_obj.type == 'CURVE' and along_curve:
+        # To find the progress along the curve it would be enough to look at the generated UVs
+        # Again the API isn't very useful, so measure edge lengths to obtain distance instead
+        with ScopedRestore(src_obj.data, 'extrude bevel_depth'):
+            src_obj.data.extrude = src_obj.data.bevel_depth = 0.0
+            src_mesh = src_obj.to_mesh(preserve_all_data_layers=False, depsgraph=dg)
+        src_verts = src_mesh.vertices
+        kd = KDTree(len(src_verts))
+        for vert_idx, vert in enumerate(src_verts):
+            kd.insert(vert.co, vert_idx)
+        kd.balance()
+
+        # Cache sum of edge lengths up to each vertex
+        dist_along = [0.0] * len(src_verts)
+        for vert_idx in range(1, len(src_verts)):
+            edge_length = get_dist(src_verts[vert_idx].co, src_verts[vert_idx - 1].co)
+            dist_along[vert_idx] = dist_along[vert_idx - 1] + edge_length
+        src_obj.to_mesh_clear()
+        total_dist_along = dist_along[-1]
+
+        if total_dist_along > 0.0:
+            extents = extents if extents > 0.0 else total_dist_along
+            values = [0.0] * len(mesh.vertices)
+            for vert_idx, vert in enumerate(mesh.vertices):
+                co, index, dist = kd.find(obj_to_src @ vert.co)
+                values[vert_idx] = dist_along[index] / extents
+
+    return values
+
 def update_vcol_from(obj, mapping, prefix, dst_vcol, dst_channel_idx, invert=False):
     mesh = obj.data
     values = None
@@ -106,66 +171,12 @@ def update_vcol_from(obj, mapping, prefix, dst_vcol, dst_channel_idx, invert=Fal
 
     elif src == 'DISTANCE':
         src_obj = bpy.data.objects.get(getattr(mapping, prefix + '_object'))
-        along_curve = getattr(mapping, prefix + '_along_curve')
-        extents = getattr(mapping, prefix + '_extents')
-        values = 0.0
-
         if src_obj:
-            obj_to_src = src_obj.matrix_world.inverted() @ obj.matrix_world
-            dg = bpy.context.evaluated_depsgraph_get()
-            values = [1.0] * len(mesh.vertices)
-
-            if src_obj.type == 'MESH':
-                bvh = BVHTree.FromObject(src_obj, dg)
-                for vert_idx, vert in enumerate(mesh.vertices):
-                    loc, norm, index, dist = bvh.find_nearest(obj_to_src @ vert.co, extents)
-                    if dist is not None:
-                        values[vert_idx] = dist / extents
-
-            elif src_obj.type == 'CURVE' and not along_curve:
-                # Convert curve to a temporary mesh. Curve API is very limited, doing the math here
-                # would be a huge mess and likely slower. See https://blender.stackexchange.com/a/34276
-                src_mesh = src_obj.to_mesh(preserve_all_data_layers=False, depsgraph=dg)
-                bm = bmesh.new()
-                bm.from_mesh(src_mesh)
-                if not bm.faces:
-                    bmesh.ops.extrude_edge_only(bm, edges=bm.edges)
-                bvh = BVHTree.FromBMesh(bm)
-                bm.free()
-                src_obj.to_mesh_clear()
-
-                # Assign values
-                for vert_idx, vert in enumerate(mesh.vertices):
-                    co, norm, index, dist = bvh.find_nearest(obj_to_src @ vert.co, extents)
-                    if dist is not None:
-                        values[vert_idx] = dist / extents
-
-            elif src_obj.type == 'CURVE' and along_curve:
-                # To find the progress along the curve it would be enough to look at the generated UVs
-                # Again the API isn't very useful, so measure edge lengths to obtain distance instead
-                with ScopedRestore(src_obj.data, 'extrude bevel_depth'):
-                    src_obj.data.extrude = src_obj.data.bevel_depth = 0.0
-                    src_mesh = src_obj.to_mesh(preserve_all_data_layers=False, depsgraph=dg)
-                src_verts = src_mesh.vertices
-                kd = KDTree(len(src_verts))
-                for vert_idx, vert in enumerate(src_verts):
-                    kd.insert(vert.co, vert_idx)
-                kd.balance()
-
-                # Cache sum of edge lengths up to each vertex
-                dist_along = [0.0] * len(src_verts)
-                for vert_idx in range(1, len(src_verts)):
-                    edge_length = get_dist(src_verts[vert_idx].co, src_verts[vert_idx - 1].co)
-                    dist_along[vert_idx] = dist_along[vert_idx - 1] + edge_length
-                src_obj.to_mesh_clear()
-                total_dist_along = dist_along[-1]
-
-                # Assign values
-                if total_dist_along > 0.0:
-                    extents = extents if extents > 0.0 else total_dist_along
-                    for vert_idx, vert in enumerate(mesh.vertices):
-                        co, index, dist = kd.find(obj_to_src @ vert.co)
-                        values[vert_idx] = dist_along[index] / extents
+            extents = getattr(mapping, prefix + '_extents')
+            along_curve = getattr(mapping, prefix + '_along_curve')
+            values = get_distance_values(obj, src_obj, extents, along_curve)
+        else:
+            values = 0.0
 
     if type(values) is float:
         values = [values] * len(mesh.vertices)
@@ -357,7 +368,7 @@ class GRET_OT_vertex_color_mapping_preview(bpy.types.Operator):
             update_vcol_from(obj, mapping, 'g', vcol, 1, mapping.invert)
             update_vcol_from(obj, mapping, 'b', vcol, 2, mapping.invert)
         else:
-            src = f"{getattr(mapping, self.prefix)} {self.prefix.upper()}"
+            src = f"{getattr(mapping, self.prefix)} ({self.prefix.upper()})"
             update_vcol_from(obj, mapping, self.prefix, vcol, 0)
             update_vcol_from(obj, mapping, self.prefix, vcol, 1)
             update_vcol_from(obj, mapping, self.prefix, vcol, 2)
