@@ -1,4 +1,6 @@
 from math import pi
+from mathutils.bvhtree import BVHTree
+import bmesh
 import bpy
 import sys
 
@@ -15,6 +17,7 @@ src_items = [
     ('PIVOTROT', "Rotation", "Object pivot rotation"),
     ('VERTEX', "Vertex", "Vertex world coordinates"),
     ('VALUE', "Value", "Constant value"),
+    ('DISTANCE', "Distance", "Geometric distance to another mesh"),
 ]
 
 component_items = [
@@ -88,6 +91,18 @@ def update_vcol_from(obj, mapping, src_property, dst_vcol, dst_channel_idx, inve
             values = [remap_co(m @ vert.co) for vert in mesh.vertices]
     elif src == 'VALUE':
         values = getattr(mapping, src_property + '_value')
+    elif src == 'DISTANCE':
+        values = [0.0] * len(mesh.vertices)
+        src_obj = bpy.data.objects.get(getattr(mapping, src_property + '_object'))
+        extents = getattr(mapping, src_property + '_extents')
+        if src_obj and src_obj.type == 'MESH':
+            dg = bpy.context.evaluated_depsgraph_get()
+            bvh = BVHTree.FromObject(src_obj, dg)
+            obj_to_src = src_obj.matrix_world.inverted() @ obj.matrix_world
+            for vert_idx, vert in enumerate(mesh.vertices):
+                loc, norm, index, dist = bvh.find_nearest(obj_to_src @ vert.co, extents)
+                if dist is not None:
+                    values[vert_idx] = dist / extents
 
     if type(values) is float:
         values = [values] * len(mesh.vertices)
@@ -348,6 +363,22 @@ class GRET_PG_vertex_color_mapping(bpy.types.PropertyGroup):
         name="Value",
         description="Constant value",
     )
+    r_object: bpy.props.StringProperty(
+        name="Object",
+        description="Target object",
+    )
+    g_object: bpy.props.StringProperty(
+        name="Object",
+        description="Target object",
+    )
+    b_object: bpy.props.StringProperty(
+        name="Object",
+        description="Target object",
+    )
+    a_object: bpy.props.StringProperty(
+        name="Object",
+        description="Target object",
+    )
 
 def vcol_panel_draw(self, context):
     layout = self.layout
@@ -383,6 +414,12 @@ def vcol_panel_draw(self, context):
         elif src == 'VALUE':
             sub = row.split(align=True)
             sub.prop(mapping, src_property + '_value', text="")
+            sub.ui_units_x = 14.0
+        elif src == 'DISTANCE':
+            sub = row.split(align=True)
+            row2 = sub.row(align=True)
+            row2.prop_search(mapping, src_property + '_object', bpy.data, 'objects', text="")
+            row2.prop(mapping, src_property + '_extents', text="")
             sub.ui_units_x = 14.0
         row.prop(mapping, src_property + '_invert', icon='REMOVE', text="")
 
