@@ -130,7 +130,7 @@ NEEDS UPDATING TO 3.0""",
     texture_bake__enable: bpy.props.BoolProperty(
         name="Enable",
         description="One-click bake and export of curvature and AO masks",
-        default=True,
+        default=False,
         update=registered_updated,
     )
     texture_bake__uv_layer_name: bpy.props.StringProperty(
