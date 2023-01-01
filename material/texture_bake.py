@@ -14,6 +14,8 @@ from ..helpers import (
     get_export_path,
     get_nice_export_report,
     load_selection,
+    override_viewports,
+    restore_viewports,
     save_selection,
     select_only,
     show_only,
@@ -540,12 +542,7 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
     def modal(self, context, event):
         if event.type in {'LEFTMOUSE', 'RIGHTMOUSE', 'ESC', 'RET', 'SPACE'}:
             # Revert screen changes
-            for area in context.screen.areas:
-                if area.type == 'VIEW_3D':
-                    area.header_text_set(None)
-                for space in area.spaces:
-                    if space.type == 'VIEW_3D':
-                        space.shading.type = space.shading.pop('saved_type', space.shading.type)
+            restore_viewports()
 
             # Revert scene changes
             context.scene.render.engine = self.saved_render_engine
@@ -601,12 +598,7 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
         self.saved_cycles_samples, scn.cycles.preview_samples = scn.cycles.preview_samples, 8
 
         # Set all 3D views to rendered shading
-        for area in context.screen.areas:
-            if area.type == 'VIEW_3D':
-                area.header_text_set(f"Previewing {self.baker} baker")
-            for space in area.spaces:
-                if space.type == 'VIEW_3D':
-                    space.shading['saved_type'], space.shading.type = space.shading.type, 'RENDERED'
+        override_viewports(header_text=f"Previewing {self.baker} baker", type='RENDERED')
 
         logger.end_logging()
 
@@ -759,7 +751,7 @@ class GRET_PG_texture_bake(bpy.types.PropertyGroup):
     )
 
 classes = (
-    GRET_OT_quick_unwrap,
+    # GRET_OT_quick_unwrap,
     GRET_OT_texture_bake,
     GRET_OT_texture_bake_add,
     GRET_OT_texture_bake_clear,

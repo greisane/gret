@@ -300,6 +300,52 @@ def load_selection(state):
     if is_valid(state.active):
         bpy.context.view_layer.objects.active = state.active
 
+view3d_shading_field_names = (
+    'type',
+    'light',
+    'color_type',
+    'background_type',
+    'show_backface_culling',
+    'show_xray',
+    'show_shadows',
+    'show_cavity',
+    'use_dof',
+    'show_object_outline',
+)
+
+def override_viewports(header_text=None, show_overlays=None, **kwargs):
+    """Saves and overrides 3D viewport settings. Call restore_viewports() to load previous state."""
+
+    for area in bpy.context.screen.areas:
+        if area.type == 'VIEW_3D' and header_text:
+            area.header_text_set(header_text)
+        for space in area.spaces:
+            if space.type == 'VIEW_3D':
+                space.shading['saved_show_overlays'] = space.overlay.show_overlays
+                if show_overlays is not None:
+                    space.overlay.show_overlays = show_overlays
+                for field_name in view3d_shading_field_names:
+                    space.shading['saved_' + field_name] = getattr(space.shading, field_name)
+                    new_value = kwargs.get(field_name, None)
+                    if new_value is not None:
+                        setattr(space.shading, field_name, new_value)
+
+def restore_viewports():
+    """Restores overridden 3D viewport settings."""
+
+    for area in bpy.context.screen.areas:
+        if area.type == 'VIEW_3D':
+            area.header_text_set(None)
+        for space in area.spaces:
+            if space.type == 'VIEW_3D':
+                saved_show_overlays = space.shading.pop('saved_show_overlays', None)
+                if saved_show_overlays is not None:
+                    space.overlay.show_overlays = saved_show_overlays
+                for field_name in view3d_shading_field_names:
+                    saved_value = space.shading.pop('saved_type', None)
+                    if saved_value is not None:
+                        setattr(space.shading, field_name, saved_value)
+
 def viewport_reveal_all():
     for collection in bpy.data.collections:
         collection.hide_select = False

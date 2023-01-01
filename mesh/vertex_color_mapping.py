@@ -5,6 +5,7 @@ import bmesh
 import bpy
 import sys
 
+from ..helpers import save_selection, load_selection, override_viewports, restore_viewports, show_only
 from ..math import SMALL_NUMBER, saturate, get_dist
 from ..operator import ScopedRestore
 
@@ -53,11 +54,11 @@ def values_to_vcol(mesh, src_values, dst_vcol, dst_channel_idx, invert=False):
             value = 1.0 - value
         dst_vcol.data[loop_idx].color[dst_channel_idx] = value
 
-def update_vcol_from(obj, mapping, src_property, dst_vcol, dst_channel_idx, invert=False):
+def update_vcol_from(obj, mapping, prefix, dst_vcol, dst_channel_idx, invert=False):
     mesh = obj.data
     values = None
-    src = getattr(mapping, src_property)
-    invert = invert != getattr(mapping, src_property + '_invert')
+    src = getattr(mapping, prefix)
+    invert = invert != getattr(mapping, prefix + '_invert')
 
     if src == 'ZERO':
         values = 0.0
@@ -66,7 +67,7 @@ def update_vcol_from(obj, mapping, src_property, dst_vcol, dst_channel_idx, inve
         values = 1.0
 
     elif src == 'VERTEX_GROUP':
-        vertex_group = getattr(mapping, src_property + '_vertex_group')
+        vertex_group = getattr(mapping, prefix + '_vertex_group')
         values = [0.0] * len(mesh.vertices)
         vgroup = obj.vertex_groups.get(vertex_group)
 
@@ -87,9 +88,9 @@ def update_vcol_from(obj, mapping, src_property, dst_vcol, dst_channel_idx, inve
         values = (hash(obj.name) - min_hash) / (max_hash - min_hash)
 
     elif src in {'PIVOTLOC', 'PIVOTROT', 'VERTEX'}:
-        component = getattr(mapping, src_property + '_component')
+        component = getattr(mapping, prefix + '_component')
         component_idx = ['X', 'Y', 'Z'].index(component)
-        extents = max(getattr(mapping, src_property + '_extents'), SMALL_NUMBER)
+        extents = max(getattr(mapping, prefix + '_extents'), SMALL_NUMBER)
         remap_co = lambda co: (co[component_idx] / extents) + 0.5
 
         if src == 'PIVOTLOC':
@@ -101,12 +102,12 @@ def update_vcol_from(obj, mapping, src_property, dst_vcol, dst_channel_idx, inve
             values = [remap_co(m @ vert.co) for vert in mesh.vertices]
 
     elif src == 'VALUE':
-        values = getattr(mapping, src_property + '_value')
+        values = getattr(mapping, prefix + '_value')
 
     elif src == 'DISTANCE':
-        src_obj = bpy.data.objects.get(getattr(mapping, src_property + '_object'))
-        along_curve = getattr(mapping, src_property + '_along_curve')
-        extents = getattr(mapping, src_property + '_extents')
+        src_obj = bpy.data.objects.get(getattr(mapping, prefix + '_object'))
+        along_curve = getattr(mapping, prefix + '_along_curve')
+        extents = getattr(mapping, prefix + '_extents')
         values = 0.0
 
         if src_obj:
@@ -299,6 +300,88 @@ class GRET_OT_vertex_color_mapping_copy_to_selected(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class GRET_OT_vertex_color_mapping_preview(bpy.types.Operator):
+    #tooltip
+    """Preview this mask in the viewport. Click anywhere to stop previewing"""
+    # This is a modal operator because it would be far too messy to revert the changes otherwise
+
+    bl_idname = 'gret.vertex_color_mapping_preview'
+    bl_label = "Preview Vertex Color Mapping"
+    bl_options = {'INTERNAL'}
+
+    prefix: bpy.props.StringProperty(options={'HIDDEN'})
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object and context.active_object.type == 'MESH'
+
+    def modal(self, context, event):
+        if event.type in {'LEFTMOUSE', 'RIGHTMOUSE', 'ESC', 'RET', 'SPACE'}:
+            # Revert screen changes
+            restore_viewports()
+
+            # Clean up
+            obj = context.active_object
+            mesh = obj.data
+            mesh.vertex_colors.remove(mesh.vertex_colors[mesh.attributes.render_color_index])
+            if self.saved_render_color_index >= 0:
+                mesh.attributes.render_color_index = self.saved_render_color_index
+
+            load_selection(self.saved_selection)
+            del self.saved_selection
+
+            return {'CANCELLED'}
+
+        elif event.type in {'MOUSEMOVE', 'INBETWEEN_MOUSEMOVE', 'MIDDLEMOUSE', 'WHEELDOWNMOUSE',
+            'WHEELUPMOUSE', 'LEFT_CTRL', 'LEFT_SHIFT', 'LEFT_ALT'}:
+            # Only allow navigation keys. Kind of sucks, see https://developer.blender.org/T37427
+            return {'PASS_THROUGH'}
+
+        return {'RUNNING_MODAL'}
+
+    def invoke(self, context, event):
+        obj = context.active_object
+        mesh = obj.data
+        mapping = get_first_mapping(obj)
+        if not mapping or self.prefix not in {'r', 'g', 'b', 'a', 'rgb'}:
+            return {'CANCELLED'}
+
+        self.saved_render_color_index = mesh.attributes.render_color_index
+        self.saved_selection = save_selection()
+        show_only(context, obj)
+
+        vcol = mesh.vertex_colors.new(name="__preview")
+        if self.prefix == 'rgb':
+            src = "RGB"
+            update_vcol_from(obj, mapping, 'r', vcol, 0, mapping.invert)
+            update_vcol_from(obj, mapping, 'g', vcol, 1, mapping.invert)
+            update_vcol_from(obj, mapping, 'b', vcol, 2, mapping.invert)
+        else:
+            src = f"{getattr(mapping, self.prefix)} {self.prefix.upper()}"
+            update_vcol_from(obj, mapping, self.prefix, vcol, 0)
+            update_vcol_from(obj, mapping, self.prefix, vcol, 1)
+            update_vcol_from(obj, mapping, self.prefix, vcol, 2)
+            update_vcol_from(obj, mapping, self.prefix, vcol, 3)
+        mesh.update()
+        mesh.attributes.render_color_index = len(obj.data.color_attributes) - 1
+
+        # Set all 3D views to flat shading
+        override_viewports(
+            header_text=f"Previewing {src} vertex color mapping",
+            type='SOLID',
+            light='FLAT',
+            color_type='VERTEX',
+            show_xray=False,
+            show_shadows=False,
+            show_cavity=False,
+            use_dof=False,
+            show_object_outline=False,
+            show_overlays=False,
+        )
+
+        context.window_manager.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
+
 class GRET_PG_vertex_color_mapping(bpy.types.PropertyGroup):
     vertex_color_layer_name: bpy.props.StringProperty(
         name="Vertex Color Layer",
@@ -475,36 +558,38 @@ def vcol_panel_draw(self, context):
         row.operator('gret.vertex_color_mapping_clear', icon='X')
         row.menu('GRET_MT_vertex_color_mapping', text='', icon='DOWNARROW_HLT')
 
-    def draw_vcol_layout(layout, mapping, src_property, icon):
+    def draw_vcol_layout(layout, mapping, prefix, icon):
         row = layout.row(align=True)
-        row.prop(mapping, src_property, icon=icon, text="")
-        src = getattr(mapping, src_property)
+        row.prop(mapping, prefix, icon=icon, text="")
+        src = getattr(mapping, prefix)
         if src == 'VERTEX_GROUP':
             sub = row.split(align=True)
-            sub.prop_search(mapping, src_property + '_vertex_group', obj, 'vertex_groups', text="")
+            sub.prop_search(mapping, prefix + '_vertex_group', obj, 'vertex_groups', text="")
             sub.ui_units_x = 14.0
         elif src == 'PIVOTROT':
             sub = row.split(align=True)
-            sub.prop(mapping, src_property + '_component', text="")
+            sub.prop(mapping, prefix + '_component', text="")
             sub.ui_units_x = 14.0
         elif src in {'PIVOTLOC', 'VERTEX'}:
             sub = row.split(align=True)
             row2 = sub.row(align=True)
-            row2.prop(mapping, src_property + '_component', text="")
-            row2.prop(mapping, src_property + '_extents', text="")
+            row2.prop(mapping, prefix + '_component', text="")
+            row2.prop(mapping, prefix + '_extents', text="")
             sub.ui_units_x = 14.0
         elif src == 'VALUE':
             sub = row.split(align=True)
-            sub.prop(mapping, src_property + '_value', text="")
+            sub.prop(mapping, prefix + '_value', text="")
             sub.ui_units_x = 14.0
         elif src == 'DISTANCE':
             sub = row.split(align=True)
             row2 = sub.row(align=True)
-            row2.prop_search(mapping, src_property + '_object', bpy.data, 'objects', text="")
-            row2.prop(mapping, src_property + '_extents', text="")
-            row2.prop(mapping, src_property + '_along_curve', icon='CURVE_PATH', text="")
+            row2.prop_search(mapping, prefix + '_object', bpy.data, 'objects', text="")
+            row2.prop(mapping, prefix + '_extents', text="")
+            row2.prop(mapping, prefix + '_along_curve', icon='CURVE_PATH', text="")
             sub.ui_units_x = 14.0
-        row.prop(mapping, src_property + '_invert', icon='REMOVE', text="")
+        row.prop(mapping, prefix + '_invert', icon='REMOVE', text="")
+        op = row.operator('gret.vertex_color_mapping_preview', icon='HIDE_OFF', text="")
+        op.prefix = prefix
 
     for mapping_idx, mapping in enumerate(obj.vertex_color_mapping):
         box = layout
@@ -520,6 +605,8 @@ def vcol_panel_draw(self, context):
         row = col.row(align=True)
         row.prop(mapping, 'vertex_color_layer_name', icon='GROUP_VCOL', text="")
         row.prop(mapping, 'invert', icon='REMOVE', text="")
+        op = row.operator('gret.vertex_color_mapping_preview', icon='HIDE_OFF', text="")
+        op.prefix = 'rgb'
         col.operator('gret.vertex_color_mapping_refresh', icon='FILE_REFRESH', text="Update Vertex Color")
 
 class GRET_MT_vertex_color_mapping(bpy.types.Menu):
@@ -537,6 +624,7 @@ classes = (
     GRET_OT_vertex_color_mapping_clear,
     GRET_OT_vertex_color_mapping_copy_to_linked,
     GRET_OT_vertex_color_mapping_copy_to_selected,
+    GRET_OT_vertex_color_mapping_preview,
     GRET_OT_vertex_color_mapping_refresh,
     GRET_PG_vertex_color_mapping,
 )
