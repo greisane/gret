@@ -46,8 +46,8 @@ def copy_mapping(obj, other_obj):
     if mapping and other_mapping:
         other_mapping.invert = mapping.invert
         for prefix in ('r', 'g', 'b', 'a'):
-            for suffix in ('', 'invert', 'vertex_group', 'component', 'extents', 'value', 'object',
-                'along_curve', 'blur', 'scale'):
+            for suffix in ('', 'invert', 'vertex_group', 'invert_vertex_group', 'component',
+                'extents', 'value', 'object', 'along_curve', 'blur', 'scale'):
                 property_name = f'{prefix}_{suffix}' if suffix else prefix
                 setattr(other_mapping, property_name, getattr(mapping, property_name))
 
@@ -180,7 +180,7 @@ def get_cavity_values(obj, valley_factor=1.0, ridge_factor=1.0, valley_only=Fals
 
     if mask_vg_index >= 0:
         if invert_mask_vertex_group:
-            scale = [1.0 - vert[deform_layer].get(mask_vg_index, 0.0) * scale for vert in bm.verts]
+            scale = [(1.0 - vert[deform_layer].get(mask_vg_index, 0.0)) * scale for vert in bm.verts]
         else:
             scale = [vert[deform_layer].get(mask_vg_index, 0.0) * scale for vert in bm.verts]
 
@@ -255,8 +255,9 @@ def update_vcol_from(obj, mapping, prefix, dst_vcol, dst_channel_idx, invert=Fal
         blur_i = int(blur_i + ceil(blur_f))
         scale = getattr(mapping, prefix + '_scale')
         vertex_group = getattr(mapping, prefix + '_vertex_group')
+        invert_vertex_group = getattr(mapping, prefix + '_invert_vertex_group')
         values = get_cavity_values(obj, blur_strength=blur_f, blur_iterations=blur_i, scale=scale,
-            mask_vertex_group=vertex_group)
+            mask_vertex_group=vertex_group, invert_mask_vertex_group=invert_vertex_group)
 
     if type(values) is float:
         values = [values] * len(mesh.vertices)
@@ -540,6 +541,26 @@ class GRET_PG_vertex_color_mapping(bpy.types.PropertyGroup):
         name="Vertex Group",
         description="Mask vertex group name",
     )
+    r_invert_vertex_group: bpy.props.BoolProperty(
+        name="Invert Vertex Group",
+        description="Invert mask vertex group influence",
+        default=False,
+    )
+    g_invert_vertex_group: bpy.props.BoolProperty(
+        name="Invert Vertex Group",
+        description="Invert mask vertex group influence",
+        default=False,
+    )
+    b_invert_vertex_group: bpy.props.BoolProperty(
+        name="Invert Vertex Group",
+        description="Invert mask vertex group influence",
+        default=False,
+    )
+    a_invert_vertex_group: bpy.props.BoolProperty(
+        name="Invert Vertex Group",
+        description="Invert mask vertex group influence",
+        default=False,
+    )
     r_component: bpy.props.EnumProperty(
         name="Component",
         description="Source vector component",
@@ -724,6 +745,7 @@ def vcol_panel_draw(self, context):
             sub = row.split(align=True)
             row2 = sub.row(align=True)
             row2.prop_search(mapping, prefix + '_vertex_group', obj, 'vertex_groups', text="")
+            row2.prop(mapping, prefix + '_invert_vertex_group', icon='ARROW_LEFTRIGHT', text="")
             sub2 = sub.split(align=True)
             sub2.prop(mapping, prefix + '_scale', text="")
             sub2.prop(mapping, prefix + '_blur', text="")
