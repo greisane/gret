@@ -1,12 +1,14 @@
-from math import pi
+from math import ceil, modf, pi, acos
+from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 from mathutils.kdtree import KDTree
 import bmesh
 import bpy
+import numpy as np
 import sys
 
 from ..helpers import save_selection, load_selection, override_viewports, restore_viewports, show_only
-from ..math import SMALL_NUMBER, saturate, get_dist
+from ..math import SMALL_NUMBER, saturate, lerp, get_dist
 from ..operator import ScopedRestore
 
 src_items = [
@@ -21,6 +23,7 @@ src_items = [
     ('VERTEX', "Vertex", "Vertex world coordinates"),
     ('VALUE', "Value", "Constant value"),
     ('DISTANCE', "Distance", "Geometric distance to another mesh or curve"),
+    ('CAVITY', "Cavity", "Approximation of the curvature of the mesh"),
 ]
 
 component_items = [
@@ -41,9 +44,10 @@ def copy_mapping(obj, other_obj):
     other_mapping = get_first_mapping(other_obj)
 
     if mapping and other_mapping:
+        other_mapping.invert = mapping.invert
         for prefix in ('r', 'g', 'b', 'a'):
             for suffix in ('', 'invert', 'vertex_group', 'component', 'extents', 'value', 'object',
-                'along_curve'):
+                'along_curve', 'blur', 'scale'):
                 property_name = f'{prefix}_{suffix}' if suffix else prefix
                 setattr(other_mapping, property_name, getattr(mapping, property_name))
 
@@ -119,6 +123,73 @@ def get_distance_values(obj, src_obj, extents=0.0, along_curve=False):
 
     return values
 
+def get_cavity_values(obj, valley_factor=1.0, ridge_factor=1.0, valley_only=False, scale=1.0,
+    blur_strength=1.0, blur_iterations=0, mask_vertex_group=None, invert_mask_vertex_group=False):
+    """
+    We simulate the accumulation of dirt in the creases of geometric surfaces
+    by comparing the vertex normal to the average direction of all vertices
+    connected to that vertex. We can also simulate surfaces being buffed or
+    worn by testing protruding surfaces.
+
+    So if the angle between the normal and geometric direction is:
+    < 90 - dirt has accumulated in the crease
+    > 90 - surface has been worn or buffed
+    ~ 90 - surface is flat and is generally unworn and clean
+
+    This method is limited by the complexity or lack thereof in the geometry.
+
+    Original code and method by Keith "Wahooney" Boshoff
+    release/scripts/startup/bl_operators/vertexpaint_dirt.py
+    """
+
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+
+    deform_layer = bm.verts.layers.deform.active
+    mask_vg_index = obj.vertex_groups.find(mask_vertex_group or "")
+    values = np.zeros(len(bm.verts))
+
+    for vert in bm.verts:
+        vec = Vector()
+        co = vert.co
+
+        # Get the direction of the vectors between the vertex and its connected vertices
+        for edge in vert.link_edges:
+            vec += (edge.other_vert(vert).co - co).normalized()
+        num_connected = len(vert.link_edges)
+        if num_connected == 0:
+            value = 0.5  # Assume flat
+        else:
+            vec /= num_connected
+            value = saturate(acos(vert.normal.dot(vec)) / pi)  # > 0.5 convex, < 0.5 concave
+
+        value = max(lerp(0.5, 0.25, valley_factor), value)
+        if not valley_only:
+            value = min(lerp(0.5, 0.75, ridge_factor), value)
+        values[vert.index] = value
+
+    # Blur values
+    vert_to_verts = [[e.other_vert(v).index for e in v.link_edges] for v in bm.verts]
+    for _ in range(blur_iterations):
+        orig_values = values.copy()
+        for idx, link_verts in enumerate(vert_to_verts):
+            for other_idx in link_verts:
+                values[idx] += blur_strength * orig_values[other_idx]
+            values[idx] /= len(link_verts) * blur_strength + 1
+        del orig_values
+
+    if mask_vg_index >= 0:
+        if invert_mask_vertex_group:
+            scale = [1.0 - vert[deform_layer].get(mask_vg_index, 0.0) * scale for vert in bm.verts]
+        else:
+            scale = [vert[deform_layer].get(mask_vg_index, 0.0) * scale for vert in bm.verts]
+
+    values = 0.5 - (0.5 - values) * scale
+    if valley_only:
+        values = np.minimum(values, 0.5) * 2.0
+
+    return values
+
 def update_vcol_from(obj, mapping, prefix, dst_vcol, dst_channel_idx, invert=False):
     mesh = obj.data
     values = None
@@ -178,9 +249,18 @@ def update_vcol_from(obj, mapping, prefix, dst_vcol, dst_channel_idx, invert=Fal
         else:
             values = 0.0
 
+    elif src == 'CAVITY':
+        blur_f, blur_i = modf(min(5.0, getattr(mapping, prefix + '_blur')))
+        blur_f = max(0.001, blur_i / 5 + blur_f * (1 - blur_i / 5))
+        blur_i = int(blur_i + ceil(blur_f))
+        scale = getattr(mapping, prefix + '_scale')
+        vertex_group = getattr(mapping, prefix + '_vertex_group')
+        values = get_cavity_values(obj, blur_strength=blur_f, blur_iterations=blur_i, scale=scale,
+            mask_vertex_group=vertex_group)
+
     if type(values) is float:
         values = [values] * len(mesh.vertices)
-    if values:
+    if values is not None:
         assert len(values) == len(mesh.vertices)
         values_to_vcol(mesh, values, dst_vcol, dst_channel_idx, invert=invert)
 
@@ -446,19 +526,19 @@ class GRET_PG_vertex_color_mapping(bpy.types.PropertyGroup):
     )
     r_vertex_group: bpy.props.StringProperty(
         name="Vertex Group",
-        description="Vertex group to store in this channel",
+        description="Mask vertex group name",
     )
     g_vertex_group: bpy.props.StringProperty(
         name="Vertex Group",
-        description="Vertex group to store in this channel",
+        description="Mask vertex group name",
     )
     b_vertex_group: bpy.props.StringProperty(
         name="Vertex Group",
-        description="Vertex group to store in this channel",
+        description="Mask vertex group name",
     )
     a_vertex_group: bpy.props.StringProperty(
         name="Vertex Group",
-        description="Vertex group to store in this channel",
+        description="Mask vertex group name",
     )
     r_component: bpy.props.EnumProperty(
         name="Component",
@@ -555,6 +635,46 @@ class GRET_PG_vertex_color_mapping(bpy.types.PropertyGroup):
         description="Calculate distance along the curve if the object is a curve",
         default=False,
     )
+    r_blur: bpy.props.FloatProperty(
+        name="Blur Strength",
+        description="Blur strength",
+        min=0.0, max=5.0, default=0.0, subtype='FACTOR',
+    )
+    g_blur: bpy.props.FloatProperty(
+        name="Blur Strength",
+        description="Blur strength",
+        min=0.0, max=5.0, default=0.0, subtype='FACTOR',
+    )
+    b_blur: bpy.props.FloatProperty(
+        name="Blur Strength",
+        description="Blur strength",
+        min=0.0, max=5.0, default=0.0, subtype='FACTOR',
+    )
+    a_blur: bpy.props.FloatProperty(
+        name="Blur Strength",
+        description="Blur strength",
+        min=0.0, max=5.0, default=0.0, subtype='FACTOR',
+    )
+    r_scale: bpy.props.FloatProperty(
+        name="Scale",
+        description="Contrast increase",
+        default=1.0, soft_min=0.0, soft_max=10.0,
+    )
+    g_scale: bpy.props.FloatProperty(
+        name="Scale",
+        description="Contrast increase",
+        default=1.0, soft_min=0.0, soft_max=10.0,
+    )
+    b_scale: bpy.props.FloatProperty(
+        name="Scale",
+        description="Contrast increase",
+        default=1.0, soft_min=0.0, soft_max=10.0,
+    )
+    a_scale: bpy.props.FloatProperty(
+        name="Scale",
+        description="Contrast increase",
+        default=1.0, soft_min=0.0, soft_max=10.0,
+    )
 
 def vcol_panel_draw(self, context):
     layout = self.layout
@@ -573,31 +693,41 @@ def vcol_panel_draw(self, context):
         row = layout.row(align=True)
         row.prop(mapping, prefix, icon=icon, text="")
         src = getattr(mapping, prefix)
+        ui_units_x = 16.0
         if src == 'VERTEX_GROUP':
             sub = row.split(align=True)
             sub.prop_search(mapping, prefix + '_vertex_group', obj, 'vertex_groups', text="")
-            sub.ui_units_x = 14.0
+            sub.ui_units_x = ui_units_x
         elif src == 'PIVOTROT':
             sub = row.split(align=True)
             sub.prop(mapping, prefix + '_component', text="")
-            sub.ui_units_x = 14.0
+            sub.ui_units_x = ui_units_x
         elif src in {'PIVOTLOC', 'VERTEX'}:
             sub = row.split(align=True)
             row2 = sub.row(align=True)
             row2.prop(mapping, prefix + '_component', text="")
             row2.prop(mapping, prefix + '_extents', text="")
-            sub.ui_units_x = 14.0
+            sub.ui_units_x = ui_units_x
         elif src == 'VALUE':
             sub = row.split(align=True)
             sub.prop(mapping, prefix + '_value', text="")
-            sub.ui_units_x = 14.0
+            sub.ui_units_x = ui_units_x
         elif src == 'DISTANCE':
             sub = row.split(align=True)
             row2 = sub.row(align=True)
             row2.prop_search(mapping, prefix + '_object', bpy.data, 'objects', text="")
-            row2.prop(mapping, prefix + '_extents', text="")
-            row2.prop(mapping, prefix + '_along_curve', icon='CURVE_PATH', text="")
-            sub.ui_units_x = 14.0
+            sub2 = sub.split(align=True)
+            sub2.prop(mapping, prefix + '_extents', text="")
+            sub2.prop(mapping, prefix + '_along_curve', icon='CURVE_PATH', text="")
+            sub.ui_units_x = ui_units_x
+        elif src == 'CAVITY':
+            sub = row.split(align=True)
+            row2 = sub.row(align=True)
+            row2.prop_search(mapping, prefix + '_vertex_group', obj, 'vertex_groups', text="")
+            sub2 = sub.split(align=True)
+            sub2.prop(mapping, prefix + '_scale', text="")
+            sub2.prop(mapping, prefix + '_blur', text="")
+            sub.ui_units_x = ui_units_x
         row.prop(mapping, prefix + '_invert', icon='REMOVE', text="")
         op = row.operator('gret.vertex_color_mapping_preview', icon='HIDE_OFF', text="")
         op.prefix = prefix
