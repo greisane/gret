@@ -13,6 +13,7 @@ clamp = lambda x, mn, mx: min(mx, max(mn, x))
 grid_snap = lambda x, grid: x if grid == 0.0 else floor((x + (grid * 0.5)) / grid) * grid
 equals = lambda a, b, threshold=SMALL_NUMBER: abs(a - b) <= threshold
 lerp = lambda a, b, t: t * b + (1.0 - t) * a
+invlerp = lambda a, b, x: (x - a) / (b - a)  # Safe version in get_range_pct
 avg = lambda l, f: sum(f(el) for el in l) / len(l)
 frac = lambda x: x - int(x)
 

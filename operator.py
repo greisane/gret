@@ -1,5 +1,21 @@
 import bpy
 
+class ScopedRestore:
+    """Saves attributes of an object and restores them when exiting scope."""
+
+    def __init__(self, obj, field_names):
+        self.obj = obj
+        if isinstance(field_names, str):
+            field_names = field_names.replace(',', ' ').split()
+        self.field_names = field_names
+
+    def __enter__(self):
+        self.saved_values = {name: getattr(self.obj, name) for name in self.field_names}
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        for name, value in self.saved_values.items():
+            setattr(self.obj, name, value)
+
 class StateMachineBaseState:
     def __init__(self, owner):
         self.owner = owner

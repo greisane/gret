@@ -1,10 +1,12 @@
 from math import pi
 from mathutils.bvhtree import BVHTree
+from mathutils.kdtree import KDTree
 import bmesh
 import bpy
 import sys
 
-from ..math import saturate
+from ..math import SMALL_NUMBER, saturate, get_dist
+from ..operator import ScopedRestore
 
 src_items = [
     ('NONE', "", "Leave the channel unchanged"),
@@ -39,7 +41,8 @@ def copy_mapping(obj, other_obj):
 
     if mapping and other_mapping:
         for prefix in ('r', 'g', 'b', 'a'):
-            for suffix in ('', 'invert', 'vertex_group', 'component', 'extents', 'value'):
+            for suffix in ('', 'invert', 'vertex_group', 'component', 'extents', 'value', 'object',
+                'along_curve'):
                 property_name = f'{prefix}_{suffix}' if suffix else prefix
                 setattr(other_mapping, property_name, getattr(mapping, property_name))
 
@@ -58,12 +61,15 @@ def update_vcol_from(obj, mapping, src_property, dst_vcol, dst_channel_idx, inve
 
     if src == 'ZERO':
         values = 0.0
+
     elif src == 'ONE':
         values = 1.0
+
     elif src == 'VERTEX_GROUP':
         vertex_group = getattr(mapping, src_property + '_vertex_group')
         values = [0.0] * len(mesh.vertices)
         vgroup = obj.vertex_groups.get(vertex_group)
+
         if vgroup:
             vgroup_idx = vgroup.index
             for vert_idx, vert in enumerate(mesh.vertices):
@@ -71,17 +77,21 @@ def update_vcol_from(obj, mapping, src_property, dst_vcol, dst_channel_idx, inve
                     if vg.group == vgroup_idx:
                         values[vert_idx] = vg.weight
                         break
+
     elif src == 'BEVEL':
         values = [vert.bevel_weight for vert in mesh.vertices]
+
     elif src == 'HASH':
         min_hash = -sys.maxsize - 1
         max_hash = sys.maxsize
         values = (hash(obj.name) - min_hash) / (max_hash - min_hash)
+
     elif src in {'PIVOTLOC', 'PIVOTROT', 'VERTEX'}:
         component = getattr(mapping, src_property + '_component')
         component_idx = ['X', 'Y', 'Z'].index(component)
-        extents = getattr(mapping, src_property + '_extents')
+        extents = max(getattr(mapping, src_property + '_extents'), SMALL_NUMBER)
         remap_co = lambda co: (co[component_idx] / extents) + 0.5
+
         if src == 'PIVOTLOC':
             values = remap_co(obj.location)
         elif src == 'PIVOTROT':
@@ -89,35 +99,72 @@ def update_vcol_from(obj, mapping, src_property, dst_vcol, dst_channel_idx, inve
         elif src == 'VERTEX':
             m = obj.matrix_world
             values = [remap_co(m @ vert.co) for vert in mesh.vertices]
+
     elif src == 'VALUE':
         values = getattr(mapping, src_property + '_value')
+
     elif src == 'DISTANCE':
         src_obj = bpy.data.objects.get(getattr(mapping, src_property + '_object'))
-        bvh = None
-        if src_obj and src_obj.type == 'MESH':
-            dg = bpy.context.evaluated_depsgraph_get()
-            bvh = BVHTree.FromObject(src_obj, dg)
-        elif src_obj and src_obj.type == 'CURVE':
-            # Convert curve to a temporary mesh. Curve API is very limited, doing the math here
-            # would be a huge mess and likely slower. See https://blender.stackexchange.com/a/34276
-            dg = bpy.context.evaluated_depsgraph_get()
-            src_mesh = src_obj.to_mesh(preserve_all_data_layers=False, depsgraph=dg)
-            bm = bmesh.new()
-            bm.from_mesh(src_mesh)
-            if not bm.faces:
-                bmesh.ops.extrude_edge_only(bm, edges=bm.edges)
-            bvh = BVHTree.FromBMesh(bm)
-            bm.free()
-        else:
-            values = 0.0
-        if bvh:
-            values = [1.0] * len(mesh.vertices)
-            extents = getattr(mapping, src_property + '_extents')
+        along_curve = getattr(mapping, src_property + '_along_curve')
+        extents = getattr(mapping, src_property + '_extents')
+        values = 0.0
+
+        if src_obj:
             obj_to_src = src_obj.matrix_world.inverted() @ obj.matrix_world
-            for vert_idx, vert in enumerate(mesh.vertices):
-                loc, norm, index, dist = bvh.find_nearest(obj_to_src @ vert.co, extents)
-                if dist is not None:
-                    values[vert_idx] = dist / extents
+            dg = bpy.context.evaluated_depsgraph_get()
+            values = [1.0] * len(mesh.vertices)
+
+            if src_obj.type == 'MESH':
+                bvh = BVHTree.FromObject(src_obj, dg)
+                for vert_idx, vert in enumerate(mesh.vertices):
+                    loc, norm, index, dist = bvh.find_nearest(obj_to_src @ vert.co, extents)
+                    if dist is not None:
+                        values[vert_idx] = dist / extents
+
+            elif src_obj.type == 'CURVE' and not along_curve:
+                # Convert curve to a temporary mesh. Curve API is very limited, doing the math here
+                # would be a huge mess and likely slower. See https://blender.stackexchange.com/a/34276
+                src_mesh = src_obj.to_mesh(preserve_all_data_layers=False, depsgraph=dg)
+                bm = bmesh.new()
+                bm.from_mesh(src_mesh)
+                if not bm.faces:
+                    bmesh.ops.extrude_edge_only(bm, edges=bm.edges)
+                bvh = BVHTree.FromBMesh(bm)
+                bm.free()
+                src_obj.to_mesh_clear()
+
+                # Assign values
+                for vert_idx, vert in enumerate(mesh.vertices):
+                    co, norm, index, dist = bvh.find_nearest(obj_to_src @ vert.co, extents)
+                    if dist is not None:
+                        values[vert_idx] = dist / extents
+
+            elif src_obj.type == 'CURVE' and along_curve:
+                # To find the progress along the curve it would be enough to look at the generated UVs
+                # Again the API isn't very useful, so measure edge lengths to obtain distance instead
+                with ScopedRestore(src_obj.data, 'extrude bevel_depth'):
+                    src_obj.data.extrude = src_obj.data.bevel_depth = 0.0
+                    src_mesh = src_obj.to_mesh(preserve_all_data_layers=False, depsgraph=dg)
+                src_verts = src_mesh.vertices
+                kd = KDTree(len(src_verts))
+                for vert_idx, vert in enumerate(src_verts):
+                    kd.insert(vert.co, vert_idx)
+                kd.balance()
+
+                # Cache sum of edge lengths up to each vertex
+                dist_along = [0.0] * len(src_verts)
+                for vert_idx in range(1, len(src_verts)):
+                    edge_length = get_dist(src_verts[vert_idx].co, src_verts[vert_idx - 1].co)
+                    dist_along[vert_idx] = dist_along[vert_idx - 1] + edge_length
+                src_obj.to_mesh_clear()
+                total_dist_along = dist_along[-1]
+
+                # Assign values
+                if total_dist_along > 0.0:
+                    extents = extents if extents > 0.0 else total_dist_along
+                    for vert_idx, vert in enumerate(mesh.vertices):
+                        co, index, dist = kd.find(obj_to_src @ vert.co)
+                        values[vert_idx] = dist_along[index] / extents
 
     if type(values) is float:
         values = [values] * len(mesh.vertices)
@@ -345,22 +392,22 @@ class GRET_PG_vertex_color_mapping(bpy.types.PropertyGroup):
     r_extents: bpy.props.FloatProperty(
         name="Extents",
         description="Maximum distance representable by this channel",
-        default=4.0, min=0.001, precision=4, step=1, unit='LENGTH',
+        default=4.0, min=0.0, precision=4, step=1, unit='LENGTH',
     )
     g_extents: bpy.props.FloatProperty(
         name="Extents",
         description="Maximum distance representable by this channel",
-        default=4.0, min=0.001, precision=4, step=1, unit='LENGTH',
+        default=4.0, min=0.0, precision=4, step=1, unit='LENGTH',
     )
     b_extents: bpy.props.FloatProperty(
         name="Extents",
         description="Maximum distance representable by this channel",
-        default=4.0, min=0.001, precision=4, step=1, unit='LENGTH',
+        default=4.0, min=0.0, precision=4, step=1, unit='LENGTH',
     )
     a_extents: bpy.props.FloatProperty(
         name="Extents",
         description="Maximum distance representable by this channel",
-        default=4.0, min=0.001, precision=4, step=1, unit='LENGTH',
+        default=4.0, min=0.0, precision=4, step=1, unit='LENGTH',
     )
     r_value: bpy.props.FloatProperty(
         name="Value",
@@ -393,6 +440,26 @@ class GRET_PG_vertex_color_mapping(bpy.types.PropertyGroup):
     a_object: bpy.props.StringProperty(
         name="Object",
         description="Target object",
+    )
+    r_along_curve: bpy.props.BoolProperty(
+        name="Along Curve",
+        description="Calculate distance along the curve if the object is a curve",
+        default=False,
+    )
+    g_along_curve: bpy.props.BoolProperty(
+        name="Along Curve",
+        description="Calculate distance along the curve if the object is a curve",
+        default=False,
+    )
+    b_along_curve: bpy.props.BoolProperty(
+        name="Along Curve",
+        description="Calculate distance along the curve if the object is a curve",
+        default=False,
+    )
+    a_along_curve: bpy.props.BoolProperty(
+        name="Along Curve",
+        description="Calculate distance along the curve if the object is a curve",
+        default=False,
     )
 
 def vcol_panel_draw(self, context):
@@ -435,6 +502,7 @@ def vcol_panel_draw(self, context):
             row2 = sub.row(align=True)
             row2.prop_search(mapping, src_property + '_object', bpy.data, 'objects', text="")
             row2.prop(mapping, src_property + '_extents', text="")
+            row2.prop(mapping, src_property + '_along_curve', icon='CURVE_PATH', text="")
             sub.ui_units_x = 14.0
         row.prop(mapping, src_property + '_invert', icon='REMOVE', text="")
 
