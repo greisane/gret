@@ -17,7 +17,7 @@ src_items = [
     ('PIVOTROT', "Rotation", "Object pivot rotation"),
     ('VERTEX', "Vertex", "Vertex world coordinates"),
     ('VALUE', "Value", "Constant value"),
-    ('DISTANCE', "Distance", "Geometric distance to another mesh"),
+    ('DISTANCE', "Distance", "Geometric distance to another mesh or curve"),
 ]
 
 component_items = [
@@ -92,12 +92,27 @@ def update_vcol_from(obj, mapping, src_property, dst_vcol, dst_channel_idx, inve
     elif src == 'VALUE':
         values = getattr(mapping, src_property + '_value')
     elif src == 'DISTANCE':
-        values = [0.0] * len(mesh.vertices)
         src_obj = bpy.data.objects.get(getattr(mapping, src_property + '_object'))
-        extents = getattr(mapping, src_property + '_extents')
+        bvh = None
         if src_obj and src_obj.type == 'MESH':
             dg = bpy.context.evaluated_depsgraph_get()
             bvh = BVHTree.FromObject(src_obj, dg)
+        elif src_obj and src_obj.type == 'CURVE':
+            # Convert curve to a temporary mesh. Curve API is very limited, doing the math here
+            # would be a huge mess and likely slower. See https://blender.stackexchange.com/a/34276
+            dg = bpy.context.evaluated_depsgraph_get()
+            src_mesh = src_obj.to_mesh(preserve_all_data_layers=False, depsgraph=dg)
+            bm = bmesh.new()
+            bm.from_mesh(src_mesh)
+            if not bm.faces:
+                bmesh.ops.extrude_edge_only(bm, edges=bm.edges)
+            bvh = BVHTree.FromBMesh(bm)
+            bm.free()
+        else:
+            values = 0.0
+        if bvh:
+            values = [1.0] * len(mesh.vertices)
+            extents = getattr(mapping, src_property + '_extents')
             obj_to_src = src_obj.matrix_world.inverted() @ obj.matrix_world
             for vert_idx, vert in enumerate(mesh.vertices):
                 loc, norm, index, dist = bvh.find_nearest(obj_to_src @ vert.co, extents)
