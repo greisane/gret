@@ -14,6 +14,7 @@ src_items = [
     ('PIVOTLOC', "Location", "Object pivot location"),
     ('PIVOTROT', "Rotation", "Object pivot rotation"),
     ('VERTEX', "Vertex", "Vertex world coordinates"),
+    ('VALUE', "Value", "Constant value"),
 ]
 
 component_items = [
@@ -34,27 +35,10 @@ def copy_mapping(obj, other_obj):
     other_mapping = get_first_mapping(other_obj)
 
     if mapping and other_mapping:
-        other_mapping.r = mapping.r
-        other_mapping.g = mapping.g
-        other_mapping.b = mapping.b
-        other_mapping.a = mapping.a
-        other_mapping.invert = mapping.invert
-        other_mapping.r_invert = mapping.r_invert
-        other_mapping.g_invert = mapping.g_invert
-        other_mapping.b_invert = mapping.b_invert
-        other_mapping.a_invert = mapping.a_invert
-        other_mapping.r_vertex_group = mapping.r_vertex_group
-        other_mapping.g_vertex_group = mapping.g_vertex_group
-        other_mapping.b_vertex_group = mapping.b_vertex_group
-        other_mapping.a_vertex_group = mapping.a_vertex_group
-        other_mapping.r_component = mapping.r_component
-        other_mapping.g_component = mapping.g_component
-        other_mapping.b_component = mapping.b_component
-        other_mapping.a_component = mapping.a_component
-        other_mapping.r_extents = mapping.r_extents
-        other_mapping.g_extents = mapping.g_extents
-        other_mapping.b_extents = mapping.b_extents
-        other_mapping.a_extents = mapping.a_extents
+        for prefix in ('r', 'g', 'b', 'a'):
+            for suffix in ('', 'invert', 'vertex_group', 'component', 'extents', 'value'):
+                property_name = f'{prefix}_{suffix}' if suffix else prefix
+                setattr(other_mapping, property_name, getattr(mapping, property_name))
 
 def values_to_vcol(mesh, src_values, dst_vcol, dst_channel_idx, invert=False):
     for loop_idx, loop in enumerate(mesh.loops):
@@ -102,6 +86,8 @@ def update_vcol_from(obj, mapping, src_property, dst_vcol, dst_channel_idx, inve
         elif src == 'VERTEX':
             m = obj.matrix_world
             values = [remap_co(m @ vert.co) for vert in mesh.vertices]
+    elif src == 'VALUE':
+        values = getattr(mapping, src_property + '_value')
 
     if type(values) is float:
         values = [values] * len(mesh.vertices)
@@ -346,6 +332,22 @@ class GRET_PG_vertex_color_mapping(bpy.types.PropertyGroup):
         description="Maximum distance representable by this channel",
         default=4.0, min=0.001, precision=4, step=1, unit='LENGTH',
     )
+    r_value: bpy.props.FloatProperty(
+        name="Value",
+        description="Constant value",
+    )
+    g_value: bpy.props.FloatProperty(
+        name="Value",
+        description="Constant value",
+    )
+    b_value: bpy.props.FloatProperty(
+        name="Value",
+        description="Constant value",
+    )
+    a_value: bpy.props.FloatProperty(
+        name="Value",
+        description="Constant value",
+    )
 
 def vcol_panel_draw(self, context):
     layout = self.layout
@@ -377,6 +379,10 @@ def vcol_panel_draw(self, context):
             row2 = sub.row(align=True)
             row2.prop(mapping, src_property + '_component', text="")
             row2.prop(mapping, src_property + '_extents', text="")
+            sub.ui_units_x = 14.0
+        elif src == 'VALUE':
+            sub = row.split(align=True)
+            sub.prop(mapping, src_property + '_value', text="")
             sub.ui_units_x = 14.0
         row.prop(mapping, src_property + '_invert', icon='REMOVE', text="")
 
