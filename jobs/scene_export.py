@@ -265,8 +265,10 @@ def _scene_export(self, context, job):
         obj.shape_key_clear()
 
         # Bake and clear vertex color mappings before merging
-        if get_first_mapping(obj) and not obj.data.vertex_colors:
-            bpy.ops.gret.vertex_color_mapping_refresh(ctx, invert=job.invert_vertex_color_mappings)
+        if get_first_mapping(obj):
+            if not obj.data.vertex_colors:
+                log("Baking vertex color mappings")
+                bpy.ops.gret.vertex_color_mapping_refresh(ctx, invert=job.invert_vertex_color_mappings)
             bpy.ops.gret.vertex_color_mapping_clear(ctx)
 
         if job.ensure_vertex_color and not obj.data.vertex_colors:
