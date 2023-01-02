@@ -130,8 +130,11 @@ def patch_module(module, visitor, debug=False):
             debug_text += "-" * 80 + "\n"
             debug_text += str(arg) + "\n"
 
-    source = textwrap.dedent(inspect.getsource(module))
-    tree = ast.parse(source)
+    try:
+        source = textwrap.dedent(inspect.getsource(module))
+        tree = ast.parse(source)
+    except OSError:
+        return module
 
     if debug:
         printd("BEGIN SOURCE", source)
