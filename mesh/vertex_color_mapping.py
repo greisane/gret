@@ -33,7 +33,9 @@ component_items = [
 ]
 
 def get_first_mapping(obj):
-    return obj.vertex_color_mapping[0] if obj.vertex_color_mapping else None
+    if hasattr(obj, 'vertex_color_mapping') and obj.vertex_color_mapping:
+        return obj.vertex_color_mapping[0]
+    return None
 
 def copy_mapping(obj, other_obj):
     mapping = get_first_mapping(obj)
@@ -125,22 +127,8 @@ def get_distance_values(obj, src_obj, extents=0.0, along_curve=False):
 
 def get_cavity_values(obj, valley_factor=1.0, ridge_factor=1.0, valley_only=False, scale=1.0,
     blur_strength=1.0, blur_iterations=0, mask_vertex_group=None, invert_mask_vertex_group=False):
-    """
-    We simulate the accumulation of dirt in the creases of geometric surfaces
-    by comparing the vertex normal to the average direction of all vertices
-    connected to that vertex. We can also simulate surfaces being buffed or
-    worn by testing protruding surfaces.
-
-    So if the angle between the normal and geometric direction is:
-    < 90 - dirt has accumulated in the crease
-    > 90 - surface has been worn or buffed
-    ~ 90 - surface is flat and is generally unworn and clean
-
-    This method is limited by the complexity or lack thereof in the geometry.
-
-    Original code and method by Keith "Wahooney" Boshoff
-    release/scripts/startup/bl_operators/vertexpaint_dirt.py
-    """
+    # Original code and method by Keith "Wahooney" Boshoff
+    # See release/scripts/startup/bl_operators/vertexpaint_dirt.py
 
     bm = bmesh.new()
     bm.from_mesh(obj.data)

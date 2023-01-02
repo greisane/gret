@@ -16,7 +16,6 @@ from ..helpers import (
     get_name_safe,
     get_nice_export_report,
     get_object_filepath,
-    gret_operator_exists,
     load_properties,
     load_selection,
     save_properties,
@@ -37,6 +36,7 @@ from ..mesh.helpers import (
     remove_shape_keys,
     unsubdivide_preserve_uvs,
 )
+from ..mesh.vertex_color_mapping import get_first_mapping
 from ..log import logger, log, logd
 from ..rig.helpers import (
     copy_drivers,
@@ -218,18 +218,20 @@ def _rig_export(self, context, job, rig):
         # Remove vertex group filtering from shapekeys
         apply_shape_keys_with_vertex_groups(obj)
 
-        # Refresh vertex color and clear the mappings to avoid issues when meshes are merged
-        # It's more intuitive to author masks starting from black, however UE4 defaults to white
-        # Invert vertex colors, materials should use OneMinus to get the original value
-        if gret_operator_exists("gret.vertex_color_mapping_add"):
-            if not obj.data.vertex_colors and not obj.vertex_color_mapping:
-                logd("Created default vertex color mapping")
-                bpy.ops.gret.vertex_color_mapping_add(ctx)
+        # Bake and clear vertex color mappings before merging
+        if get_first_mapping(obj) and not obj.data.vertex_colors:
+            log("Baking vertex color mappings")
             bpy.ops.gret.vertex_color_mapping_refresh(ctx, invert=job.invert_vertex_color_mappings)
             bpy.ops.gret.vertex_color_mapping_clear(ctx)
-            if len(obj.data.vertex_colors) > 1:
-                logd(f"More than one vertex color layer, is this intended?",
-                    ", ".join(vc.name for vc in obj.data.vertex_colors))
+
+        if job.ensure_vertex_color and not obj.data.vertex_colors:
+            log("Created default vertex color layer")
+            vcol = obj.data.vertex_colors.new()
+            for loop in vcol.data:
+                loop.color = job.default_vertex_color
+        elif len(obj.data.vertex_colors) > 1:
+            log(f"More than one vertex color layer, is this intended?",
+                ", ".join(vc.name for vc in obj.data.vertex_colors))
 
         # Ensure proper mesh state
         sanitize_mesh(obj)

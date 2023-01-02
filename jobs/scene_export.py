@@ -15,7 +15,6 @@ from ..helpers import (
     get_name_safe,
     get_nice_export_report,
     get_topmost_parent,
-    gret_operator_exists,
     intercept,
     load_selection,
     save_selection,
@@ -30,6 +29,7 @@ from ..mesh.helpers import (
     merge_shape_keys_pattern,
     unsubdivide_preserve_uvs,
 )
+from ..mesh.vertex_color_mapping import get_first_mapping
 from ..mesh.collision import collision_prefixes, get_collision_objects
 
 def export_fbx(filepath, context, objects):
@@ -264,23 +264,25 @@ def _scene_export(self, context, job):
 
         obj.shape_key_clear()
 
-        if job.ensure_uv_layers and not obj.data.uv_layers:
-            # Optionally ensure UV layer. Zero coords to avoid all kinds of problems
-            log("Created empty UV layer")
-            for uvloop in obj.data.uv_layers.new(name="UVMap").data:
-                uvloop.uv = (0.0, 0.0)
-
-        # It's more intuitive to author masks starting from black, however UE4 defaults to white
-        # Invert vertex colors, materials should use OneMinus to get the original value
-        if gret_operator_exists("gret.vertex_color_mapping_add"):
-            if not obj.data.vertex_colors and not obj.vertex_color_mapping:
-                logd("Created default vertex color mapping")
-                bpy.ops.gret.vertex_color_mapping_add(ctx)
+        # Bake and clear vertex color mappings before merging
+        if get_first_mapping(obj) and not obj.data.vertex_colors:
             bpy.ops.gret.vertex_color_mapping_refresh(ctx, invert=job.invert_vertex_color_mappings)
             bpy.ops.gret.vertex_color_mapping_clear(ctx)
-            if len(obj.data.vertex_colors) > 1:
-                log(f"More than one vertex color layer, is this intended?",
-                    ", ".join(vc.name for vc in obj.data.vertex_colors))
+
+        if job.ensure_vertex_color and not obj.data.vertex_colors:
+            log("Created default vertex color layer")
+            vcol = obj.data.vertex_colors.new()
+            for colloop in vcol.data:
+                colloop.color = job.default_vertex_color
+        elif len(obj.data.vertex_colors) > 1:
+            log(f"More than one vertex color layer, is this intended?",
+                ", ".join(vc.name for vc in obj.data.vertex_colors))
+
+        # Optionally ensure UV layer. Zero coords to avoid all kinds of problems
+        if job.ensure_uv_layers and not obj.data.uv_layers:
+            log("Created empty UV layer")
+            for uvloop in obj.data.uv_layers.new().data:
+                uvloop.uv = (0.0, 0.0)
 
         # Put the objects in a group
         cl = job_cl.get_collection(context) if job_cl else item.original.users_collection[0]

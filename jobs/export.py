@@ -258,8 +258,6 @@ def draw_job(layout, jobs, job_index):
             add_collection_layout().enabled = not job.selection_only
 
             col = box.column()
-            if gret_operator_exists("gret.vertex_color_mapping_add"):
-                col.prop(job, 'invert_vertex_color_mappings')
             row = col.row(align=True)
             row.prop(job, 'use_modifier_tags')
             sub = row.split(align=True)
@@ -278,6 +276,14 @@ def draw_job(layout, jobs, job_index):
             col.prop(job, 'export_sockets')
             col.prop(job, 'keep_transforms')
             col.prop(job, 'ensure_uv_layers')
+
+            row = col.row(align=True)
+            row.prop(job, 'ensure_vertex_color')
+            sub = row.split(align=True)
+            sub.prop(job, 'default_vertex_color', text="")
+            sub.enabled = job.ensure_vertex_color
+            # if gret_operator_exists("gret.vertex_color_mapping_add"):
+                # col.prop(job, 'invert_vertex_color_mappings')
 
             row = col.row(align=True)
             row.prop(job, 'use_postprocess_script', text="Post Process")
@@ -313,7 +319,6 @@ def draw_job(layout, jobs, job_index):
             sub.prop(job, 'weld_distance', text="")
             sub.enabled = job.weld_mode != 'NEVER'
 
-            col.prop(job, 'invert_vertex_color_mappings')
             row = col.row(align=True)
             row.prop(job, 'use_modifier_tags')
             sub = row.split(align=True)
@@ -333,6 +338,14 @@ def draw_job(layout, jobs, job_index):
             # sub = row.split(align=True)
             # sub.prop(job, 'side_vgroup_name', text="")
             # sub.enabled = job.mirror_shape_keys
+
+            row = col.row(align=True)
+            row.prop(job, 'ensure_vertex_color')
+            sub = row.split(align=True)
+            sub.prop(job, 'default_vertex_color', text="")
+            sub.enabled = job.ensure_vertex_color
+            # if gret_operator_exists("gret.vertex_color_mapping_add"):
+            #     col.prop(job, 'invert_vertex_color_mappings')
 
             col = box.column(align=True)
             col.label(text="Remap Materials:")
@@ -643,7 +656,23 @@ class GRET_PG_export_job(bpy.types.PropertyGroup):
         name="Invert Vertex Color Mappings",
         description="""Invert vertex colors generated from mappings.
 Meshes with existing vertex color layers won't be affected""",
+        default=False,
+        options=set(),
+    )
+    ensure_vertex_color: bpy.props.BoolProperty(
+        name="Ensure Vertex Color",
+        description="Create a vertex color layer for meshes that have none",
         default=True,
+        options=set(),
+    )
+    default_vertex_color: bpy.props.FloatVectorProperty(
+        name="Default Vertex Color",
+        description="Default vertex color values",
+        size=4,
+        default=(1.0, 1.0, 1.0, 1.0),
+        min=0.0,
+        max=1.0,
+        subtype='COLOR',
         options=set(),
     )
     use_modifier_tags: bpy.props.BoolProperty(
@@ -717,7 +746,7 @@ All values are remapped to a [0..1] UV range""",
         options=set(),
     )
     ensure_uv_layers: bpy.props.BoolProperty(
-        name="Ensure UV Layers",
+        name="Ensure UV Layer",
         description="Create an empty UV layer for objects that have none",
         default=True,
         options=set(),
