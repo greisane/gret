@@ -403,9 +403,9 @@ class GRET_OT_vertex_color_mapping_preview(bpy.types.Operator):
             # Clean up
             obj = context.active_object
             mesh = obj.data
-            mesh.vertex_colors.remove(mesh.vertex_colors[mesh.attributes.render_color_index])
-            if self.saved_render_color_index >= 0:
-                mesh.attributes.render_color_index = self.saved_render_color_index
+            mesh.vertex_colors.remove(mesh.vertex_colors[mesh.attributes.active_color_index])
+            if self.saved_active_color_index >= 0:
+                mesh.attributes.active_color_index = self.saved_active_color_index
 
             load_selection(self.saved_selection)
             del self.saved_selection
@@ -426,7 +426,7 @@ class GRET_OT_vertex_color_mapping_preview(bpy.types.Operator):
         if not mapping or self.prefix not in {'r', 'g', 'b', 'a', 'rgb'}:
             return {'CANCELLED'}
 
-        self.saved_render_color_index = mesh.attributes.render_color_index
+        self.saved_active_color_index = mesh.attributes.active_color_index
         self.saved_selection = save_selection()
         show_only(context, obj)
 
@@ -443,7 +443,7 @@ class GRET_OT_vertex_color_mapping_preview(bpy.types.Operator):
             update_vcol_from(obj, mapping, self.prefix, vcol, 2)
             update_vcol_from(obj, mapping, self.prefix, vcol, 3)
         mesh.update()
-        mesh.attributes.render_color_index = len(obj.data.color_attributes) - 1
+        mesh.attributes.active_color_index = len(obj.data.color_attributes) - 1
 
         # Set all 3D views to flat shading
         override_viewports(
