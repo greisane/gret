@@ -168,6 +168,12 @@ def _rig_export(self, context, job, rig):
             for shape_key_pattern in shlex.split(job.basis_shape_key_pattern):
                 merge_shape_keys_pattern(obj, shape_key_pattern)
 
+        # Don't export muted shape keys
+        if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+            for sk in obj.data.shape_keys.key_blocks:
+                if sk.mute:
+                    obj.shape_key_remove(sk)
+
         if job.mirror_shape_keys:
             mirror_shape_keys(obj, job.side_vgroup_name)
 
