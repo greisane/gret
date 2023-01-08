@@ -439,11 +439,13 @@ def get_flipped_name(name):
         else:
             return s.replace("r", "l").replace("R", "L")
 
-    match = re.match(r'(.+)([_\.][LlRr])$', name)  # Suffix
+    # Suffix
+    match = re.match(r'(.+)([_\.][LlRr])$', name)
     if match:
         return match[1] + flip_LR(match[2])
 
-    match = re.match(r'^([LlRr][_\.])(.+)', name)  # Prefix
+    # Prefix
+    match = re.match(r'^([LlRr][_\.])(.+)', name) or re.match(r'^([lr])([A-Z].+)', name)
     if match:
         return flip_LR(match[1]) + match[2]
 
