@@ -13,8 +13,7 @@ from ..math import lerp
 
 one_vector = Vector((1, 1, 1))
 half_vector = Vector((0.5, 0.5, 0.5))
-fmt_shape_key = lambda sk: (sk.name if sk.value == sk.slider_max else
-    f"{sk.name} ({fmt_fraction(sk.value, sk.slider_max)})")
+fmt_shape_key = lambda sk: (sk.name if sk.value == 1.0 else f"{sk.name} ({fmt_fraction(sk.value, 1.0)})")
 
 def edit_mesh_elements(obj, type='VERT', indices=None, key=None):
     """
