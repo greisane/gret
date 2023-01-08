@@ -267,6 +267,7 @@ def mirror_shape_keys(obj, side_vgroup_name):
                     for fc in obj.data.shape_keys.animation_data.drivers:
                         if fc.data_path.startswith(sk_data_path):
                             new_data_path = new_sk_data_path + fc.data_path[len(sk_data_path):]
+                            logd(f"Driver path: {fc.data_path} -> {new_data_path}")
                             new_fc = obj.data.shape_keys.driver_add(new_data_path)
                             new_fc.driver.expression = fc.driver.expression
                             new_fc.driver.type = fc.driver.type
@@ -278,6 +279,9 @@ def mirror_shape_keys(obj, side_vgroup_name):
                                 for t, new_t in zip(var.targets, new_var.targets):
                                     new_t.bone_target = get_flipped_name(t.bone_target) or t.bone_target
                                     new_t.data_path = re.sub(r'\["([^"]*)"\]', flip_data_path, t.data_path)
+                                    logd(f"{var.name} target: {t.bone_target} -> {new_t.bone_target}")
+                                    if t.data_path:
+                                        logd(f"{var.name} path: {t.data_path} -> {new_t.data_path}")
                                     new_t.id = t.id
                                     new_t.rotation_mode = t.rotation_mode
                                     new_t.transform_space = t.transform_space

@@ -87,6 +87,7 @@ def sanitize_mesh(obj):
     if obj.animation_data:
         for fc in obj.animation_data.drivers[:]:
             if not fc.driver.is_valid:
+                logd(f"Removing invalid driver {fc.data_path}")
                 obj.animation_data.drivers.remove(fc)
 
     # Prefer no shape keys at all if only basis is left

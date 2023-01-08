@@ -143,6 +143,11 @@ def copy_drivers(src, dst, overwrite=False):
     if src and src.animation_data and dst:
         src_name = src.user.name if src.user else src.name
         for src_fc in src.animation_data.drivers:
+            try:
+                dst.path_resolve(src_fc.data_path)
+            except ValueError:
+                logd(f"Won't copy driver {src_fc.data_path} from {src_name}")
+                continue
             if dst.animation_data is None:
                 dst.animation_data_create()
             dst_drivers = dst.animation_data.drivers
