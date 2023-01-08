@@ -160,6 +160,7 @@ def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name="", override
 
     # Store state
     saved_unmuted_shape_keys = [sk for sk in mesh.shape_keys.key_blocks if not sk.mute]
+    saved_unmuted_shape_key_drivers = []
 
     # Mute all but the ones to be merged
     for sk in mesh.shape_keys.key_blocks[1:]:
@@ -172,7 +173,14 @@ def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name="", override
                         if fc.data_path.endswith('.value'):
                             # Influence was being driven, assume user would want to merge it fully
                             sk.value = sk.slider_max
-                        mesh.shape_keys.animation_data.drivers.remove(fc)
+                        if sk.name == target_shape_key_name:
+                            # Don't remove, mute temporarily
+                            if not fc.mute:
+                                fc.mute = True
+                                saved_unmuted_shape_key_drivers.append(fc)
+                        else:
+                            logd(f"Remove shape key driver {fc.data_path} (will be merged)")
+                            mesh.shape_keys.animation_data.drivers.remove(fc)
             if override_value is not None:
                 sk.mute = False
                 sk.value = lerp(sk.slider_min, sk.slider_max, override_value)
@@ -213,6 +221,8 @@ def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name="", override
     # Restore state
     for sk in saved_unmuted_shape_keys:
         sk.mute = False
+    for fc in saved_unmuted_shape_key_drivers:
+        fc.mute = False
 
     # Only basis left? Remove it so applying modifiers has less issues
     if mesh.shape_keys and len(mesh.shape_keys.key_blocks) == 1:
