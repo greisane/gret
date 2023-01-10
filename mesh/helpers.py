@@ -63,7 +63,7 @@ def merge_vertex_groups(obj, src_name, dst_name, remove_src=True):
     if not dst:
         dst = obj.vertex_groups.new(name=dst_name)
 
-    for vert_idx, vert in enumerate(obj.data.vertices):
+    for vert_idx in range(len(obj.data.vertices)):
         try:
             dst.add([vert_idx], src.weight(vert_idx), 'ADD')
         except RuntimeError:
