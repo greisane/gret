@@ -17,17 +17,19 @@ class GRET_OT_channels_auto_group(bpy.types.Operator):
 
     def execute(self, context):
         action = context.active_object.animation_data.action
-        num_grouped = 0
+        ungrouped_fcurves = []
 
+        # Create the necessary groups first THEN assign them to prevent the following error
+        # https://github.com/blender/blender/blob/v3.4.1/source/blender/makesrna/intern/rna_fcurve.c#L527
         for fc in action.fcurves:
             if not fc.group:
                 group_name = (re.match(r'^pose\.bones\[\"([^\"]+)"\]', fc.data_path) or ['', ''])[1]
                 if group_name:
-                    group = action.groups.get(group_name)
-                    if not group:
+                    ungrouped_fcurves.append((fc, group_name))
+                    if group_name not in action.groups:
                         action.groups.new(name=group_name)
-                    fc.group = group
-                    num_grouped += 1
+        for fc, group_name in ungrouped_fcurves:
+            fc.group = action.groups.get(group_name)
 
         return {'FINISHED'}
 
