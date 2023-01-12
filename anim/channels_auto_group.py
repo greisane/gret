@@ -11,12 +11,14 @@ class GRET_OT_channels_auto_group(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        # There's context.active_action, not sure when it actually points to anything
-        obj = context.active_object
-        return obj and obj.animation_data and obj.animation_data.action
+        return context.space_data and context.space_data.type in {'DOPESHEET_EDITOR', 'GRAPH_EDITOR'}
 
     def execute(self, context):
-        action = context.active_object.animation_data.action
+        obj = context.active_object
+        action = obj.animation_data.action if (obj and obj.animation_data) else None
+        if not action:
+            return {'CANCELLED'}
+
         ungrouped_fcurves = []
 
         # Create the necessary groups first THEN assign them to prevent the following error
@@ -31,7 +33,7 @@ class GRET_OT_channels_auto_group(bpy.types.Operator):
         for fc, group_name in ungrouped_fcurves:
             fc.group = group = action.groups.get(group_name)
             if group:
-                # group.show_expanded = False  # No idea what this actually expands
+                group.show_expanded = True
                 group.show_expanded_graph = True
 
         return {'FINISHED'}
@@ -43,7 +45,9 @@ def register(settings, prefs):
     # Would be nice to have this menu item next to the other group operators
     bpy.utils.register_class(GRET_OT_channels_auto_group)
     bpy.types.GRAPH_MT_channel.append(draw_menu)
+    bpy.types.DOPESHEET_MT_channel.append(draw_menu)
 
 def unregister():
     bpy.types.GRAPH_MT_channel.remove(draw_menu)
+    bpy.types.DOPESHEET_MT_channel.remove(draw_menu)
     bpy.utils.unregister_class(GRET_OT_channels_auto_group)
