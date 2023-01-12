@@ -29,7 +29,10 @@ class GRET_OT_channels_auto_group(bpy.types.Operator):
                     if group_name not in action.groups:
                         action.groups.new(name=group_name)
         for fc, group_name in ungrouped_fcurves:
-            fc.group = action.groups.get(group_name)
+            fc.group = group = action.groups.get(group_name)
+            if group:
+                # group.show_expanded = False  # No idea what this actually expands
+                group.show_expanded_graph = True
 
         return {'FINISHED'}
 
