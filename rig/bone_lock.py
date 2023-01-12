@@ -109,47 +109,50 @@ class GRET_OT_bone_lock(bpy.types.Operator):
                 loc, quat, scale = mat.decompose()
                 rot = quat.to_euler()
 
-                limit_loc = pbone.constraints.get("Lock Location")
-                if not limit_loc:
-                    limit_loc = pbone.constraints.new(type='LIMIT_LOCATION')
-                    limit_loc.show_expanded = False
-                    limit_loc.name = "Lock Location"
-                limit_loc.use_min_x = limit_loc.use_max_x = self.lock_location_x
-                limit_loc.use_min_y = limit_loc.use_max_y = self.lock_location_y
-                limit_loc.use_min_z = limit_loc.use_max_z = self.lock_location_z
-                limit_loc.min_x = limit_loc.max_x = loc.x
-                limit_loc.min_y = limit_loc.max_y = loc.y
-                limit_loc.min_z = limit_loc.max_z = loc.z
-                limit_loc.owner_space = 'WORLD'
-                limit_loc.use_transform_limit = use_transform_limit
+                if self.lock_location_x or self.lock_location_y or self.lock_location_z:
+                    limit_loc = pbone.constraints.get("Lock Location")
+                    if not limit_loc:
+                        limit_loc = pbone.constraints.new(type='LIMIT_LOCATION')
+                        limit_loc.show_expanded = False
+                        limit_loc.name = "Lock Location"
+                    limit_loc.use_min_x = limit_loc.use_max_x = self.lock_location_x
+                    limit_loc.use_min_y = limit_loc.use_max_y = self.lock_location_y
+                    limit_loc.use_min_z = limit_loc.use_max_z = self.lock_location_z
+                    limit_loc.min_x = limit_loc.max_x = loc.x
+                    limit_loc.min_y = limit_loc.max_y = loc.y
+                    limit_loc.min_z = limit_loc.max_z = loc.z
+                    limit_loc.owner_space = 'WORLD'
+                    limit_loc.use_transform_limit = use_transform_limit
 
-                limit_rot = pbone.constraints.get("Lock Rotation")
-                if not limit_rot:
-                    limit_rot = pbone.constraints.new(type='LIMIT_ROTATION')
-                    limit_rot.show_expanded = False
-                    limit_rot.name = "Lock Rotation"
-                limit_rot.use_limit_x = self.lock_rotation_x
-                limit_rot.use_limit_y = self.lock_rotation_y
-                limit_rot.use_limit_z = self.lock_rotation_z
-                limit_rot.min_x = limit_rot.max_x = rot.x
-                limit_rot.min_y = limit_rot.max_y = rot.y
-                limit_rot.min_z = limit_rot.max_z = rot.z
-                limit_rot.owner_space = 'WORLD'
-                limit_rot.use_transform_limit = use_transform_limit
+                if self.lock_rotation_x or self.lock_rotation_y or self.lock_rotation_z:
+                    limit_rot = pbone.constraints.get("Lock Rotation")
+                    if not limit_rot:
+                        limit_rot = pbone.constraints.new(type='LIMIT_ROTATION')
+                        limit_rot.show_expanded = False
+                        limit_rot.name = "Lock Rotation"
+                    limit_rot.use_limit_x = self.lock_rotation_x
+                    limit_rot.use_limit_y = self.lock_rotation_y
+                    limit_rot.use_limit_z = self.lock_rotation_z
+                    limit_rot.min_x = limit_rot.max_x = rot.x
+                    limit_rot.min_y = limit_rot.max_y = rot.y
+                    limit_rot.min_z = limit_rot.max_z = rot.z
+                    limit_rot.owner_space = 'WORLD'
+                    limit_rot.use_transform_limit = use_transform_limit
 
-                limit_scale = pbone.constraints.get("Lock Scale")
-                if not limit_scale:
-                    limit_scale = pbone.constraints.new(type='LIMIT_SCALE')
-                    limit_scale.show_expanded = False
-                    limit_scale.name = "Lock Scale"
-                limit_scale.use_min_x = limit_scale.use_max_x = self.lock_scale_x
-                limit_scale.use_min_y = limit_scale.use_max_y = self.lock_scale_y
-                limit_scale.use_min_z = limit_scale.use_max_z = self.lock_scale_z
-                limit_scale.min_x = limit_scale.max_x = scale.x
-                limit_scale.min_y = limit_scale.max_y = scale.y
-                limit_scale.min_z = limit_scale.max_z = scale.z
-                limit_scale.owner_space = 'LOCAL'  # World will never work as expected (no shear)
-                limit_scale.use_transform_limit = use_transform_limit
+                if self.lock_scale_x or self.lock_scale_y or self.lock_scale_z:
+                    limit_scale = pbone.constraints.get("Lock Scale")
+                    if not limit_scale:
+                        limit_scale = pbone.constraints.new(type='LIMIT_SCALE')
+                        limit_scale.show_expanded = False
+                        limit_scale.name = "Lock Scale"
+                    limit_scale.use_min_x = limit_scale.use_max_x = self.lock_scale_x
+                    limit_scale.use_min_y = limit_scale.use_max_y = self.lock_scale_y
+                    limit_scale.use_min_z = limit_scale.use_max_z = self.lock_scale_z
+                    limit_scale.min_x = limit_scale.max_x = scale.x
+                    limit_scale.min_y = limit_scale.max_y = scale.y
+                    limit_scale.min_z = limit_scale.max_z = scale.z
+                    limit_scale.owner_space = 'LOCAL'  # World will never work as expected (no shear)
+                    limit_scale.use_transform_limit = use_transform_limit
 
         return {'FINISHED'}
 
