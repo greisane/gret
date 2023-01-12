@@ -2,6 +2,7 @@ import bpy
 
 module_names = [
     'actions',
+    'channels_auto_group',
     'pose_blender',
 ]
 from .. import import_or_reload_modules, register_submodules, unregister_submodules
