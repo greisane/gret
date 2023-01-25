@@ -188,7 +188,7 @@ def get_vcol_values(obj, mapping, prefix, src_vcol, src_channel_idx):
     values = 0.0
 
     if src == 'NONE':
-        values = [vcolloop.color[src_channel_idx] for vcolloop in src_vcol.data]
+        values = [vcolloop.color[src_channel_idx] for vcolloop in src_vcol.data] if src_vcol else 1.0
 
     if src == 'ZERO':
         values = 0.0
@@ -436,7 +436,7 @@ class GRET_OT_vertex_color_mapping_preview(bpy.types.Operator):
         self.saved_selection = save_selection()
         show_only(context, obj)
 
-        src_vcol = get_vcolor(obj, mapping.vertex_color_layer_name)
+        src_vcol = mesh.vertex_colors.get(mapping.vertex_color_layer_name) or mesh.vertex_colors.active
         dst_vcol = get_vcolor(obj, "__preview")
         if self.prefix == 'rgb':
             src = "RGB"

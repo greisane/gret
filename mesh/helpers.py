@@ -59,7 +59,10 @@ def get_vcolor(obj, name):
     """Ensures that a vertex color layer with the given name exists."""
 
     assert obj.type == 'MESH'
-    vcol = obj.data.vertex_colors.get(name)
+    if name:
+        vcol = obj.data.vertex_colors.get(name)
+    else:
+        vcol = obj.data.vertex_colors.active
     if not vcol:
         vcol = obj.data.vertex_colors.new(name=name)
     return vcol
