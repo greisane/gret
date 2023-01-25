@@ -7,7 +7,7 @@ import bpy
 
 from .. import prefs
 from ..helpers import select_only
-from ..material.helpers import Node, get_material, set_material
+from ..material.helpers import Node, get_material_at_index, set_material_at_index
 from ..math import SMALL_NUMBER, equals, calc_bounds_2d, calc_center_2d
 from .uv_sheet import GRET_PT_uv_sheet_presets
 
@@ -104,7 +104,7 @@ def get_quad(obj, face, uv_layer_name):
         # No such material
         return Quad.invalid
 
-    uv_sheet = get_uv_sheet_from_material(get_material(obj, face.material_index))
+    uv_sheet = get_uv_sheet_from_material(get_material_at_index(obj, face.material_index))
     if not uv_sheet:
         # Not a uv_sheet material
         return Quad.invalid
@@ -141,11 +141,11 @@ def set_quad(obj, face, quad, uv_layer_name):
     mesh = obj.data
 
     # Ensure material and UV state
-    mat = get_material(obj, face.material_index)
+    mat = get_material_at_index(obj, face.material_index)
     if not mat:
         mat_name = uv_sheet.id_data.name
         mat = bpy.data.materials.get(mat_name) or bpy.data.materials.new(name=mat_name)
-        set_material(obj, face.material_index, mat)
+        set_material_at_index(obj, face.material_index, mat)
 
     do_fill = False
     if get_uv_sheet_from_material(mat) != uv_sheet:

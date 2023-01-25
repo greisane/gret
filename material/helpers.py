@@ -105,7 +105,17 @@ class Node:
     def __repr__(self):
         return f"{__class__.__name__}({repr(self.type)})"
 
-def get_material(obj, material_index):
+def get_material(obj, material):
+    """Ensures a material is assigned. Respects object slot linking. Returns the slot index."""
+
+    assert material
+    slot_index = obj.material_slots.find(material.name)
+    if slot_index == -1:
+        slot_index = len(obj.material_slots)
+        obj.data.materials.append(material)
+    return slot_index
+
+def get_material_at_index(obj, material_index):
     """Get the material at the given index respecting slot linking."""
 
     if material_index < 0 or material_index >= len(obj.material_slots):
@@ -113,7 +123,7 @@ def get_material(obj, material_index):
     slot = obj.material_slots[material_index]
     return obj.data.materials[material_index] if slot.link == 'DATA' else slot.material
 
-def set_material(obj, material_index, material):
+def set_material_at_index(obj, material_index, material):
     """Set the material at the given index respecting slot linking. Will add new slots if necessary."""
 
     if material_index < 0:
