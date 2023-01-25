@@ -7,9 +7,10 @@ import bpy
 import numpy as np
 import sys
 
-from ..helpers import save_selection, load_selection, override_viewports, restore_viewports, show_only
 from ..math import SMALL_NUMBER, saturate, lerp, get_dist
 from ..operator import ScopedRestore
+from ..helpers import save_selection, load_selection, override_viewports, restore_viewports, show_only
+from .helpers import get_vcolor
 
 src_items = [
     ('NONE', "", "Leave the channel unchanged"),
@@ -53,12 +54,15 @@ def copy_mapping(obj, other_obj):
                 property_name = f'{prefix}_{suffix}' if suffix else prefix
                 setattr(other_mapping, property_name, getattr(mapping, property_name))
 
-def values_to_vcol(mesh, src_values, dst_vcol, dst_channel_idx, invert=False):
+def values_to_vcol(mesh, src_values, dst_vcol, channel_idx, loops=False, invert=False):
+    assert len(src_values) in (len(mesh.loops), len(mesh.vertices)), "Wrong number of elements"
+    is_loops = len(src_values) == len(mesh.loops)
+
     for loop_idx, loop in enumerate(mesh.loops):
-        value = saturate(src_values[loop.vertex_index])
+        value = saturate(src_values[loop_idx if is_loops else loop.vertex_index])
         if invert:
             value = 1.0 - value
-        dst_vcol.data[loop_idx].color[dst_channel_idx] = value
+        dst_vcol.data[loop_idx].color[channel_idx] = value
 
 def get_distance_values(obj, src_obj, extents=0.0, along_curve=False):
     assert obj and src_obj
@@ -178,11 +182,13 @@ def get_cavity_values(obj, valley_factor=1.0, ridge_factor=1.0, valley_only=Fals
 
     return values
 
-def update_vcol_from(obj, mapping, prefix, dst_vcol, dst_channel_idx, invert=False):
+def get_vcol_values(obj, mapping, prefix, src_vcol, src_channel_idx):
     mesh = obj.data
-    values = None
     src = getattr(mapping, prefix)
-    invert = invert != getattr(mapping, prefix + '_invert')
+    values = 0.0
+
+    if src == 'NONE':
+        values = [vcolloop.color[src_channel_idx] for vcolloop in src_vcol.data]
 
     if src == 'ZERO':
         values = 0.0
@@ -213,7 +219,7 @@ def update_vcol_from(obj, mapping, prefix, dst_vcol, dst_channel_idx, invert=Fal
 
     elif src in {'PIVOTLOC', 'PIVOTROT', 'VERTEX'}:
         component = getattr(mapping, prefix + '_component')
-        component_idx = ['X', 'Y', 'Z'].index(component)
+        component_idx = ('X', 'Y', 'Z').index(component)
         extents = max(getattr(mapping, prefix + '_extents'), SMALL_NUMBER)
         remap_co = lambda co: (co[component_idx] / extents) + 0.5
 
@@ -249,9 +255,13 @@ def update_vcol_from(obj, mapping, prefix, dst_vcol, dst_channel_idx, invert=Fal
 
     if type(values) is float:
         values = [values] * len(mesh.vertices)
-    if values is not None:
-        assert len(values) == len(mesh.vertices)
-        values_to_vcol(mesh, values, dst_vcol, dst_channel_idx, invert=invert)
+
+    return values
+
+def update_vcol_from(obj, mapping, prefix, src_vcol, dst_vcol, channel_idx, invert=False):
+    values = get_vcol_values(obj, mapping, prefix, src_vcol, channel_idx)
+    invert = invert != getattr(mapping, prefix + '_invert')
+    values_to_vcol(obj.data, values, dst_vcol, channel_idx, invert=invert)
 
 def update_vcols(obj, invert=False):
     mapping = get_first_mapping(obj)
@@ -261,17 +271,13 @@ def update_vcols(obj, invert=False):
         # Avoid creating a vertex group if nothing would be done anyway
         return
 
-    mesh = obj.data
-    vcol = mesh.vertex_colors.get(mapping.vertex_color_layer_name)
-    if not vcol:
-        vcol = mesh.vertex_colors.new(name=mapping.vertex_color_layer_name)
-
+    vcol = get_vcolor(obj, mapping.vertex_color_layer_name)
     invert = invert != mapping.invert
-    update_vcol_from(obj, mapping, 'r', vcol, 0, invert)
-    update_vcol_from(obj, mapping, 'g', vcol, 1, invert)
-    update_vcol_from(obj, mapping, 'b', vcol, 2, invert)
-    update_vcol_from(obj, mapping, 'a', vcol, 3, invert)
-    mesh.update()
+    update_vcol_from(obj, mapping, 'r', vcol, vcol, 0, invert)
+    update_vcol_from(obj, mapping, 'g', vcol, vcol, 1, invert)
+    update_vcol_from(obj, mapping, 'b', vcol, vcol, 2, invert)
+    update_vcol_from(obj, mapping, 'a', vcol, vcol, 3, invert)
+    obj.data.update()
 
 class GRET_OT_vertex_color_mapping_refresh(bpy.types.Operator):
     #tooltip
@@ -430,18 +436,21 @@ class GRET_OT_vertex_color_mapping_preview(bpy.types.Operator):
         self.saved_selection = save_selection()
         show_only(context, obj)
 
-        vcol = mesh.vertex_colors.new(name="__preview")
+        src_vcol = get_vcolor(obj, mapping.vertex_color_layer_name)
+        dst_vcol = get_vcolor(obj, "__preview")
         if self.prefix == 'rgb':
             src = "RGB"
-            update_vcol_from(obj, mapping, 'r', vcol, 0, mapping.invert)
-            update_vcol_from(obj, mapping, 'g', vcol, 1, mapping.invert)
-            update_vcol_from(obj, mapping, 'b', vcol, 2, mapping.invert)
+            update_vcol_from(obj, mapping, 'r', src_vcol, dst_vcol, 0, invert=mapping.invert)
+            update_vcol_from(obj, mapping, 'g', src_vcol, dst_vcol, 1, invert=mapping.invert)
+            update_vcol_from(obj, mapping, 'b', src_vcol, dst_vcol, 2, invert=mapping.invert)
         else:
             src = f"{getattr(mapping, self.prefix)} ({self.prefix.upper()})"
-            update_vcol_from(obj, mapping, self.prefix, vcol, 0)
-            update_vcol_from(obj, mapping, self.prefix, vcol, 1)
-            update_vcol_from(obj, mapping, self.prefix, vcol, 2)
-            update_vcol_from(obj, mapping, self.prefix, vcol, 3)
+            src_channel_idx = ('r', 'g', 'b', 'a').index(self.prefix)
+            values = get_vcol_values(obj, mapping, self.prefix, src_vcol, src_channel_idx)
+            invert = mapping.invert != getattr(mapping, self.prefix + '_invert')
+            values_to_vcol(obj.data, values, dst_vcol, 0, invert=invert)
+            values_to_vcol(obj.data, values, dst_vcol, 1, invert=invert)
+            values_to_vcol(obj.data, values, dst_vcol, 2, invert=invert)
         mesh.update()
         mesh.attributes.active_color_index = len(obj.data.color_attributes) - 1
 

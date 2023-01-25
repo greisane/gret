@@ -55,6 +55,15 @@ def edit_mesh_elements(obj, type='VERT', indices=None, key=None):
 
     return num_selected
 
+def get_vcolor(obj, name):
+    """Ensures that a vertex color layer with the given name exists."""
+
+    assert obj.type == 'MESH'
+    vcol = obj.data.vertex_colors.get(name)
+    if not vcol:
+        vcol = obj.data.vertex_colors.new(name=name)
+    return vcol
+
 def merge_vertex_groups(obj, src_name, dst_name, remove_src=True):
     """Merges the source vertex group into the destination vertex group."""
 
