@@ -66,6 +66,8 @@ def remove_extra_data(obj):
         mesh.uv_layers.remove(mesh.uv_layers.active)
     while mesh.attributes.active:
         mesh.attributes.remove(mesh.attributes.active)
+    while mesh.color_attributes.active_color:
+        mesh.color_attributes.remove(mesh.color_attributes.active_color)
 
 class GRET_OT_collision_assign(bpy.types.Operator):
     #tooltip
