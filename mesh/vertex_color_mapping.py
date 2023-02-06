@@ -410,6 +410,7 @@ class GRET_OT_vertex_color_mapping_preview(bpy.types.Operator):
             obj = context.active_object
             mesh = obj.data
             mesh.vertex_colors.remove(mesh.vertex_colors[mesh.attributes.active_color_index])
+            mesh.update()
             if self.saved_active_color_index >= 0:
                 mesh.attributes.active_color_index = self.saved_active_color_index
 
