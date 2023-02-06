@@ -68,11 +68,18 @@ class GRET_OT_uv_texture_move(bpy.types.Operator):
 
 class GRET_OT_uv_texture_sync(bpy.types.Operator):
     #tooltip
-    """Sync UV maps from the active object to other selected objects"""
+    """Sync UV maps from the active object to other selected objects.
+Existing layers are reordered or renamed. Missing UVs are created and extra layers deleted"""
 
     bl_idname = 'gret.uv_texture_sync'
     bl_label = "Sync UV Maps"
     bl_options = {'REGISTER', 'UNDO'}
+
+    only_set_active: bpy.props.BoolProperty(
+        name="Only Set Active Layer",
+        description="Don't change UV layers, only set active index and render state",
+        default=False,
+    )
 
     @classmethod
     def poll(cls, context):
@@ -81,29 +88,58 @@ class GRET_OT_uv_texture_sync(bpy.types.Operator):
     def execute(self, context):
         src_uv_layers = context.active_object.data.uv_layers
         active_render_name = next((uv.name for uv in src_uv_layers if uv.active_render), None)
+        num_moved = num_renamed = num_created = num_removed = 0
 
         for obj in context.selected_objects:
             if obj.type != 'MESH' or obj == context.active_object:
                 continue
             dst_uv_layers = obj.data.uv_layers
-            # Remove extra UV layers. Collect names first since deleting will cause memory changes
-            extra_uv_layer_names = [uv.name for uv in dst_uv_layers if uv.name not in src_uv_layers]
-            for uv_layer_name in reversed(extra_uv_layer_names):
-                dst_uv_layers.remove(dst_uv_layers[uv_layer_name])
-            # Add empty missing UV layers
-            for src_uv_layer in src_uv_layers:
-                if src_uv_layer.name not in dst_uv_layers:
-                    dst_uv_layers.new(name=src_uv_layer.name, do_init=False)
-            # Reorder to match active object
-            for src_uv_layer in src_uv_layers:
-                index = dst_uv_layers.find(src_uv_layer.name)
-                move_uv_layer_last(dst_uv_layers, index)
+
+            # Add empty missing UV layers. Use default names, will be renamed after reordering
+            if not self.only_set_active:
+                new_layer_names = []
+                while len(dst_uv_layers) < len(src_uv_layers):
+                    new_layer = dst_uv_layers.new(name="", do_init=False)
+                    new_layer_names.append(new_layer.name)
+                    num_created += 1
+                # Reorder if names match
+                for new_index, src_uv_layer in enumerate(src_uv_layers):
+                    old_index = dst_uv_layers.find(src_uv_layer.name)
+                    if old_index >= 0 and old_index != new_index:
+                        num_moved += dst_uv_layers[old_index].name not in new_layer_names
+                        move_uv_layer_to_index(dst_uv_layers, old_index, new_index)
+                # Rename to match active object
+                for src_uv_layer, dst_uv_layer in zip(src_uv_layers, dst_uv_layers):
+                    if src_uv_layer.name != dst_uv_layer.name:
+                        num_renamed += dst_uv_layer.name not in new_layer_names
+                        dst_uv_layer.name = src_uv_layer.name
+                # Remove extra UV layers. Collect names first since deleting will cause memory changes
+                extra_uv_layer_names = [uv.name for uv in dst_uv_layers if uv.name not in src_uv_layers]
+                for uv_layer_name in reversed(extra_uv_layer_names):
+                    dst_uv_layers.remove(dst_uv_layers[uv_layer_name])
+                    num_removed += 1
+
             # Sync active and active render state
-            dst_uv_layers.active_index = src_uv_layers.active_index
-            if active_render_name is not None:
+            if len(src_uv_layers) == len(dst_uv_layers):
+                dst_uv_layers.active_index = src_uv_layers.active_index
+            if active_render_name in dst_uv_layers:
                 dst_uv_layers[active_render_name].active_render = True
 
+        num_last = num_removed or num_created or num_renamed or (num_moved + 1)
+        num_zip = zip((num_moved, num_renamed, num_created, num_removed),
+            ("reordered", "renamed {}", "created {}", "removed {}"))
+        result = ', '.join(s.format(num) for num, s in num_zip if num)
+        if result:
+            self.report({'INFO'}, result[0].upper() + result[1:] +
+                f" UV layer{'s' if num_last > 1 else ''}.")
+        else:
+            self.report({'INFO'}, f"No UV layers changed.")
+
         return {'FINISHED'}
+
+    def invoke(self, context, event):
+        self.only_set_active = event.ctrl
+        return self.execute(context)
 
 def draw_uv_texture_panel_addon(self, context):
     layout = self.layout
