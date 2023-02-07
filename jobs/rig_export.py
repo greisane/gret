@@ -165,6 +165,9 @@ def _rig_export(self, context, job, rig):
         obj.data.use_auto_smooth = True
         obj.data.auto_smooth_angle = pi
 
+        # Remove vertex group filtering from shapekeys
+        apply_shape_keys_with_vertex_groups(obj)
+
         if job.merge_basis_shape_keys:
             for shape_key_pattern in shlex.split(job.basis_shape_key_pattern):
                 merge_shape_keys_pattern(obj, shape_key_pattern)
@@ -221,9 +224,6 @@ def _rig_export(self, context, job, rig):
                 if mat and not mat.name.startswith(job.material_name_prefix):
                     self.saved_material_names[mat] = mat.name
                     mat.name = job.material_name_prefix + mat.name
-
-        # Remove vertex group filtering from shapekeys
-        apply_shape_keys_with_vertex_groups(obj)
 
         # Bake and clear vertex color mappings before merging
         if get_first_mapping(obj):
