@@ -352,6 +352,7 @@ def _rig_export(self, context, job, rig):
                 obj.data.name = job.export_collection.name
             job.export_collection.objects.link(obj)
             context.scene.collection.objects.unlink(obj)
+            apply_shape_keys_with_vertex_groups(obj)
             # Auto-smooth has a noticeable impact in performance while animating,
             # disable unless the user explicitly enabled it back in the previous build result
             obj.data.use_auto_smooth = use_auto_smooth
