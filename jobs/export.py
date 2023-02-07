@@ -191,7 +191,7 @@ class GRET_OT_export(bpy.types.Operator):
 
     index: bpy.props.IntProperty(
         name="Index",
-        description="Index of the job to export",
+        description="Index of the job to execute",
     )
 
     @classmethod
@@ -202,11 +202,49 @@ class GRET_OT_export(bpy.types.Operator):
         if not context.scene.gret.export_jobs:
             self.report({'ERROR'}, "No export jobs created!")
             return {'CANCELLED'}
-        if self.index < 0 or self.index >= len(context.scene.gret.export_jobs):
+        try:
+            job = context.scene.gret.export_jobs[self.index]
+        except IndexError:
             self.report({'ERROR'}, "Invalid export job index.")
             return {'CANCELLED'}
 
-        job = context.scene.gret.export_jobs[self.index]
+        if job.what == 'SCENE':
+            scene_export(self, context, job)
+        elif job.what == 'RIG':
+            rig_export(self, context, job)
+        elif job.what == 'ANIMATION':
+            anim_export(self, context, job)
+
+        return {'FINISHED'}
+
+
+class GRET_OT_export_by_name(bpy.types.Operator):
+    #tooltip
+    """Execute the export job"""
+
+    bl_idname = 'gret.export_by_name'
+    bl_label = "Export (by name)"
+    bl_context = 'objectmode'
+    bl_options = {'REGISTER'}
+
+    name: bpy.props.IntProperty(
+        name="Job Name",
+        description="Name of the job to execute",
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'OBJECT'
+
+    def execute(self, context):
+        if not context.scene.gret.export_jobs:
+            self.report({'ERROR'}, "No export jobs created!")
+            return {'CANCELLED'}
+        job = context.scene.gret.export_jobs.get(self.name)
+        if not job:
+            self.report({'ERROR'}, f"No export jobs named '{self.name}'")
+            return {'CANCELLED'}
+
         if job.what == 'SCENE':
             scene_export(self, context, job)
         elif job.what == 'RIG':
