@@ -355,7 +355,7 @@ def viewport_reveal_all():
         layer.exclude = False
     # Not sure if this is necessary, it's not really reliable. Does object.visible_get() care?
     space_data = bpy.context.space_data
-    if space_data and hasattr(space_data, 'local_view') and space_data.local_view:
+    if space_data and getattr(space_data, 'local_view', False):
         bpy.ops.view3d.localview()
 
 def save_properties(obj):

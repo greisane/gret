@@ -121,14 +121,19 @@ def get_material_at_index(obj, material_index):
     if material_index < 0 or material_index >= len(obj.material_slots):
         return None
     slot = obj.material_slots[material_index]
-    return obj.data.materials[material_index] if slot.link == 'DATA' else slot.material
+    # Though it's rare, material slots and mesh materials can be out of sync. Ensure index is valid
+    if slot.link == 'DATA' and material_index < len(obj.data.materials):
+        return obj.data.materials[material_index]
+    elif slot.link == 'OBJECT':
+        return slot.material
+    return None
 
 def set_material_at_index(obj, material_index, material):
     """Set the material at the given index respecting slot linking. Will add new slots if necessary."""
 
     if material_index < 0:
         return
-    while material_index >= len(obj.material_slots):
+    while material_index >= min(len(obj.data.materials), len(obj.material_slots)):
         obj.data.materials.append(None)
 
     slot = obj.material_slots[material_index]

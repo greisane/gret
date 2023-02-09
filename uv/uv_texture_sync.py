@@ -95,8 +95,8 @@ Existing layers are reordered or renamed. Missing UVs are created and extra laye
                 continue
             dst_uv_layers = obj.data.uv_layers
 
-            # Add empty missing UV layers. Use default names, will be renamed after reordering
             if not self.only_set_active:
+                # Add empty missing UV layers. Use default names, will be renamed after reordering
                 new_layer_names = []
                 while len(dst_uv_layers) < len(src_uv_layers):
                     new_layer = dst_uv_layers.new(name="", do_init=False)
