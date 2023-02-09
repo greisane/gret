@@ -7,7 +7,7 @@ import re
 
 from .. import prefs
 from ..heapdict import heapdict
-from ..helpers import get_flipped_name, get_context, select_only, fmt_fraction
+from ..helpers import get_flipped_name, get_context, get_vgroup, select_only, fmt_fraction
 from ..log import logger, log, logd
 from ..math import lerp
 
@@ -262,12 +262,12 @@ def mirror_shape_keys(obj, side_vgroup_name):
     # Make vertex groups for masking. It doesn't actually matter which side is which,
     # only that the modifier's vertex group mirroring function picks it up
     # Even if the vertex group exists, overwrite so the user doesn't have to manually update it
-    other_vgroup_name = get_flipped_name(side_vgroup_name)
-    if not other_vgroup_name:
+    other_side_vgroup_name = get_flipped_name(side_vgroup_name)
+    if not other_side_vgroup_name:
         return
-    vgroup = obj.vertex_groups.get(side_vgroup_name) or obj.vertex_groups.new(name=side_vgroup_name)
+    vgroup = get_vgroup(obj, side_vgroup_name, clean=True)
     vgroup.add(range(len(obj.data.vertices)), 1.0, 'REPLACE')
-    vgroup = obj.vertex_groups.get(other_vgroup_name) or obj.vertex_groups.new(name=other_vgroup_name)
+    vgroup = get_vgroup(obj, other_side_vgroup_name, clean=True)
 
     for sk in obj.data.shape_keys.key_blocks:
         flipped_name = get_flipped_name(sk.name)
@@ -277,7 +277,7 @@ def mirror_shape_keys(obj, side_vgroup_name):
             logger.indent += 1
             sk.vertex_group = side_vgroup_name
             new_sk = duplicate_shape_key(obj, sk.name, flipped_name)
-            new_sk.vertex_group = other_vgroup_name
+            new_sk.vertex_group = other_side_vgroup_name
 
             # Attempt to flip the driver, e.g if driven by Arm_L, make it driven by Arm_R instead.
             try:
@@ -469,7 +469,7 @@ def apply_shape_keys_with_vertex_groups(obj):
                     vert.co[:] = v0
 
 def merge_islands(obj, mode='ALWAYS', threshold=1e-3):
-    """Does 'Remove Doubles' on freestyle marked edges. Returns the number of vertices merged."""
+    """Does 'Remove Doubles' on specified edges. Returns the number of vertices merged."""
     # Reverted to using bpy.ops because bmesh is failing to merge normals correctly
     # TODO This should consider that each vertex has its pair (and only one pair) in another island
 

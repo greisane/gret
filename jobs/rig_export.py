@@ -183,6 +183,9 @@ def _rig_export(self, context, job, rig):
 
         apply_modifiers(obj, key=should_apply_modifier, keep_armature=True)
 
+        if job.mirror_shape_keys:
+            apply_shape_keys_with_vertex_groups(obj)
+
         # Remap materials, any objects or faces with no material won't be exported
         all_none = lambda iterable: all(not el for el in iterable)
 
