@@ -264,19 +264,24 @@ def draw_job(layout, jobs, job_index):
     row.prop(job, 'show_expanded', icon=icon, text="", emboss=False)
     row.prop(job, 'what', text="", expand=True)
     row.prop(job, 'name', text="")
-    row = row.row(align=True)
-    sub = row.split()
+    row2 = row.row(align=True)
+    row2.scale_x = 0.75
+    sub = row2.column(align=True)
     op = sub.operator('gret.export_job_move_up', icon='TRIA_UP', text="", emboss=False)
     op.index = job_index
     sub.enabled = job_index > 0
-    sub = row.split()
+    sub = row2.column(align=True)
     op = sub.operator('gret.export_job_move_down', icon='TRIA_DOWN', text="", emboss=False)
     op.index = job_index
     sub.enabled = job_index < len(jobs) - 1
-    op = row.operator('gret.export_job_remove', icon='X', text="", emboss=False)
+    row2.separator()
+    op = row2.operator('gret.export_job_remove', icon='X', text="", emboss=False)
     op.index = job_index
-    box = col_job.box()
-    col = box
+    op = row.operator('gret.export', icon='PLAY', text="")
+    op.index = job_index
+
+    if not job.show_expanded:
+        return
 
     def add_collection_layout():
         col = box.column(align=True)
@@ -290,173 +295,167 @@ def draw_job(layout, jobs, job_index):
             row.prop(job_cl, 'export_render', icon='RESTRICT_RENDER_OFF', text="")
         return col
 
+    box = col_job.box()
+    col = box
+
     if job.what == 'SCENE':
-        if job.show_expanded:
-            col.prop(job, 'selection_only')
-            add_collection_layout().enabled = not job.selection_only
+        col.prop(job, 'selection_only')
+        add_collection_layout().enabled = not job.selection_only
 
-            col = box.column()
+        col = box.column()
+        row = col.row(align=True)
+        row.prop(job, 'use_modifier_tags')
+        sub = row.split(align=True)
+        sub.prop(job, 'modifier_tags', text="")
+        sub.enabled = job.use_modifier_tags
+
+        row = col.row(align=True)
+        row.prop(job, 'merge_basis_shape_keys')
+        sub = row.split(align=True)
+        sub.prop(job, 'basis_shape_key_pattern', text="")
+        sub.enabled = job.merge_basis_shape_keys
+
+        col.prop(job, 'encode_shape_keys')
+
+        col.prop(job, 'export_collision')
+        col.prop(job, 'export_sockets')
+        col.prop(job, 'keep_transforms')
+        col.prop(job, 'ensure_uv_layers')
+
+        row = col.row(align=True)
+        row.prop(job, 'ensure_vertex_color')
+        sub = row.split(align=True)
+        sub.prop(job, 'default_vertex_color', text="")
+        sub.enabled = job.ensure_vertex_color
+        # if gret_operator_exists("gret.vertex_color_mapping_add"):
+            # col.prop(job, 'invert_vertex_color_mappings')
+
+        row = col.row(align=True)
+        row.prop(job, 'use_postprocess_script', text="Post Process")
+        sub = row.split(align=True)
+        sub.prop(job, 'postprocess_script', text="")
+        sub.enabled = job.use_postprocess_script
+
+        col = box.column(align=True)
+        col.label(text="Remap Materials:")
+        for remap_material in job.remap_materials:
             row = col.row(align=True)
-            row.prop(job, 'use_modifier_tags')
-            sub = row.split(align=True)
-            sub.prop(job, 'modifier_tags', text="")
-            sub.enabled = job.use_modifier_tags
+            row.prop(remap_material, 'source', text="")
+            row.label(text="", icon='FORWARD')
+            row.prop(remap_material, 'destination', text="")
+        col.prop(job, 'material_name_prefix', text="M. Prefix")
 
-            row = col.row(align=True)
-            row.prop(job, 'merge_basis_shape_keys')
-            sub = row.split(align=True)
-            sub.prop(job, 'basis_shape_key_pattern', text="")
-            sub.enabled = job.merge_basis_shape_keys
-
-            col.prop(job, 'encode_shape_keys')
-
-            col.prop(job, 'export_collision')
-            col.prop(job, 'export_sockets')
-            col.prop(job, 'keep_transforms')
-            col.prop(job, 'ensure_uv_layers')
-
-            row = col.row(align=True)
-            row.prop(job, 'ensure_vertex_color')
-            sub = row.split(align=True)
-            sub.prop(job, 'default_vertex_color', text="")
-            sub.enabled = job.ensure_vertex_color
-            # if gret_operator_exists("gret.vertex_color_mapping_add"):
-                # col.prop(job, 'invert_vertex_color_mappings')
-
-            row = col.row(align=True)
-            row.prop(job, 'use_postprocess_script', text="Post Process")
-            sub = row.split(align=True)
-            sub.prop(job, 'postprocess_script', text="")
-            sub.enabled = job.use_postprocess_script
-
-            col = box.column(align=True)
-            col.label(text="Remap Materials:")
-            for remap_material in job.remap_materials:
-                row = col.row(align=True)
-                row.prop(remap_material, 'source', text="")
-                row.label(text="", icon='FORWARD')
-                row.prop(remap_material, 'destination', text="")
-            col.prop(job, 'material_name_prefix', text="M. Prefix")
-
-            col = box.column(align=True)
-            col.prop(job, 'scene_export_path', text="")
-
-        op = col.operator('gret.export', icon='INDIRECT_ONLY_ON', text="Execute")
-        op.index = job_index
+        col = box.column(align=True)
+        col.prop(job, 'scene_export_path', text="")
 
     elif job.what == 'RIG':
-        if job.show_expanded:
-            box.prop(job, 'rig')
-            add_collection_layout()
+        box.prop(job, 'rig')
+        add_collection_layout()
 
-            col = box.column()
+        col = box.column()
+
+        row = col.row(align=True)
+        row.prop(job, 'weld_mode', text="Weld")
+        sub = row.split(align=True)
+        sub.prop(job, 'weld_distance', text="")
+        sub.enabled = job.weld_mode != 'NEVER'
+
+        row = col.row(align=True)
+        row.prop(job, 'use_modifier_tags')
+        sub = row.split(align=True)
+        sub.prop(job, 'modifier_tags', text="")
+        sub.enabled = job.use_modifier_tags
+
+        row = col.row(align=True)
+        row.prop(job, 'merge_basis_shape_keys')
+        sub = row.split(align=True)
+        sub.prop(job, 'basis_shape_key_pattern', text="")
+        sub.enabled = job.merge_basis_shape_keys
+
+        col.prop(job, 'encode_shape_keys')
+
+        row = col.row(align=True)
+        row.prop(job, 'mirror_shape_keys')
+        # sub = row.split(align=True)
+        # sub.prop(job, 'side_vgroup_name', text="")
+        # sub.enabled = job.mirror_shape_keys
+
+        row = col.row(align=True)
+        row.prop(job, 'ensure_vertex_color')
+        sub = row.split(align=True)
+        sub.prop(job, 'default_vertex_color', text="")
+        sub.enabled = job.ensure_vertex_color
+        # if gret_operator_exists("gret.vertex_color_mapping_add"):
+        #     col.prop(job, 'invert_vertex_color_mappings')
+
+        row = col.row(align=True)
+        row.prop(job, 'subdivide_faces')
+        sub = row.split(align=True)
+        sub.prop(job, 'subdivide_face_map_names', text="")
+        sub.enabled = job.subdivide_faces
+
+        col = box.column(align=True)
+        col.label(text="Remap Materials:")
+        for remap_material in job.remap_materials:
+            row = col.row(align=True)
+            row.prop(remap_material, 'source', text="")
+            row.label(text="", icon='FORWARD')
+            row.prop(remap_material, 'destination', text="")
+        col.prop(job, 'material_name_prefix', text="M. Prefix")
+
+        col = box.column(align=True)
+        col.prop(job, 'to_collection')
+
+        if job.to_collection:
+            row = col.row(align=True)
+            row.prop(job, 'export_collection', text="")
+            row.prop(job, 'clean_collection', icon='TRASH', text="")
+        else:
+            col.prop(job, 'minimize_bones')
 
             row = col.row(align=True)
-            row.prop(job, 'weld_mode', text="Weld")
+            row.prop(job, 'remove_bones')
             sub = row.split(align=True)
-            sub.prop(job, 'weld_distance', text="")
-            sub.enabled = job.weld_mode != 'NEVER'
+            sub.prop(job, 'remove_bone_names', text="")
+            sub.enabled = job.remove_bones
 
-            row = col.row(align=True)
-            row.prop(job, 'use_modifier_tags')
-            sub = row.split(align=True)
-            sub.prop(job, 'modifier_tags', text="")
-            sub.enabled = job.use_modifier_tags
-
-            row = col.row(align=True)
-            row.prop(job, 'merge_basis_shape_keys')
-            sub = row.split(align=True)
-            sub.prop(job, 'basis_shape_key_pattern', text="")
-            sub.enabled = job.merge_basis_shape_keys
-
-            col.prop(job, 'encode_shape_keys')
-
-            row = col.row(align=True)
-            row.prop(job, 'mirror_shape_keys')
-            # sub = row.split(align=True)
-            # sub.prop(job, 'side_vgroup_name', text="")
-            # sub.enabled = job.mirror_shape_keys
-
-            row = col.row(align=True)
-            row.prop(job, 'ensure_vertex_color')
-            sub = row.split(align=True)
-            sub.prop(job, 'default_vertex_color', text="")
-            sub.enabled = job.ensure_vertex_color
-            # if gret_operator_exists("gret.vertex_color_mapping_add"):
-            #     col.prop(job, 'invert_vertex_color_mappings')
-
-            row = col.row(align=True)
-            row.prop(job, 'subdivide_faces')
-            sub = row.split(align=True)
-            sub.prop(job, 'subdivide_face_map_names', text="")
-            sub.enabled = job.subdivide_faces
-
-            col = box.column(align=True)
-            col.label(text="Remap Materials:")
-            for remap_material in job.remap_materials:
-                row = col.row(align=True)
-                row.prop(remap_material, 'source', text="")
-                row.label(text="", icon='FORWARD')
-                row.prop(remap_material, 'destination', text="")
-            col.prop(job, 'material_name_prefix', text="M. Prefix")
-
-            col = box.column(align=True)
-            col.prop(job, 'to_collection')
-
-            if job.to_collection:
-                row = col.row(align=True)
-                row.prop(job, 'export_collection', text="")
-                row.prop(job, 'clean_collection', icon='TRASH', text="")
-            else:
-                col.prop(job, 'minimize_bones')
-
-                row = col.row(align=True)
-                row.prop(job, 'remove_bones')
-                sub = row.split(align=True)
-                sub.prop(job, 'remove_bone_names', text="")
-                sub.enabled = job.remove_bones
-
-                col.prop(job, 'rig_export_path', text="")
-
-        op = col.operator('gret.export', icon='INDIRECT_ONLY_ON', text="Execute")
-        op.index = job_index
+            col.prop(job, 'rig_export_path', text="")
 
     elif job.what == 'ANIMATION':
-        if job.show_expanded:
-            box.prop(job, 'rig')
+        box.prop(job, 'rig')
 
-            col = box.column(align=True)
-            for action in job.actions:
-                row = col.row(align=True)
-                if not action.use_pattern:
-                    row.prop_search(action, 'action', bpy.data, "actions", text="")
-                else:
-                    row.prop(action, 'action', text="")
-                row.prop(action, 'use_pattern', icon='SELECT_SET', text="")
+        col = box.column(align=True)
+        for action in job.actions:
+            row = col.row(align=True)
+            if not action.use_pattern:
+                row.prop_search(action, 'action', bpy.data, "actions", text="")
+            else:
+                row.prop(action, 'action', text="")
+            row.prop(action, 'use_pattern', icon='SELECT_SET', text="")
 
-            col = box.column()
-            if is_object_arp(job.rig):
-                col.prop(job, 'disable_auto_eyelid')
-                col.prop(job, 'disable_twist_bones')
+        col = box.column()
+        if is_object_arp(job.rig):
+            col.prop(job, 'disable_auto_eyelid')
+            col.prop(job, 'disable_twist_bones')
 
-            col.prop(job, 'export_markers')
-            sub = col.split(align=True)
-            sub.prop(job, 'markers_export_path', text="")
-            sub.enabled = job.export_markers
+        col.prop(job, 'export_markers')
+        sub = col.split(align=True)
+        sub.prop(job, 'markers_export_path', text="")
+        sub.enabled = job.export_markers
 
-            col = box.column(align=True)
-            col.label(text="Bake Properties:")
-            for copy_property in job.copy_properties:
-                row = col.row(align=True)
-                row.prop(copy_property, 'source', text="")
-                row.label(text="", icon='FORWARD')
-                row.prop(copy_property, 'destination', text="")
+        col = box.column(align=True)
+        col.label(text="Bake Properties:")
+        for copy_property in job.copy_properties:
+            row = col.row(align=True)
+            row.prop(copy_property, 'source', text="")
+            row.label(text="", icon='FORWARD')
+            row.prop(copy_property, 'destination', text="")
 
-            col = box.column(align=True)
-            col.prop(job, 'animation_export_path', text="")
+        col = box.column(align=True)
+        col.prop(job, 'animation_export_path', text="")
 
-        op = col.operator('gret.export', icon='INDIRECT_ONLY_ON', text="Execute")
-        op.index = job_index
+    op = col.operator('gret.export', icon='PLAY', text="Execute")
+    op.index = job_index
 
 class GRET_PT_export_jobs(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
