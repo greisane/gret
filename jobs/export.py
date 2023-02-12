@@ -1,4 +1,5 @@
 import bpy
+import re
 
 from ..log import log, logger
 from ..helpers import gret_operator_exists
@@ -148,6 +149,44 @@ class GRET_OT_export_job_remove(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class GRET_OT_search_modifier_tags(bpy.types.Operator):
+    #tooltip
+    """Select objects that use these modifier tags"""
+
+    bl_idname = 'gret.search_modifier_tags'
+    bl_label = "Search Modifier Tags"
+    bl_options = {'INTERNAL', 'UNDO'}
+
+    tags: bpy.props.StringProperty(options={'HIDDEN'})
+
+    def execute(self, context):
+        tags = self.tags.split(' ')
+        allowed_object_types = {'MESH'}
+        obj_names = []
+
+        for obj in context.selected_objects:
+            obj.select_set(False)
+        for obj in bpy.data.objects:
+            if obj.type in allowed_object_types:
+                for modifier in obj.modifiers:
+                    for tag in re.findall(r"g:(\S+)", modifier.name):
+                        if tag in tags:
+                            try:
+                                obj.select_set(True)
+                                obj_names.append(obj.name)
+                            except RuntimeError:
+                                pass
+                            break
+
+        if obj_names:
+            s = "objects match" if len(obj_names) > 1 else "object matches"
+            self.report({'INFO'}, f"{len(obj_names)} {s}: {', '.join(obj_names)}.")
+            context.view_layer.objects.active = context.selected_objects[0]
+        else:
+            self.report({'INFO'}, f"No objects match these tags.")
+
+        return {'FINISHED'}
+
 class GRET_OT_export_job_move_up(bpy.types.Operator):
     #tooltip
     """Moves the export job up"""
@@ -291,7 +330,7 @@ def draw_job(layout, jobs, job_index):
         for job_cl in job.collections:
             row = col.row(align=True)
             row.prop(job_cl, 'collection', text="")
-            sub = row.split(align=True)
+            sub = row.row(align=True)
             sub.prop(job_cl, 'subdivision_levels', text="")
             sub.ui_units_x = 1.8
             row.prop(job_cl, 'export_viewport', icon='RESTRICT_VIEW_OFF', text="")
@@ -308,13 +347,14 @@ def draw_job(layout, jobs, job_index):
         col = box.column()
         row = col.row(align=True)
         row.prop(job, 'use_modifier_tags')
-        sub = row.split(align=True)
+        sub = row.row(align=True)
         sub.prop(job, 'modifier_tags', text="")
+        op = sub.operator('gret.search_modifier_tags', icon='VIEWZOOM', text="")
         sub.enabled = job.use_modifier_tags
 
         row = col.row(align=True)
         row.prop(job, 'merge_basis_shape_keys')
-        sub = row.split(align=True)
+        sub = row.row(align=True)
         sub.prop(job, 'basis_shape_key_pattern', text="")
         sub.enabled = job.merge_basis_shape_keys
 
@@ -327,7 +367,7 @@ def draw_job(layout, jobs, job_index):
 
         row = col.row(align=True)
         row.prop(job, 'ensure_vertex_color')
-        sub = row.split(align=True)
+        sub = row.row(align=True)
         sub.prop(job, 'default_vertex_color', text="")
         sub.enabled = job.ensure_vertex_color
         # if gret_operator_exists("gret.vertex_color_mapping_add"):
@@ -335,7 +375,7 @@ def draw_job(layout, jobs, job_index):
 
         row = col.row(align=True)
         row.prop(job, 'use_postprocess_script', text="Post Process")
-        sub = row.split(align=True)
+        sub = row.row(align=True)
         sub.prop(job, 'postprocess_script', text="")
         sub.enabled = job.use_postprocess_script
 
@@ -359,19 +399,21 @@ def draw_job(layout, jobs, job_index):
 
         row = col.row(align=True)
         row.prop(job, 'weld_mode', text="Weld")
-        sub = row.split(align=True)
+        sub = row.row(align=True)
         sub.prop(job, 'weld_distance', text="")
         sub.enabled = job.weld_mode != 'NEVER'
 
         row = col.row(align=True)
         row.prop(job, 'use_modifier_tags')
-        sub = row.split(align=True)
+        sub = row.row(align=True)
         sub.prop(job, 'modifier_tags', text="")
+        op = sub.operator('gret.search_modifier_tags', icon='VIEWZOOM', text="")
+        op.tags = job.modifier_tags
         sub.enabled = job.use_modifier_tags
 
         row = col.row(align=True)
         row.prop(job, 'merge_basis_shape_keys')
-        sub = row.split(align=True)
+        sub = row.row(align=True)
         sub.prop(job, 'basis_shape_key_pattern', text="")
         sub.enabled = job.merge_basis_shape_keys
 
@@ -379,13 +421,13 @@ def draw_job(layout, jobs, job_index):
 
         row = col.row(align=True)
         row.prop(job, 'mirror_shape_keys')
-        # sub = row.split(align=True)
+        # sub = row.row(align=True)
         # sub.prop(job, 'side_vgroup_name', text="")
         # sub.enabled = job.mirror_shape_keys
 
         row = col.row(align=True)
         row.prop(job, 'ensure_vertex_color')
-        sub = row.split(align=True)
+        sub = row.row(align=True)
         sub.prop(job, 'default_vertex_color', text="")
         sub.enabled = job.ensure_vertex_color
         # if gret_operator_exists("gret.vertex_color_mapping_add"):
@@ -393,7 +435,7 @@ def draw_job(layout, jobs, job_index):
 
         row = col.row(align=True)
         row.prop(job, 'subdivide_faces')
-        sub = row.split(align=True)
+        sub = row.row(align=True)
         sub.prop(job, 'subdivide_face_map_names', text="")
         sub.enabled = job.subdivide_faces
 
@@ -418,7 +460,7 @@ def draw_job(layout, jobs, job_index):
 
             row = col.row(align=True)
             row.prop(job, 'remove_bones')
-            sub = row.split(align=True)
+            sub = row.row(align=True)
             sub.prop(job, 'remove_bone_names', text="")
             sub.enabled = job.remove_bones
 
@@ -442,7 +484,7 @@ def draw_job(layout, jobs, job_index):
             col.prop(job, 'disable_twist_bones')
 
         col.prop(job, 'export_markers')
-        sub = col.split(align=True)
+        sub = col.row(align=True)
         sub.prop(job, 'markers_export_path', text="")
         sub.enabled = job.export_markers
 
@@ -970,12 +1012,13 @@ Requires a mirror modifier""",
         return objs, objs_job_cl
 
 classes = (
+    GRET_OT_export,
     GRET_OT_export_job_add,
     GRET_OT_export_job_move_down,
     GRET_OT_export_job_move_up,
     GRET_OT_export_job_preset,
     GRET_OT_export_job_remove,
-    GRET_OT_export,
+    GRET_OT_search_modifier_tags,
     GRET_PG_copy_property,
     GRET_PG_export_action,
     GRET_PG_export_collection,
