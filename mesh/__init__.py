@@ -5,6 +5,7 @@ module_names = [
     'graft',  # So it appears at the top, fix this later
     'merge',
     'collision',
+    'cut_faces_smooth',
     'extra_objects',
     'remove_unused_vertex_groups',
     'retarget_mesh',
