@@ -385,6 +385,12 @@ def draw_job(layout, jobs, job_index):
             # if gret_operator_exists("gret.vertex_color_mapping_add"):
             #     col.prop(job, 'invert_vertex_color_mappings')
 
+            row = col.row(align=True)
+            row.prop(job, 'subdivide_faces')
+            sub = row.split(align=True)
+            sub.prop(job, 'subdivide_face_map_names', text="")
+            sub.enabled = job.subdivide_faces
+
             col = box.column(align=True)
             col.label(text="Remap Materials:")
             for remap_material in job.remap_materials:
@@ -835,6 +841,18 @@ Requires a mirror modifier""",
         min=0.0,
         options=set(),
     )
+    subdivide_faces: bpy.props.BoolProperty(
+        name="Partial Subdivide",
+        description="Partially subdivide meshes using face maps",
+        default=False,
+        options=set(),
+    )
+    subdivide_face_map_names: bpy.props.StringProperty(
+        name="Subdivide Face Maps",
+        description="Names of face maps to subdivide. Separate with spaces",
+        default="",
+        options=set(),
+    )
     minimize_bones: bpy.props.BoolProperty(
         name="Minimize Bone Hierarchy",
         description="Remove bones not affecting deformation of the meshes being exported",
@@ -849,7 +867,7 @@ Requires a mirror modifier""",
     )
     remove_bone_names: bpy.props.StringProperty(
         name="Remove Bone Names",
-        description="Names of bones to remove (including their children)",
+        description="Names of bones to remove, including children. Separate with spaces",
         default="",
         options=set(),
     )

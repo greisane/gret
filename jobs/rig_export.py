@@ -221,6 +221,18 @@ def _rig_export(self, context, job, rig):
                 logd(f"Popped empty material #{mat_idx}")
                 obj.data.materials.pop(index=mat_idx)
 
+        if job.subdivide_faces and obj.face_maps and obj.data.face_maps:
+            face_map_data = obj.data.face_maps[0].data
+            for face_map_name in shlex.split(job.subdivide_face_map_names):
+                face_map_index = obj.face_maps.find(face_map_name)
+                if face_map_index >= 0:
+                    num_selected = edit_mesh_elements(obj, type='FACE',
+                        key=lambda f: face_map_data[f.index].value == face_map_index)
+                    if num_selected:
+                        log(f"Subdividing face map {face_map_name} ({num_selected} faces)")
+                        bpy.ops.gret.cut_faces_smooth(ctx)
+                    bpy.ops.object.editmode_toggle()
+
         # If set, ensure prefix for exported materials
         if job.material_name_prefix:
             for mat_slot in obj.material_slots:
