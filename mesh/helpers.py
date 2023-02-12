@@ -362,20 +362,27 @@ def get_operator_target_vertex_groups(obj, group_select_mode, only_unlocked=Fals
     """Returns list of vertex groups to work on."""
 
     vgroup_idxs = []
+
     if group_select_mode == 'ACTIVE':
         vgroup_idxs = [obj.vertex_groups.active_index]
     elif group_select_mode == 'BONE_DEFORM':
-        vgroup_idxs = []
         armature = obj.find_armature()
         if armature:
             bones = armature.data.bones
-            vgroup_idxs = [vgroup.index for vgroup in obj.vertex_groups
-                if (not only_unlocked or not vgroup.lock_weight)
-                and vgroup.name in bones
-                and bones[vgroup.name].use_deform]
+            vgroup_idxs = [vgroup.index for vgroup in obj.vertex_groups if
+                (not only_unlocked or not vgroup.lock_weight)
+                and vgroup.name in bones and bones[vgroup.name].use_deform]
+    elif group_select_mode == 'BONE_NOT_DEFORM':
+        armature = obj.find_armature()
+        if armature:
+            bones = armature.data.bones
+            vgroup_idxs = [vgroup.index for vgroup in obj.vertex_groups if
+                (not only_unlocked or not vgroup.lock_weight)
+                and vgroup.name not in bones or not bones[vgroup.name].use_deform]
     elif group_select_mode == 'ALL':
         vgroup_idxs = [vgroup.index for vgroup in obj.vertex_groups
             if (not only_unlocked or not vgroup.lock_weight)]
+
     return vgroup_idxs
 
 def apply_modifiers(obj, key=None, keep_armature=False):

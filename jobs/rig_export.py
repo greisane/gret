@@ -30,6 +30,7 @@ from ..mesh.helpers import (
     delete_faces_with_no_material,
     edit_mesh_elements,
     encode_shape_keys,
+    get_operator_target_vertex_groups,
     merge_islands,
     merge_shape_keys_pattern,
     mirror_shape_keys,
@@ -354,9 +355,17 @@ def _rig_export(self, context, job, rig):
             job.export_collection.objects.link(obj)
             context.scene.collection.objects.unlink(obj)
             apply_shape_keys_with_vertex_groups(obj)
+
+            # Remove superfluous data
+            if hasattr(obj.data, 'shape_key_storage'):
+                obj.data.shape_key_storage.clear()
+            for vg_index in reversed(get_operator_target_vertex_groups(obj, 'BONE_NOT_DEFORM')):
+                obj.vertex_groups.remove(obj.vertex_groups[vg_index])
+
             # Auto-smooth has a noticeable impact in performance while animating,
             # disable unless the user explicitly enabled it back in the previous build result
             obj.data.use_auto_smooth = use_auto_smooth
+
             # Don't delete this
             self.new_objs.discard(obj)
             self.new_meshes.discard(obj.data)
