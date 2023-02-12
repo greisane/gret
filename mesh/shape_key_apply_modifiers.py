@@ -5,8 +5,7 @@ import bpy
 
 from ..math import get_dist_sq
 from ..log import log, logd
-from ..helpers import get_context
-from .helpers import get_modifier_mask
+from ..helpers import get_context, get_modifier_mask
 
 # shape_key_apply_modifiers TODO:
 # - Specialcase more merging modifiers, solidify for example

@@ -225,6 +225,12 @@ def dump_node_group(name):
     # exec(compile(temp, filename="<ast>", mode="exec"))
     return text
 
+def get_modifier_mask(obj, key=None):
+    """Return a modifier mask for use with gret.shape_key_apply_modifiers."""
+
+    mask = [key(modifier) if callable(key) else True for modifier in obj.modifiers]
+    return mask[:32] + [False] * (32 - len(mask))
+
 class TempModifier:
     """Convenient modifier wrapper to use in a `with` block to be automatically applied at the end."""
 
@@ -247,7 +253,11 @@ class TempModifier:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         ctx = get_context(self.obj)
 
-        bpy.ops.object.modifier_apply(ctx, modifier=self.modifier.name)
+        if self.obj.data.shape_keys and self.obj.data.shape_keys.key_blocks:
+            bpy.ops.gret.shape_key_apply_modifiers(ctx,
+                modifier_mask=get_modifier_mask(self.obj, key=lambda mod: mod == self.modifier))
+        else:
+            bpy.ops.object.modifier_apply(ctx, modifier=self.modifier.name)
 
         if self.saved_mode == 'EDIT_MESH':
             bpy.ops.object.editmode_toggle()

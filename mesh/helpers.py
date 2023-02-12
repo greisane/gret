@@ -378,12 +378,6 @@ def get_operator_target_vertex_groups(obj, group_select_mode, only_unlocked=Fals
             if (not only_unlocked or not vgroup.lock_weight)]
     return vgroup_idxs
 
-def get_modifier_mask(obj, key=None):
-    """Return a modifier mask for use with gret.shape_key_apply_modifiers."""
-
-    mask = [key(modifier) if callable(key) else True for modifier in obj.modifiers]
-    return mask[:32] + [False] * (32 - len(mask))
-
 def apply_modifiers(obj, key=None, keep_armature=False):
     """Apply modifiers while preserving shape keys and UV layers."""
 
