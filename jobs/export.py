@@ -263,7 +263,10 @@ def draw_job(layout, jobs, job_index):
     icon = 'DISCLOSURE_TRI_DOWN' if job.show_expanded else 'DISCLOSURE_TRI_RIGHT'
     row.prop(job, 'show_expanded', icon=icon, text="", emboss=False)
     row.prop(job, 'what', text="", expand=True)
-    row.prop(job, 'name', text="")
+    if job.show_expanded:
+        row.prop(job, 'name', text="")  # Editable name while expanded
+    else:
+        row.label(text=job.name)
     row2 = row.row(align=True)
     row2.scale_x = 0.75
     sub = row2.column(align=True)
