@@ -1,5 +1,6 @@
 import bpy
 import re
+import shlex
 
 from ..log import log, logger
 from ..helpers import gret_operator_exists
@@ -160,20 +161,21 @@ class GRET_OT_search_modifier_tags(bpy.types.Operator):
     tags: bpy.props.StringProperty(options={'HIDDEN'})
 
     def execute(self, context):
-        tags = self.tags.split(' ')
         allowed_object_types = {'MESH'}
         obj_names = []
 
         for obj in context.selected_objects:
             obj.select_set(False)
+
+        tags = shlex.split(self.tags)
         for obj in bpy.data.objects:
             if obj.type in allowed_object_types:
                 for modifier in obj.modifiers:
-                    for tag in re.findall(r"g:(\S+)", modifier.name):
-                        if tag in tags:
+                    for tag in tags:
+                        if tag in modifier.name:
+                            obj_names.append(obj.name)
                             try:
                                 obj.select_set(True)
-                                obj_names.append(obj.name)
                             except RuntimeError:
                                 pass
                             break
@@ -765,14 +767,13 @@ Meshes with existing vertex color layers won't be affected""",
     )
     use_modifier_tags: bpy.props.BoolProperty(
         name="Use Modifier Tags",
-        description="Allows selecting which render modifiers should be applied",
+        description="Allows enabling or disabling modifiers based on their name",
         default=False,
         options=set(),
     )
     modifier_tags: bpy.props.StringProperty(
         name="Modifier Tags",
-        description="""Tagged modifiers are only applied if the tag is found in this list.
-Separate tags with spaces. Tag modifiers by adding 'g:tag' to the modifier name""",
+        description="Substrings to search for in the modifier names. Separate with spaces",
         default="",
         options=set(),
     )
@@ -1010,6 +1011,19 @@ Requires a mirror modifier""",
                         objs.append(obj)
                         objs_job_cl.append(job_cl)
         return objs, objs_job_cl
+
+    def should_apply_modifier(self, modifier, ignore_block=False):
+        if job.use_modifier_tags:
+            tags = shlex.split(self.modifier_tags)
+            for tag in tags:
+                required = True
+                if tag.startswith("!") and len(tag) > 1:
+                    tag = tag[1:]
+                    required = ignore_block
+                # if bool(re.search(modifier.name, rf"\b{tag}\b")) == required:
+                if (tag in modifier.name) == required:
+                    return required
+        return modifier.show_render
 
 classes = (
     GRET_OT_export,

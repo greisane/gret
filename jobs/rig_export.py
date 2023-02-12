@@ -135,19 +135,6 @@ def _rig_export(self, context, job, rig):
         items.append(ExportItem(obj, job_cl))
 
     # Process individual meshes
-    job_tags = job.modifier_tags.split(' ')
-    def should_apply_modifier(modifier):
-        if modifier.type == 'ARMATURE':
-            return False
-        if job.use_modifier_tags:
-            for tag in re.findall(r"g:(\S+)", modifier.name):
-                if tag.startswith('!'):
-                    # Blacklisted tag
-                    return tag[1:] not in job_tags
-                else:
-                    return tag in job_tags
-        return modifier.show_render
-
     for item in items:
         log(f"Processing {item.original.name}")
         obj = item.obj
@@ -182,7 +169,7 @@ def _rig_export(self, context, job, rig):
         if job.mirror_shape_keys:
             mirror_shape_keys(obj, job.side_vgroup_name)
 
-        apply_modifiers(obj, key=should_apply_modifier, keep_armature=True)
+        apply_modifiers(obj, key=job.should_apply_modifier, keep_armature=True)
 
         if job.mirror_shape_keys:
             apply_shape_keys_with_vertex_groups(obj)
