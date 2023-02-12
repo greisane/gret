@@ -123,7 +123,7 @@ def _scene_export(self, context, job):
     # Find and clone objects to be exported
     # Original objects that aren't exported will be hidden for render, only for driver purposes
     if not job.selection_only:
-        export_objs, job_cls = job.get_export_objects(context, types={'MESH', 'CURVE'})
+        export_objs, job_cls = job.get_export_objects(context)
     elif context.selected_objects:
         export_objs, job_cls = [o for o in context.selected_objects if o.type == 'MESH'], []
     else:

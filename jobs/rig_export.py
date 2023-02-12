@@ -117,7 +117,7 @@ def _rig_export(self, context, job, rig):
 
     # Find and clone objects to be exported
     # Original objects that aren't exported will be hidden for render, only for driver purposes
-    export_objs, job_cls = job.get_export_objects(context, types={'MESH'}, armature=rig)
+    export_objs, job_cls = job.get_export_objects(context)
 
     class ExportItem:
         def __init__(item, original, job_collection):

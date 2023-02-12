@@ -152,33 +152,39 @@ class GRET_OT_export_job_remove(bpy.types.Operator):
 
 class GRET_OT_search_modifier_tags(bpy.types.Operator):
     #tooltip
-    """Select objects that use these modifier tags"""
+    """Select job objects that use these modifier tags"""
 
     bl_idname = 'gret.search_modifier_tags'
     bl_label = "Search Modifier Tags"
     bl_options = {'INTERNAL', 'UNDO'}
 
-    tags: bpy.props.StringProperty(options={'HIDDEN'})
+    index: bpy.props.IntProperty(options={'HIDDEN'})
 
     def execute(self, context):
-        allowed_object_types = {'MESH'}
-        obj_names = []
+        try:
+            job = context.scene.gret.export_jobs[self.index]
+        except IndexError:
+            self.report({'ERROR'}, "Invalid export job index.")
+            return {'CANCELLED'}
 
         for obj in context.selected_objects:
             obj.select_set(False)
 
-        tags = shlex.split(self.tags)
-        for obj in bpy.data.objects:
-            if obj.type in allowed_object_types:
-                for modifier in obj.modifiers:
-                    for tag in tags:
-                        if tag in modifier.name:
-                            obj_names.append(obj.name)
-                            try:
-                                obj.select_set(True)
-                            except RuntimeError:
-                                pass
-                            break
+        tags = shlex.split(job.modifier_tags)
+        export_objs, _ = job.get_export_objects(context)
+        obj_names = []
+        for obj in export_objs:
+            for modifier in obj.modifiers:
+                for tag in tags:
+                    if tag.startswith("!") and len(tag) > 1:
+                        tag = tag[1:]
+                    if tag in modifier.name:
+                        obj_names.append(obj.name)
+                        try:
+                            obj.select_set(True)
+                        except RuntimeError:
+                            pass
+                        break
 
         if obj_names:
             s = "objects match" if len(obj_names) > 1 else "object matches"
@@ -352,6 +358,7 @@ def draw_job(layout, jobs, job_index):
         sub = row.row(align=True)
         sub.prop(job, 'modifier_tags', text="")
         op = sub.operator('gret.search_modifier_tags', icon='VIEWZOOM', text="")
+        op.index = job_index
         sub.enabled = job.use_modifier_tags
 
         row = col.row(align=True)
@@ -410,7 +417,7 @@ def draw_job(layout, jobs, job_index):
         sub = row.row(align=True)
         sub.prop(job, 'modifier_tags', text="")
         op = sub.operator('gret.search_modifier_tags', icon='VIEWZOOM', text="")
-        op.tags = job.modifier_tags
+        op.index = job_index
         sub.enabled = job.use_modifier_tags
 
         row = col.row(align=True)
@@ -991,7 +998,14 @@ Requires a mirror modifier""",
         options=set(),
     )
 
-    def get_export_objects(self, context, types=set(), armature=None):
+    def get_export_objects(self, context):
+        if self.what == 'SCENE':
+            return self._get_export_objects(context, types={'MESH', 'CURVE'})
+        elif self.what == 'RIG':
+            return self._get_export_objects(context, types={'MESH'}, armature=self.rig)
+        return [], []
+
+    def _get_export_objects(self, context, types=set(), armature=None):
         objs, objs_job_cl = [], []
         for job_cl in self.collections:
             for cl in job_cl.get_child_collections(context):
