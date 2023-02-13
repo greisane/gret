@@ -100,21 +100,6 @@ def _rig_export(self, context, job, rig):
     rig_basename = os.path.splitext(bpy.path.basename(rig_filepath))[0]
     rig.data.pose_position = 'REST'
 
-    use_auto_smooth = False
-    if job.to_collection and job.clean_collection:
-        # Clean the target collection first
-        # Currently not checking whether the rig is in here, it will probably explode
-        log(f"Cleaning target collection")
-        if len(job.export_collection.objects) == 1:
-            # Remember auto smooth setting
-            only_obj = job.export_collection.objects[0]
-            use_auto_smooth = only_obj.type == 'MESH' and only_obj.data.use_auto_smooth
-        for obj in job.export_collection.objects:
-            data = obj.data
-            bpy.data.objects.remove(obj, do_unlink=True)
-            if data.users == 0 and isinstance(data, bpy.types.Mesh):
-                bpy.data.meshes.remove(data, do_unlink=True)
-
     # Find and clone objects to be exported
     # Original objects that aren't exported will be hidden for render, only for driver purposes
     export_objs, job_cls = job.get_export_objects(context)
@@ -344,12 +329,31 @@ def _rig_export(self, context, job, rig):
     if job.to_collection:
         # Keep new objects in the target collection
         objs = [item.obj for item in chain.from_iterable(groups.values())]
+        old_objs = {}
+
+        if job.clean_collection:
+            log(f"Cleaning target collection")
+            for obj in job.export_collection.objects:
+                old_objs[obj.name] = obj
+                obj.name += "_"
+                obj.data.name += "_"
+                job.export_collection.objects.unlink(obj)
 
         for obj in objs:
             if len(objs) == 1:
                 # If producing a single object, rename it to match the collection
                 obj.name = job.export_collection.name
                 obj.data.name = job.export_collection.name
+
+            old_obj = old_objs.get(obj.name)
+            if old_obj:
+                old_data = old_obj.data
+                logd(f"Remap object {old_obj.name} -> {obj.name} ({old_obj.users} users)")
+                logd(f"Remap data {old_data.name} -> {obj.data.name} ({old_data.users} users)")
+                old_obj.data.user_remap(obj.data)
+                old_obj.user_remap(obj)
+                old_obj.data = old_data  # Revert remap for the old object
+
             job.export_collection.objects.link(obj)
             context.scene.collection.objects.unlink(obj)
             apply_shape_keys_with_vertex_groups(obj)
@@ -362,11 +366,19 @@ def _rig_export(self, context, job, rig):
 
             # Auto-smooth has a noticeable impact in performance while animating,
             # disable unless the user explicitly enabled it back in the previous build result
-            obj.data.use_auto_smooth = use_auto_smooth
+            obj.data.use_auto_smooth = False
+            if old_obj and old_obj.type == 'MESH':
+                obj.data.use_auto_smooth = old_obj.data.use_auto_smooth
 
             # Don't delete this
             self.new_objs.discard(obj)
             self.new_meshes.discard(obj.data)
+
+        for old_obj in old_objs.values():
+            old_data = obj.data
+            bpy.data.objects.remove(old_obj, do_unlink=True)
+            if old_data.users == 0 and isinstance(old_data, bpy.types.Mesh):
+                bpy.data.meshes.remove(old_data, do_unlink=True)
     else:
         if job.minimize_bones:
             self.saved_deform_bone_names = [b.name for b in rig.data.bones if b.use_deform]
