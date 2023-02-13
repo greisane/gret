@@ -7,7 +7,14 @@ import re
 
 from .. import prefs
 from ..heapdict import heapdict
-from ..helpers import get_flipped_name, get_context, get_vgroup, select_only, fmt_fraction
+from ..helpers import (
+    fmt_fraction,
+    get_context,
+    get_flipped_name,
+    get_modifier_mask,
+    get_vgroup,
+    select_only,
+)
 from ..log import logger, log, logd
 from ..math import lerp
 
@@ -385,7 +392,7 @@ def get_operator_target_vertex_groups(obj, group_select_mode, only_unlocked=Fals
 
     return vgroup_idxs
 
-def apply_modifiers(obj, key=None, keep_armature=False):
+def apply_modifiers(obj, should_apply_modifier, keep_armature=False):
     """Apply modifiers while preserving shape keys and UV layers."""
 
     ctx = get_context(obj)
@@ -394,32 +401,46 @@ def apply_modifiers(obj, key=None, keep_armature=False):
     uv_layer_names = [uv_layer.name for uv_layer in obj.data.uv_layers]
     vertex_color_names = [vertex_color.name for vertex_color in obj.data.vertex_colors]
 
-    modifier_mask = get_modifier_mask(obj, key)
+    modifier_mask, override_reasons = zip(*(should_apply_modifier(mod) for mod in obj.modifiers))
+    modifier_mask = get_modifier_mask(obj, modifier_mask)
     num_modifiers = sum(modifier_mask)
+
+    if not num_modifiers:
+        log(f"No modifiers will be applied")
+    elif not obj.data.shape_keys and not keep_armature:
+        log(f"Flattening with {num_modifiers} modifiers")
+    else:
+        log(f"Applying {num_modifiers} modifiers")
+    logger.indent += 1
+
+    for reason in override_reasons:
+        if reason:
+            log(reason)
+
+    # Geometry nodes will affect data transfer modifiers, even if the data transfer is first.
+    # Possible bug or very unintuitive behavior? If there are no shape keys or modifiers to keep
+    # then it's safe to just flatten instead of applying.
     if num_modifiers:
         if not obj.data.shape_keys and not keep_armature:
-            # Geometry nodes will affect data transfer modifiers, even if the data transfer
-            # is first in the stack. Possible bug or very unintuitive behavior?
-            # If there are no shape keys or modifiers to keep then it's safe to just flatten.
-
-            log(f"Flattening with {num_modifiers} modifiers")
             for modifier, mask in zip(obj.modifiers, modifier_mask):
                 modifier.show_viewport = mask
             dg = bpy.context.evaluated_depsgraph_get()
             bm = bmesh.new()
             bm.from_object(obj, dg)
             bm.to_mesh(obj.data)
-            obj.modifiers.clear()
         else:
-            log(f"Applying {num_modifiers} modifiers")
             bpy.ops.gret.shape_key_apply_modifiers(ctx, modifier_mask=modifier_mask)
 
-            for modifier in obj.modifiers[:]:
-                if modifier.type == 'ARMATURE' and keep_armature:
-                    modifier.show_viewport = True
-                else:
-                    logd(f"Removed {modifier.type} modifier {modifier.name}")
-                    bpy.ops.object.modifier_remove(ctx, modifier=modifier.name)
+    # Remove unused modifiers
+    if keep_armature:
+        for modifier in obj.modifiers[:]:
+            if modifier.type == 'ARMATURE' and keep_armature:
+                modifier.show_viewport = True
+            else:
+                logd(f"Removed {modifier.type} modifier {modifier.name}")
+                bpy.ops.object.modifier_remove(ctx, modifier=modifier.name)
+    else:
+        obj.modifiers.clear()
 
     # Restore UV layers from attributes
     for name in uv_layer_names:
@@ -452,6 +473,8 @@ def apply_modifiers(obj, key=None, keep_armature=False):
                 log(f"Can't restore vertex color layer {name}, attribute has wrong domain or data type")
             else:
                 log(f"Can't restore vertex color layer {name}, attribute doesn't exist")
+
+    logger.indent -= 1
 
 def apply_shape_keys_with_vertex_groups(obj):
     if not obj.data.shape_keys:

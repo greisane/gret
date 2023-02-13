@@ -174,17 +174,12 @@ class GRET_OT_search_modifier_tags(bpy.types.Operator):
         export_objs, _ = job.get_export_objects(context)
         obj_names = []
         for obj in export_objs:
-            for modifier in obj.modifiers:
-                for tag in tags:
-                    if tag.startswith("!") and len(tag) > 1:
-                        tag = tag[1:]
-                    if tag in modifier.name:
-                        obj_names.append(obj.name)
-                        try:
-                            obj.select_set(True)
-                        except RuntimeError:
-                            pass
-                        break
+            if any(job.should_apply_modifier(mod)[1] for mod in obj.modifiers):
+                obj_names.append(obj.name)
+                try:
+                    obj.select_set(True)
+                except RuntimeError:
+                    pass
 
         if obj_names:
             s = "objects match" if len(obj_names) > 1 else "object matches"
@@ -1026,18 +1021,25 @@ Requires a mirror modifier""",
                         objs_job_cl.append(job_cl)
         return objs, objs_job_cl
 
-    def should_apply_modifier(self, modifier, ignore_block=False):
-        if job.use_modifier_tags:
+    def should_apply_modifier(self, modifier):
+        """Returns (enable, override_reason)"""
+
+        if self.what == 'RIG' and modifier.type == 'ARMATURE':
+            return False, None
+        if self.use_modifier_tags:
             tags = shlex.split(self.modifier_tags)
             for tag in tags:
-                required = True
+                enabled = True
                 if tag.startswith("!") and len(tag) > 1:
                     tag = tag[1:]
-                    required = ignore_block
-                # if bool(re.search(modifier.name, rf"\b{tag}\b")) == required:
-                if (tag in modifier.name) == required:
-                    return required
-        return modifier.show_render
+                    enabled = False
+                if enabled == modifier.show_render:
+                    # State is already what it would be if the tag applied
+                    continue
+                if tag in modifier.name:
+                    s = f"Modifier {modifier.name} {'enabled' if enabled else 'disabled'} by tag {tag}"
+                    return enabled, s
+        return modifier.show_render, None
 
 classes = (
     GRET_OT_export,

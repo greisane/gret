@@ -228,7 +228,12 @@ def dump_node_group(name):
 def get_modifier_mask(obj, key=None):
     """Return a modifier mask for use with gret.shape_key_apply_modifiers."""
 
-    mask = [key(modifier) if callable(key) else True for modifier in obj.modifiers]
+    if callable(key):
+        mask = [key(modifier) for modifier in obj.modifiers]
+    elif hasattr(key, '__iter__'):
+        mask = [bool(el) for el in key]
+    else:
+        mask = [True] * len(obj.modifiers)
     return mask[:32] + [False] * (32 - len(mask))
 
 class TempModifier:

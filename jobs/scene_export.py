@@ -170,7 +170,7 @@ def _scene_export(self, context, job):
         if not job.encode_shape_keys:
             obj.shape_key_clear()
 
-        apply_modifiers(obj, key=job.should_apply_modifier)
+        apply_modifiers(obj, should_apply_modifier=job.should_apply_modifier)
 
         if job.use_postprocess_script and job.postprocess_script:
             try:

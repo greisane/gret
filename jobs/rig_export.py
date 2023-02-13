@@ -169,7 +169,7 @@ def _rig_export(self, context, job, rig):
         if job.mirror_shape_keys:
             mirror_shape_keys(obj, job.side_vgroup_name)
 
-        apply_modifiers(obj, key=job.should_apply_modifier, keep_armature=True)
+        apply_modifiers(obj, should_apply_modifier=job.should_apply_modifier, keep_armature=True)
 
         if job.mirror_shape_keys:
             apply_shape_keys_with_vertex_groups(obj)
