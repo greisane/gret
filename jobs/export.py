@@ -329,10 +329,14 @@ def draw_job(layout, jobs, job_index):
     row = box.row()
     icon = 'DISCLOSURE_TRI_DOWN' if job.show_expanded else 'DISCLOSURE_TRI_RIGHT'
     row.prop(job, 'show_expanded', icon=icon, text="", emboss=False)
-    row.prop(job, 'what', text="", expand=True)
     if job.show_expanded:
-        row.prop(job, 'name', text="")  # Editable name while expanded
+        # Editable type while expanded
+        row.prop(job, 'what', text="", expand=True)
+        row.prop(job, 'name', text="")
     else:
+        sub = row.row(align=True)
+        sub.prop(job, 'what', text="", expand=True)
+        sub.enabled = False
         row.label(text=job.name)
     row2 = row.row(align=True)
     row2.scale_x = 0.9
@@ -418,9 +422,9 @@ def draw_job(layout, jobs, job_index):
             row.prop(remap_material, 'source', text="")
             row.label(text="", icon='FORWARD')
             row.prop(remap_material, 'destination', text="")
-        col.prop(job, 'material_name_prefix', text="M. Prefix")
 
         col = box.column(align=True)
+        col.prop(job, 'material_name_prefix', text="M. Prefix")
         col.prop(job, 'scene_export_path', text="")
 
     elif job.what == 'RIG':
@@ -478,7 +482,6 @@ def draw_job(layout, jobs, job_index):
             row.prop(remap_material, 'source', text="")
             row.label(text="", icon='FORWARD')
             row.prop(remap_material, 'destination', text="")
-        col.prop(job, 'material_name_prefix', text="M. Prefix")
 
         col = box.column(align=True)
         col.prop(job, 'to_collection')
@@ -495,6 +498,8 @@ def draw_job(layout, jobs, job_index):
             sub = row.row(align=True)
             sub.prop(job, 'remove_bone_names', text="")
             sub.enabled = job.remove_bones
+
+            col.prop(job, 'material_name_prefix', text="M. Prefix")
 
             col.prop(job, 'rig_export_path', text="")
 
