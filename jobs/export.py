@@ -3,7 +3,7 @@ import re
 import shlex
 
 from ..log import log, logger
-from ..helpers import gret_operator_exists
+from ..helpers import gret_operator_exists, load_properties, save_properties
 from ..rig.helpers import is_object_arp
 from .scene_export import scene_export
 from .rig_export import rig_export
@@ -122,6 +122,31 @@ def add_job(context, name="", collections=[], remap_materials=[]):
         remap_material.job_index = job_index
     return job
 
+class GRET_OT_export_job_duplicate(bpy.types.Operator):
+    #tooltip
+    """Duplicate the export job"""
+
+    bl_idname = 'gret.export_job_duplicate'
+    bl_label = "Duplicate Export Job"
+    bl_options = {'INTERNAL', 'UNDO'}
+
+    index: bpy.props.IntProperty(options={'HIDDEN'})
+
+    def execute(self, context):
+        try:
+            other_job = context.scene.gret.export_jobs[self.index]
+        except IndexError:
+            self.report({'ERROR'}, "Invalid export job index.")
+            return {'CANCELLED'}
+
+        job = add_job(context)
+        load_properties(job, save_properties(other_job))
+        job.name = other_job.name + " (copy)"
+        context.scene.gret.export_jobs.move(len(context.scene.gret.export_jobs) - 1, self.index + 1)
+        refresh_job_list(context)
+
+        return {'FINISHED'}
+
 def refresh_job_list(context):
     """Call after changing the job list, keeps job indices up to date"""
     for job_index, job in enumerate(context.scene.gret.export_jobs):
@@ -136,7 +161,7 @@ def refresh_job_list(context):
 
 class GRET_OT_export_job_remove(bpy.types.Operator):
     #tooltip
-    """Removes an export job"""
+    """Remove the export job"""
 
     bl_idname = 'gret.export_job_remove'
     bl_label = "Remove Export Job"
@@ -310,17 +335,20 @@ def draw_job(layout, jobs, job_index):
     else:
         row.label(text=job.name)
     row2 = row.row(align=True)
-    row2.scale_x = 0.75
-    sub = row2.column(align=True)
+    row2.scale_x = 0.9
+    row3 = row2.row(align=True)
+    row3.scale_x = 0.6
+    sub = row3.column(align=True)
     op = sub.operator('gret.export_job_move_up', icon='TRIA_UP', text="", emboss=False)
     op.index = job_index
     sub.enabled = job_index > 0
-    sub = row2.column(align=True)
+    sub = row3.column(align=True)
     op = sub.operator('gret.export_job_move_down', icon='TRIA_DOWN', text="", emboss=False)
     op.index = job_index
     sub.enabled = job_index < len(jobs) - 1
-    row2.separator()
     op = row2.operator('gret.export_job_remove', icon='X', text="", emboss=False)
+    op.index = job_index
+    op = row2.operator('gret.export_job_duplicate', icon='DUPLICATE', text="", emboss=False)
     op.index = job_index
     op = row.operator('gret.export', icon='PLAY', text="")
     op.index = job_index
@@ -1044,6 +1072,7 @@ Requires a mirror modifier""",
 classes = (
     GRET_OT_export,
     GRET_OT_export_job_add,
+    GRET_OT_export_job_duplicate,
     GRET_OT_export_job_move_down,
     GRET_OT_export_job_move_up,
     GRET_OT_export_job_preset,
