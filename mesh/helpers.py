@@ -178,12 +178,12 @@ def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name="", override
         obj.shape_key_add(name=target_shape_key_name)
 
     # Store state
-    saved_unmuted_shape_keys = [sk for sk in mesh.shape_keys.key_blocks if not sk.mute]
+    saved_unmuted_shape_key_names = [sk.name for sk in mesh.shape_keys.key_blocks if not sk.mute]
     saved_unmuted_shape_key_drivers = []
 
     # Mute all but the ones to be merged
     for sk in mesh.shape_keys.key_blocks[1:]:
-        if fnmatch(sk.name, shape_key_name) or sk.name == target_shape_key_name:
+        if sk.name != target_shape_key_name and fnmatch(sk.name, shape_key_name):
             # Remove any drivers related to shape keys that will be deleted
             if mesh.shape_keys.animation_data:
                 sk_data_path = f'key_blocks["{sk.name}"]'
@@ -210,14 +210,13 @@ def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name="", override
         else:
             sk.mute = True
 
-    source_shape_keys = [sk for sk in mesh.shape_keys.key_blocks[1:]
-        if not sk.mute and sk.name != target_shape_key_name]
+    source_shape_keys = [sk for sk in mesh.shape_keys.key_blocks[1:] if not sk.mute]
     if source_shape_keys:
         log(f"Merging {len(source_shape_keys)} shape keys to {target_shape_key_name}: " +
             ", ".join(fmt_shape_key(sk) for sk in source_shape_keys))
 
-        # Replace target shape key with mix. While the basis layer *does* exist in bmesh
-        # changing it doesn't seem to have any effect, hence the split code path
+        # Add mix to target shape key. While the basis layer *does* exist in bmesh, changing it
+        # doesn't seem to have any effect, hence the split code path.
         merged_sk = obj.shape_key_add(name="__merged", from_mix=True)
         bm = bmesh.new()
         bm.from_mesh(mesh)
@@ -225,7 +224,7 @@ def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name="", override
         if target_shape_key_name != basis_shape_key_name:
             target_layer = bm.verts.layers.shape[target_shape_key_name]
             for vert in bm.verts:
-                vert[target_layer] = vert[merged_layer]
+                vert[target_layer] += vert[merged_layer] - vert.co
         else:
             for vert in bm.verts:
                 vert.co = vert[merged_layer]
@@ -238,8 +237,10 @@ def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name="", override
             obj.shape_key_remove(sk)
 
     # Restore state
-    for sk in saved_unmuted_shape_keys:
-        sk.mute = False
+    for sk_name in saved_unmuted_shape_key_names:
+        sk = mesh.shape_keys.key_blocks.get(sk_name)
+        if sk:
+            sk.mute = False
     for fc in saved_unmuted_shape_key_drivers:
         fc.mute = False
 
@@ -253,9 +254,15 @@ def remove_shape_keys(obj, shape_key_name="*"):
         # No shape keys
         return
 
+    removed_shape_key_names = []
     for sk in mesh.shape_keys.key_blocks[1:]:
         if fnmatch(sk.name, shape_key_name):
+            removed_shape_key_names.append(sk.name)
             obj.shape_key_remove(sk)
+
+    if removed_shape_key_names:
+        log(f"Removing {len(removed_shape_key_names)} shape keys: " +
+            ", ".join(removed_shape_key_names))
 
 def mirror_shape_keys(obj, side_vgroup_name):
     if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:
@@ -282,6 +289,7 @@ def mirror_shape_keys(obj, side_vgroup_name):
         if flipped_name and flipped_name not in obj.data.shape_keys.key_blocks:
             log(f"Mirroring shape key {sk.name}")
             logger.indent += 1
+
             sk.vertex_group = side_vgroup_name
             new_sk = duplicate_shape_key(obj, sk.name, flipped_name)
             new_sk.vertex_group = other_side_vgroup_name
