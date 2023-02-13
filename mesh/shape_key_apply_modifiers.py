@@ -313,7 +313,7 @@ class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
                     apply_modifier(modifier)
             return {'FINISHED'}
 
-        log(f"Applying modifiers with {num_shape_keys} shape keys")
+        print(f"Applying modifiers with {num_shape_keys} shape keys")
         mesh_copy = obj.data.copy()  # Copy for convenience, to be able to call from_existing(fcurve)
         shape_keys = obj.data.shape_keys.key_blocks if obj.data.shape_keys else []
         shape_key_infos = []

@@ -153,7 +153,7 @@ def _rig_export(self, context, job, rig):
         obj.data.use_auto_smooth = True
         obj.data.auto_smooth_angle = pi
 
-        # Remove vertex group filtering from shapekeys
+        # Remove vertex group filtering from shapekeys before merging
         apply_shape_keys_with_vertex_groups(obj)
 
         if job.merge_basis_shape_keys:
@@ -167,6 +167,7 @@ def _rig_export(self, context, job, rig):
                     obj.shape_key_remove(sk)
 
         if job.mirror_shape_keys:
+            # Create shape keys with L/R vertex group masking, to be applied after mirroring
             mirror_shape_keys(obj, job.side_vgroup_name)
 
         apply_modifiers(obj, should_apply_modifier=job.should_apply_modifier, keep_armature=True)

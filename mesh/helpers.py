@@ -412,10 +412,13 @@ def apply_modifiers(obj, should_apply_modifier, keep_armature=False):
     modifier_mask, override_reasons = zip(*(should_apply_modifier(mod) for mod in obj.modifiers))
     modifier_mask = get_modifier_mask(obj, modifier_mask)
     num_modifiers = sum(modifier_mask)
+    num_shape_keys = len(obj.data.shape_keys.key_blocks) - 1 if obj.data.shape_keys else 0
 
     if not num_modifiers:
         log(f"No modifiers will be applied")
-    elif not obj.data.shape_keys and not keep_armature:
+    elif num_shape_keys:
+        log(f"Applying {num_modifiers} modifiers with {num_shape_keys} shape keys")
+    elif not keep_armature:
         log(f"Flattening with {num_modifiers} modifiers")
     else:
         log(f"Applying {num_modifiers} modifiers")
@@ -429,15 +432,15 @@ def apply_modifiers(obj, should_apply_modifier, keep_armature=False):
     # Possible bug or very unintuitive behavior? If there are no shape keys or modifiers to keep
     # then it's safe to just flatten instead of applying.
     if num_modifiers:
-        if not obj.data.shape_keys and not keep_armature:
+        if num_shape_keys or keep_armature:
+            bpy.ops.gret.shape_key_apply_modifiers(ctx, modifier_mask=modifier_mask)
+        else:
             for modifier, mask in zip(obj.modifiers, modifier_mask):
                 modifier.show_viewport = mask
             dg = bpy.context.evaluated_depsgraph_get()
             bm = bmesh.new()
             bm.from_object(obj, dg)
             bm.to_mesh(obj.data)
-        else:
-            bpy.ops.gret.shape_key_apply_modifiers(ctx, modifier_mask=modifier_mask)
 
     # Remove unused modifiers
     if keep_armature:
