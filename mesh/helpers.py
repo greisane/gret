@@ -32,6 +32,9 @@ def edit_mesh_elements(obj, type='VERT', indices=None, key=None):
     Returns the number of elements selected.
     """
 
+    mesh = obj.data
+    num_selected = 0
+
     select_only(bpy.context, obj)
     bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.reveal()
@@ -40,8 +43,6 @@ def edit_mesh_elements(obj, type='VERT', indices=None, key=None):
     bpy.ops.mesh.select_mode(type=type)
     bpy.ops.object.mode_set(mode='OBJECT')
 
-    mesh = obj.data
-    num_selected = 0
     if type == 'VERT':
         elements = (mesh.vertices if indices is None else (mesh.vertices[i] for i in indices))
     elif type == 'EDGE':
@@ -59,6 +60,35 @@ def edit_mesh_elements(obj, type='VERT', indices=None, key=None):
             num_selected += el.select
 
     bpy.ops.object.mode_set(mode='EDIT')
+
+    return num_selected
+
+def edit_face_map_elements(obj, face_map_name):
+    """
+    Enters edit mode and selects elements of a face map to be operated on.
+
+    Returns the number of elements selected.
+    """
+
+    face_map_index = obj.face_maps.find(face_map_name)
+    mesh = obj.data
+    num_selected = 0
+
+    select_only(bpy.context, obj)
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.reveal()
+    bpy.ops.mesh.select_mode(type='FACE')
+    bpy.ops.mesh.select_all(action='DESELECT')
+
+    bm = bmesh.from_edit_mesh(mesh)
+    fm_layer = bm.faces.layers.face_map.active
+
+    if fm_layer and face_map_index >= 0:
+        for face in bm.faces:
+            face.select = (face[fm_layer] == face_map_index)
+            num_selected += face.select
+
+    bmesh.update_edit_mesh(mesh, loop_triangles=False, destructive=False)
 
     return num_selected
 
@@ -519,6 +549,28 @@ def merge_islands(obj, mode='ALWAYS', threshold=1e-3):
         edit_mesh_elements(obj, 'EDGE', key=lambda e: e.use_freestyle_mark)
     else:
         return 0
+
+    # Shape keys tend to break when removing doubles and vertices don't exactly match. Not sure
+    # about the root cause, just moving the vertices together is enough to fix it.
+    # Have to exit edit mode since bmesh.from_edit_mesh() won't update shape keys
+    if False:
+        bpy.ops.object.editmode_toggle()
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+
+        verts = [v for v in bm.verts if v.select]
+        targetmap = bmesh.ops.find_doubles(bm, verts=verts, dist=threshold)['targetmap']
+        num_shape_keys = len(bm.verts.layers.shape)
+        for shape_key_index in range(num_shape_keys):
+            shape_layer = bm.verts.layers.shape[shape_key_index]
+            for src_vert, dst_vert in targetmap.items():
+                src_vert[shape_layer] = dst_vert[shape_layer]
+
+        bm.to_mesh(obj.data)
+        bm.free()
+        obj.data.update()
+        bpy.ops.object.editmode_toggle()
+
     old_num_verts = len(obj.data.vertices)
     bpy.ops.mesh.remove_doubles(threshold=threshold, use_unselected=False)
 

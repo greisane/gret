@@ -28,7 +28,7 @@ from ..mesh.helpers import (
     apply_modifiers,
     apply_shape_keys_with_vertex_groups,
     delete_faces_with_no_material,
-    edit_mesh_elements,
+    edit_face_map_elements,
     encode_shape_keys,
     get_operator_target_vertex_groups,
     merge_islands,
@@ -209,18 +209,6 @@ def _rig_export(self, context, job, rig):
                 logd(f"Popped empty material #{mat_idx}")
                 obj.data.materials.pop(index=mat_idx)
 
-        if job.subdivide_faces and obj.face_maps and obj.data.face_maps:
-            face_map_data = obj.data.face_maps[0].data
-            for face_map_name in shlex.split(job.subdivide_face_map_names):
-                face_map_index = obj.face_maps.find(face_map_name)
-                if face_map_index >= 0:
-                    num_selected = edit_mesh_elements(obj, type='FACE',
-                        key=lambda f: face_map_data[f.index].value == face_map_index)
-                    if num_selected:
-                        log(f"Subdividing face map {face_map_name} ({num_selected} faces)")
-                        bpy.ops.gret.cut_faces_smooth(ctx)
-                    bpy.ops.object.editmode_toggle()
-
         # If set, ensure prefix for exported materials
         if job.material_name_prefix:
             for mat_slot in obj.material_slots:
@@ -332,7 +320,17 @@ def _rig_export(self, context, job, rig):
     for item in chain.from_iterable(groups.values()):
         log(f"Post-processing mesh {item.original.name}")
         obj = item.obj
+        ctx = get_context(obj)
         logger.indent += 1
+
+        if job.subdivide_faces and obj.face_maps and obj.data.face_maps:
+            for face_map_name in shlex.split(job.subdivide_face_map_names):
+                if face_map_name in obj.face_maps:
+                    num_selected = edit_face_map_elements(obj, face_map_name)
+                    if num_selected:
+                        log(f"Subdividing face map {face_map_name} ({num_selected} faces)")
+                        bpy.ops.gret.cut_faces_smooth(ctx)
+                    bpy.ops.object.editmode_toggle()
 
         if job.encode_shape_keys:
             encode_shape_keys(obj, "*_UV")
