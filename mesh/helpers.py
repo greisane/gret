@@ -439,8 +439,13 @@ def apply_modifiers(obj, should_apply_modifier, keep_armature=False):
     uv_layer_names = [uv_layer.name for uv_layer in obj.data.uv_layers]
     vertex_color_names = [vertex_color.name for vertex_color in obj.data.vertex_colors]
 
-    modifier_mask, override_reasons = zip(*(should_apply_modifier(mod) for mod in obj.modifiers))
-    modifier_mask = get_modifier_mask(obj, modifier_mask)
+    override_reasons = []
+    try:
+        # This isn't very good
+        modifier_mask, override_reasons = zip(*(should_apply_modifier(mod) for mod in obj.modifiers))
+        modifier_mask = get_modifier_mask(obj, modifier_mask)
+    except:
+        modifier_mask = get_modifier_mask(obj, should_apply_modifier)
     num_modifiers = sum(modifier_mask)
     num_shape_keys = len(obj.data.shape_keys.key_blocks) - 1 if obj.data.shape_keys else 0
 
