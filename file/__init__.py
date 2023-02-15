@@ -3,7 +3,6 @@ import bpy
 module_names = [
     'copybuffer_flatten',
     'deduplicate_materials',
-    'replace_references',
 ]
 from .. import import_or_reload_modules, register_submodules, unregister_submodules
 modules = import_or_reload_modules(module_names, __name__)

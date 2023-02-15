@@ -178,8 +178,6 @@ Adds a few buttons that allow reordering UV maps. *Sync UV Maps* works on all se
 
 **Deduplicate Materials**: Squashes duplicate materials, like "Skin.002", "Skin.003", etc. Found in File → Clean Up.
 
-**Replace References**: Replaces object references in modifiers. I use it to swap meshes that are shrinkwrap targets and such. Found in File → Clean Up.
-
 # Export Jobs
 
 *This panel is not shown by default, enable it in the addon configuration.*
