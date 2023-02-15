@@ -128,6 +128,7 @@ def _anim_export(self, context, job, rig):
     for export_group in export_groups:
         path_fields['action'] = export_group.action.name
         path_fields['suffix'] = export_group.suffix
+        path_fields['job'] = job.name
         filepath = get_export_path(job.animation_export_path, path_fields)
         filename = bpy.path.basename(filepath)
         if filepath in self.exported_files:
@@ -186,9 +187,10 @@ def anim_export(self, context, job):
 
     # Check addon availability and export path
     try:
-        fail_if_invalid_export_path(job.animation_export_path, ['action', 'rigfile', 'rig'])
+        field_names = ['job', 'action', 'rigfile', 'rig']
+        fail_if_invalid_export_path(job.animation_export_path, field_names)
         if job.export_markers:
-            fail_if_invalid_export_path(job.markers_export_path, ['action', 'rigfile', 'rig'])
+            fail_if_invalid_export_path(job.markers_export_path, field_names)
     except Exception as e:
         self.report({'ERROR'}, str(e))
         return {'CANCELLED'}

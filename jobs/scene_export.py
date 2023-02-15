@@ -278,6 +278,7 @@ def _scene_export(self, context, job):
         # Put the objects in a group
         cl = job_cl.get_collection(context) if job_cl else item.original.users_collection[0]
         path_fields = {
+            'job': job.name,
             'object': item.original.name,
             'topobject': get_topmost_parent(item.original).name,
             'collection': cl.name,
@@ -336,7 +337,7 @@ def scene_export(self, context, job):
 
     # Check addon availability and export path
     try:
-        field_names = ['object', 'topobject', 'collection']
+        field_names = ['job', 'object', 'topobject', 'collection']
         fail_if_invalid_export_path(job.scene_export_path, field_names)
     except Exception as e:
         self.report({'ERROR'}, str(e))
