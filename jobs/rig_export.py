@@ -399,7 +399,11 @@ def _rig_export(self, context, job, rig):
                 log(f"Exporting {filename}")
                 exporter = export_fbx
             logger.indent += 1
-            logd(f"{len(objs)} objects in group")
+
+            logd(f"{len(objs)} object{'s' if len(objs) > 1 else ''} in group")
+            materials_used = set(chain.from_iterable(obj.data.materials for obj in objs
+                if obj.type == 'MESH'))
+            log(f"Materials used: {', '.join(sorted(mat.name for mat in materials_used))}")
 
             options = {
                 'minimize_bones': job.minimize_bones,
