@@ -426,6 +426,11 @@ def rig_export(self, context, job):
     if job.to_collection and not job.export_collection:
         self.report({'ERROR'}, "No collection selected to export to.")
         return {'CANCELLED'}
+
+    rig_in_scene = rig.name in context.view_layer.objects
+    if not rig_in_scene:
+        # Workaround for ARP hating it when rigs are present in multiple scenes...
+        context.scene.collection.objects.link(rig)
     context.view_layer.objects.active = rig
 
     # Check addon availability and export path
@@ -476,6 +481,9 @@ def rig_export(self, context, job):
         context.preferences.edit.use_global_undo = saved_use_global_undo
         load_selection(saved_selection)
         logger.end_logging()
+
+    if not rig_in_scene:
+        context.scene.collection.objects.unlink(rig)
 
     if job.to_collection:
         # Crashes if undo is attempted right after a simulate export job
