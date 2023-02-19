@@ -1,4 +1,5 @@
 from math import ceil
+from mathutils import Matrix
 import bpy
 import numpy as np
 
@@ -23,6 +24,11 @@ class GRET_OT_retarget_mesh(bpy.types.Operator):
     destination: bpy.props.StringProperty(
         name="Destination",
         description="Modified mesh object to retarget to",
+    )
+    use_object_transform: bpy.props.BoolProperty(
+        name="Use Object Transform",
+        description="Evaluate source and destination meshes in global space",
+        default=False,
     )
     use_shape_key: bpy.props.BoolProperty(
         name="Use Shape Key",
@@ -119,8 +125,11 @@ Use to speed up retargeting by selecting only the areas of importance""",
             if obj.type != 'MESH' or obj == src_obj or obj == dst_obj:
                 continue
 
-            # Get the mesh points in retarget destination space
-            dst_to_obj = obj.matrix_world.inverted() @ dst_obj.matrix_world
+            if self.use_object_transform:
+                # Get the mesh points in retarget destination space
+                dst_to_obj = obj.matrix_world.inverted() @ dst_obj.matrix_world
+            else:
+                dst_to_obj = Matrix()
             obj_to_dst = dst_to_obj.inverted()
             pts = get_mesh_points(obj, matrix=obj_to_dst)
             num_pts = pts.shape[0]
