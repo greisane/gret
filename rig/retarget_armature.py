@@ -22,6 +22,11 @@ class GRET_OT_retarget_armature(bpy.types.Operator):
         name="Destination",
         description="Modified mesh object to retarget to",
     )
+    invert: bpy.props.BoolProperty(
+        name="Invert",
+        description="Swap source and destination meshes, produces the inverse result",
+        default=False,
+    )
     use_object_transform: bpy.props.BoolProperty(
         name="Use Object Transform",
         description="Evaluate source and destination meshes in global space",
@@ -119,6 +124,8 @@ Use to speed up retargeting by selecting only the areas of importance""",
             x_mirror = None  # No vertices to mirror, prevent it from attempting to mirror again
         dst_pts = get_mesh_points(dst_obj,
             shape_key=dst_shape_key_name, mask=mask, stride=stride, x_mirror=x_mirror)
+        if self.invert:
+            src_pts, dst_pts = dst_pts, src_pts
         weights = get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius * scale)
         if weights is None:
             self.report({'ERROR'}, "Failed to retarget. Try a different function or radius.")
@@ -170,7 +177,8 @@ def draw_panel(self, context):
 
     row = col.row(align=True)
     row.prop(settings, 'retarget_src', text="")
-    row.label(text="", icon='FORWARD')
+    icon = 'BACK' if settings.retarget_invert else 'FORWARD'
+    row.prop(settings, 'retarget_invert', text="", icon=icon, emboss=settings.retarget_invert)
     row.prop(settings, 'retarget_dst', text="")
 
     row = col.row()
@@ -259,6 +267,7 @@ Expected to share topology and vertex order with the source mesh""",
         description="Show advanced options",
     ))
     retarget_props = GRET_OT_retarget_armature.__annotations__
+    settings.add_property('retarget_invert', retarget_props['invert'])
     settings.add_property('retarget_function', retarget_props['function'])
     settings.add_property('retarget_radius', retarget_props['radius'])
     settings.add_property('retarget_only_selection', retarget_props['only_selection'])

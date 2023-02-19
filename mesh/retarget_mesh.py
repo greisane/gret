@@ -25,6 +25,11 @@ class GRET_OT_retarget_mesh(bpy.types.Operator):
         name="Destination",
         description="Modified mesh object to retarget to",
     )
+    invert: bpy.props.BoolProperty(
+        name="Invert",
+        description="Swap source and destination meshes, produces the inverse result",
+        default=False,
+    )
     use_object_transform: bpy.props.BoolProperty(
         name="Use Object Transform",
         description="Evaluate source and destination meshes in global space",
@@ -116,6 +121,8 @@ Use to speed up retargeting by selecting only the areas of importance""",
             x_mirror = None  # No vertices to mirror, prevent it from attempting to mirror again
         dst_pts = get_mesh_points(dst_obj, shape_key=dst_shape_key_name,
             mask=mask, stride=stride, x_mirror=x_mirror)
+        if self.invert:
+            src_pts, dst_pts = dst_pts, src_pts
         weights = get_weight_matrix(src_pts, dst_pts, rbf_kernel, self.radius * scale)
         if weights is None:
             self.report({'ERROR'}, "Failed to retarget. Try a different function or radius.")
@@ -162,7 +169,8 @@ def draw_panel(self, context):
 
     row = col.row(align=True)
     row.prop(settings, 'retarget_src', text="")
-    row.label(text="", icon='FORWARD')
+    icon = 'BACK' if settings.retarget_invert else 'FORWARD'
+    row.prop(settings, 'retarget_invert', text="", icon=icon, emboss=settings.retarget_invert)
     row.prop(settings, 'retarget_dst', text="")
 
     row = col.row()
@@ -187,6 +195,7 @@ def draw_panel(self, context):
     if settings.retarget_src and settings.retarget_dst != 'NONE':
         op1.source = op2.source = settings.retarget_src.name
         op1.destination = op2.destination = settings.retarget_dst
+        op1.invert = op2.invert = settings.retarget_invert
         op1.function = op2.function = settings.retarget_function
         op1.radius = op2.radius = settings.retarget_radius
         op1.only_selection = op2.only_selection = settings.retarget_only_selection
@@ -243,6 +252,7 @@ Expected to share topology and vertex order with the source mesh""",
         description="Show advanced options",
     ))
     retarget_props = GRET_OT_retarget_mesh.__annotations__
+    settings.add_property('retarget_invert', retarget_props['invert'])
     settings.add_property('retarget_function', retarget_props['function'])
     settings.add_property('retarget_radius', retarget_props['radius'])
     settings.add_property('retarget_only_selection', retarget_props['only_selection'])
