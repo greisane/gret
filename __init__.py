@@ -185,6 +185,18 @@ NEEDS UPDATING TO 3.0""",
         default=True,
         update=registered_updated,
     )
+    mesh__retarget_num_vertices_low: bpy.props.IntProperty(
+        name="Retarget Vertex Cap (Default)",
+        description="Maximum vertices sampled when retargeting",
+        default=2000,
+        min=1,
+    )
+    mesh__retarget_num_vertices_high: bpy.props.IntProperty(
+        name="Retarget Vertex Cap (High Quality)",
+        description="Maximum vertices sampled when retargeting with 'High Quality' enabled",
+        default=4000,
+        min=1,
+    )
     rig__enable_retarget_armature: bpy.props.BoolProperty(
         name="Enable \"Retarget Armature\"",
         description="Retarget an armature or selected bones to fit a modified version of the source mesh",

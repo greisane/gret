@@ -3,6 +3,7 @@ from mathutils import Matrix
 import bpy
 import numpy as np
 
+from .. import prefs
 from ..log import log, logd, logger
 from ..rbf import *
 
@@ -104,10 +105,13 @@ Use to speed up retargeting by selecting only the areas of importance""",
             self.report({'ERROR'}, "Source and destination meshes must have equal number of vertices.")
             return {'CANCELLED'}
 
-        # Increase vertex sampling stride to speed up calculation (reduces accuracy)
-        # A cap is still necessary since growth is not linear and it will take forever. Parallelize?
-        # In practice sampling many vertices in a dense mesh doesn't change the result that much
-        vertex_cap = 5000 if self.high_quality else 1000
+        # Sampling many vertices in a dense mesh doesn't change the result that much, vertex stride
+        # allows trading accuracy for speed. This assumes vertices close together have sequential
+        # indices, which is not always the case.
+        if self.high_quality:
+            vertex_cap = prefs.mesh__retarget_num_vertices_high
+        else:
+            vertex_cap = prefs.mesh__retarget_num_vertices_low
         mask = [v.select for v in src_obj.data.vertices] if self.only_selection else None
         num_masked = sum(mask) if mask else num_vertices
         stride = ceil(num_masked / vertex_cap)
