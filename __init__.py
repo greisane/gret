@@ -127,6 +127,13 @@ NEEDS UPDATING TO 3.0""",
         description="Play a beep sound after an export job finishes",
         default=False,
     )
+    jobs__limit_vertex_weights: bpy.props.IntProperty(
+        name="Vertex Weight Limit",
+        description="Limit number of bone influences per vertex. No limit if 0",
+        default=8,
+        min=0,
+        max=32,
+    )
     texture_bake__enable: bpy.props.BoolProperty(
         name="Enable",
         description="One-click bake and export of curvature and AO masks",

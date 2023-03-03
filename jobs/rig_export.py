@@ -323,6 +323,10 @@ def _rig_export(self, context, job, rig):
         else:
             remove_shape_keys(obj, "*_UV")
 
+        if prefs.jobs__limit_vertex_weights > 0:
+            bpy.ops.object.vertex_group_limit_total(ctx, group_select_mode='BONE_DEFORM',
+                limit=prefs.jobs__limit_vertex_weights)
+
         # Ensure proper mesh state
         sanitize_mesh(obj)
         logger.indent -= 1
