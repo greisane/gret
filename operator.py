@@ -1,5 +1,24 @@
 import bpy
 
+class GRET_OT_property_warning(bpy.types.Operator):
+    #tooltip
+    """Changes won't be saved"""
+
+    bl_idname = 'gret.property_warning'
+    bl_label = "Not Overridable"
+    bl_options = {'INTERNAL'}
+
+def draw_warning_if_not_overridable(layout, obj, prop_path):
+    if obj and obj.override_library:
+        try:
+            if not obj.is_property_overridable_library(prop_path):
+                layout.operator(GRET_OT_property_warning.bl_idname,
+                    icon='ERROR', text="", emboss=False, depress=True)
+                return True
+        except TypeError:
+            pass
+    return False
+
 class ScopedRestore:
     """Saves attributes of an object and restores them when exiting scope."""
 
@@ -79,3 +98,9 @@ class DrawHooksMixin:
         if self.draw_post_view_handler:
             self.space_type.draw_handler_remove(self.draw_post_view_handler, 'WINDOW')
             self.draw_post_view_handler = None
+
+def register(settings, prefs):
+    bpy.utils.register_class(GRET_OT_property_warning)
+
+def unregister():
+    bpy.utils.unregister_class(GRET_OT_property_warning)

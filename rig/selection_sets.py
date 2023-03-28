@@ -3,6 +3,7 @@ import bpy
 import json
 
 from ..helpers import get_flipped_name
+from ..operator import draw_warning_if_not_overridable
 
 class GRET_OT_selection_set_toggle(bpy.types.Operator):
     #tooltip
@@ -211,6 +212,8 @@ def draw_panel(self, context):
     row.label(text="Bone Selection Sets", icon='GROUP_BONE')
     row = row.row(align=True)
     if settings.selection_sets_show_edit:
+        if draw_warning_if_not_overridable(row, obj, 'selection_sets'):
+            row.separator()
         row.operator('gret.selection_set_copy', icon='COPYDOWN', text="")
         row.operator('gret.selection_set_paste', icon='PASTEDOWN', text="")
         row.operator('gret.selection_set_add', icon='ADD', text="")

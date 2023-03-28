@@ -2,6 +2,7 @@ import bpy
 import re
 
 from ..helpers import titlecase
+from ..operator import draw_warning_if_not_overridable
 
 custom_prop_re = re.compile(r'(.+)?\["([^"]+)"\]$')
 prop_re = re.compile(r'(.+)\.([^"\.]+)$')
@@ -51,10 +52,10 @@ class GRET_OT_property_add(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object is not None
+        return context.active_object is not None
 
     def execute(self, context):
-        obj = context.object
+        obj = context.active_object
 
         if not self.path:
             return {'CANCELLED'}
@@ -78,7 +79,7 @@ class GRET_OT_property_add(bpy.types.Operator):
     def invoke(self, context, event):
         # Check if the clipboard already has a correct path and paste it
         clipboard = bpy.context.window_manager.clipboard
-        self.path = clipboard if parse_prop_path(context.object, clipboard)[0] else ""
+        self.path = clipboard if parse_prop_path(context.active_object, clipboard)[0] else ""
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
@@ -103,10 +104,10 @@ class GRET_OT_property_remove(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object is not None
+        return context.active_object is not None
 
     def execute(self, context):
-        obj = context.object
+        obj = context.active_object
 
         properties = list(obj.get('properties', []))
         if self.index >= 0 and self.index < len(properties):
@@ -118,13 +119,15 @@ class GRET_OT_property_remove(bpy.types.Operator):
 def draw_panel(self, context):
     layout = self.layout
     settings = context.scene.gret
-    obj = context.object
+    obj = context.active_object
 
     box = layout.box()
     row = box.row()
     row.label(text="Properties", icon='PROPERTIES')
     row = row.row(align=True)
     if settings.properties_show_edit:
+        if draw_warning_if_not_overridable(row, obj, '["properties"]'):
+            row.separator()
         row.operator('gret.property_add', icon='ADD', text="")
     row.prop(settings, 'properties_show_edit', icon='SETTINGS', text="")
 
