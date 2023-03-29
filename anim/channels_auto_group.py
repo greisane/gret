@@ -3,7 +3,7 @@ import re
 
 class GRET_OT_channels_auto_group(bpy.types.Operator):
     #tooltip
-    """Group curves by bone name"""
+    """Group animation channels by their bone name"""
 
     bl_idname = 'gret.channels_auto_group'
     bl_label = "Auto-Group Channels"

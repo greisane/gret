@@ -107,7 +107,13 @@ NEEDS UPDATING TO 3.0""",
     )
     animation__enable_channels_auto_group: bpy.props.BoolProperty(
         name="Enable \"Auto-Group Channels\"",
-        description="Group curves by bone name",
+        description="Group animation channels by their bone name",
+        default=True,
+        update=registered_updated,
+    )
+    animation__enable_channels_delete_unavailable: bpy.props.BoolProperty(
+        name="Enable \"Delete Unavailable Channels\"",
+        description="Delete location/rotation/scale animation channels locked in the transform panel",
         default=True,
         update=registered_updated,
     )

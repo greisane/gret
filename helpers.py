@@ -592,6 +592,16 @@ def titlecase(s):
         return s
     return " ".join(titlecase_word(word) for word in snakecase(s).split("_"))
 
+def sentence_join(seq, ignore_empty=True):
+    """Concatenate a sequence with commas. Last element is concatenated with 'and' instead."""
+
+    seq = list(str(el) for el in seq if not ignore_empty or str(el))
+    if len(seq) >= 2:
+        return " and ".join((", ".join(seq[:-1]), seq[-1]))
+    elif len(seq) == 1:
+        return seq[0]
+    return ""
+
 def path_split_all(path):
     """Returns a path split into a list of its parts."""
 
