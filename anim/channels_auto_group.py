@@ -3,7 +3,7 @@ import re
 
 class GRET_OT_channels_auto_group(bpy.types.Operator):
     #tooltip
-    """Groups all bone curves"""
+    """Group curves by bone name"""
 
     bl_idname = 'gret.channels_auto_group'
     bl_label = "Auto-Group Channels"
@@ -44,6 +44,9 @@ def draw_menu(self, context):
     self.layout.operator(GRET_OT_channels_auto_group.bl_idname)
 
 def register(settings, prefs):
+    if not prefs.animation__enable_channels_auto_group:
+        return False
+
     # Would be nice to have this menu item next to the other group operators
     bpy.utils.register_class(GRET_OT_channels_auto_group)
     bpy.types.GRAPH_MT_channel.append(draw_menu)

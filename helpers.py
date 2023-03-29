@@ -584,7 +584,7 @@ def snakecase(s):
 
 two_letter_words = frozenset(("an", "as", "at", "be", "bi", "by", "ex", "go", "he", "hi", "if",
     "in", "is", "it", "mu", "my", "no", "of", "on", "or", "ox", "pi", "re", "to", "up", "us", "we"))
-titlecase_word = lambda s: s[0].upper() + s[1:] if len(s) != 2 or s in two_letter_words else s.upper()
+titlecase_word = lambda s: s[0].upper() + s[1:] if s and len(s) != 2 or s in two_letter_words else s.upper()
 def titlecase(s):
     """Convert string into sentence case."""
 

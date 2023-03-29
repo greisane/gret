@@ -105,6 +105,12 @@ NEEDS UPDATING TO 3.0""",
         default=False,
         update=registered_updated,
     )
+    animation__enable_channels_auto_group: bpy.props.BoolProperty(
+        name="Enable \"Auto-Group Channels\"",
+        description="Group curves by bone name",
+        default=True,
+        update=registered_updated,
+    )
     animation__show_action_frame_range: bpy.props.BoolProperty(
         name="Show Action Frame Range",
         description="Show custom frame range controls in the action panel",
@@ -189,6 +195,12 @@ NEEDS UPDATING TO 3.0""",
     mesh__enable_vertex_color_mapping: bpy.props.BoolProperty(
         name="Enable \"Vertex Color Mapping\"",
         description="Procedurally generates vertex colors from various sources",
+        default=True,
+        update=registered_updated,
+    )
+    mesh__enable_cut_faces_smooth: bpy.props.BoolProperty(
+        name="Enable \"Cut Faces (Subdivide)\"",
+        description="Subdivide selected faces and join the result with the surrounding geometry",
         default=True,
         update=registered_updated,
     )

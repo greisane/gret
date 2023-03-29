@@ -82,6 +82,9 @@ def draw_menu(self, context):
     self.layout.operator(GRET_OT_cut_faces_smooth.bl_idname)
 
 def register(settings, prefs):
+    if not prefs.mesh__enable_cut_faces_smooth:
+        return False
+
     bpy.utils.register_class(GRET_OT_cut_faces_smooth)
     bpy.types.VIEW3D_MT_edit_mesh_faces.append(draw_menu)
 
