@@ -1,20 +1,26 @@
 import bpy
 import re
 
-lock_prop_names = {
-    'location': 'lock_location',
-    'rotation_euler': 'lock_rotation',
-    'rotation_quaternion': 'lock_rotation',
-    'rotation_axis_angle': 'lock_rotation',
-    'scale': 'lock_scale',
-}
+from ..helpers import sentence_join
+
+default_lock = False
+default_lock_array = [default_lock] * 3
 component_names = ('X', 'Y', 'Z', 'W')
 
-from ..helpers import sentence_join
+def is_prop_locked(pb, name, component_index):
+    if name == 'location':
+        return getattr(pb, 'lock_location', default_lock_array)[component_index]
+    elif name in {'rotation_euler', 'rotation_quaternion', 'rotation_axis_angle'}:
+        if component_index < 3:
+            return getattr(pb, 'lock_rotation', default_lock_array)[component_index]
+        else:
+            return getattr(pb, 'lock_rotation_w', default_lock)
+    elif name == 'scale':
+        return getattr(pb, 'lock_scale', default_lock_array)[component_index]
 
 class GRET_OT_channels_delete_unavailable(bpy.types.Operator):
     #tooltip
-    """Delete location/rotation/scale animation channels locked in the transform panel"""
+    """Delete location/rotation/scale channels that are locked in the transform panel"""
 
     bl_idname = 'gret.channels_delete_unavailable'
     bl_label = "Delete Unavailable Channels"
@@ -44,15 +50,13 @@ class GRET_OT_channels_delete_unavailable(bpy.types.Operator):
             pb_match = re.match(r'^pose\.bones\[\"([^\"]+)"\]\.(\w+)$', fc.data_path)
             if pb_match:
                 pb = obj.pose.bones.get(pb_match[1])
-                lock_prop_name = lock_prop_names.get(pb_match[2])
-                if pb and lock_prop_name:
-                    prop_lock = getattr(pb, lock_prop_name, None)
-                    if prop_lock and prop_lock[fc.array_index]:
-                        print(f"Removing curve, bone {pb.name} {component_names[fc.array_index]} "
-                            f"{lock_prop_name[5:]} is locked")
-                        remove_fcurves.append(fc)
-                        num_locked += 1
-                        continue
+                prop_name = pb_match[2]
+                if pb and is_prop_locked(pb, prop_name, fc.array_index):
+                    print(f"Removing curve, bone {pb.name} {component_names[fc.array_index]} "
+                        f"{prop_name} is locked")
+                    remove_fcurves.append(fc)
+                    num_locked += 1
+                    continue
 
         for fc in remove_fcurves:
             action.fcurves.remove(fc)

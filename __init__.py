@@ -113,7 +113,7 @@ NEEDS UPDATING TO 3.0""",
     )
     animation__enable_channels_delete_unavailable: bpy.props.BoolProperty(
         name="Enable \"Delete Unavailable Channels\"",
-        description="Delete location/rotation/scale animation channels locked in the transform panel",
+        description="Delete location/rotation/scale channels that are locked in the transform panel",
         default=True,
         update=registered_updated,
     )
