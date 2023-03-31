@@ -64,8 +64,11 @@ def remove_extra_data(obj):
         mesh.materials.pop()
     while mesh.uv_layers.active:
         mesh.uv_layers.remove(mesh.uv_layers.active)
-    while mesh.attributes.active:
-        mesh.attributes.remove(mesh.attributes.active)
+    for attribute in mesh.attributes:
+        try:
+            mesh.attributes.remove(attribute)
+        except RuntimeError:
+            pass
     while mesh.color_attributes.active_color:
         mesh.color_attributes.remove(mesh.color_attributes.active_color)
 
