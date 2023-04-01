@@ -4,8 +4,6 @@ import csv
 
 from ..patcher import PanelPatcher
 
-max_shape_key_slots = 5
-
 def dump_shape_key_info(sk):
     return [sk.name, "1" if sk.mute else "0", sk.value, sk.slider_min, sk.slider_max,
         sk.vertex_group, sk.relative_key.name, sk.interpolation]
@@ -129,7 +127,7 @@ def draw_shape_key_panel_addon(self, context):
         sub = box.split(factor=0.2)
         sub.label(text="Slots")
         row = sub.row(align=True)
-        for slot_idx in range(max_shape_key_slots):
+        for slot_idx in range(prefs.mesh__shape_key_store_num_slots):
             has_data = slot_idx < len(slots) and bool(slots[slot_idx].data)
             text = chr(ord('A') + min(slot_idx, 25))
             op = row.operator('gret.shape_key_store', text=text, depress=has_data)
@@ -137,11 +135,11 @@ def draw_shape_key_panel_addon(self, context):
         row.separator()
         row.operator('gret.shape_key_clear', text="", icon='X')
 
-shape_key_panel_slots_addon = f"""
+shape_key_panel_slots_addon = """
 slots = ob.data.shape_key_storage
 subsub = sub.row(align=True)
 subsub.scale_x = 0.6
-for slot_idx in range({max_shape_key_slots}):
+for slot_idx in range({num_slots}):
     has_data = slot_idx < len(slots) and bool(slots[slot_idx].data)
     text = chr(ord('A') + min(slot_idx, 25))
     op = subsub.operator('gret.shape_key_store', text=text, depress=has_data)
@@ -152,6 +150,7 @@ sub.separator()
 class ShapeKeyPanelPatcher(PanelPatcher):
     fallback_func = staticmethod(draw_shape_key_panel_addon)
     panel_type = getattr(bpy.types, "DATA_PT_shape_keys", None)
+    num_slots = 5
 
     def visit_Call(self, node):
         super().generic_visit(node)
@@ -172,7 +171,7 @@ class ShapeKeyPanelPatcher(PanelPatcher):
         # Add slot selector after `sub.label()`
         if node.value.func.attr == "label":
             import ast
-            tree_addon = ast.parse(shape_key_panel_slots_addon)
+            tree_addon = ast.parse(shape_key_panel_slots_addon.format(num_slots=self.num_slots))
             return [node, *tree_addon.body]
         return node
 
@@ -194,6 +193,7 @@ def register(settings, prefs):
     bpy.types.Mesh.shape_key_storage = bpy.props.CollectionProperty(
         type=GRET_PG_shape_key_storage,
     )
+    panel_patcher.num_slots = prefs.mesh__shape_key_store_num_slots
     panel_patcher.patch(debug=False)
 
 def unregister():

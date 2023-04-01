@@ -222,6 +222,14 @@ NEEDS UPDATING TO 3.0""",
         default=4000,
         min=1,
     )
+    mesh__shape_key_store_num_slots: bpy.props.IntProperty(
+        name="Shape Key Store Slots",
+        description="Number of shape key storage buttons to add if Shape Key Store is enabled",
+        default=5,
+        min=1,
+        max=10,
+        update=registered_updated,
+    )
     rig__enable_retarget_armature: bpy.props.BoolProperty(
         name="Enable \"Retarget Armature\"",
         description="Retarget an armature or selected bones to fit a modified version of the source mesh",
