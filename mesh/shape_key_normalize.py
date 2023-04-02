@@ -70,6 +70,7 @@ Basis will change if Min is negative"""
         obj.shape_key_remove(new_sk)
         if new_basis:
             obj.shape_key_remove(new_basis)
+            self.report({'INFO'}, "Basis was updated to accomodate for negative minimum.")
         obj.show_only_shape_key = saved_show_only_shape_key
         obj.active_shape_key_index = saved_active_shape_key_index
         for sk in saved_unmuted_shape_keys:
