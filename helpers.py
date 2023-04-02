@@ -634,6 +634,49 @@ def levenshtein_distance(string1, string2):
     l3 = levenshtein_distance(string1[1:], string2[1:])
     return 1 + min(l1, l2, l3)
 
+# There might be a builtin map or property in bl_rna that returns this, I couldn't find it
+# https://docs.blender.org/api/3.5/bpy_types_enum_items/id_type_items.html
+type_to_id_type = {
+    bpy.types.Action: 'ACTION',
+    bpy.types.Armature: 'ARMATURE',
+    bpy.types.Brush: 'BRUSH',
+    bpy.types.CacheFile: 'CACHEFILE',
+    bpy.types.Camera: 'CAMERA',
+    bpy.types.Collection: 'COLLECTION',
+    bpy.types.Curve: 'CURVE',
+    bpy.types.Curves: 'CURVES',
+    # bpy.types.Font: 'FONT',  # Doesn't exist
+    bpy.types.GreasePencil: 'GREASEPENCIL',
+    bpy.types.Image: 'IMAGE',
+    bpy.types.Key: 'KEY',
+    bpy.types.Lattice: 'LATTICE',
+    bpy.types.Library: 'LIBRARY',
+    bpy.types.Light: 'LIGHT',
+    bpy.types.LightProbe: 'LIGHT_PROBE',
+    # bpy.types.LineStyle: 'LINESTYLE',  # Doesn't exist
+    bpy.types.Mask: 'MASK',
+    bpy.types.Material: 'MATERIAL',
+    bpy.types.Mesh: 'MESH',
+    bpy.types.MetaBall: 'META',  # Is this right? There's MetaElement
+    bpy.types.MovieClip: 'MOVIECLIP',
+    bpy.types.NodeTree: 'NODETREE',
+    bpy.types.Object: 'OBJECT',
+    bpy.types.PaintCurve: 'PAINTCURVE',
+    bpy.types.Palette: 'PALETTE',
+    bpy.types.Particle: 'PARTICLE',
+    bpy.types.PointCloud: 'POINTCLOUD',
+    bpy.types.Scene: 'SCENE',
+    # bpy.types.Simulation: 'SIMULATION',  # Doesn't exist
+    bpy.types.Sound: 'SOUND',
+    bpy.types.Speaker: 'SPEAKER',
+    bpy.types.Text: 'TEXT',
+    bpy.types.Texture: 'TEXTURE',
+    bpy.types.Volume: 'VOLUME',
+    bpy.types.WindowManager: 'WINDOWMANAGER',
+    # bpy.types.Workspace: 'WORKSPACE',  # Doesn't exist
+    bpy.types.World: 'WORLD',
+}
+
 def link_properties(from_obj, from_data_path, to_obj, to_data_path, invert=False):
     """Creates a simple driver linking properties between two objects."""
 
@@ -648,6 +691,7 @@ def link_properties(from_obj, from_data_path, to_obj, to_data_path, invert=False
     var.type = 'SINGLE_PROP'
     tgt = var.targets[0]
     tgt.data_path = from_data_path
+    tgt.id_type = type_to_id_type.get(type(from_obj))
     tgt.id = from_obj
 
 def remove_subsequence(seq, subseq):
