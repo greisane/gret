@@ -196,10 +196,20 @@ def merge_shape_keys_pattern(obj, shape_key_pattern):
 def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name="", override_value=None):
     """Merges one or more shape keys into the basis, or target shape key if specified."""
 
+
     mesh = obj.data
     if not mesh.shape_keys or not mesh.shape_keys.key_blocks:
         # No shape keys
         return
+
+    rig = obj.find_armature()
+    def is_rig_driven(fcurve):
+        if rig and fcurve and fcurve.driver:
+            for var in fcurve.driver.variables:
+                for tgt in var.targets:
+                    if tgt.id == rig:
+                        return True
+        return False
 
     basis_shape_key_name = mesh.shape_keys.key_blocks[0].name
     if not target_shape_key_name:
@@ -219,8 +229,9 @@ def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name="", override
                 sk_data_path = f'key_blocks["{sk.name}"]'
                 for fc in mesh.shape_keys.animation_data.drivers:
                     if fc.data_path.startswith(sk_data_path):
-                        if fc.data_path.endswith('.value'):
+                        if fc.data_path.endswith('.value') and is_rig_driven(fc):
                             # Influence was being driven, assume user would want to merge it fully
+                            logd(f"Maxed value of shape key {sk.name} (rig driven)")
                             sk.value = sk.slider_max
                         if sk.name == target_shape_key_name:
                             # Don't remove, mute temporarily
@@ -235,7 +246,7 @@ def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name="", override
                 sk.value = lerp(sk.slider_min, sk.slider_max, override_value)
             if sk.mute or sk.value == 0.0:
                 # Muted candidates are handled as if merged at 0% and deleted
-                # Removing ensures shape keys don't unexpectedly return when objects are merged
+                # Do it now to ensure shape keys don't unexpectedly return when objects are merged
                 obj.shape_key_remove(sk)
         else:
             sk.mute = True
