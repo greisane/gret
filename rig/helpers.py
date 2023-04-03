@@ -369,19 +369,23 @@ def export_fbx(filepath, context, rig, objects=[], action=None, options={}):
         # context.scene.frame_current = context.scene.frame_preview_start
         raise NotImplementedError
 
-    if options.get('minimize_bones'):
-        unmark_unused_bones(rig, objects)
-
     # Temporarily rename the armature since it will become the root bone
     root_bone_name = "root"
     existing_obj_named_root = bpy.data.objects.get(root_bone_name)
     if existing_obj_named_root:
         existing_obj_named_root.name = root_bone_name + "_"
     saved_rig_name = rig.name
+    saved_rig_pose_position = rig.data.pose_position
+    saved_bone_deform = {b: b.use_deform for b in rig.data.bones}
     rig.name = root_bone_name
-
     rig.data.pose_position = 'POSE'
     clear_pose(rig)
+
+    if options.get('minimize_bones'):
+        unmark_unused_bones(rig, objects)
+    remove_bone_names = options.get('remove_bones', [])
+    if remove_bone_names:
+        unmark_bones(rig, remove_bone_names)
 
     select_only(context, objects)
     rig.select_set(True)
@@ -422,6 +426,10 @@ def export_fbx(filepath, context, rig, objects=[], action=None, options={}):
         , use_batch_own_dir=False
     )
 
+    # Clean up
     rig.name = saved_rig_name
+    rig.data.pose_position = saved_rig_pose_position
+    for bone, use_deform in saved_bone_deform:
+        bone.use_deform = use_deform
     if existing_obj_named_root:
         existing_obj_named_root.name = root_bone_name
