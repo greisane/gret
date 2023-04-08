@@ -930,7 +930,7 @@ Requires a mirror modifier""",
     )
     subdivide_face_map_names: bpy.props.StringProperty(
         name="Subdivide Face Maps",
-        description="Names of face maps to subdivide. Separate with spaces",
+        description="Names of face maps to subdivide. Separate names with spaces",
         default="",
         options=set(),
     )
@@ -948,7 +948,8 @@ Requires a mirror modifier""",
     )
     remove_bone_names: bpy.props.StringProperty(
         name="Remove Bone Names",
-        description="Names of bones to remove, including children. Separate with spaces",
+        description="""Names of bones to remove, including their children.
+Wildcards are allowed. Separate names with spaces""",
         default="",
         options=set(),
     )

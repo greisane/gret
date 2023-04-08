@@ -1,3 +1,4 @@
+from fnmatch import fnmatch
 from mathutils import Vector, Quaternion, Euler
 import bpy
 
@@ -160,18 +161,16 @@ def copy_drivers(src, dst, overwrite=False):
                 logd(f"Copied driver for {src_fc.data_path} from {src_name}")
 
 def unmark_bones(rig, bone_names):
-    bones = rig.data.bones
-    num_undeform = 0
-    for bone_name in bone_names:
-        bone = bones.get(bone_name)
-        if bone.use_deform:
-            num_undeform += 1
+    num_deform = sum(b.use_deform for b in rig.data.bones)
+    for bone in rig.data.bones:
+        if bone.use_deform and any(fnmatch(bone.name, s) for s in bone_names):
             bone.use_deform = False
-        for child_bone in bone.children_recursive:
-            if child_bone.use_deform:
-                num_undeform += 1
-                child_bone.use_deform = False
-    log(f"{num_undeform} additional bones won't be exported")
+            for child_bone in bone.children_recursive:
+                if child_bone.use_deform:
+                    child_bone.use_deform = False
+    num_unmarked = num_deform - sum(b.use_deform for b in rig.data.bones)
+    if num_unmarked > 0:
+        log(f"{num_unmarked} additional bone{'s' if num_unmarked > 1 else ''} won't be exported")
 
 def unmark_unused_bones(rig, objs):
     """Unmarks deform for all bones that aren't relevant to the given meshes."""
