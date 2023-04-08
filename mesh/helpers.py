@@ -291,7 +291,7 @@ def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name="", override
 
 def remove_shape_keys(obj, shape_key_name="*"):
     mesh = obj.data
-    if not mesh.shape_keys or not mesh.shape_keys.key_blocks:
+    if not mesh.shape_keys or len(mesh.shape_keys.key_blocks) <= 1:
         # No shape keys
         return
 
@@ -301,7 +301,9 @@ def remove_shape_keys(obj, shape_key_name="*"):
             removed_shape_key_names.append(sk.name)
             obj.shape_key_remove(sk)
 
-    if removed_shape_key_names:
+    if len(mesh.shape_keys.key_blocks) <= 1:
+        log(f"Removing all shape keys")
+    elif removed_shape_key_names:
         log(f"Removing {len(removed_shape_key_names)} shape keys: " +
             ", ".join(removed_shape_key_names))
 

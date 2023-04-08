@@ -385,9 +385,6 @@ def _rig_export(self, context, job, rig):
             if old_data.users == 0 and isinstance(old_data, bpy.types.Mesh):
                 bpy.data.meshes.remove(old_data, do_unlink=True)
     else:
-        if job.minimize_bones:
-            self.saved_deform_bone_names = [b.name for b in rig.data.bones if b.use_deform]
-
         # Finally export
         for filepath, items in groups.items():
             filename = bpy.path.basename(filepath)
@@ -450,13 +447,13 @@ def rig_export(self, context, job):
     viewport_reveal_all()
     assert rig.visible_get()
     saved_pose_position = rig.data.pose_position
+    saved_bone_deform = {b: b.use_deform for b in rig.data.bones}
     saved_use_global_undo = context.preferences.edit.use_global_undo
     context.preferences.edit.use_global_undo = False
     self.exported_files = []
     self.new_objs = set()
     self.new_meshes = set()
     self.saved_material_names = {}
-    self.saved_deform_bone_names = []
     logger.start_logging()
     log(f"Beginning rig export job '{job.name}'")
 
@@ -477,10 +474,10 @@ def rig_export(self, context, job):
             bpy.data.meshes.remove(self.new_meshes.pop())
         for mat, name in self.saved_material_names.items():
             mat.name = name
-        for bone_name in self.saved_deform_bone_names:
-            rig.data.bones[bone_name].use_deform = True
         del self.saved_material_names
-        del self.saved_deform_bone_names
+        for bone, use_deform in saved_bone_deform.items():
+            bone.use_deform = use_deform
+
         rig.data.pose_position = saved_pose_position
         context.preferences.edit.use_global_undo = saved_use_global_undo
         load_selection(saved_selection)
