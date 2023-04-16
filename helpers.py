@@ -447,25 +447,16 @@ def get_topmost_parent(obj):
         obj = obj.parent
     return obj
 
+l_to_r = {'l': 'r', 'L': 'R', 'r': 'l', 'R': 'L'}
 def get_flipped_name(name):
     """Returns the given name with flipped L/R affixes, or None if not applicable."""
 
-    def flip_LR(s):
-        if "L" in s.upper():
-            return s.replace("l", "r").replace("L", "R")
-        else:
-            return s.replace("r", "l").replace("R", "L")
-
-    # Suffix
-    match = re.match(r'(.+)([_\.][LlRr])$', name)
+    match = re.match(r'(.+)([_\.][LlRr])$', name)  # Suffix
     if match:
-        return match[1] + flip_LR(match[2])
-
-    # Prefix
-    match = re.match(r'^([LlRr][_\.])(.+)', name) or re.match(r'^([lr])([A-Z].+)', name)
+        return match[1] + ''.join(l_to_r.get(c, c) for c in match[2])
+    match = re.match(r'^([LlRr][_\.])(.+)', name) or re.match(r'^([lr])([A-Z].+)', name)  # Prefix
     if match:
-        return flip_LR(match[1]) + match[2]
-
+        return ''.join(l_to_r.get(c, c) for c in match[1]) + match[2]
     return None
 
 def swap_object_names(obj1, obj2):

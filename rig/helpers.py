@@ -232,6 +232,7 @@ def export_autorig(filepath, context, rig, objects=[], action=None, options={}):
     scn.arp_full_facial = True
     scn.arp_export_twist = options.get('export_twist', True)
     scn.arp_export_noparent = False
+    scn.arp_export_renaming = True  # Just prints a message if the file doesn't exist
 
     # Units
     scn.arp_units_x100 = True
@@ -304,6 +305,7 @@ def export_autorig_universal(filepath, context, rig, objects=[], action=None, op
     scn.arp_push_bend = False
     scn.arp_export_twist = options.get('export_twist', True)
     scn.arp_export_noparent = False
+    scn.arp_export_renaming = True  # Just prints a message if the file doesn't exist
 
     # Units
     scn.arp_units_x100 = True
