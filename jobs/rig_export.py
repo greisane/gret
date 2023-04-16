@@ -366,8 +366,10 @@ def _rig_export(self, context, job, rig):
             # Remove superfluous data
             if hasattr(obj.data, 'shape_key_storage'):
                 obj.data.shape_key_storage.clear()
-            for vg_index in reversed(get_operator_target_vertex_groups(obj, 'BONE_NOT_DEFORM')):
-                obj.vertex_groups.remove(obj.vertex_groups[vg_index])
+            clean_vertex_groups = False
+            if clean_vertex_groups:
+                for vg_index in reversed(get_operator_target_vertex_groups(obj, 'BONE_NOT_DEFORM')):
+                    obj.vertex_groups.remove(obj.vertex_groups[vg_index])
 
             # Auto-smooth has a noticeable impact in performance while animating,
             # disable unless the user explicitly enabled it back in the previous build result
