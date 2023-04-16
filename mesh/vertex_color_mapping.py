@@ -280,7 +280,6 @@ def update_vcols(obj, invert=False):
     obj.data.update()
 
 class GRET_OT_vertex_color_mapping_refresh(bpy.types.Operator):
-    #tooltip
     """Creates or refreshes the active vertex color layer from source mappings"""
 
     bl_idname = 'gret.vertex_color_mapping_refresh'
@@ -305,7 +304,6 @@ class GRET_OT_vertex_color_mapping_refresh(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_vertex_color_mapping_add(bpy.types.Operator):
-    #tooltip
     """Add vertex color mapping"""
 
     bl_idname = 'gret.vertex_color_mapping_add'
@@ -327,7 +325,6 @@ class GRET_OT_vertex_color_mapping_add(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_vertex_color_mapping_clear(bpy.types.Operator):
-    #tooltip
     """Clear vertex color mapping"""
 
     bl_idname = 'gret.vertex_color_mapping_clear'
@@ -345,7 +342,6 @@ class GRET_OT_vertex_color_mapping_clear(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_vertex_color_mapping_copy_to_linked(bpy.types.Operator):
-    #tooltip
     """Copy vertex color mapping from active to linked objects"""
 
     bl_idname = 'gret.vertex_color_mapping_copy_to_linked'
@@ -366,7 +362,6 @@ class GRET_OT_vertex_color_mapping_copy_to_linked(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_vertex_color_mapping_copy_to_selected(bpy.types.Operator):
-    #tooltip
     """Copy vertex color mapping from active to selected objects"""
 
     bl_idname = 'gret.vertex_color_mapping_copy_to_selected'
@@ -387,7 +382,6 @@ class GRET_OT_vertex_color_mapping_copy_to_selected(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_vertex_color_mapping_preview(bpy.types.Operator):
-    #tooltip
     """Preview this mask in the viewport. Click anywhere to stop previewing"""
     # This is a modal operator because it would be far too messy to revert the changes otherwise
 

@@ -1,7 +1,6 @@
 import bpy
 
 class GRET_OT_property_warning(bpy.types.Operator):
-    #tooltip
     """Changes won't be saved"""
 
     bl_idname = 'gret.property_warning'

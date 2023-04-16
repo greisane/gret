@@ -247,7 +247,6 @@ class UVSheetEditRegionState(UVSheetBaseState):
             draw_region_rect(region.rect, theme.selected)
 
 class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixin):
-    #tooltip
     """Edit UV sheet regions associated with this image"""
 
     bl_idname = "gret.uv_sheet_edit"

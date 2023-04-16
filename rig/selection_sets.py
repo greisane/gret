@@ -6,7 +6,6 @@ from ..helpers import get_flipped_name
 from ..operator import draw_warning_if_not_overridable
 
 class GRET_OT_selection_set_toggle(bpy.types.Operator):
-    #tooltip
     """Toggle this bone selection set. Shift-click to extend selection"""
 
     bl_idname = 'gret.selection_set_toggle'
@@ -46,7 +45,6 @@ class GRET_OT_selection_set_toggle(bpy.types.Operator):
         return self.execute(context)
 
 class GRET_OT_selection_set_copy(bpy.types.Operator):
-    #tooltip
     """Copy bone selection sets to clipboard"""
 
     bl_idname = 'gret.selection_set_copy'
@@ -69,7 +67,6 @@ class GRET_OT_selection_set_copy(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_selection_set_paste(bpy.types.Operator):
-    #tooltip
     """Pastes bone selection sets from clipboard"""
 
     bl_idname = 'gret.selection_set_paste'
@@ -106,7 +103,6 @@ class GRET_OT_selection_set_paste(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_selection_set_add(bpy.types.Operator):
-    #tooltip
     """Add a new selection set with the currently selected bones"""
 
     bl_idname = 'gret.selection_set_add'
@@ -145,7 +141,6 @@ class GRET_OT_selection_set_add(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self)
 
 class GRET_OT_selection_set_remove(bpy.types.Operator):
-    #tooltip
     """Remove this selection set"""
 
     bl_idname = 'gret.selection_set_remove'
@@ -170,7 +165,6 @@ class GRET_OT_selection_set_remove(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_selection_set_overwrite(bpy.types.Operator):
-    #tooltip
     """Overwrite this selection set with the currently selected bones"""
 
     bl_idname = 'gret.selection_set_overwrite'

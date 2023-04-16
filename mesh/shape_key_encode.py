@@ -4,7 +4,6 @@ import bmesh
 from .helpers import encode_shape_keys
 
 class GRET_OT_shape_key_encode(bpy.types.Operator):
-    #tooltip
     """Encode shape key deltas and normals to UV channels"""
 
     bl_idname = 'gret.shape_key_encode'

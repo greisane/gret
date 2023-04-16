@@ -73,7 +73,6 @@ def remove_extra_data(obj):
         mesh.color_attributes.remove(mesh.color_attributes.active_color)
 
 class GRET_OT_collision_assign(bpy.types.Operator):
-    #tooltip
     """Assign selected collision meshes to the active object"""
 
     bl_idname = 'gret.collision_assign'
@@ -97,7 +96,6 @@ class GRET_OT_collision_assign(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_collision_copy_to_linked(bpy.types.Operator):
-    #tooltip
     """Copy collision meshes from active to linked objects"""
 
     bl_idname = 'gret.collision_copy_to_linked'
@@ -153,7 +151,6 @@ def is_box(bm):
     return all(isclose(avg_d_sq, get_dist_sq(vert.co, c), abs_tol=0.0001) for vert in bm.verts)
 
 class GRET_OT_collision_make(bpy.types.Operator):
-    #tooltip
     """Generate collision for selected geometry"""
 
     bl_idname = 'gret.collision_make'

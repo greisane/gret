@@ -7,7 +7,6 @@ from ..log import log, logd
 from ..rig.helpers import clear_pose, try_key
 
 class GRET_OT_action_set(bpy.types.Operator):
-    #tooltip
     """Edit this action. Ctrl-click to rename"""
 
     bl_idname = "gret.action_set"
@@ -63,7 +62,6 @@ class GRET_OT_action_set(bpy.types.Operator):
             return self.execute(context)
 
 class GRET_OT_action_add(bpy.types.Operator):
-    #tooltip
     """Add a new action"""
 
     bl_idname = "gret.action_add"
@@ -89,7 +87,6 @@ class GRET_OT_action_add(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_action_remove(bpy.types.Operator):
-    #tooltip
     """Delete the action"""
 
     bl_idname = "gret.action_remove"
@@ -113,7 +110,6 @@ class GRET_OT_action_remove(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_action_duplicate(bpy.types.Operator):
-    #tooltip
     """Duplicate this action"""
 
     bl_idname = "gret.action_duplicate"
@@ -138,7 +134,6 @@ class GRET_OT_action_duplicate(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_pose_set(bpy.types.Operator):
-    #tooltip
     """Go to the frame for this pose. Ctrl-click to rename"""
 
     bl_idname = "gret.pose_set"
@@ -182,7 +177,6 @@ class GRET_OT_pose_set(bpy.types.Operator):
             return self.execute(context)
 
 class GRET_OT_pose_make(bpy.types.Operator):
-    #tooltip
     """Creates a pose marker for every frame in the action"""
 
     bl_idname = "gret.pose_make"

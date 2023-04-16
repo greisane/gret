@@ -32,7 +32,6 @@ class GRET_PG_shape_key_storage(bpy.types.PropertyGroup):
     )
 
 class GRET_OT_shape_key_store(bpy.types.Operator):
-    #tooltip
     """Load shape key values stored in this slot. Ctrl-Click to save or discard"""
 
     bl_idname = 'gret.shape_key_store'
@@ -84,7 +83,6 @@ class GRET_OT_shape_key_store(bpy.types.Operator):
         return self.execute(context)
 
 class GRET_OT_shape_key_clear(bpy.types.Operator):
-    #tooltip
     """Clear weights for all shape keys. Ctrl-Click to mute all instead"""
 
     bl_idname = 'gret.shape_key_clear'

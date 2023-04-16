@@ -19,7 +19,6 @@ def is_prop_locked(pb, name, component_index):
         return getattr(pb, 'lock_scale', default_lock_array)[component_index]
 
 class GRET_OT_channels_delete_unavailable(bpy.types.Operator):
-    #tooltip
     """Delete location/rotation/scale channels that are locked in the transform panel"""
 
     bl_idname = 'gret.channels_delete_unavailable'

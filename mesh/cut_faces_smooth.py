@@ -4,7 +4,6 @@ import bpy
 from ..helpers import get_context, TempModifier
 
 class GRET_OT_cut_faces_smooth(bpy.types.Operator):
-    #tooltip
     """Subdivide selected faces and join the result with the surrounding geometry"""
 
     bl_idname = "gret.cut_faces_smooth"

@@ -232,7 +232,6 @@ bake_items = [
 ]
 
 class GRET_OT_quick_unwrap(bpy.types.Operator):
-    #tooltip
     """Smart unwrap and pack UVs for all objects that have the active material assigned"""
 
     bl_idname = 'gret.quick_unwrap'
@@ -332,7 +331,6 @@ class GRET_OT_quick_unwrap(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_texture_bake(bpy.types.Operator):
-    #tooltip
     """Bake and export the texture.
 All faces from all objects assigned to the active material are assumed to contribute"""
 
@@ -515,7 +513,6 @@ All faces from all objects assigned to the active material are assumed to contri
         return {'FINISHED'}
 
 class GRET_OT_texture_bake_preview(bpy.types.Operator):
-    #tooltip
     """Preview this baker in the viewport. Click anywhere to stop previewing"""
     # This is a modal operator because it would be far too messy to revert the changes otherwise
 
@@ -606,7 +603,6 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
 class GRET_OT_texture_bake_add(bpy.types.Operator):
-    #tooltip
     """Add vertex color mapping"""
 
     bl_idname = 'gret.texture_bake_add'
@@ -625,7 +621,6 @@ class GRET_OT_texture_bake_add(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_texture_bake_clear(bpy.types.Operator):
-    #tooltip
     """Clear vertex color mapping"""
 
     bl_idname = 'gret.texture_bake_clear'

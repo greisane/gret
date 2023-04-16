@@ -1,7 +1,6 @@
 import bpy
 
 class GRET_OT_propagate_bone_inherit_scale(bpy.types.Operator):
-    #tooltip
     """Propagates 'Inherit Scale' from the selected bone to children"""
 
     bl_idname = 'gret.propagate_bone_inherit_scale'

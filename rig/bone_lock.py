@@ -4,7 +4,6 @@ import bpy
 # Right now it suffices to have a way of tweaking the parent of a bone without moving its children
 
 class GRET_OT_bone_lock(bpy.types.Operator):
-    #tooltip
     """Add or remove constraints that lock the selected bones in place"""
 
     bl_idname = 'gret.bone_lock'

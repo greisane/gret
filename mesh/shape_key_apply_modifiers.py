@@ -244,7 +244,6 @@ ignored_modifier_types = frozenset((
 ))
 
 class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
-    #tooltip
     """Applies viewport modifiers while preserving shape keys"""
 
     bl_idname = "gret.shape_key_apply_modifiers"

@@ -2,7 +2,6 @@ import bpy
 import re
 
 class GRET_OT_channels_auto_group(bpy.types.Operator):
-    #tooltip
     """Group animation channels by their bone name"""
 
     bl_idname = 'gret.channels_auto_group'

@@ -6,7 +6,6 @@ from .helpers import get_selection_loops
 from ..math import calc_bounds_2d
 
 class GRET_OT_align_each(bpy.types.Operator):
-    #tooltip
     """Separately align each vertex in two or more selected edge loops"""
 
     bl_idname = 'gret.align_each'

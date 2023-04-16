@@ -2,7 +2,6 @@ import bpy
 import re
 
 class GRET_OT_autoname_bone_chain(bpy.types.Operator):
-    #tooltip
     """Automatically renames a chain of bones starting at the selected bone"""
 
     bl_idname = 'gret.autoname_bone_chain'

@@ -245,7 +245,6 @@ def get_parallel_loops(bm, loops):
     return loops
 
 class GRET_OT_vertex_group_smooth_loops(bpy.types.Operator):
-    #tooltip
     """Smooth weights for selected vertex loops"""
 
     bl_idname = 'gret.vertex_group_smooth_loops'

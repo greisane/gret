@@ -12,7 +12,6 @@ flip_suffix = {
 }
 
 class GRET_OT_vertex_group_remove_unused(bpy.types.Operator):
-    #tooltip
     """Deletes vertex groups with no assigned weight"""
 
     bl_idname = "gret.vertex_group_remove_unused"

@@ -64,7 +64,6 @@ def calculate_linear_splines(bag, tknots, knots):
     return splines
 
 class GRET_OT_relax_loops(bpy.types.Operator):
-    #tooltip
     """Relax selected edge loops to their respective mesh length."""
 
     bl_idname = 'gret.relax_loops'

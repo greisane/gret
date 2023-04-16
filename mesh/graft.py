@@ -18,7 +18,6 @@ temp_boundary_vg_name = "__boundary"
 face_map_name = "Graft"
 
 class GRET_OT_graft(bpy.types.Operator):
-    #tooltip
     """Connect boundaries of selected objects to the active object"""
 
     bl_idname = 'gret.graft'

@@ -2,7 +2,6 @@ import bmesh
 import bpy
 
 class GRET_OT_sculpt_selection(bpy.types.Operator):
-    #tooltip
     """Sculpt the selected vertices"""
 
     bl_idname = "gret.sculpt_selection"

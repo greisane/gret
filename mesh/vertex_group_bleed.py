@@ -4,7 +4,6 @@ import bpy
 from .helpers import bmesh_vertex_group_bleed, get_operator_target_vertex_groups
 
 class GRET_OT_vertex_group_bleed(bpy.types.Operator):
-    #tooltip
     """Expand weights for selected vertices via flood fill.
 The result is stable, running the operator more than once won't cause any changes"""
 

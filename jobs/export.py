@@ -10,7 +10,6 @@ from .rig_export import rig_export
 from .anim_export import anim_export
 
 class GRET_OT_export_job_preset(bpy.types.Operator):
-    #tooltip
     """Add preset jobs and automatically create collections"""
 
     bl_idname = 'gret.export_job_preset'
@@ -82,7 +81,6 @@ class GRET_OT_export_job_preset(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_export_job_add(bpy.types.Operator):
-    #tooltip
     """Add a new export job"""
 
     bl_idname = 'gret.export_job_add'
@@ -123,7 +121,6 @@ def add_job(context, name="", collections=[], remap_materials=[]):
     return job
 
 class GRET_OT_export_job_duplicate(bpy.types.Operator):
-    #tooltip
     """Duplicate the export job"""
 
     bl_idname = 'gret.export_job_duplicate'
@@ -160,7 +157,6 @@ def refresh_job_list(context):
             remap_material.job_index = job_index
 
 class GRET_OT_export_job_remove(bpy.types.Operator):
-    #tooltip
     """Remove the export job"""
 
     bl_idname = 'gret.export_job_remove'
@@ -176,7 +172,6 @@ class GRET_OT_export_job_remove(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_search_modifier_tags(bpy.types.Operator):
-    #tooltip
     """Select job objects that use these modifier tags"""
 
     bl_idname = 'gret.search_modifier_tags'
@@ -216,7 +211,6 @@ class GRET_OT_search_modifier_tags(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_export_job_move_up(bpy.types.Operator):
-    #tooltip
     """Moves the export job up"""
 
     bl_idname = 'gret.export_job_move_up'
@@ -232,7 +226,6 @@ class GRET_OT_export_job_move_up(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_export_job_move_down(bpy.types.Operator):
-    #tooltip
     """Moves the export job down"""
 
     bl_idname = 'gret.export_job_move_down'
@@ -248,7 +241,6 @@ class GRET_OT_export_job_move_down(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_export(bpy.types.Operator):
-    #tooltip
     """Execute the export job"""
 
     bl_idname = 'gret.export'
@@ -286,7 +278,6 @@ class GRET_OT_export(bpy.types.Operator):
 
 
 class GRET_OT_export_by_name(bpy.types.Operator):
-    #tooltip
     """Execute the export job"""
 
     bl_idname = 'gret.export_by_name'

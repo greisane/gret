@@ -184,7 +184,6 @@ def delete_obj_with_mesh(obj):
     bpy.data.meshes.remove(mesh)
 
 class GRET_OT_merge(bpy.types.Operator):
-    #tooltip
     """Boolean merge one or more objects, cleaning up the result for normal transfer"""
 
     bl_idname = 'gret.merge'

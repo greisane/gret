@@ -5,7 +5,6 @@ from .helpers import edit_mesh_elements
 from ..math import get_dist_sq
 
 class GRET_OT_shape_key_select(bpy.types.Operator):
-    #tooltip
     """Select vertices affected by the current shape key"""
 
     bl_idname = 'gret.shape_key_select'

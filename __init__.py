@@ -358,7 +358,6 @@ class GRET_PG_settings(bpy.types.PropertyGroup):
         cls.__annotations__[name] = annotation
 
 class GRET_OT_save_userpref_and_quit_blender(bpy.types.Operator):
-    #tooltip
     """Make the current preferences default then quit blender"""
 
     bl_idname = 'gret.save_userpref_and_quit_blender'

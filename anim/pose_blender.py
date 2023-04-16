@@ -520,7 +520,6 @@ class PoseBlender:
             self.undo_post_handler = None
 
 class GRET_OT_pose_blender_add(bpy.types.Operator):
-    #tooltip
     """Adds pose blending to the active object"""
 
     bl_idname = 'gret.pose_blender_add'
@@ -545,7 +544,6 @@ class GRET_OT_pose_blender_add(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_pose_blender_remove(bpy.types.Operator):
-    #tooltip
     """Removes pose blending from the active object"""
 
     bl_idname = 'gret.pose_blender_remove'
@@ -566,7 +564,6 @@ class GRET_OT_pose_blender_remove(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_pose_blender_clear(bpy.types.Operator):
-    #tooltip
     """Clear weights for all poses"""
 
     bl_idname = 'gret.pose_blender_clear'
@@ -587,7 +584,6 @@ class GRET_OT_pose_blender_clear(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_pose_blender_flip(bpy.types.Operator):
-    #tooltip
     """Swaps weights for symmetric poses"""
 
     bl_idname = "gret.pose_blender_flip"
@@ -608,7 +604,6 @@ class GRET_OT_pose_blender_flip(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_pose_blender_copy(bpy.types.Operator):
-    #tooltip
     """Copies pose weights to clipboard"""
 
     bl_idname = 'gret.pose_blender_copy'
@@ -631,7 +626,6 @@ class GRET_OT_pose_blender_copy(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_pose_blender_paste(bpy.types.Operator):
-    #tooltip
     """Pastes pose weights from clipboard"""
 
     bl_idname = 'gret.pose_blender_paste'
@@ -666,7 +660,6 @@ class GRET_OT_pose_blender_paste(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_pose_blender_key(bpy.types.Operator):
-    #tooltip
     """Keyframes the current pose"""
 
     bl_idname = 'gret.pose_blender_key'
@@ -687,7 +680,6 @@ class GRET_OT_pose_blender_key(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_pose_blender_sanitize(bpy.types.Operator):
-    #tooltip
     """Ensures the pose library only contains bone animation for the currently selected bones.
 This improves performance and unlocks bones to be posed manually"""
 

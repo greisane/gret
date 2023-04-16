@@ -2,7 +2,6 @@ import bpy
 import bmesh
 
 class GRET_OT_shape_key_normalize(bpy.types.Operator):
-    #tooltip
     """Resets Min and Max of shape keys while keeping the range of motion.
 Basis will change if Min is negative"""
 

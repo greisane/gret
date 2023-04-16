@@ -8,7 +8,6 @@ from ..log import log, logd, logger
 from ..rbf import *
 
 class GRET_OT_retarget_armature(bpy.types.Operator):
-    #tooltip
     """Retarget an armature or selected bones to fit a modified version of the source mesh."""
 
     bl_idname = 'gret.retarget_armature'

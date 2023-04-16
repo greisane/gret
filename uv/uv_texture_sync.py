@@ -31,7 +31,6 @@ def move_uv_layer_to_index(uv_layers, from_index, to_index):
             move_uv_layer_last(uv_layers, min(from_index, to_index))
 
 class GRET_OT_uv_texture_move(bpy.types.Operator):
-    #tooltip
     """Move the active UV map up/down in the list"""
 
     bl_idname = 'gret.uv_texture_move'
@@ -67,7 +66,6 @@ class GRET_OT_uv_texture_move(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_uv_texture_sync(bpy.types.Operator):
-    #tooltip
     """Sync UV maps from the active object to other selected objects.
 Existing layers are reordered or renamed. Missing UVs are created and extra layers deleted"""
 

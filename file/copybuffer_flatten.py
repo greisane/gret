@@ -28,7 +28,6 @@ def clear_pointers(obj):
                 setattr(obj, prop_id, None)
 
 class GRET_OT_copybuffer_flatten(bpy.types.Operator):
-    #tooltip
     """Selected objects alone are copied to the clipboard, even if they reference other objects.
 Modifiers and shape keys are applied, optionally other data may be removed"""
 

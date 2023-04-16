@@ -10,7 +10,6 @@ def get_selected_active_object(context, types=set()):
     return context.active_object
 
 class GRET_OT_wall_add(bpy.types.Operator):
-    #tooltip
     """Construct a flat wall mesh.
 A collection is created where meshes can be put to create openings."""
 
@@ -111,7 +110,6 @@ A collection is created where meshes can be put to create openings."""
         return {'FINISHED'}
 
 class GRET_OT_strap_add(bpy.types.Operator):
-    #tooltip
     """Construct a strap mesh wrapping around the selected object"""
 
     bl_idname = 'gret.strap_add'
@@ -202,7 +200,6 @@ class GRET_OT_strap_add(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_rope_add(bpy.types.Operator):
-    #tooltip
     """Construct a rope mesh following the selected curve"""
 
     bl_idname = 'gret.rope_add'

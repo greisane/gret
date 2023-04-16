@@ -37,7 +37,6 @@ def parse_prop_path(obj, prop_path):
     return None, None, prop_path
 
 class GRET_OT_property_add(bpy.types.Operator):
-    #tooltip
     """Add a property to the list"""
 
     bl_idname = 'gret.property_add'
@@ -93,7 +92,6 @@ class GRET_OT_property_add(bpy.types.Operator):
         col.prop(self, 'path', text="")
 
 class GRET_OT_property_remove(bpy.types.Operator):
-    #tooltip
     """Remove the property from the list"""
 
     bl_idname = 'gret.property_remove'
