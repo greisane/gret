@@ -5,6 +5,7 @@ import numpy as np
 
 from .. import prefs
 from ..log import log, logd, logger
+from ..math import KINDA_SMALL_NUMBER
 from ..rbf import *
 
 class GRET_OT_retarget_armature(bpy.types.Operator):
@@ -70,7 +71,8 @@ Use to speed up retargeting by selecting only the areas of importance""",
     )
     use_mirror_x: bpy.props.BoolProperty(
         name="X-Axis Mirror",
-        description="Enable symmetry in the X axis",
+        description="""Enable X symmetry of the source mesh.
+Doubles the input vertex count, don't enable if not necessary""",
         default=False,
     )
     lock_length: bpy.props.BoolProperty(
@@ -142,6 +144,9 @@ Use to speed up retargeting by selecting only the areas of importance""",
             if not is_editing:
                 bpy.ops.object.editmode_toggle()
 
+            if obj.data.use_mirror_x:
+                saved_bone_xs = [(bone.head.x, bone.tail.x) for bone in obj.data.edit_bones]
+
             if self.use_object_transform:
                 # Get the bone points in retarget destination space
                 dst_to_obj = obj.matrix_world.inverted() @ dst_obj.matrix_world
@@ -160,6 +165,14 @@ Use to speed up retargeting by selecting only the areas of importance""",
 
             set_armature_points(obj, new_pts, matrix=dst_to_obj, only_selected=is_editing,
                 lock_length=self.lock_length, lock_direction=self.lock_direction)
+
+            if obj.data.use_mirror_x:
+                # Keep bones centered when retargeting with X mirror enabled
+                for bone, (head_x, tail_x) in zip(obj.data.edit_bones, saved_bone_xs):
+                    if abs(head_x) <= KINDA_SMALL_NUMBER:
+                        bone.head.x = head_x
+                    if abs(tail_x) <= KINDA_SMALL_NUMBER:
+                        bone.tail.x = tail_x
 
             if not is_editing:
                 bpy.ops.object.editmode_toggle()

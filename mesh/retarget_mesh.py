@@ -70,7 +70,8 @@ Use to speed up retargeting by selecting only the areas of importance""",
     )
     use_mirror_x: bpy.props.BoolProperty(
         name="X-Axis Mirror",
-        description="Enable symmetry in the X axis",
+        description="""Enable X symmetry of the source mesh.
+Doubles the input vertex count, don't enable if not necessary""",
         default=False,
     )
     as_shape_key: bpy.props.BoolProperty(
