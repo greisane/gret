@@ -8,9 +8,9 @@ import re
 from .. import prefs
 from ..heapdict import heapdict
 from ..helpers import (
+    flip_name,
     fmt_fraction,
     get_context,
-    get_flipped_name,
     get_modifier_mask,
     get_vgroup,
     select_only,
@@ -319,7 +319,7 @@ def mirror_shape_keys(obj, side_vgroup_name):
     # Make vertex groups for masking. It doesn't actually matter which side is which,
     # only that the modifier's vertex group mirroring function picks it up
     # Even if the vertex group exists, overwrite so the user doesn't have to manually update it
-    other_side_vgroup_name = get_flipped_name(side_vgroup_name)
+    other_side_vgroup_name = flip_name(side_vgroup_name)
     if not other_side_vgroup_name:
         return
     vgroup = get_vgroup(obj, side_vgroup_name, clean=True)
@@ -327,7 +327,7 @@ def mirror_shape_keys(obj, side_vgroup_name):
     vgroup = get_vgroup(obj, other_side_vgroup_name, clean=True)
 
     for sk in obj.data.shape_keys.key_blocks:
-        flipped_name = get_flipped_name(sk.name)
+        flipped_name = flip_name(sk.name)
         # Only mirror it if it doesn't already exist
         if flipped_name and flipped_name not in obj.data.shape_keys.key_blocks:
             log(f"Mirroring shape key {sk.name}")
@@ -339,7 +339,7 @@ def mirror_shape_keys(obj, side_vgroup_name):
 
             # Attempt to flip the driver, e.g if driven by Arm_L, make it driven by Arm_R instead.
             try:
-                flip_data_path = lambda match: f'["{get_flipped_name(match.group(1)) or match.group(1)}"]'
+                flip_data_path = lambda match: f'["{flip_name(match.group(1)) or match.group(1)}"]'
                 sk_data_path = f'key_blocks["{sk.name}"]'
                 new_sk_data_path = f'key_blocks["{new_sk.name}"]'
                 if obj.data.shape_keys.animation_data:
@@ -356,7 +356,7 @@ def mirror_shape_keys(obj, side_vgroup_name):
                                 new_var.name = var.name
                                 new_var.type = var.type
                                 for t, new_t in zip(var.targets, new_var.targets):
-                                    new_t.bone_target = get_flipped_name(t.bone_target) or t.bone_target
+                                    new_t.bone_target = flip_name(t.bone_target) or t.bone_target
                                     new_t.data_path = re.sub(r'\["([^"]*)"\]', flip_data_path, t.data_path)
                                     logd(f"{var.name} target: {t.bone_target} -> {new_t.bone_target}")
                                     if t.data_path:

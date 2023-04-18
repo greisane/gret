@@ -2,7 +2,7 @@ from collections import OrderedDict
 import bpy
 import json
 
-from ..helpers import get_flipped_name
+from ..helpers import flip_name
 from ..operator import draw_warning_if_not_overridable
 
 class GRET_OT_selection_set_toggle(bpy.types.Operator):
@@ -226,7 +226,7 @@ def draw_panel(self, context):
         col = box.column(align=True)
         while selection_sets:
             name, sel_set = selection_sets.popitem()
-            other_name = get_flipped_name(name)
+            other_name = flip_name(name)
             other_sel_set = selection_sets.pop(other_name, None)
 
             row = col.row(align=True)

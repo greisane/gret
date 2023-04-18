@@ -7,7 +7,7 @@ import bpy
 import json
 import re
 
-from ..helpers import get_flipped_name
+from ..helpers import flip_name
 from ..math import lerp
 
 ZERO_ANIMWEIGHT_THRESH = 0.00001
@@ -369,7 +369,7 @@ class PoseBlender:
         pose_names.reverse()
         while pose_names:
             pose_name = pose_names.pop()
-            flipped_name = get_flipped_name(pose_name)
+            flipped_name = flip_name(pose_name)
 
             if flipped_name and flipped_name in pose_names:
                 pose_names.remove(flipped_name)

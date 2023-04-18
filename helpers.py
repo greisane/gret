@@ -447,17 +447,34 @@ def get_topmost_parent(obj):
         obj = obj.parent
     return obj
 
-l_to_r = {'l': 'r', 'L': 'R', 'r': 'l', 'R': 'L'}
-def get_flipped_name(name):
-    """Returns the given name with flipped L/R affixes, or None if not applicable."""
+l_to_r = {'l': 'r', 'L': 'R', 'r': 'l', 'R': 'L',
+    'left': 'right', 'Left': 'Right', 'right': 'left', 'Right': 'Left'}
 
-    match = re.match(r'(.+)([_\.][LlRr])$', name)  # Suffix
-    if match:
-        return match[1] + ''.join(l_to_r.get(c, c) for c in match[2])
-    match = re.match(r'^([LlRr][_\.])(.+)', name) or re.match(r'^([lr])([A-Z].+)', name)  # Prefix
-    if match:
-        return ''.join(l_to_r.get(c, c) for c in match[1]) + match[2]
+def flip_name(s):
+    """Returns the given name with flipped side affixes, or None if not applicable."""
+
+    # Prefix with no delimiter, case sensitive (lBone -> rBone)
+    m = re.match(r"^([lr]|[lL]eft|[rR]ight)[A-Z]", s)
+    if m:
+        return l_to_r[m[1]] + s[len(m[1]):]
+    # Prefix with delimiter
+    if re.match(r"^[LlRr][_.]\w", s):
+        return l_to_r[s[0]] + s[1:]
+    # Suffix with delimiter
+    if re.match(r"\w+[LlRr]$", s):
+        return s[:-1] + l_to_r[s[-1]]
     return None
+
+def flip_names(s):
+    """Flips all names with side affixes found in the string."""
+
+    # Prefix with no delimiter, case sensitive (lBone -> rBone)
+    s = re.sub(r"\b([lr]|[lL]eft|[rR]ight)[A-Z]", lambda m: l_to_r[m[1]] + m[0][len(m[1]):], s)
+    # Prefix with delimiter
+    s = re.sub(r"\b[LlRr][_.]\w", lambda m: l_to_r[m[0][0]] + m[0][1:], s)
+    # Suffix with delimiter
+    s = re.sub(r"\w[_.][LlRr]\b", lambda m: m[0][:-1] + l_to_r[m[0][-1]], s)
+    return s
 
 def swap_object_names(obj1, obj2):
     name1, name2 = obj1.name, obj2.name
