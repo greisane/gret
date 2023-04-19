@@ -81,6 +81,9 @@ def draw_menu(self, context):
     self.layout.operator(GRET_OT_shape_key_normalize.bl_idname)
 
 def register(settings, prefs):
+    if not prefs.mesh__enable_shape_key_normalize:
+        return False
+
     bpy.utils.register_class(GRET_OT_shape_key_normalize)
     bpy.types.MESH_MT_shape_key_context_menu.append(draw_menu)
 

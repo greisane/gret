@@ -220,7 +220,8 @@ def _rig_export(self, context, job, rig):
 
         # Ensure proper mesh state
         sanitize_mesh(obj)
-        bpy.ops.gret.vertex_group_remove_unused(ctx)
+        if gret_operator_exists('gret.vertex_group_remove_unused'):
+            bpy.ops.gret.vertex_group_remove_unused(ctx)
         obj.data.transform(obj.matrix_basis, shape_keys=True)
         obj.matrix_basis.identity()
 

@@ -192,6 +192,12 @@ NEEDS UPDATING TO 3.0""",
         default=True,
         update=registered_updated,
     )
+    mesh__enable_shape_key_normalize: bpy.props.BoolProperty(
+        name="Enable \"Normalize Shape Key\"",
+        description="Resets Min and Max of shape keys while keeping the range of motion",
+        default=True,
+        update=registered_updated,
+    )
     mesh__enable_shape_key_store: bpy.props.BoolProperty(
         name="Enable \"Shape Key Store\"",
         description="Adds buttons to load and save shape key values",
@@ -204,6 +210,12 @@ NEEDS UPDATING TO 3.0""",
         default=True,
         update=registered_updated,
     )
+    mesh__enable_vertex_group_bleed: bpy.props.BoolProperty(
+        name="Enable Vertex Group \"Bleed\"",
+        description="Expand weights for selected vertices via flood fill",
+        default=True,
+        update=registered_updated,
+    )
     mesh__enable_vertex_group_create_mirrored: bpy.props.BoolProperty(
         name="Enable \"Create Mirrored Vertex Groups\"",
         description="Create any missing mirror vertex groups. New vertex groups will be empty",
@@ -213,6 +225,12 @@ NEEDS UPDATING TO 3.0""",
     mesh__enable_vertex_group_remove_unused: bpy.props.BoolProperty(
         name="Enable \"Remove Unused Vertex Groups\"",
         description="Delete vertex groups with no assigned weights",
+        default=True,
+        update=registered_updated,
+    )
+    mesh__enable_vertex_group_smooth_loops: bpy.props.BoolProperty(
+        name="Enable Vertex Group \"Smooth Loops\"",
+        description="Smooth weights for selected vertex loops",
         default=True,
         update=registered_updated,
     )

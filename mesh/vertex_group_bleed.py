@@ -4,8 +4,7 @@ import bpy
 from .helpers import bmesh_vertex_group_bleed, get_operator_target_vertex_groups
 
 class GRET_OT_vertex_group_bleed(bpy.types.Operator):
-    """Expand weights for selected vertices via flood fill.
-The result is stable, running the operator more than once won't cause any changes"""
+    """Expand weights for selected vertices via flood fill"""
 
     bl_idname = 'gret.vertex_group_bleed'
     bl_label = "Bleed"
@@ -72,6 +71,9 @@ def draw_menu(self, context):
     self.layout.operator(GRET_OT_vertex_group_bleed.bl_idname)
 
 def register(settings, prefs):
+    if not prefs.mesh__enable_vertex_group_bleed:
+        return False
+
     bpy.utils.register_class(GRET_OT_vertex_group_bleed)
     bpy.types.VIEW3D_MT_paint_weight.append(draw_menu)
 
