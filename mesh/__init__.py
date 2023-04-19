@@ -16,6 +16,7 @@ module_names = [
     'shape_key_store',
     'vertex_color_mapping',
     'vertex_group_bleed',
+    'vertex_group_create_mirrored',
     'vertex_group_remove_unused',
     'vertex_group_smooth_loops',
 ]

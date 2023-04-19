@@ -204,6 +204,12 @@ NEEDS UPDATING TO 3.0""",
         default=True,
         update=registered_updated,
     )
+    mesh__enable_vertex_group_create_mirrored: bpy.props.BoolProperty(
+        name="Enable \"Create Mirrored Vertex Groups\"",
+        description="Create any missing mirror vertex groups. New vertex groups will be empty",
+        default=True,
+        update=registered_updated,
+    )
     mesh__enable_vertex_group_remove_unused: bpy.props.BoolProperty(
         name="Enable \"Remove Unused Vertex Groups\"",
         description="Delete vertex groups with no assigned weights",
