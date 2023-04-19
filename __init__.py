@@ -260,9 +260,9 @@ NEEDS UPDATING TO 3.0""",
         default=True,
         update=registered_updated,
     )
-    rig__enable_selection_sets: bpy.props.BoolProperty(
-        name="Enable \"Selection Sets\"",
-        description="""Panel for quick bone selection""",
+    rig__enable_constraints_stretchto_reset: bpy.props.BoolProperty(
+        name="Enable \"Reset Stretch To Constraints\"",
+        description="""Reset rest length of "Stretch To" constraints""",
         default=True,
         update=registered_updated,
     )

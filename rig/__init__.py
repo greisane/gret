@@ -4,10 +4,11 @@ module_names = [
     'helpers',
     'autoname_bone_chain',
     'bone_lock',
+    'constraints_stretchto_reset',
     'propagate_bone_inherit_scale',
     'properties',
-    'selection_sets',
     'retarget_armature',
+    'selection_sets',
 ]
 from .. import import_or_reload_modules, register_submodules, unregister_submodules
 modules = import_or_reload_modules(module_names, __name__)
