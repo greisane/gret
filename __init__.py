@@ -204,6 +204,12 @@ NEEDS UPDATING TO 3.0""",
         default=True,
         update=registered_updated,
     )
+    mesh__enable_vertex_group_remove_unused: bpy.props.BoolProperty(
+        name="Enable \"Remove Unused Vertex Groups\"",
+        description="Delete vertex groups with no assigned weights",
+        default=True,
+        update=registered_updated,
+    )
     mesh__enable_cut_faces_smooth: bpy.props.BoolProperty(
         name="Enable \"Cut Faces (Subdivide)\"",
         description="Subdivide selected faces and join the result with the surrounding geometry",

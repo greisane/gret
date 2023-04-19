@@ -7,7 +7,6 @@ module_names = [
     'collision',
     'cut_faces_smooth',
     'extra_objects',
-    'remove_unused_vertex_groups',
     'retarget_mesh',
     'sculpt_selection',
     'shape_key_apply_modifiers',
@@ -17,6 +16,7 @@ module_names = [
     'shape_key_store',
     'vertex_color_mapping',
     'vertex_group_bleed',
+    'vertex_group_remove_unused',
     'vertex_group_smooth_loops',
 ]
 from .. import import_or_reload_modules, register_submodules, unregister_submodules

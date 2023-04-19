@@ -12,7 +12,7 @@ flip_suffix = {
 }
 
 class GRET_OT_vertex_group_remove_unused(bpy.types.Operator):
-    """Deletes vertex groups with no assigned weight"""
+    """Delete vertex groups with no assigned weights"""
 
     bl_idname = "gret.vertex_group_remove_unused"
     bl_label = "Remove Unused Vertex Groups"
@@ -20,11 +20,11 @@ class GRET_OT_vertex_group_remove_unused(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type == 'MESH'
+        return context.active_object and context.active_object.type == 'MESH'
 
     def execute(self, context):
         # Based on the addon by CoDEmanX, respects vertex groups claimed by mirror modifiers
-        obj = context.object
+        obj = context.active_object
         obj.update_from_editmode()
         vgroups = obj.vertex_groups
 
@@ -53,6 +53,9 @@ def draw_menu(self, context):
     self.layout.operator(GRET_OT_vertex_group_remove_unused.bl_idname, icon='X')
 
 def register(settings, prefs):
+    if not prefs.mesh__enable_vertex_group_remove_unused:
+        return False
+
     bpy.utils.register_class(GRET_OT_vertex_group_remove_unused)
     bpy.types.MESH_MT_vertex_group_context_menu.append(draw_menu)
 
