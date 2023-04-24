@@ -16,6 +16,7 @@ from ..helpers import (
     get_name_safe,
     get_nice_export_report,
     get_object_filepath,
+    gret_operator_exists,
     load_properties,
     load_selection,
     save_properties,

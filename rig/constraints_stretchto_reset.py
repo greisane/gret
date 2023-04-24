@@ -15,7 +15,7 @@ class GRET_OT_constraints_stretchto_reset(bpy.types.Operator):
         obj = context.active_object
 
         num_reset = 0
-        for pb in (context.selected_pose_bones if context.selected_pose_bones else obj.pose.bones):
+        for pb in (context.selected_pose_bones_from_active_object or obj.pose.bones):
             for con in pb.constraints:
                 if con.type == 'STRETCH_TO':
                     con.rest_length = 0.0

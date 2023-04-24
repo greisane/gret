@@ -461,7 +461,7 @@ def flip_name(s):
     if re.match(r"^[LlRr][_.]\w", s):
         return l_to_r[s[0]] + s[1:]
     # Suffix with delimiter
-    if re.match(r"\w+[LlRr]$", s):
+    if re.match(r"\w+[_.][LlRr]$", s):
         return s[:-1] + l_to_r[s[-1]]
     return None
 
