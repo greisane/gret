@@ -192,6 +192,12 @@ NEEDS UPDATING TO 3.0""",
         default=True,
         update=registered_updated,
     )
+    mesh__sculpt_selection: bpy.props.BoolProperty(
+        name="Enable \"Sculpt Selection\"",
+        description="Set the sculpt mask from the current edit-mode vertex selection",
+        default=True,
+        update=registered_updated,
+    )
     mesh__enable_shape_key_normalize: bpy.props.BoolProperty(
         name="Enable \"Normalize Shape Key\"",
         description="Resets Min and Max of shape keys while keeping the range of motion",
@@ -211,7 +217,7 @@ NEEDS UPDATING TO 3.0""",
         update=registered_updated,
     )
     mesh__enable_vertex_group_bleed: bpy.props.BoolProperty(
-        name="Enable Vertex Group \"Bleed\"",
+        name="Enable \"Vertex Group Bleed\"",
         description="Expand weights for selected vertices via flood fill",
         default=True,
         update=registered_updated,

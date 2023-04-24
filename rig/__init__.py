@@ -5,7 +5,6 @@ module_names = [
     'autoname_bone_chain',
     'bone_lock',
     'constraints_stretchto_reset',
-    'propagate_bone_inherit_scale',
     'properties',
     'retarget_armature',
     'selection_sets',

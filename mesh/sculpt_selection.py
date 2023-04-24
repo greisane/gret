@@ -2,7 +2,7 @@ import bmesh
 import bpy
 
 class GRET_OT_sculpt_selection(bpy.types.Operator):
-    """Sculpt the selected vertices"""
+    """Set the sculpt mask from the current vertex selection"""
 
     bl_idname = "gret.sculpt_selection"
     bl_label = "Sculpt Selection"
@@ -36,6 +36,9 @@ def draw_menu(self, context):
     self.layout.operator(GRET_OT_sculpt_selection.bl_idname)
 
 def register(settings, prefs):
+    if not prefs.mesh__sculpt_selection:
+        return False
+
     bpy.utils.register_class(GRET_OT_sculpt_selection)
     bpy.types.VIEW3D_MT_select_edit_mesh.append(draw_menu)
 
