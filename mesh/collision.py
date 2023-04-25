@@ -57,13 +57,18 @@ def remove_extra_data(obj):
 
     obj.vertex_groups.clear()
     obj.shape_key_clear()
+    while obj.face_maps.active:
+        obj.face_maps.remove(obj.face_maps.active)
     clear_customdata(obj)
 
     mesh = obj.data
-    while mesh.materials:  # mesh.materials.clear() seems to crash
-        mesh.materials.pop()
+    mesh.materials.clear()
+    # while mesh.materials:  # mesh.materials.clear() seems to crash
+        # mesh.materials.pop()
     while mesh.uv_layers.active:
         mesh.uv_layers.remove(mesh.uv_layers.active)
+    while mesh.face_maps.active:
+        mesh.face_maps.remove(mesh.face_maps.active)
     for attribute in mesh.attributes:
         try:
             mesh.attributes.remove(attribute)

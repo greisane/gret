@@ -104,6 +104,12 @@ def get_vcolor(obj, name):
         vcol = obj.data.vertex_colors.new(name=name)
     return vcol
 
+def refresh_active_color_attribute(mesh):
+    if mesh.color_attributes.active_color_index < 0:
+        mesh.color_attributes.active_color_index = 0
+    if mesh.color_attributes.render_color_index < 0:
+        mesh.color_attributes.render_color_index = 0
+
 def merge_vertex_groups(obj, src_name, dst_name, remove_src=True):
     """Merges the source vertex group into the destination vertex group."""
 
