@@ -11,7 +11,8 @@ from ..math import (
     get_point_dist_to_line_sq,
     get_range_pct,
 )
-from ..helpers import try_call, get_context, get_collection, TempModifier
+from .helpers import clear_mesh_data, clear_mesh_customdata
+from ..helpers import get_collection, TempModifier
 
 # make_collision TODO:
 # - Non-axis aligned boxes
@@ -33,49 +34,6 @@ def find_free_col_name(prefix, name):
         if col_name not in bpy.context.scene.objects:
             break
     return col_name
-
-def clear_customdata(obj, sculpt_mask_data=True, skin_data=True, custom_split_normals=True,
-    edge_bevel_weight=True, vertex_bevel_weight=True, edge_crease=True, vertex_crease=True):
-    ctx = get_context(obj)
-    if sculpt_mask_data:
-        try_call(bpy.ops.mesh.customdata_mask_clear, ctx)
-    if skin_data:
-        try_call(bpy.ops.mesh.customdata_skin_clear, ctx)
-    if custom_split_normals:
-        try_call(bpy.ops.mesh.customdata_custom_splitnormals_clear, ctx)
-    if edge_bevel_weight:
-        try_call(bpy.ops.mesh.customdata_bevel_weight_edge_clear, ctx)
-    if vertex_bevel_weight:
-        try_call(bpy.ops.mesh.customdata_bevel_weight_vertex_clear, ctx)
-    if edge_crease:
-        try_call(bpy.ops.mesh.customdata_crease_edge_clear, ctx)
-    if vertex_crease:
-        try_call(bpy.ops.mesh.customdata_crease_vertex_clear, ctx)
-
-def remove_extra_data(obj):
-    assert obj.type == 'MESH'
-
-    obj.vertex_groups.clear()
-    obj.shape_key_clear()
-    while obj.face_maps.active:
-        obj.face_maps.remove(obj.face_maps.active)
-    clear_customdata(obj)
-
-    mesh = obj.data
-    mesh.materials.clear()
-    # while mesh.materials:  # mesh.materials.clear() seems to crash
-        # mesh.materials.pop()
-    while mesh.uv_layers.active:
-        mesh.uv_layers.remove(mesh.uv_layers.active)
-    while mesh.face_maps.active:
-        mesh.face_maps.remove(mesh.face_maps.active)
-    for attribute in mesh.attributes:
-        try:
-            mesh.attributes.remove(attribute)
-        except RuntimeError:
-            pass
-    while mesh.color_attributes.active_color:
-        mesh.color_attributes.remove(mesh.color_attributes.active_color)
 
 class GRET_OT_collision_assign(bpy.types.Operator):
     """Assign selected collision meshes to the active object"""
@@ -355,7 +313,8 @@ class GRET_OT_collision_make(bpy.types.Operator):
         col_obj.display_type = 'WIRE' if self.wire else 'SOLID'
         col_obj.display.show_shadows = False
         # bmeshes created with from_mesh or from_object may have some UVs or customdata
-        remove_extra_data(col_obj)
+        clear_mesh_data(col_obj)
+        clear_mesh_customdata(col_obj)
 
         # Link to scene
         if not self.collection:

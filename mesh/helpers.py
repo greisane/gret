@@ -14,6 +14,7 @@ from ..helpers import (
     get_modifier_mask,
     get_vgroup,
     select_only,
+    try_call,
 )
 from ..log import logger, log, logd
 from ..math import lerp
@@ -109,6 +110,54 @@ def refresh_active_color_attribute(mesh):
         mesh.color_attributes.active_color_index = 0
     if mesh.color_attributes.render_color_index < 0:
         mesh.color_attributes.render_color_index = 0
+
+def clear_mesh_data(obj, vertex_groups=True, shape_keys=True, uv_layers=True, face_maps=True,
+    materials=True, attributes=True):
+    assert obj.type == 'MESH'
+
+    if vertex_groups:
+        obj.vertex_groups.clear()
+    if shape_keys:
+        obj.shape_key_clear()
+    if face_maps:
+        while obj.face_maps.active:
+            obj.face_maps.remove(obj.face_maps.active)
+
+    mesh = obj.data
+    if materials:
+        mesh.materials.clear()
+    if uv_layers:
+        while mesh.uv_layers.active:
+            mesh.uv_layers.remove(mesh.uv_layers.active)
+    if face_maps:
+        while mesh.face_maps.active:
+            mesh.face_maps.remove(mesh.face_maps.active)
+    if attributes:
+        for attribute in mesh.attributes:
+            try:
+                mesh.attributes.remove(attribute)
+            except RuntimeError:
+                pass
+
+def clear_mesh_customdata(obj, sculpt_mask_data=True, skin_data=True, custom_split_normals=True,
+    edge_bevel_weight=True, vertex_bevel_weight=True, edge_crease=True, vertex_crease=True):
+    assert obj.type == 'MESH'
+
+    ctx = get_context(obj)
+    if sculpt_mask_data:
+        try_call(bpy.ops.mesh.customdata_mask_clear, ctx)
+    if skin_data:
+        try_call(bpy.ops.mesh.customdata_skin_clear, ctx)
+    if custom_split_normals:
+        try_call(bpy.ops.mesh.customdata_custom_splitnormals_clear, ctx)
+    if edge_bevel_weight:
+        try_call(bpy.ops.mesh.customdata_bevel_weight_edge_clear, ctx)
+    if vertex_bevel_weight:
+        try_call(bpy.ops.mesh.customdata_bevel_weight_vertex_clear, ctx)
+    if edge_crease:
+        try_call(bpy.ops.mesh.customdata_crease_edge_clear, ctx)
+    if vertex_crease:
+        try_call(bpy.ops.mesh.customdata_crease_vertex_clear, ctx)
 
 def merge_vertex_groups(obj, src_name, dst_name, remove_src=True):
     """Merges the source vertex group into the destination vertex group."""
