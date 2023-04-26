@@ -870,6 +870,7 @@ All values are remapped to a [0..1] UV range""",
         name="Export Path",
         description="""Export path relative to the current folder.
 {job} = Name of the export job.
+{scene} = Name of the current scene.
 {file} = Name of this .blend file without extension.
 {object} = Name of the object being exported.
 {topobject} = Name of the top-most parent of the object being exported.
@@ -960,6 +961,7 @@ Wildcards are allowed. Separate names with spaces""",
         name="Export Path",
         description="""Export path relative to the current folder.
 {job} = Name of the export job.
+{scene} = Name of the current scene.
 {file} = Name of this .blend file without extension.
 {rigfile} = Name of the .blend file the rig is linked from, without extension.
 {rig} = Name of the rig being exported.
@@ -997,6 +999,7 @@ Wildcards are allowed. Separate names with spaces""",
         name="Markers Export Path",
         description="""Export path for markers relative to the current folder.
 {job} = Name of the export job.
+{scene} = Name of the current scene.
 {file} = Name of this .blend file without extension.
 {rigfile} = Name of the .blend file the rig is linked from, without extension.
 {rig} = Name of the rig being exported.
@@ -1013,6 +1016,7 @@ Wildcards are allowed. Separate names with spaces""",
         name="Export Path",
         description="""Export path relative to the current folder.
 {job} = Name of the export job.
+{scene} = Name of the current scene.
 {file} = Name of this .blend file without extension.
 {rigfile} = Name of the .blend file the rig is linked from, without extension.
 {rig} = Name of the rig being exported.

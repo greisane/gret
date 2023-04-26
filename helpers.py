@@ -540,7 +540,7 @@ def get_export_path(path, fields):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     return path
 
-def fail_if_invalid_export_path(path, field_names):
+def fail_if_invalid_export_path(path, allowed_field_names):
     """Raises an exception if the export path is not valid."""
 
     if not path:
@@ -554,7 +554,7 @@ def fail_if_invalid_export_path(path, field_names):
 
     # Check that the export path is valid
     try:
-        fields = {s: "" for s in field_names}
+        fields = {s: "" for s in allowed_field_names}
         dirpath = os.path.dirname(get_export_path(path, fields))
     except Exception as e:
         raise Exception(f"Invalid export path: {e}")

@@ -229,6 +229,7 @@ def _rig_export(self, context, job, rig):
         # Put the objects in a group
         path_fields = {
             'job': job.name,
+            'scene': context.scene.name,
             'rigfile': rig_basename,
             'rig': rig.name.removesuffix('_rig'),
             'object': item.original.name,
@@ -441,7 +442,7 @@ def rig_export(self, context, job):
     # Check addon availability and export path
     try:
         if not job.to_collection:
-            field_names = ['job', 'rigfile', 'rig', 'object', 'collection']
+            field_names = ['job', 'scene', 'rigfile', 'rig', 'object', 'collection']
             fail_if_invalid_export_path(job.rig_export_path, field_names)
     except Exception as e:
         self.report({'ERROR'}, str(e))

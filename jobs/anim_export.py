@@ -33,10 +33,7 @@ class ConstantCurve:
 def _anim_export(self, context, job, rig):
     start_time = time.time()
     rig_filepath = get_object_filepath(rig)
-    path_fields = {
-        'rigfile': os.path.splitext(bpy.path.basename(rig_filepath))[0],
-        'rig': rig.name.removesuffix('_rig'),
-    }
+    rig_basename = os.path.splitext(bpy.path.basename(rig_filepath))[0]
 
     # Select actions to export
     actions = set()
@@ -126,9 +123,14 @@ def _anim_export(self, context, job, rig):
 
     # Finally export
     for export_group in export_groups:
-        path_fields['action'] = export_group.action.name
-        path_fields['suffix'] = export_group.suffix
-        path_fields['job'] = job.name
+        path_fields = {
+            'job': job.name,
+            'scene': context.scene.name,
+            'rigfile': rig_basename,
+            'rig': rig.name.removesuffix('_rig'),
+            'action': export_group.action.name,
+            'suffix': export_group.suffix,
+        }
         filepath = get_export_path(job.animation_export_path, path_fields)
         filename = bpy.path.basename(filepath)
         if filepath in self.exported_files:
@@ -187,7 +189,7 @@ def anim_export(self, context, job):
 
     # Check addon availability and export path
     try:
-        field_names = ['job', 'action', 'rigfile', 'rig']
+        field_names = ['job', 'scene', 'rigfile', 'rig', 'action']
         fail_if_invalid_export_path(job.animation_export_path, field_names)
         if job.export_markers:
             fail_if_invalid_export_path(job.markers_export_path, field_names)
