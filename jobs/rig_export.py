@@ -13,6 +13,7 @@ from ..helpers import (
     fail_if_invalid_export_path,
     get_context,
     get_export_path,
+    get_modifier,
     get_name_safe,
     get_nice_export_report,
     get_object_filepath,
@@ -156,7 +157,7 @@ def _rig_export(self, context, job, rig):
             # Create shape keys with L/R vertex group masking, to be applied after mirroring
             mirror_shape_keys(obj, job.side_vgroup_name)
 
-        apply_modifiers(obj, should_apply_modifier=job.should_apply_modifier, keep_armature=True)
+        apply_modifiers(obj, should_apply_modifier=job.should_apply_modifier)
 
         if job.mirror_shape_keys:
             apply_shape_keys_with_vertex_groups(obj)
@@ -326,7 +327,14 @@ def _rig_export(self, context, job, rig):
         else:
             remove_shape_keys(obj, "*_UV")
 
+        # Assign to rig. Parenting is not strictly necessary, only ARP wants it that way
+        rig_mod = get_modifier(obj, type='ARMATURE', name="rig")
+        rig_mod.object = rig
+        rig_mod.show_expanded = False
+        obj.parent = rig
+
         if prefs.jobs__limit_vertex_weights > 0:
+            log(f"Limiting vertex weights to {prefs.jobs__limit_vertex_weights}")
             bpy.ops.object.vertex_group_limit_total(ctx, group_select_mode='BONE_DEFORM',
                 limit=prefs.jobs__limit_vertex_weights)
 

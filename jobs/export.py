@@ -1030,7 +1030,7 @@ Wildcards are allowed. Separate names with spaces""",
         if self.what == 'SCENE':
             return self._get_export_objects(context, types={'MESH', 'CURVE'})
         elif self.what == 'RIG':
-            return self._get_export_objects(context, types={'MESH'}, armature=self.rig)
+            return self._get_export_objects(context, types={'MESH'})
         return [], []
 
     def _get_export_objects(self, context, types=set(), armature=None):
@@ -1043,7 +1043,8 @@ Wildcards are allowed. Separate names with spaces""",
                 for obj in cl.objects:
                     if types and obj.type not in types:
                         continue  # Not in the requested object types
-                    if armature and obj.find_armature() != armature:
+                    if armature and not any(mod.type == 'ARMATURE' and mod.object == armature
+                        for mod in obj.modifiers):
                         continue  # Wrong armature
                     if not (not obj.hide_viewport and job_cl.export_viewport
                         or not obj.hide_render and job_cl.export_render):
