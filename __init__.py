@@ -204,8 +204,8 @@ NEEDS UPDATING TO 3.0""",
         default=True,
         update=registered_updated,
     )
-    mesh__enable_shape_key_store: bpy.props.BoolProperty(
-        name="Enable \"Shape Key Store\"",
+    mesh__enable_shape_key_presets: bpy.props.BoolProperty(
+        name="Enable \"Shape Key Presets\"",
         description="Adds buttons to load and save shape key values",
         default=True,
         update=registered_updated,
@@ -263,17 +263,17 @@ NEEDS UPDATING TO 3.0""",
         description="When retargeting to a shape key, overwrite it if it already exists",
         default=False,
     )
-    mesh__shape_key_store_num_slots: bpy.props.IntProperty(
-        name="Shape Key Store Slots",
-        description="Number of shape key storage buttons to add if Shape Key Store is enabled",
+    mesh__shape_key_presets_num_slots: bpy.props.IntProperty(
+        name="Shape Key Preset Slots",
+        description="Number of shape key preset buttons to add if Shape Key Presets are enabled",
         default=5,
         min=1,
         max=10,
         update=registered_updated,
     )
-    mesh__shape_key_store_only_value: bpy.props.BoolProperty(
-        name="Shape Key Store Only Value",
-        description="Don't change slider min/max when loading values from shape key storage",
+    mesh__shape_key_presets_only_value: bpy.props.BoolProperty(
+        name="Shape Key Preset Only Value",
+        description="Don't change slider min/max when loading values from shape key presets",
         default=False,
     )
     rig__enable_retarget_armature: bpy.props.BoolProperty(

@@ -94,7 +94,7 @@ Skinning tool to separately smooth weights on parallel loops, like belts and suc
 
 The much needed ability to apply modifiers on a mesh with shape keys. Mirrors are specially handled to fix shape keys that move vertices off the center axis. Found in Shape Keys → Specials Menu → Apply Modifiers with Shape Keys.
 
-## Mesh: Shape Key Store
+## Mesh: Shape Key Presets
 
 Ctrl-Click a letter button to save current shape key values to that slot, click to restore and apply those values. Note that this doesn't store the shape keys themselves, only their influence. Comes in handy sometimes if you use a lot of shape keys.
 

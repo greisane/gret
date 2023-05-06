@@ -14,7 +14,7 @@ def load_shape_key_info(obj, fields):
     sk = obj.data.shape_keys.key_blocks.get(name)
     if not sk:
         return
-    if not prefs.mesh__shape_key_store_only_value:
+    if not prefs.mesh__shape_key_presets_only_value:
         sk.slider_min = float(slider_min)
         sk.slider_max = float(slider_max)
         sk.vertex_group = vertex_group
@@ -23,21 +23,21 @@ def load_shape_key_info(obj, fields):
     sk.mute = mute == "1"
     sk.value = float(value)
 
-class GRET_PG_shape_key_storage(bpy.types.PropertyGroup):
+class GRET_PG_shape_key_preset(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(
         name="Name",
-        description="Name of this storage slot",
+        description="Name of this preset",
     )
     data: bpy.props.StringProperty(
         name="Data",
         options={'HIDDEN'},
     )
 
-class GRET_OT_shape_key_store(bpy.types.Operator):
-    """Load shape key values stored in this slot. Ctrl-Click to save or discard"""
+class GRET_OT_shape_key_preset(bpy.types.Operator):
+    """Load shape key preset. Ctrl-Click to save or discard"""
 
-    bl_idname = 'gret.shape_key_store'
-    bl_label = "Store Shape Keys"
+    bl_idname = 'gret.shape_key_preset'
+    bl_label = "Shape Key Preset"
     bl_context = 'objectmode'
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -127,10 +127,10 @@ def draw_shape_key_panel_addon(self, context):
         sub = box.split(factor=0.2)
         sub.label(text="Slots")
         row = sub.row(align=True)
-        for slot_idx in range(prefs.mesh__shape_key_store_num_slots):
+        for slot_idx in range(prefs.mesh__shape_key_presets_num_slots):
             has_data = slot_idx < len(slots) and bool(slots[slot_idx].data)
             text = chr(ord('A') + min(slot_idx, 25))
-            op = row.operator('gret.shape_key_store', text=text, depress=has_data)
+            op = row.operator('gret.shape_key_preset', text=text, depress=has_data)
             op.index = slot_idx
         row.separator()
         row.operator('gret.shape_key_clear', text="", icon='X')
@@ -143,7 +143,7 @@ if slots is not None:
     for slot_idx in range({num_slots}):
         has_data = slot_idx < len(slots) and bool(slots[slot_idx].data)
         text = chr(ord('A') + min(slot_idx, 25))
-        op = subsub.operator('gret.shape_key_store', text=text, depress=has_data)
+        op = subsub.operator('gret.shape_key_preset', text=text, depress=has_data)
         op.index = slot_idx
     sub.separator()
 """
@@ -180,24 +180,24 @@ panel_patcher = ShapeKeyPanelPatcher()
 
 classes = (
     GRET_OT_shape_key_clear,
-    GRET_OT_shape_key_store,
-    GRET_PG_shape_key_storage,
+    GRET_OT_shape_key_preset,
+    GRET_PG_shape_key_preset,
 )
 
 def register(settings, prefs):
-    if not prefs.mesh__enable_shape_key_store:
+    if not prefs.mesh__enable_shape_key_presets:
         return False
 
     for cls in classes:
         bpy.utils.register_class(cls)
 
     bpy.types.Mesh.shape_key_storage = bpy.props.CollectionProperty(
-        type=GRET_PG_shape_key_storage,
+        type=GRET_PG_shape_key_preset,
     )
     bpy.types.Lattice.shape_key_storage = bpy.props.CollectionProperty(
-        type=GRET_PG_shape_key_storage,
+        type=GRET_PG_shape_key_preset,
     )
-    panel_patcher.num_slots = prefs.mesh__shape_key_store_num_slots
+    panel_patcher.num_slots = prefs.mesh__shape_key_presets_num_slots
     panel_patcher.patch(debug=False)
 
 def unregister():
