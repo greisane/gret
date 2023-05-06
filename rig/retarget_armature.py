@@ -110,9 +110,9 @@ Doubles the input vertex count, don't enable if not necessary""",
         # allows trading accuracy for speed. This assumes vertices close together have sequential
         # indices, which is not always the case.
         if self.high_quality:
-            vertex_cap = prefs.mesh__retarget_num_vertices_high
+            vertex_cap = prefs.retarget__max_vertices_high
         else:
-            vertex_cap = prefs.mesh__retarget_num_vertices_low
+            vertex_cap = prefs.retarget__max_vertices_low
         mask = [v.select for v in src_obj.data.vertices] if self.only_selection else None
         num_masked = sum(mask) if mask else num_vertices
         stride = ceil(num_masked / vertex_cap)
@@ -260,7 +260,7 @@ def retarget_dst_items(self, context):
     return items
 
 def register(settings, prefs):
-    if not prefs.rig__enable_retarget_armature:
+    if not prefs.retarget__enable:
         return False
 
     bpy.utils.register_class(GRET_OT_retarget_armature)

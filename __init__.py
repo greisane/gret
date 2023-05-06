@@ -186,12 +186,6 @@ NEEDS UPDATING TO 3.0""",
         default=True,
         update=registered_updated,
     )
-    mesh__enable_retarget_mesh: bpy.props.BoolProperty(
-        name="Enable \"Retarget Mesh\"",
-        description="Retarget meshes to fit a modified version of the source mesh",
-        default=True,
-        update=registered_updated,
-    )
     mesh__sculpt_selection: bpy.props.BoolProperty(
         name="Enable \"Sculpt Selection\"",
         description="Set the sculpt mask from the current edit-mode vertex selection",
@@ -246,20 +240,26 @@ NEEDS UPDATING TO 3.0""",
         default=True,
         update=registered_updated,
     )
-    mesh__retarget_num_vertices_low: bpy.props.IntProperty(
-        name="Retarget Vertex Cap (Default)",
+    retarget__enable: bpy.props.BoolProperty(
+        name="Enable",
+        description="Retarget meshes or armatures to fit a modified version of the source mesh",
+        default=True,
+        update=registered_updated,
+    )
+    retarget__max_vertices_low: bpy.props.IntProperty(
+        name="Max Vertices (Default)",
         description="Maximum vertices sampled when retargeting",
         default=2000,
         min=1,
     )
-    mesh__retarget_num_vertices_high: bpy.props.IntProperty(
-        name="Retarget Vertex Cap (High Quality)",
+    retarget__max_vertices_high: bpy.props.IntProperty(
+        name="Max Vertices (High Quality)",
         description="Maximum vertices sampled when retargeting with 'High Quality' enabled",
         default=4000,
         min=1,
     )
-    mesh__retarget_overwrite_shape_key: bpy.props.BoolProperty(
-        name="Retarget Overwrites Shape Keys",
+    retarget__overwrite_shape_key: bpy.props.BoolProperty(
+        name="Overwrite Shape Keys",
         description="When retargeting to a shape key, overwrite it if it already exists",
         default=False,
     )
@@ -275,12 +275,6 @@ NEEDS UPDATING TO 3.0""",
         name="Shape Key Preset Stores Range",
         description="Load shape key min/max from shape key presets",
         default=False,
-    )
-    rig__enable_retarget_armature: bpy.props.BoolProperty(
-        name="Enable \"Retarget Armature\"",
-        description="Retarget an armature or selected bones to fit a modified version of the source mesh",
-        default=True,
-        update=registered_updated,
     )
     rig__enable_properties: bpy.props.BoolProperty(
         name="Enable \"Rig Properties\"",
@@ -370,11 +364,12 @@ UE4 -- "(R={lr:f},G={lg:f},B={lb:f},A={a:f})\"""",
             category_icons = {
                 "Animation": 'CAMERA_DATA',
                 "Jobs": 'SCRIPT',
-                "Texture Bake": 'MATERIAL',
                 "Mesh": 'MESH_DATA',
+                "Retarget": 'MOD_MESHDEFORM',
                 "Rig": 'ARMATURE_DATA',
-                "UV": 'UV',
+                "Texture Bake": 'MATERIAL',
                 "UV Paint": 'BRUSH_DATA',
+                "UV": 'UV',
             }
             self.categories = [(k, category_icons.get(k, 'BLANK1'), sorted(d[k], key=prop_sort_key))
                 for k in sorted(d.keys(), key=category_sort_key)]
