@@ -437,10 +437,16 @@ def register(settings, prefs):
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    bpy.utils.register_tool(GRET_TT_uv_paint, separator=True)
+    try:
+        bpy.utils.register_tool(GRET_TT_uv_paint, separator=True)
+    except Exception as e:
+        print(e)
 
 def unregister():
-    bpy.utils.unregister_tool(GRET_TT_uv_paint)
+    try:
+        bpy.utils.unregister_tool(GRET_TT_uv_paint)
+    except Exception as e:
+        print(e)
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
