@@ -120,9 +120,9 @@ class GRET_OT_shape_key_clear(bpy.types.Operator):
 def draw_shape_key_panel_addon(self, context):
     layout = self.layout
     obj = context.active_object
-    slots = obj.data.shape_key_storage
+    slots = getattr(obj.data, 'shape_key_storage', None)
 
-    if obj.type == 'MESH' and obj.data.shape_keys:
+    if slots is not None and obj.data.shape_keys:
         box = layout.box()
         sub = box.split(factor=0.2)
         sub.label(text="Slots")
@@ -136,15 +136,16 @@ def draw_shape_key_panel_addon(self, context):
         row.operator('gret.shape_key_clear', text="", icon='X')
 
 shape_key_panel_slots_addon = """
-slots = ob.data.shape_key_storage
-subsub = sub.row(align=True)
-subsub.scale_x = 0.6
-for slot_idx in range({num_slots}):
-    has_data = slot_idx < len(slots) and bool(slots[slot_idx].data)
-    text = chr(ord('A') + min(slot_idx, 25))
-    op = subsub.operator('gret.shape_key_store', text=text, depress=has_data)
-    op.index = slot_idx
-sub.separator()
+slots = getattr(ob.data, 'shape_key_storage', None)
+if slots is not None:
+    subsub = sub.row(align=True)
+    subsub.scale_x = 0.6
+    for slot_idx in range({num_slots}):
+        has_data = slot_idx < len(slots) and bool(slots[slot_idx].data)
+        text = chr(ord('A') + min(slot_idx, 25))
+        op = subsub.operator('gret.shape_key_store', text=text, depress=has_data)
+        op.index = slot_idx
+    sub.separator()
 """
 
 class ShapeKeyPanelPatcher(PanelPatcher):
