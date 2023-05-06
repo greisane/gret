@@ -114,16 +114,6 @@ Allows blending poses together, similar to the UE4 [AnimGraph node](https://docs
 
 ![Demo](../readme/poseblender-demo.gif?raw=true)
 
-## Animation: Miscellaneous Tools
-
-**Auto-Group Channels**: Groups animation channels by their bone name. Found in the Channel menu in the Dope Sheet or Graph Editor.
-
-**Delete Unavailable Channels**: Deletes location/rotation/scale animation channels locked in the transform panel. Found in the Channel menu in the Dope Sheet or Graph Editor.
-
-**Toggle Bone Lock**: Simple but useful toggle that causes a pose bone to become anchored in world space. Found in Pose → Constraints.
-
-**Reset Stretch To Constraints**: Reset rest length of "Stretch To" constraints in selected bones, or all bones if none are selected. Found in Pose → Constraints.
-
 Has a performance cost, I'll try to optimize it further at some point.
 
 ## Animation: Actions Panel
@@ -143,6 +133,16 @@ Panel for frequently used rig or bone properties. To add a property, first find 
 Panel for quick bone selection if you don't find graphical bone pickers comfortable. Built-in addon [Bone Selection Sets](https://docs.blender.org/manual/en/latest/addons/animation/bone_selection_sets.html) must be enabled.
 
 ![Panel](../readme/selectionsets-panel.png?raw=True)
+
+## Animation: Miscellaneous Tools
+
+**Auto-Group Channels**: Groups animation channels by their bone name. Found in the Channel menu in the Dope Sheet or Graph Editor.
+
+**Delete Unavailable Channels**: Deletes location/rotation/scale animation channels locked in the transform panel. Found in the Channel menu in the Dope Sheet or Graph Editor.
+
+**Reset Stretch To Constraints**: Reset rest length of "Stretch To" constraints in selected bones, or all bones if none are selected. Found in Pose → Constraints.
+
+**Toggle Bone Lock**: Simple but useful toggle that causes a pose bone to become anchored in world space. Found in Pose → Constraints.
 
 ## Material: Texture Bake
 
