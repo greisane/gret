@@ -258,6 +258,11 @@ NEEDS UPDATING TO 3.0""",
         default=4000,
         min=1,
     )
+    mesh__retarget_overwrite_shape_key: bpy.props.BoolProperty(
+        name="Retarget Overwrites Shape Keys",
+        description="When retargeting to a shape key, overwrite it if it already exists",
+        default=False,
+    )
     mesh__shape_key_store_num_slots: bpy.props.IntProperty(
         name="Shape Key Store Slots",
         description="Number of shape key storage buttons to add if Shape Key Store is enabled",

@@ -3,6 +3,7 @@ import bmesh
 import bpy
 import numpy as np
 
+from . import prefs
 from .math import get_dist
 
 # Based on https://github.com/chadmv/cmt/blob/master/scripts/cmt/rig/meshretarget.py
@@ -142,7 +143,9 @@ def set_mesh_points(obj, new_pts, matrix=None, shape_key_name=None):
         # Result to new shape key
         if not mesh.shape_keys or not mesh.shape_keys.key_blocks:
             obj.shape_key_add(name="Basis")
-        shape_key = obj.shape_key_add(name=shape_key_name)
+        shape_key = obj.data.shape_keys.key_blocks.get(shape_key_name)
+        if not shape_key or not prefs.mesh__retarget_overwrite_shape_key:
+            shape_key = obj.shape_key_add(name=shape_key_name)
         shape_key.data.foreach_set('co', new_pts.ravel())
         shape_key.value = 1.0
     elif mesh.shape_keys and mesh.shape_keys.key_blocks:
@@ -201,4 +204,3 @@ def set_armature_points(obj, new_pts, matrix=None, only_selected=False,
             bone.head[:] = new_head
         if not only_selected or bone.select_tail:
             bone.tail[:] = new_tail
-
