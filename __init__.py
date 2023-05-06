@@ -271,9 +271,9 @@ NEEDS UPDATING TO 3.0""",
         max=10,
         update=registered_updated,
     )
-    mesh__shape_key_presets_only_value: bpy.props.BoolProperty(
-        name="Shape Key Preset Only Value",
-        description="Don't change slider min/max when loading values from shape key presets",
+    mesh__shape_key_presets_load_minmax: bpy.props.BoolProperty(
+        name="Shape Key Preset Stores Range",
+        description="Load shape key min/max from shape key presets",
         default=False,
     )
     rig__enable_retarget_armature: bpy.props.BoolProperty(

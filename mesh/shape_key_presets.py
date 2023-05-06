@@ -13,7 +13,7 @@ def load_shape_key_info(obj, fields):
     sk = obj.data.shape_keys.key_blocks.get(name)
     if not sk:
         return
-    if not prefs.mesh__shape_key_presets_only_value:
+    if prefs.mesh__shape_key_presets_load_minmax:
         sk.slider_min = float(slider_min)
         sk.slider_max = float(slider_max)
     sk.mute = mute == "1"
