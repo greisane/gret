@@ -6,6 +6,7 @@ import sys
 import textwrap
 import traceback
 
+from . import prefs
 from .log import logd
 
 class PanelPatcher(ast.NodeTransformer):
@@ -43,8 +44,11 @@ class PanelPatcher(ast.NodeTransformer):
             self.panel_type.append(_dummy)
             self.panel_type.remove(_dummy)
 
-        saved_draw_func = self.panel_type.draw._draw_funcs[0]
-        new_draw_func = patch_module(saved_draw_func, self, debug=debug)
+        if prefs.use_panel_patcher:
+            saved_draw_func = self.panel_type.draw._draw_funcs[0]
+            new_draw_func = patch_module(saved_draw_func, self, debug=debug)
+        else:
+            saved_draw_func, new_draw_func = None, None
 
         if new_draw_func:
             self.saved_draw_func = saved_draw_func

@@ -344,6 +344,12 @@ UE4 -- "(R={lr:f},G={lg:f},B={lb:f},A={a:f})\"""",
         default=False,
         update=debug_updated,
     )
+    use_panel_patcher: bpy.props.BoolProperty(
+        name="Modify Native Layout",
+        description="Allow modifying panels for better layouts or to replace existing buttons",
+        default=True,
+        update=registered_updated,
+    )
     categories = None
 
     def draw(self, context):
