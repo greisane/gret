@@ -157,7 +157,7 @@ class GRET_OT_collision_make(bpy.types.Operator):
     offset: bpy.props.FloatProperty(
         name="Offset",
         description="Offset the thickness from the center",
-        subtype='DISTANCE',
+        subtype='FACTOR',
         default=-1.0,
         min=-1.0,
         max=1.0,
