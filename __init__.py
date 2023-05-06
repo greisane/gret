@@ -199,7 +199,7 @@ NEEDS UPDATING TO 3.0""",
         update=registered_updated,
     )
     mesh__enable_shape_key_presets: bpy.props.BoolProperty(
-        name="Enable \"Shape Key Presets\"",
+        name="Shape Key Presets",
         description="Adds buttons to load and save shape key values",
         default=True,
         update=registered_updated,
@@ -264,7 +264,7 @@ NEEDS UPDATING TO 3.0""",
         default=False,
     )
     mesh__shape_key_presets_num_slots: bpy.props.IntProperty(
-        name="Shape Key Preset Slots",
+        name="Shape Key Presets Slots",
         description="Number of shape key preset buttons to add if Shape Key Presets are enabled",
         default=5,
         min=1,
@@ -272,7 +272,7 @@ NEEDS UPDATING TO 3.0""",
         update=registered_updated,
     )
     mesh__shape_key_presets_load_minmax: bpy.props.BoolProperty(
-        name="Shape Key Preset Stores Range",
+        name="Shape Key Presets Store Range",
         description="Load shape key min/max from shape key presets",
         default=False,
     )
@@ -359,7 +359,12 @@ UE4 -- "(R={lr:f},G={lg:f},B={lb:f},A={a:f})\"""",
                 cpos = prop_name.find("__")
                 category_name = titlecase(prop_name[:cpos]) if cpos > 0 else unnamed_category_name
                 d[category_name].append(prop_name)
-            prop_sort_key = lambda s: "" if s.endswith("__enable") else s  # Main toggle first
+            def get_prop_title(prop_name):
+                try:
+                    return self.__annotations__[prop_name].keywords['name']
+                except:
+                    return prop_name
+            prop_sort_key = lambda s: "" if s.endswith("__enable") else get_prop_title(s)  # Toggles first
             category_sort_key = lambda s: "ZZ" if s == unnamed_category_name else s  # Unnamed last
             category_icons = {
                 "Animation": 'CAMERA_DATA',
