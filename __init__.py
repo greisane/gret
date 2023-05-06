@@ -271,6 +271,11 @@ NEEDS UPDATING TO 3.0""",
         max=10,
         update=registered_updated,
     )
+    mesh__shape_key_store_only_value: bpy.props.BoolProperty(
+        name="Shape Key Store Only Value",
+        description="Don't change slider min/max when loading values from shape key storage",
+        default=False,
+    )
     rig__enable_retarget_armature: bpy.props.BoolProperty(
         name="Enable \"Retarget Armature\"",
         description="Retarget an armature or selected bones to fit a modified version of the source mesh",

@@ -2,6 +2,7 @@ from io import StringIO
 import bpy
 import csv
 
+from .. import prefs
 from ..patcher import PanelPatcher
 
 def dump_shape_key_info(sk):
@@ -13,13 +14,14 @@ def load_shape_key_info(obj, fields):
     sk = obj.data.shape_keys.key_blocks.get(name)
     if not sk:
         return
+    if not prefs.mesh__shape_key_store_only_value:
+        sk.slider_min = float(slider_min)
+        sk.slider_max = float(slider_max)
+        sk.vertex_group = vertex_group
+        sk.relative_key = obj.data.shape_keys.key_blocks.get(relative_key)
+        sk.interpolation = interpolation
     sk.mute = mute == "1"
-    sk.slider_min = float(slider_min)
-    sk.slider_max = float(slider_max)
     sk.value = float(value)
-    sk.vertex_group = vertex_group
-    sk.relative_key = obj.data.shape_keys.key_blocks.get(relative_key)
-    sk.interpolation = interpolation
 
 class GRET_PG_shape_key_storage(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(
