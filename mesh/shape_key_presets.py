@@ -6,20 +6,16 @@ from .. import prefs
 from ..patcher import PanelPatcher
 
 def dump_shape_key_info(sk):
-    return [sk.name, "1" if sk.mute else "0", sk.value, sk.slider_min, sk.slider_max,
-        sk.vertex_group, sk.relative_key.name, sk.interpolation]
+    return [sk.name, "1" if sk.mute else "0", sk.value, sk.slider_min, sk.slider_max]
 
 def load_shape_key_info(obj, fields):
-    name, mute, value, slider_min, slider_max, vertex_group, relative_key, interpolation = fields
+    name, mute, value, slider_min, slider_max = fields[:5]
     sk = obj.data.shape_keys.key_blocks.get(name)
     if not sk:
         return
     if not prefs.mesh__shape_key_presets_only_value:
         sk.slider_min = float(slider_min)
         sk.slider_max = float(slider_max)
-        sk.vertex_group = vertex_group
-        sk.relative_key = obj.data.shape_keys.key_blocks.get(relative_key)
-        sk.interpolation = interpolation
     sk.mute = mute == "1"
     sk.value = float(value)
 
