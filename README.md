@@ -6,7 +6,7 @@ A collection of Blender tools I've written for myself over the years. I use thes
 
 # Installation
 
-Blender 3.4 or later required.
+Blender 3.5 or later required.
 
 1. Download the [latest release](https://github.com/greisane/gret/releases/latest).
 
@@ -74,7 +74,7 @@ Intended for use with UE4, generates collision shapes for selected geometry. For
 
 ## Mesh: Vertex Color Mapping
 
-Procedurally generates vertex colors from various sources. Sources can be vertex groups, object or vertex position, or a random value. Useful for exporting masks to game engines.
+Procedurally generates vertex colors from various sources. Sources can be vertex groups, vertex position, mesh distance, cavity and more. Useful for exporting masks to game engines.
 
 ![Panel](../readme/vertexcolormapping.png?raw=true)
 
@@ -98,6 +98,8 @@ The much needed ability to apply modifiers on a mesh with shape keys. Mirrors ar
 
 Ctrl-Click a letter button to save current shape key values to that slot, click to restore and apply those values. Note that this doesn't store the shape keys themselves, only their influence. Comes in handy sometimes if you use a lot of shape keys.
 
+Number of buttons and behavior can be configured in preferences.
+
 ![Panel](../readme/shapekeystore.png?raw=true)
 
 ## Mesh: Add Rope
@@ -111,6 +113,16 @@ Generates helicoid meshes like ropes or drill bits. Can also be edited manually 
 Allows blending poses together, similar to the UE4 [AnimGraph node](https://docs.unrealengine.com/en-US/AnimatingObjects/SkeletalMeshAnimation/AnimPose/PoseBlenderNode/index.html). Works on bones, not shape keys.
 
 ![Demo](../readme/poseblender-demo.gif?raw=true)
+
+## Animation: Miscellaneous Tools
+
+**Auto-Group Channels**: Groups animation channels by their bone name. Found in the Channel menu in the Dope Sheet or Graph Editor.
+
+**Delete Unavailable Channels**: Deletes location/rotation/scale animation channels locked in the transform panel. Found in the Channel menu in the Dope Sheet or Graph Editor.
+
+**Toggle Bone Lock**: Simple but useful toggle that causes a pose bone to become anchored in world space. Found in Pose → Constraints.
+
+**Reset Stretch To Constraints**: Reset rest length of "Stretch To" constraints in selected bones, or all bones if none are selected. Found in Pose → Constraints.
 
 Has a performance cost, I'll try to optimize it further at some point.
 
@@ -133,6 +145,8 @@ Panel for quick bone selection if you don't find graphical bone pickers comforta
 ![Panel](../readme/selectionsets-panel.png?raw=True)
 
 ## Material: Texture Bake
+
+*This tool is disabled by default, enable it in the addon configuration.*
 
 One-click bake and export. Intended for quickly baking out curvature and AO masks.
 
@@ -170,9 +184,9 @@ Adds a few buttons that allow reordering UV maps. *Sync UV Maps* works on all se
 
 **Remove Unused Vertex Groups**: Originally an addon by CoDEmanX, this operator respects L/R pairs of vertex groups. Found in Vertex Groups → Specials Menu.
 
-**Auto-Name Bone Chain**: Automatically renames a chain of bones starting at the selected bone. Found in Armature → Names.
+**Create Mirrored Vertex Groups**: Create any missing mirror vertex groups. New vertex groups will be empty. Found in Vertex Groups → Specials Menu.
 
-**Toggle Bone Lock**: Simple but useful toggle that causes a pose bone to become anchored in world space. Found in Pose → Constraints.
+**Auto-Name Bone Chain**: Automatically renames a chain of bones starting at the selected bone. Found in Armature → Names.
 
 **Copy Alone**: Removes references and optional data so that objects can easily be duplicated or moved between files. Still a bit incomplete. Found in the Object menu in the 3D view.
 
