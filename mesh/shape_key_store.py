@@ -46,7 +46,7 @@ class GRET_OT_shape_key_store(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.active_object and context.active_object.type == 'MESH'
+        return context.active_object and hasattr(context.active_object.data, 'shape_key_storage')
 
     def execute(self, context):
         obj = context.active_object
@@ -99,7 +99,7 @@ class GRET_OT_shape_key_clear(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.active_object and context.active_object.type == 'MESH'
+        return context.active_object and hasattr(context.active_object.data, 'shape_key_storage')
 
     def execute(self, context):
         obj = context.active_object
@@ -150,27 +150,27 @@ if slots is not None:
 
 class ShapeKeyPanelPatcher(PanelPatcher):
     fallback_func = staticmethod(draw_shape_key_panel_addon)
-    panel_type = getattr(bpy.types, "DATA_PT_shape_keys", None)
+    panel_type = getattr(bpy.types, 'DATA_PT_shape_keys', None)
     num_slots = 5
 
     def visit_Call(self, node):
         super().generic_visit(node)
         # Modify `split = layout.split(factor=0.4)`
-        if node.func.attr == "split":
+        if node.func.attr == 'split':
             for kw in node.keywords:
-                if kw.arg == "factor":
+                if kw.arg == 'factor':
                     kw.value.value = 0.25
         # Modify `sub.operator('object.shape_key_clear', icon='X', text='')`
-        if node.func.attr == "operator":
+        if node.func.attr == 'operator':
             for arg in node.args:
-                if arg.value == "object.shape_key_clear":
-                    arg.value = "gret.shape_key_clear"
+                if arg.value == 'object.shape_key_clear':
+                    arg.value = 'gret.shape_key_clear'
         return node
 
     def visit_Expr(self, node):
         super().generic_visit(node)
         # Add slot selector after `sub.label()`
-        if node.value.func.attr == "label":
+        if node.value.func.attr == 'label':
             import ast
             tree_addon = ast.parse(shape_key_panel_slots_addon.format(num_slots=self.num_slots))
             return [node, *tree_addon.body]
@@ -194,12 +194,16 @@ def register(settings, prefs):
     bpy.types.Mesh.shape_key_storage = bpy.props.CollectionProperty(
         type=GRET_PG_shape_key_storage,
     )
+    bpy.types.Lattice.shape_key_storage = bpy.props.CollectionProperty(
+        type=GRET_PG_shape_key_storage,
+    )
     panel_patcher.num_slots = prefs.mesh__shape_key_store_num_slots
     panel_patcher.patch(debug=False)
 
 def unregister():
     panel_patcher.unpatch()
     del bpy.types.Mesh.shape_key_storage
+    del bpy.types.Lattice.shape_key_storage
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
