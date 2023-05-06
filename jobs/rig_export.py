@@ -273,10 +273,7 @@ def _rig_export(self, context, job, rig):
 
     # Process groups. Meshes in each group are merged together
     for filepath, group_items in sorted(groups.items()):
-        if filepath:
-            log(f"Processing {bpy.path.basename(filepath)}")
-        else:
-            log(f"Processing unnamed group")
+        log(f"Processing {bpy.path.basename(filepath) if filepath else 'unnamed group'}")
         logger.indent += 1
 
         items = group_items[:]
@@ -290,8 +287,8 @@ def _rig_export(self, context, job, rig):
             if item.subd_level > 0:
                 ctx = get_context(item.obj)
                 # Meshes can deform unpredictably if weights weren't normalized before subdivision
-                bpy.ops.object.vertex_group_normalize_all(ctx,
-                    group_select_mode='BONE_DEFORM', lock_active=False)
+                # bpy.ops.object.vertex_group_normalize_all(ctx,
+                    # group_select_mode='BONE_DEFORM', lock_active=False)
                 with TempModifier(item.obj, type='SUBSURF') as subd_mod:
                     subd_mod.levels = item.subd_level
                     subd_mod.use_creases = True
