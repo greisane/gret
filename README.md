@@ -56,7 +56,7 @@ Boolean merges one or more objects, with options to tweak the resulting normals.
 
 ## Mesh: Retarget
 
-Uses [radial basis functions](https://www.marcuskrautwurst.com/2017/12/rbf-node.html) to retarget meshes or armatures. It can transfer shape keys from characters to clothes, refit clothing or make a character's skeleton follow modified body proportions.
+Uses [radial basis functions](https://www.marcuskrautwurst.com/2017/12/rbf-node.html) to retarget meshes or armatures. It can be used to transfer body shape keys to clothing, to recycle outfits between characters or to apply changes in body proportions to the skeleton's rest pose.
 
 Source and destination meshes can look completely different but *must* share topology and vertex order. Shape keys as destination will always work correctly. Best results with T-posed or starfish-posed characters as there is less potential for ambiguity.
 
@@ -124,7 +124,7 @@ A panel for quick access to actions and working with pose libraries. Pose librar
 
 ## Animation: Rig Properties
 
-Panel for frequently used rig or bone properties. To add a property, first find its data path (right click and select *Copy Data Path*) then click the plus sign.
+Customizable panel for frequently used rig or bone properties. To add a property, first find its data path (right click and select *Copy Data Path*) then click the plus sign.
 
 ![Panel](../readme/rigproperties-demo.gif?raw=True)
 

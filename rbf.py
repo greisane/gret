@@ -144,7 +144,7 @@ def set_mesh_points(obj, new_pts, matrix=None, shape_key_name=None):
         if not mesh.shape_keys or not mesh.shape_keys.key_blocks:
             obj.shape_key_add(name="Basis")
         shape_key = obj.data.shape_keys.key_blocks.get(shape_key_name)
-        if not shape_key or not prefs.mesh__retarget_overwrite_shape_key:
+        if not shape_key or not prefs.retarget__overwrite_shape_key:
             shape_key = obj.shape_key_add(name=shape_key_name)
         shape_key.data.foreach_set('co', new_pts.ravel())
         shape_key.value = 1.0
