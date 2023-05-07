@@ -447,7 +447,7 @@ def get_topmost_parent(obj):
         obj = obj.parent
     return obj
 
-l_to_r = {'l': 'r', 'L': 'R', 'r': 'l', 'R': 'L',
+lr = {'l': 'r', 'L': 'R', 'r': 'l', 'R': 'L',
     'left': 'right', 'Left': 'Right', 'right': 'left', 'Right': 'Left'}
 
 def flip_name(s):
@@ -456,24 +456,24 @@ def flip_name(s):
     # Prefix with no delimiter, case sensitive (lBone -> rBone)
     m = re.match(r"^([lr]|[lL]eft|[rR]ight)[A-Z]", s)
     if m:
-        return l_to_r[m[1]] + s[len(m[1]):]
+        return lr[m[1]] + s[len(m[1]):]
     # Prefix with delimiter
-    if re.match(r"^[LlRr][_.]\w", s):
-        return l_to_r[s[0]] + s[1:]
+    if re.match(r"^[LlRr][_.].", s):
+        return lr[s[0]] + s[1:]
     # Suffix with delimiter
-    if re.match(r"\w+[_.][LlRr]$", s):
-        return s[:-1] + l_to_r[s[-1]]
+    if re.match(r".+[_.][LlRr]$", s):
+        return s[:-1] + lr[s[-1]]
     return None
 
 def flip_names(s):
     """Flips all names with side affixes found in the string."""
 
     # Prefix with no delimiter, case sensitive (lBone -> rBone)
-    s = re.sub(r"\b([lr]|[lL]eft|[rR]ight)[A-Z]", lambda m: l_to_r[m[1]] + m[0][len(m[1]):], s)
+    s = re.sub(r"\b([lr]|[lL]eft|[rR]ight)[A-Z]", lambda m: lr[m[1]] + m[0][len(m[1]):], s)
     # Prefix with delimiter
-    s = re.sub(r"\b[LlRr][_.]\w", lambda m: l_to_r[m[0][0]] + m[0][1:], s)
+    s = re.sub(r"\b[LlRr][_.].", lambda m: lr[m[0][0]] + m[0][1:], s)
     # Suffix with delimiter
-    s = re.sub(r"\w[_.][LlRr]\b", lambda m: m[0][:-1] + l_to_r[m[0][-1]], s)
+    s = re.sub(r".[_.][LlRr]\b", lambda m: m[0][:-1] + lr[m[0][-1]], s)
     return s
 
 def swap_object_names(obj1, obj2):
