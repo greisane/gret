@@ -1,15 +1,6 @@
 import bpy
 
-flip_suffix = {
-    '.l': '.r',
-    '.r': '.l',
-    '.L': '.R',
-    '.R': '.L',
-    '_l': '_r',
-    '_r': '_l',
-    '_L': '_R',
-    '_R': '_L',
-}
+from ..helpers import flip_name
 
 class GRET_OT_vertex_group_remove_unused(bpy.types.Operator):
     """Delete vertex groups with no assigned weights"""
@@ -28,24 +19,26 @@ class GRET_OT_vertex_group_remove_unused(bpy.types.Operator):
         obj.update_from_editmode()
         vgroups = obj.vertex_groups
 
-        vgroup_used = {i: vg.lock_weight for i, vg in enumerate(vgroups)}
+        vg_idx_used = {vg_idx: vg.lock_weight for vg_idx, vg in enumerate(vgroups)}
+
         for vert in obj.data.vertices:
             for vg in vert.groups:
                 if vg.weight > 0.0:
-                    vgroup_used[vg.group] = True
+                    vg_idx_used[vg.group] = True
 
         if any(mod.type == 'MIRROR' and mod.use_mirror_vertex_groups for mod in obj.modifiers):
-            # Don't remove empty groups that the mirror modifier needs
-            for vg_idx, used in vgroup_used.items():
-                suffix = vgroups[vg_idx].name[-2:]
-                if used and suffix in flip_suffix:
-                    j = vgroups.find(vgroups[vg_idx].name[:-2] + flip_suffix[suffix])
-                    if j >= 0:
-                        vgroup_used[j] = True
+            # Mark mirror vertex groups as used
+            for vg_idx, used in vg_idx_used.items():
+                if used:
+                    flipped_name = flip_name(vgroups[vg_idx].name, suffix_only=True)
+                    if flipped_name:
+                        other_vg_idx = vgroups.find(flipped_name)
+                        if other_vg_idx >= 0:
+                            vg_idx_used[other_vg_idx] = True
 
-        for vg_idx, used in sorted(vgroup_used.items(), reverse=True):
-            if not used:
-                vgroups.remove(vgroups[vg_idx])
+        # Delete in reverse to not upset the indices
+        for vg_idx in sorted((vg_idx for vg_idx, used in vg_idx_used.items() if not used), reverse=True):
+            vgroups.remove(vgroups[vg_idx])
 
         return {'FINISHED'}
 

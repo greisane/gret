@@ -1,15 +1,6 @@
 import bpy
 
-flip_suffix = {
-    '.l': '.r',
-    '.r': '.l',
-    '.L': '.R',
-    '.R': '.L',
-    '_l': '_r',
-    '_r': '_l',
-    '_L': '_R',
-    '_R': '_L',
-}
+from ..helpers import flip_name
 
 class GRET_OT_vertex_group_create_mirrored(bpy.types.Operator):
     """Create any missing mirror vertex groups. New vertex groups will be empty"""
@@ -27,11 +18,9 @@ class GRET_OT_vertex_group_create_mirrored(bpy.types.Operator):
         obj.update_from_editmode()
 
         for name in [vg.name for vg in obj.vertex_groups]:
-            suffix = name[-2:]
-            if suffix in flip_suffix:
-                name = name.removesuffix(suffix) + flip_suffix[suffix]
-                if name not in obj.vertex_groups:
-                    obj.vertex_groups.new(name=name)
+            flipped_name = flip_name(name, suffix_only=True)
+            if flipped_name and flipped_name not in obj.vertex_groups:
+                obj.vertex_groups.new(name=flipped_name)
 
         return {'FINISHED'}
 

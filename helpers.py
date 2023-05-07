@@ -450,16 +450,17 @@ def get_topmost_parent(obj):
 lr = {'l': 'r', 'L': 'R', 'r': 'l', 'R': 'L',
     'left': 'right', 'Left': 'Right', 'right': 'left', 'Right': 'Left'}
 
-def flip_name(s):
+def flip_name(s, suffix_only=False):
     """Returns the given name with flipped side affixes, or None if not applicable."""
 
-    # Prefix with no delimiter, case sensitive (lBone -> rBone)
-    m = re.match(r"^([lr]|[lL]eft|[rR]ight)[A-Z]", s)
-    if m:
-        return lr[m[1]] + s[len(m[1]):]
-    # Prefix with delimiter
-    if re.match(r"^[LlRr][_.].", s):
-        return lr[s[0]] + s[1:]
+    if not suffix_only:
+        # Prefix with no delimiter, case sensitive (lBone -> rBone)
+        m = re.match(r"^([lr]|[lL]eft|[rR]ight)[A-Z]", s)
+        if m:
+            return lr[m[1]] + s[len(m[1]):]
+        # Prefix with delimiter
+        if re.match(r"^[LlRr][_.].", s):
+            return lr[s[0]] + s[1:]
     # Suffix with delimiter
     if re.match(r".+[_.][LlRr]$", s):
         return s[:-1] + lr[s[-1]]
