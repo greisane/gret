@@ -36,14 +36,17 @@ class GRET_OT_channels_delete_unavailable(bpy.types.Operator):
             return {'CANCELLED'}
 
         remove_fcurves = []
+        delete_invalid = False
         num_invalid = num_locked = 0
 
         for fc in action.fcurves:
-            prop = obj.path_resolve(fc.data_path, False)
-            if not prop:
-                print(f"Removing curve, can't resolve {fc.data_path}")
-                remove_fcurves.append(fc)
-                num_invalid += 1
+            try:
+                prop = obj.path_resolve(fc.data_path, False)
+            except ValueError:
+                if delete_invalid:
+                    print(f"Removing curve, can't resolve {fc.data_path}")
+                    remove_fcurves.append(fc)
+                    num_invalid += 1
                 continue
 
             pb_match = re.match(r'^pose\.bones\[\"([^\"]+)"\]\.(\w+)$', fc.data_path)
