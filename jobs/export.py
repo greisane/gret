@@ -550,7 +550,10 @@ class GRET_PT_export_jobs(bpy.types.Panel):
 def on_collection_updated(self, context):
     jobs = context.scene.gret.export_jobs
     job = jobs[self.job_index]
-    index = job.collections.values().index(self)
+    try:
+        index = job.collections.values().index(self)
+    except ValueError:
+        return
 
     is_empty = not self.collection
     if is_empty and index < len(job.collections) - 1:
@@ -608,7 +611,10 @@ Performed after merging so that welded seams are smoothed correctly""",
 def on_action_updated(self, context):
     jobs = context.scene.gret.export_jobs
     job = jobs[self.job_index]
-    index = job.actions.values().index(self)
+    try:
+        index = job.actions.values().index(self)
+    except ValueError:
+        return
 
     is_empty = not self.action and not self.use_pattern
     if is_empty and index < len(job.actions) - 1:
@@ -637,7 +643,10 @@ class GRET_PG_export_action(bpy.types.PropertyGroup):
 def on_copy_property_updated(self, context):
     jobs = context.scene.gret.export_jobs
     job = jobs[self.job_index]
-    index = job.copy_properties.values().index(self)
+    try:
+        index = job.copy_properties.values().index(self)
+    except ValueError:
+        return
 
     is_empty = not self.source and not self.destination
     if is_empty and index < len(job.copy_properties) - 1:
@@ -668,7 +677,10 @@ e.g.: ["eye_target"]""",
 def on_remap_material_updated(self, context):
     jobs = context.scene.gret.export_jobs
     job = jobs[self.job_index]
-    index = job.remap_materials.values().index(self)
+    try:
+        index = job.remap_materials.values().index(self)
+    except ValueError:
+        return
 
     is_empty = not self.source and not self.destination
     if is_empty and index < len(job.remap_materials) - 1:
