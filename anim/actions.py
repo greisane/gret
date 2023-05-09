@@ -4,12 +4,12 @@ import os
 
 from .. import prefs
 from ..log import log, logd
-from ..rig.helpers import clear_pose, try_key
+from ..rig.helpers import clear_pose
 
 class GRET_OT_action_set(bpy.types.Operator):
     """Edit this action. Ctrl-click to rename"""
 
-    bl_idname = "gret.action_set"
+    bl_idname = 'gret.action_set'
     bl_label = "Set Action"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -19,10 +19,10 @@ class GRET_OT_action_set(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.animation_data
+        return context.active_object and context.active_object.animation_data
 
     def execute(self, context):
-        obj = context.object
+        obj = context.active_object
         if not self.name:
             obj.animation_data.action = None
             return {'FINISHED'}
@@ -64,7 +64,7 @@ class GRET_OT_action_set(bpy.types.Operator):
 class GRET_OT_action_add(bpy.types.Operator):
     """Add a new action"""
 
-    bl_idname = "gret.action_add"
+    bl_idname = 'gret.action_add'
     bl_label = "Add Action"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -72,10 +72,10 @@ class GRET_OT_action_add(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object is not None
+        return context.active_object is not None
 
     def execute(self, context):
-        obj = context.object
+        obj = context.active_object
 
         if not obj.animation_data:
             obj.animation_data_create()
@@ -89,7 +89,7 @@ class GRET_OT_action_add(bpy.types.Operator):
 class GRET_OT_action_remove(bpy.types.Operator):
     """Delete the action"""
 
-    bl_idname = "gret.action_remove"
+    bl_idname = 'gret.action_remove'
     bl_label = "Remove Action"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -97,10 +97,10 @@ class GRET_OT_action_remove(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.animation_data
+        return context.active_object and context.active_object.animation_data
 
     def execute(self, context):
-        obj = context.object
+        obj = context.active_object
         action = bpy.data.actions.get(self.name, None)
         if not action:
             return {'CANCELLED'}
@@ -112,7 +112,7 @@ class GRET_OT_action_remove(bpy.types.Operator):
 class GRET_OT_action_duplicate(bpy.types.Operator):
     """Duplicate this action"""
 
-    bl_idname = "gret.action_duplicate"
+    bl_idname = 'gret.action_duplicate'
     bl_label = "Duplicate Action"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -120,10 +120,10 @@ class GRET_OT_action_duplicate(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object is not None
+        return context.active_object is not None
 
     def execute(self, context):
-        obj = context.object
+        obj = context.active_object
         action = bpy.data.actions.get(self.name, None)
         if not action:
             return {'CANCELLED'}
@@ -136,7 +136,7 @@ class GRET_OT_action_duplicate(bpy.types.Operator):
 class GRET_OT_pose_set(bpy.types.Operator):
     """Go to the frame for this pose. Ctrl-click to rename"""
 
-    bl_idname = "gret.pose_set"
+    bl_idname = 'gret.pose_set'
     bl_label = "Set Pose"
     bl_options = {'INTERNAL', 'UNDO'}
 
@@ -145,11 +145,11 @@ class GRET_OT_pose_set(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        obj = context.object
+        obj = context.active_object
         return obj and obj.animation_data and obj.animation_data.action
 
     def execute(self, context):
-        obj = context.object
+        obj = context.active_object
         if not self.name:
             return {'CANCELLED'}
 
@@ -179,17 +179,17 @@ class GRET_OT_pose_set(bpy.types.Operator):
 class GRET_OT_pose_make(bpy.types.Operator):
     """Creates a pose marker for every frame in the action"""
 
-    bl_idname = "gret.pose_make"
+    bl_idname = 'gret.pose_make'
     bl_label = "Make Poses"
     bl_options = {'INTERNAL', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
-        obj = context.object
+        obj = context.active_object
         return obj and obj.animation_data and obj.animation_data.action
 
     def execute(self, context):
-        obj = context.object
+        obj = context.active_object
 
         action = obj.animation_data.action
         unused_markers = action.pose_markers[:]
@@ -218,7 +218,7 @@ def get_actions_for_rig(rig):
         yield action
 
 def draw_panel(self, context):
-    obj = context.object
+    obj = context.active_object
     layout = self.layout
     settings = context.scene.gret
 
@@ -226,7 +226,7 @@ def draw_panel(self, context):
         box = layout.box()
         row = box.row(align=True)
         row.label(text="Available Actions", icon='ACTION')
-        row.operator("gret.action_add", icon='ADD', text="")
+        row.operator('gret.action_add', icon='ADD', text="")
 
         rig_actions = list(get_actions_for_rig(obj))
         active_action = obj.animation_data.action if obj.animation_data else None
@@ -239,30 +239,30 @@ def draw_panel(self, context):
                 sub = row.column(align=True)
                 sub.ui_units_x = 1.0
                 if selected and context.screen.is_animation_playing:
-                    op = sub.operator("screen.animation_cancel", icon='PAUSE', text="", emboss=False)
+                    op = sub.operator('screen.animation_cancel', icon='PAUSE', text="", emboss=False)
                     op.restore_frame = False
                 else:
                     icon = 'PLAY' if selected else 'TRIA_RIGHT'
-                    op = sub.operator("gret.action_set", icon=icon, text="", emboss=False)
+                    op = sub.operator('gret.action_set', icon=icon, text="", emboss=False)
                     op.name = action.name
                     op.play = True
 
-                op = row.operator("gret.action_set", text=action.name)
+                op = row.operator('gret.action_set', text=action.name)
                 op.name = action.name
                 op.play = False
-                row.operator("gret.action_duplicate", icon='DUPLICATE', text="").name = action.name
-                row.operator("gret.action_remove", icon='X', text="").name = action.name
+                row.operator('gret.action_duplicate', icon='DUPLICATE', text="").name = action.name
+                row.operator('gret.action_remove', icon='X', text="").name = action.name
 
                 if prefs.animation__show_action_frame_range and selected:
                     row = col.row(align=True)
                     sub = row.column(align=True)
                     sub.ui_units_x = 0.95  # Eyeballed to make it line up, beats split() madness
                     sub.separator()  # Whitespace
-                    row.prop(active_action, "use_frame_range", text="Range")
+                    row.prop(active_action, 'use_frame_range', text="Range")
                     sub = row.row(align=True)
-                    sub.prop(active_action, "frame_start", text="")
-                    sub.prop(active_action, "frame_end", text="")
-                    sub.prop(active_action, "use_cyclic", icon='CON_FOLLOWPATH', text="")
+                    sub.prop(active_action, 'frame_start', text="")
+                    sub.prop(active_action, 'frame_end', text="")
+                    sub.prop(active_action, 'use_cyclic', icon='CON_FOLLOWPATH', text="")
                     sub.enabled = active_action.use_frame_range
                     col.separator()
 
@@ -270,8 +270,8 @@ def draw_panel(self, context):
             box = layout.box()
             row = box.row(align=True)
             row.label(text="Pose Markers", icon='BOOKMARKS')
-            row.prop(settings, "poses_sorted", icon='SORTALPHA', text="")
-            row.operator("gret.pose_make", icon='ADD', text="")
+            row.prop(settings, 'poses_sorted', icon='SORTALPHA', text="")
+            row.operator('gret.pose_make', icon='ADD', text="")
 
             if active_action.pose_markers:
                 col = box.column(align=True)
@@ -283,7 +283,7 @@ def draw_panel(self, context):
                     selected = marker.frame == context.scene.frame_current
                     row = col.row(align=True)
                     row.label(text="", icon='PMARKER_ACT' if selected else 'PMARKER_SEL')
-                    op = row.operator("gret.pose_set", text=marker.name)
+                    op = row.operator('gret.pose_set', text=marker.name)
                     op.name = marker.name
 
 classes = (
@@ -300,8 +300,9 @@ def sync_frame_range():
         return
 
     context = bpy.context
-    if context.object and context.object.animation_data and context.object.animation_data.action:
-        action = context.object.animation_data.action
+    obj = context.active_object
+    if obj and obj.animation_data and obj.animation_data.action:
+        action = obj.animation_data.action
         if action.use_frame_range:
             context.scene.frame_preview_start = int(action.frame_start)
             context.scene.frame_preview_end = int(action.frame_end)
@@ -313,9 +314,9 @@ def sync_frame_range():
 owner = object()
 def subscribe_all():
     subscribe = partial(bpy.msgbus.subscribe_rna, owner=owner, args=())
-    subscribe(key=(bpy.types.Action, "use_frame_range"), notify=sync_frame_range)
-    subscribe(key=(bpy.types.Action, "frame_start"), notify=sync_frame_range)
-    subscribe(key=(bpy.types.Action, "frame_end"), notify=sync_frame_range)
+    subscribe(key=(bpy.types.Action, 'use_frame_range'), notify=sync_frame_range)
+    subscribe(key=(bpy.types.Action, 'frame_start'), notify=sync_frame_range)
+    subscribe(key=(bpy.types.Action, 'frame_end'), notify=sync_frame_range)
 
 def unsubscribe_all():
     bpy.msgbus.clear_by_owner(owner)
@@ -332,7 +333,7 @@ def register(settings, prefs):
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    settings.add_property("poses_sorted", bpy.props.BoolProperty(
+    settings.add_property('poses_sorted', bpy.props.BoolProperty(
         name="Sort Poses",
         description="Displays pose markers sorted alphabetically",
         default=False,
