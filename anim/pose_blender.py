@@ -1,567 +1,16 @@
 from bpy.app.handlers import persistent
-from collections import defaultdict, namedtuple
+from collections import namedtuple
 from itertools import chain
-from mathutils import Vector, Euler, Quaternion
+from mathutils import Euler
 from numbers import Number
 import bpy
 import json
 import re
 
 from ..helpers import flip_name
-from ..math import lerp
+from ..math import saturate, Transform
 
-ZERO_ANIMWEIGHT_THRESH = 0.00001
-DELTA = 0.00001
-zero_vector = Vector((0.0, 0.0, 0.0))
-one_vector = Vector((1.0, 1.0, 1.0))
-pose_blenders = {}
-
-class Transform:
-    __slots__ = ('location', 'rotation', 'scale')
-
-    def __init__(self, location=None, rotation=None, scale=None):
-        self.location = location or Vector()
-        self.rotation = rotation or Quaternion()
-        self.scale = scale or Vector((1.0, 1.0, 1.0))
-
-    def copy(self):
-        return Transform(
-            self.location.copy(),
-            self.rotation.copy(),
-            self.scale.copy())
-
-    def equals(self, other, tolerance=0.00001):
-        return (abs(self.location.x - other.location.x) <= tolerance
-            and abs(self.location.y - other.location.y) <= tolerance
-            and abs(self.location.z - other.location.z) <= tolerance
-            and abs(self.rotation.w - other.rotation.w) <= tolerance
-            and abs(self.rotation.x - other.rotation.x) <= tolerance
-            and abs(self.rotation.y - other.rotation.y) <= tolerance
-            and abs(self.rotation.z - other.rotation.z) <= tolerance
-            and abs(self.scale.x - other.scale.x) <= tolerance
-            and abs(self.scale.y - other.scale.y) <= tolerance
-            and abs(self.scale.z - other.scale.z) <= tolerance)
-
-    def accumulate_with_shortest_rotation(self, delta_atom, blend_weight=1.0):
-        """Accumulates another transform with this one, with an optional blending weight.
-Rotation is accumulated additively, in the shortest direction."""
-
-        atom = delta_atom * blend_weight
-
-        # To ensure the shortest route, make sure the dot product between the rotations is positive
-        if self.rotation.dot(atom.rotation) < 0.0:
-            self.rotation -= atom.rotation
-        else:
-            self.rotation += atom.rotation
-
-        self.location += atom.location
-        self.scale += atom.scale
-
-        # Return self for convenience
-        return self
-
-    @staticmethod
-    def blend_from_identity_and_accumulate(final_atom, source_atom, blend_weight=1.0):
-        """Blends the identity transform with a weighted source transform \
-and accumulates that into a destination transform."""
-
-        delta_location = source_atom.location
-        delta_rotation = source_atom.rotation
-        delta_scale = source_atom.scale
-
-        # Scale delta by weight
-        if blend_weight < 1.0 - ZERO_ANIMWEIGHT_THRESH:
-            delta_location = source_atom.location * blend_weight
-            delta_scale = zero_vector.lerp(source_atom.scale, blend_weight)
-            delta_rotation = source_atom.rotation * blend_weight
-            delta_rotation.w = lerp(1.0, source_atom.rotation.w, blend_weight)
-
-        # Add ref pose relative animation to base animation, only if rotation is significant
-        if delta_rotation.w * delta_rotation.w < 1.0 - DELTA * DELTA:
-            # final_atom.rotation = delta_rotation * final_atom.rotation
-            final_atom.rotation.rotate(delta_rotation)
-
-        final_atom.location += delta_location
-        final_atom.scale.x *= 1.0 + delta_scale.x
-        final_atom.scale.y *= 1.0 + delta_scale.y
-        final_atom.scale.z *= 1.0 + delta_scale.z
-
-    def get_safe_scale_reciprocal(self, tolerance=0.00001):
-        return Vector((
-            0.0 if abs(self.scale.x) <= tolerance else 1.0 / self.scale.x,
-            0.0 if abs(self.scale.y) <= tolerance else 1.0 / self.scale.y,
-            0.0 if abs(self.scale.z) <= tolerance else 1.0 / self.scale.z))
-
-    def make_additive(self, base_transform):
-        self.location -= base_transform.location
-        self.rotation.rotate(base_transform.rotation.inverted())
-        self.rotation.normalize()
-        base_scale = base_transform.get_safe_scale_reciprocal()
-        self.scale.x = self.scale.x * base_scale.x - 1.0
-        self.scale.y = self.scale.y * base_scale.y - 1.0
-        self.scale.z = self.scale.z * base_scale.z - 1.0
-
-    def __eq__(self, other):
-        if isinstance(other, Transform):
-            return (self.location == other.location
-                and self.rotation == other.rotation
-                and self.scale == other.scale)
-        else:
-            return NotImplemented
-
-    def __ne__(self, other):
-        if isinstance(other, Transform):
-            return (self.location != other.location
-                or self.rotation != other.rotation
-                or self.scale != other.scale)
-        else:
-            return NotImplemented
-
-    def __add__(self, other):
-        if isinstance(other, Transform):
-            return self.copy().accumulate_with_shortest_rotation(other)
-        else:
-            return NotImplemented
-
-    def __sub__(self, other):
-        if isinstance(other, Transform):
-            return self.copy().accumulate_with_shortest_rotation(-other)
-        else:
-            return NotImplemented
-
-    def __mul__(self, other):
-        if isinstance(other, Number):
-            return Transform(
-                self.location * other,
-                self.rotation * other,
-                self.scale * other)
-        else:
-            return NotImplemented
-
-    def __iadd__(self, other):
-        if isinstance(other, Transform):
-            return self.accumulate_with_shortest_rotation(other)
-        else:
-            return NotImplemented
-
-    def __isub__(self, other):
-        if isinstance(other, Transform):
-            return self.accumulate_with_shortest_rotation(-other)
-        else:
-            return NotImplemented
-
-    def __imul__(self, other):
-        if isinstance(other, Number):
-            self.location *= other
-            self.rotation *= other
-            self.scale *= other
-        else:
-            return NotImplemented
-
-    def __neg__(self):
-        return Transform(
-            -self.location
-            -self.rotation
-            -self.scale)
-
-    def __pos__(self):
-        return Transform(
-            +self.location
-            +self.rotation
-            +self.scale)
-
-class Pose(namedtuple('Pose', ('owner', 'name', 'transforms'))):
-    @property
-    def weight(self):
-        return self.owner.armature[self.name]
-
-    @weight.setter
-    def weight(self, value):
-        if not isinstance(value, Number):
-            return
-        value = min(1.0, max(0.0, float(value)))
-        self.owner.armature[self.name] = value
-
-class PoseBlender:
-    """Allows blending between poses similarly to the UE4 AnimGraph node."""
-
-    additive = False
-    depsgraph_update_pre_handler = None
-    frame_change_post_handler = None
-    undo_post_handler = None
-
-    def __init__(self, armature):
-        self.armature = armature
-        self.armature_name = armature.name
-        self.pose_lib = getattr(armature, 'pose_library')
-        self.poses = []
-        self.pose_rows = []
-        self.pose_names = {}  # Pose name to pose map
-        self.additive = True  # Need to expose this
-
-        if self.pose_lib:
-            self.sort_poses()
-            self.cache_poses()
-            self.key_pose_lib()
-            self.ensure_properties_exist()
-
-    def ensure_properties_exist(self):
-        """Adds the custom properties that will drive the poses"""
-
-        if not self.pose_lib or not self.pose_lib.pose_markers:
-            return
-
-        if '_RNA_UI' not in self.armature:
-            self.armature['_RNA_UI'] = {}
-
-        for marker in self.pose_lib.pose_markers:
-            pose_name = marker.name
-            if pose_name not in self.armature:
-                self.armature[pose_name] = 0.0
-            if pose_name not in self.armature['_RNA_UI']:
-                self.armature['_RNA_UI'][pose_name] = {'min': 0.0, 'max': 1.0, 'default': 0.0,
-                    'soft_min': 0.0, 'soft_max': 1.0, 'description': "Pose weight"}
-
-    def key_pose_lib(self):
-        """Keys the pose library for later exporting"""
-
-        if not self.pose_lib or not self.pose_lib.pose_markers:
-            return
-
-        # Temporary datapath->fcurve map for fast searching
-        fcurves_map = {fc.data_path:fc for fc in self.pose_lib.fcurves}
-        start_frame, last_frame = self.pose_lib.curve_frame_range
-
-        # base_pose_name = self.pose_lib.pose_markers[0].name # TODO let user choose
-
-        for marker in self.pose_lib.pose_markers:
-            # if marker.name == base_pose_name:
-            #     continue
-
-            data_path = '["%s"]' % marker.name
-            fcurve = fcurves_map.get(data_path)
-            if fcurve:
-                self.pose_lib.fcurves.remove(fcurve)
-            fcurves_map[data_path] = fcurve = self.pose_lib.fcurves.new(data_path)
-
-            if marker.frame > start_frame:
-                fcurve.keyframe_points.insert(marker.frame - 1, 0.0).interpolation = 'LINEAR'
-            fcurve.keyframe_points.insert(marker.frame, 1.0).interpolation = 'LINEAR'
-            if marker.frame < last_frame:
-                fcurve.keyframe_points.insert(marker.frame + 1, 0.0).interpolation = 'LINEAR'
-
-    def ensure_armature_valid(self):
-        if self.armature and not self.is_armature_valid():
-            # Armature reference breaks after undo, try finding it by name
-            # This may be incorrect if it was renamed, however not handling undo is more inconvenient
-            self.armature = bpy.context.scene.objects.get(self.armature_name)
-            if not self.armature:
-                # Couldn't recover, clean up invalid pose blender
-                self.armature = None
-                self.unhook()
-                del pose_blenders[self.armature_name]
-        return self.armature is not None
-
-    def is_armature_valid(self):
-        try:
-            self.armature.pose_library
-        except (ReferenceError, KeyError):
-            return False
-        return True
-
-    def sort_poses(self):
-        """Ensures pose frames match the order that is displayed in the Pose Library panel"""
-        fixed_pose_names = []
-        for marker_idx, marker in enumerate(self.pose_lib.pose_markers):
-            if marker.frame != marker_idx:
-                marker.frame = marker_idx
-                fixed_pose_names.append(marker.name)
-        if fixed_pose_names:
-            print(f"Fixed frame index for poses {', '.join(fixed_pose_names)}")
-
-    def cache_poses(self):
-        default_transform = Transform()  # Ref pose used to determine if a transform is significant
-        pose_transforms = []  # List of bonename->transform maps
-
-        for marker in self.pose_lib.pose_markers:
-            transforms = {}
-            curves = {}
-            euler_rotations = {}
-            pose_transforms.append(transforms)
-
-            for fcurve in self.pose_lib.fcurves:
-                match_pb = re.match(r'^pose\.bones\["(.+)"\]\.(\w+)$', fcurve.data_path)
-                if match_pb:
-                    # Handle bone curves
-                    bone_name = match_pb[1]
-                    data_elem = match_pb[2]
-                    data_idx = fcurve.array_index
-                    data_value = fcurve.evaluate(marker.frame)
-
-                    transform = transforms.get(bone_name)
-                    if not transform:
-                        transforms[bone_name] = transform = default_transform.copy()
-
-                    if data_elem == 'location':
-                        transform.location[data_idx] = data_value
-                    elif data_elem == 'rotation_euler':
-                        # Need the whole rotation to convert, so save it for later
-                        euler_rotations[bone_name] = euler_rotations.get(bone_name, Euler())
-                        euler_rotations[bone_name][data_idx] = data_value
-                    elif data_elem == 'rotation_axis_angle':
-                        pass  # Not implemented
-                    elif data_elem == 'rotation_quaternion':
-                        transform.rotation[data_idx] = data_value
-                    elif data_elem == 'scale':
-                        transform.scale[data_idx] = data_value
-                else:
-                    pass
-                    # TODO
-                    # print(fcurve.data_path)
-                    # curves[fcurve.data_path] = fcurve.evaluate(marker.frame)
-
-            # Convert eulers to quaternions
-            for bone_name, euler in euler_rotations.items():
-                transforms[bone_name].rotation = euler.to_quaternion()
-
-            # Remove bones that don't contribute to the pose
-            for bone_name in list(transforms.keys()):
-                if transforms[bone_name].equals(default_transform):
-                    del transforms[bone_name]
-
-        # Collect the names of the bones used in the poses
-        self.relevant_bones = sorted(set(chain.from_iterable(transforms.keys()
-            for transforms in pose_transforms)))
-
-        # Finalize poses, changing dicts to lists for performance. The indices correspond
-        # to relevant_bones, relevant_curves etc. and have None where the pose isn't affected
-        self.poses.clear()
-        for marker, transforms in zip(self.pose_lib.pose_markers, pose_transforms):
-            if marker.name == "bind_pose":
-                continue
-            transforms = [transforms.get(bone_name) for bone_name in self.relevant_bones]
-            pose = Pose(self, marker.name, transforms)
-            self.poses.append(pose)
-
-        # Make additive relative to the chosen base pose
-        self.base_pose = None
-        if self.additive and self.poses:
-            try:
-                self.base_pose = next(pose for pose in self.poses if pose.name == "base_pose")
-            except StopIteration:
-                # TODO allow user to choose
-                self.base_pose = self.poses[0]
-
-            self.poses.remove(self.base_pose)
-
-            for pose in self.poses:
-                for transform, base_transform in zip(pose.transforms, self.base_pose.transforms):
-                    if transform:
-                        transform.make_additive(base_transform or default_transform)
-                # for curve, base_curve in zip(pose.curves, base_pose.curves):
-                #     curve.value -= base_curve.value
-
-        self.pose_names = {pose.name: pose for pose in self.poses}
-
-        # Put poses in pairs where there are symmetric poses
-        self.pose_rows.clear()
-        pose_names = [pose.name for pose in self.poses]
-        pose_names.reverse()
-        while pose_names:
-            pose_name = pose_names.pop()
-            flipped_name = flip_name(pose_name)
-
-            if flipped_name and flipped_name in pose_names:
-                pose_names.remove(flipped_name)
-                # R/L is more intuitive since you usually pose the character in front view
-                self.pose_rows.append((flipped_name, pose_name))
-            else:
-                self.pose_rows.append((pose_name,))
-
-    def get_pose(self, out_pose):
-        # Mirrors UE4 implementation, see Runtime/Engine/Private/Animation/PoseAsset.cpp
-        total_weight = sum(pose.weight for pose in self.poses)
-
-        for bone_idx, bone_name in enumerate(self.relevant_bones):
-            blending = []
-            total_local_weight = 0.0
-
-            for pose in self.poses:
-                transform = pose.transforms[bone_idx]
-                pose_weight = pose.weight
-
-                if transform and pose_weight > 0.0:
-                    if total_weight > 1.0:
-                        pose_weight /= total_weight
-                    blending.append((transform, pose_weight))
-                    total_local_weight += pose_weight
-
-            blend_idx = 0 if total_local_weight < 1.0 else 1
-
-            if not blending:
-                blended = out_pose[bone_idx]
-            elif blend_idx == 0:
-                blended = out_pose[bone_idx] * (1.0 - total_local_weight)
-            else:
-                blended = blending[0][0] * blending[0][1]
-
-            for blend_idx in range(blend_idx, len(blending)):
-                transform, weight = blending[blend_idx]
-                blended.accumulate_with_shortest_rotation(transform, weight)
-            blended.rotation.normalize()
-
-            out_pose[bone_idx] = blended
-
-    def get_pose_additive(self, out_pose):
-        for bone_idx, bone_name in enumerate(self.relevant_bones):
-            blended = out_pose[bone_idx]
-
-            for pose in self.poses:
-                transform = pose.transforms[bone_idx]
-                pose_weight = pose.weight
-
-                if transform and pose_weight > 0.0:
-                    blended.rotation.normalize()
-                    Transform.blend_from_identity_and_accumulate(blended, transform, pose_weight)
-            blended.rotation.normalize()
-
-            out_pose[bone_idx] = blended
-
-    def clear_pose_weights(self):
-        if self.is_armature_valid():
-            for pose in self.poses:
-                self.armature[pose.name] = 0.0
-            self.update_armature()
-
-    def flip_pose_weights(self):
-        if self.is_armature_valid():
-            self.ensure_properties_exist()
-            for pose_row in self.pose_rows:
-                if len(pose_row) == 2:
-                    a, b = pose_row
-                    self.armature[a], self.armature[b] = self.armature[b], self.armature[a]
-            self.update_armature()
-
-    def key_pose_weights(self):
-        if self.is_armature_valid():
-            frame = bpy.context.scene.frame_current
-            self.ensure_properties_exist()
-            for pose in self.poses:
-                self.armature.keyframe_insert(f'["{pose.name}"]', frame=frame, group="pose_blender")
-
-    def update_armature(self):
-        if not self.is_armature_valid():
-            return
-
-        if self.additive:
-            if self.base_pose:
-                current_pose = [transform.copy() if transform else Transform()
-                    for transform in self.base_pose.transforms]
-            else:
-                current_pose = [Transform() for _ in range(len(self.relevant_bones))]
-            self.get_pose_additive(current_pose)
-        else:
-            current_pose = [Transform() for _ in range(len(self.relevant_bones))]
-            self.get_pose(current_pose)
-
-        for bone_name, transform in zip(self.relevant_bones, current_pose):
-            pose_bone = self.armature.pose.bones.get(bone_name)
-            if pose_bone:
-                if pose_bone.rotation_mode == 'QUATERNION':
-                    pose_bone.rotation_quaternion = transform.rotation
-                elif pose_bone.rotation_mode == 'AXIS_ANGLE':
-                    axis, angle = transform.rotation.to_axis_angle()
-                    pose_bone.rotation_axis_angle[0] = angle
-                    pose_bone.rotation_axis_angle[1] = axis[0]
-                    pose_bone.rotation_axis_angle[2] = axis[1]
-                    pose_bone.rotation_axis_angle[3] = axis[2]
-                else:
-                    pose_bone.rotation_euler = transform.rotation.to_euler(pose_bone.rotation_mode)
-                pose_bone.location = transform.location
-                pose_bone.scale = transform.scale
-
-    def on_update(self, *args):
-        if self.ensure_armature_valid():
-            self.update_armature()
-            self.armature_name = self.armature.name
-
-    def on_undo(self, *args):
-        if self.ensure_armature_valid():
-            self.ensure_properties_exist()
-            self.update_armature()
-
-    def hook(self):
-        if not self.depsgraph_update_pre_handler:
-            self.depsgraph_update_pre_handler = self.on_update
-            bpy.app.handlers.depsgraph_update_pre.append(self.depsgraph_update_pre_handler)
-
-        if not self.frame_change_post_handler:
-            self.frame_change_post_handler = self.on_update
-            bpy.app.handlers.frame_change_post.append(self.frame_change_post_handler)
-
-        if not self.undo_post_handler:
-            self.undo_post_handler = self.on_undo
-            bpy.app.handlers.undo_post.append(self.undo_post_handler)
-
-    def unhook(self):
-        if self.depsgraph_update_pre_handler:
-            if self.depsgraph_update_pre_handler in bpy.app.handlers.depsgraph_update_pre:
-                bpy.app.handlers.depsgraph_update_pre.remove(self.depsgraph_update_pre_handler)
-            self.depsgraph_update_pre_handler = None
-
-        if self.frame_change_post_handler:
-            if self.frame_change_post_handler in bpy.app.handlers.frame_change_post:
-                bpy.app.handlers.frame_change_post.remove(self.frame_change_post_handler)
-            self.frame_change_post_handler = None
-
-        if self.undo_post_handler:
-            if self.undo_post_handler in bpy.app.handlers.undo_post:
-                bpy.app.handlers.undo_post.remove(self.undo_post_handler)
-            self.undo_post_handler = None
-
-class GRET_OT_pose_blender_add(bpy.types.Operator):
-    """Adds pose blending to the active object"""
-
-    bl_idname = 'gret.pose_blender_add'
-    bl_label = "Add Pose Blender"
-
-    @classmethod
-    def poll(cls, context):
-        obj = context.object
-        return obj and obj.type == 'ARMATURE' and obj.pose_library and obj.name not in pose_blenders
-
-    def execute(self, context):
-        obj = context.object
-
-        pose_blender = pose_blenders.get(obj.name)
-        if not pose_blender:
-            pose_blenders[obj.name] = pose_blender = PoseBlender(obj)
-            pose_blender.hook()
-        else:
-            pose_blender.cache_poses()
-        pose_blender.update_armature()
-
-        return {'FINISHED'}
-
-class GRET_OT_pose_blender_remove(bpy.types.Operator):
-    """Removes pose blending from the active object"""
-
-    bl_idname = 'gret.pose_blender_remove'
-    bl_label = "Remove Pose Blender"
-
-    @classmethod
-    def poll(cls, context):
-        return context.object and context.object.name in pose_blenders
-
-    def execute(self, context):
-        obj = context.object
-
-        pose_blender = pose_blenders.get(obj.name)
-        if pose_blender:
-            pose_blender.unhook()
-            del pose_blenders[obj.name]
-
-        return {'FINISHED'}
+Pose = namedtuple('Pose', ('name', 'transforms'))
 
 class GRET_OT_pose_blender_clear(bpy.types.Operator):
     """Clear weights for all poses"""
@@ -572,14 +21,17 @@ class GRET_OT_pose_blender_clear(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.name in pose_blenders
+        obj = context.active_object
+        return obj and obj.type == 'ARMATURE' and obj.pose_blender.enabled
 
     def execute(self, context):
-        obj = context.object
+        obj = context.active_object
+        pbl = obj.pose_blender
 
-        pose_blender = pose_blenders.get(obj.name)
-        if pose_blender:
-            pose_blender.clear_pose_weights()
+        for pose in pbl.get_transient_data().poses:
+            if pose.name in obj:
+                obj[pose.name] = 0.0
+        pbl.update_pose(force=True)
 
         return {'FINISHED'}
 
@@ -592,14 +44,18 @@ class GRET_OT_pose_blender_flip(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.name in pose_blenders
+        obj = context.active_object
+        return obj and obj.type == 'ARMATURE' and obj.pose_blender.enabled
 
     def execute(self, context):
-        obj = context.object
+        obj = context.active_object
+        pbl = obj.pose_blender
 
-        pose_blender = pose_blenders.get(obj.name)
-        if pose_blender:
-            pose_blender.flip_pose_weights()
+        for pose_row in pbl.get_transient_data().pose_pairs:
+            if len(pose_row) == 2:
+                (pose_name0, _), (pose_name1, _) = pose_row
+                obj[pose_name0], obj[pose_name1] = obj[pose_name1], obj[pose_name0]
+        pbl.update_pose(force=True)
 
         return {'FINISHED'}
 
@@ -611,17 +67,16 @@ class GRET_OT_pose_blender_copy(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.name in pose_blenders
+        obj = context.active_object
+        return obj and obj.type == 'ARMATURE' and obj.pose_blender.enabled
 
     def execute(self, context):
-        obj = context.object
+        obj = context.active_object
+        pbl = obj.pose_blender
 
-        pose_blender = pose_blenders.get(obj.name)
-        if pose_blender:
-            pose_weights = {pose.name: pose.weight for pose in pose_blender.poses}
-            pose_weights_json = json.dumps(pose_weights)
-            context.window_manager.clipboard = pose_weights_json
-            self.report({'INFO'}, "Copied pose weights to clipboard.")
+        pose_weights = {pose.name: obj.get(pose.name, 0.0) for pose in pbl.get_transient_data().poses}
+        context.window_manager.clipboard = json.dumps(pose_weights)
+        self.report({'INFO'}, "Copied pose weights to clipboard.")
 
         return {'FINISHED'}
 
@@ -634,14 +89,12 @@ class GRET_OT_pose_blender_paste(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.name in pose_blenders
+        obj = context.active_object
+        return obj and obj.type == 'ARMATURE' and obj.pose_blender.enabled
 
     def execute(self, context):
-        obj = context.object
-
-        pose_blender = pose_blenders.get(obj.name)
-        if not pose_blender:
-            return {'CANCELLED'}
+        obj = context.active_object
+        pbl = context.active_object.pose_blender
 
         try:
             pose_weights = json.loads(context.window_manager.clipboard)
@@ -650,13 +103,13 @@ class GRET_OT_pose_blender_paste(bpy.types.Operator):
 
         try:
             for pose_name, weight in pose_weights.items():
-                pose = pose_blender.pose_names.get(pose_name)
-                if pose:
-                    pose.weight = weight
-            pose_blender.update_armature()
+                if pose_name in obj:
+                    obj[pose_name] = weight
+            pbl.update_pose(force=True)
             self.report({'INFO'}, "Pasted pose weights from clipboard.")
         except:
-            pass
+            raise
+
         return {'FINISHED'}
 
 class GRET_OT_pose_blender_key(bpy.types.Operator):
@@ -668,102 +121,397 @@ class GRET_OT_pose_blender_key(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.name in pose_blenders
+        obj = context.active_object
+        return obj and obj.type == 'ARMATURE' and obj.pose_blender.enabled
 
     def execute(self, context):
-        obj = context.object
+        obj = context.active_object
+        pbl = obj.pose_blender
+        frame = context.scene.frame_current
 
-        pose_blender = pose_blenders.get(obj.name)
-        if pose_blender:
-            pose_blender.key_pose_weights()
+        num_failed = 0
+        for pose in pbl.get_transient_data().poses:
+            try:
+                obj.keyframe_insert(f'["{pose.name}"]', frame=frame, group="Poses")
+            except RuntimeError:
+                num_failed += 1
+                pass
+
+        if num_failed:
+            self.report({'WARNING'}, "Some poses could not be keyframed, ensure that they are not "
+                "locked or sampled, and try removing F-Modifiers.")
 
         return {'FINISHED'}
 
-class GRET_OT_pose_blender_sanitize(bpy.types.Operator):
-    """Ensures the pose library only contains bone animation for the currently selected bones.
-This improves performance and unlocks bones to be posed manually"""
+class GRET_OT_pose_blender_fix(bpy.types.Operator):
+    """Edit the poses action"""
 
-    bl_idname = 'gret.pose_blender_sanitize'
-    bl_label = "Sanitize Poses"
-    bl_options = {'UNDO'}
+    bl_idname = 'gret.pose_blender_fix'
+    bl_label = "Edit Poses Action"
+    bl_options = {'INTERNAL', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
-        obj = context.object
-        return (context.mode == 'POSE'
-            and obj
-            and obj.type == 'ARMATURE'
-            and obj.pose_library
-            and not obj.pose_library.library)
+        obj = context.active_object
+        return obj and obj.type == 'ARMATURE' and not obj.pose_blender.enabled
 
     def execute(self, context):
-        obj = context.object
+        obj = context.active_object
+        pbl = obj.pose_blender
 
-        action = obj.pose_library
-        selected_bone_names = set(pb.name for pb in context.selected_pose_bones_from_active_object)
-        num_removed_per_bone = defaultdict(int)
-        num_removed = 0
-        for fcurve in action.fcurves[:]:
-            match = re.match(r'pose\.bones\["([^"]+)"\]', fcurve.data_path)
-            if match:
-                bone_name = match.group(1)
-                if bone_name not in selected_bone_names:
-                    action.fcurves.remove(fcurve)
-                    num_removed += 1
-                    num_removed_per_bone[bone_name] += 1
+        if not obj.animation_data:
+            obj.animation_data_create()
+        obj.animation_data.action = pbl.action
 
-        for bone_name, num in num_removed_per_bone.items():
-            print(f"Removed {num} fcurves for bone '{bone_name}' not in selection")
-
-        if num_removed:
-            self.report({'INFO'}, f"Removed {num_removed} curves, see console for details.")
-        else:
-            self.report({'INFO'}, f"No curves were removed.")
+        bpy.ops.gret.pose_make('INVOKE_DEFAULT')
 
         return {'FINISHED'}
 
+def enabled_updated(self, context):
+    print(self.enabled, self["enabled"])
+
+class PoseBlenderData:
+    def __init__(self):
+        self.poses = []
+        self.poses_by_name = {}
+        self.pose_pairs = []
+        self.base_pose = None
+        self.relevant_bones = []
+        self.depsgraph_update_pre_handler = None
+        self.frame_change_post_handler = None
+        self.undo_post_handler = None
+
+class GRET_PG_pose_blender(bpy.types.PropertyGroup):
+    enabled: bpy.props.BoolProperty(
+        name="Enable",
+        description="""Enable pose blending.
+Requires a valid poses action""",
+        default=False,
+        override={'LIBRARY_OVERRIDABLE'},
+    )
+    action: bpy.props.PointerProperty(
+        name="Poses Action",
+        description="""Action containing one pose per frame.
+Use the Pose Markers panel to create the pose markers""",
+        type=bpy.types.Action,
+        options=set(),
+        override={'LIBRARY_OVERRIDABLE'},
+    )
+    use_additive: bpy.props.BoolProperty(
+        name="Additive",
+        description="Blend poses additively",
+        default=True,
+        options=set(),
+        override={'LIBRARY_OVERRIDABLE'},
+    )
+    base_pose_name: bpy.props.StringProperty(
+        name="Base Pose",
+        description="""Optional, other poses are made relative to this pose.
+A base pose is useful if the rest pose is not neutral (e.g. has an open mouth)""",
+        default="",
+        options=set(),
+        override={'LIBRARY_OVERRIDABLE'},
+    )
+    _transient_data = {}
+
+    def is_valid(self):
+        return bool(self.action
+            and self.action.pose_markers
+            and (not self.use_additive or not self.base_pose_name
+                or self.base_pose_name in self.action.pose_markers)
+            and all(marker.name in self.id_data for marker in self.action.pose_markers))
+
+    @property
+    def transient_data_key(self):
+        return hash(self.id_data)  # Remains to be seen how stable this is
+
+    def get_transient_data(self):
+        data = __class__._transient_data.get(self.transient_data_key)
+        if data is None:
+            __class__._transient_data[self.transient_data_key] = data = PoseBlenderData()
+            print("Pose blender missing transient data, caching")
+            self.cache_transient_data()
+        return data
+
+    def clear_transient_data(self):
+        try:
+            del __class__._transient_data[self.transient_data_key]
+        except KeyError:
+            pass
+
+    def cache_transient_data(self):
+        data = self.get_transient_data()
+        default_transform = Transform()  # Ref pose used to determine if a transform is significant
+        pose_transforms = []  # List of bonename->transform maps
+
+        for marker in self.action.pose_markers:
+            transforms = {}
+            curves = {}
+            euler_rotations = {}
+            pose_transforms.append(transforms)
+
+            for fc in self.action.fcurves:
+                pb_match = re.match(r'^pose\.bones\["(.+)"\]\.(\w+)$', fc.data_path)
+                if pb_match:
+                    # Handle bone curves
+                    bone_name, prop_name = pb_match[1], pb_match[2]
+                    array_index, value = fc.array_index, fc.evaluate(marker.frame)
+
+                    transform = transforms.get(bone_name)
+                    if not transform:
+                        transforms[bone_name] = transform = default_transform.copy()
+
+                    if prop_name == 'location':
+                        transform.location[array_index] = value
+                    elif prop_name == 'rotation_euler':
+                        # Need the whole rotation to convert, so save it for later
+                        euler_rotations[bone_name] = euler_rotations.get(bone_name, Euler())
+                        euler_rotations[bone_name][array_index] = value
+                    elif prop_name == 'rotation_axis_angle':
+                        pass  # Not implemented
+                    elif prop_name == 'rotation_quaternion':
+                        transform.rotation[array_index] = value
+                    elif prop_name == 'scale':
+                        transform.scale[array_index] = value
+                else:
+                    # TODO
+                    # print(fc.data_path)
+                    # curves[fc.data_path] = fc.evaluate(marker.frame)
+                    pass
+
+            # Convert eulers to quaternions
+            for bone_name, euler in euler_rotations.items():
+                transforms[bone_name].rotation = euler.to_quaternion()
+
+            # Remove bones that don't contribute to the pose
+            for bone_name in list(transforms.keys()):
+                if transforms[bone_name].equals(default_transform):
+                    del transforms[bone_name]
+
+        # Collect the names of the bones used in the poses
+        data.relevant_bones = sorted(set(chain.from_iterable(transforms.keys()
+            for transforms in pose_transforms)))
+
+        # Finalize poses, changing dicts to lists for performance. The indices correspond
+        # to relevant_bones, relevant_curves etc. and have None where the pose isn't affected
+        data.poses.clear()
+        data.poses_by_name.clear()
+        for marker, transforms in zip(self.action.pose_markers, pose_transforms):
+            pose = Pose(marker.name, [transforms.get(bone_name) for bone_name in data.relevant_bones])
+            data.poses.append(pose)
+            data.poses_by_name[marker.name] = pose
+
+        # If additive, make other poses relative to the base pose then take it out of the list
+        data.base_pose = None
+        if self.use_additive and self.base_pose_name and self.base_pose_name in data.poses_by_name:
+            data.base_pose = data.poses_by_name[self.base_pose_name]
+            del data.poses_by_name[self.base_pose_name]
+            data.poses.remove(data.base_pose)
+
+            for pose in data.poses:
+                for transform, base_transform in zip(pose.transforms, data.base_pose.transforms):
+                    if transform is not None:
+                        transform.make_additive(base_transform or default_transform)
+                # TODO
+                # for curve, base_curve in zip(pose.curves, base_pose.curves):
+                #     curve.value -= base_curve.value
+
+        # Pair up symmetric poses. This is mostly for layout
+        def get_pose_name_tuple(pose_name):
+            return pose_name, pose_name.removesuffix("_pose")
+
+        data.pose_pairs.clear()
+        pose_names = [pose.name for pose in reversed(data.poses)]
+        while pose_names:
+            pose_name = pose_names.pop()
+            flipped_name = flip_name(pose_name)
+            if flipped_name and flipped_name in pose_names:
+                pose_names.remove(flipped_name)
+                # R/L is more intuitive since you usually pose the character in front view
+                data.pose_pairs.append((get_pose_name_tuple(flipped_name), get_pose_name_tuple(pose_name)))
+            else:
+                data.pose_pairs.append((get_pose_name_tuple(pose_name),))
+
+    def add_custom_properties(self):
+        # Add the custom properties that will drive the poses
+        obj = self.id_data
+        for pose in data.poses:
+            if pose.name not in obj:
+                obj[pose.name] = 0.0
+                obj.property_overridable_library_set(f'["{pose.name}"]', True)
+                obj.id_properties_ui(pose_name).update(default=0.0, description="Pose weight",
+                    min=0.0, max=1.0, soft_min=0.0, soft_max=1.0)
+        # obj.update_tag()
+
+    def get_pose(self, out_pose):
+        # Mirrors UE4 implementation at Runtime/Engine/Private/Animation/PoseAsset.cpp
+        obj = self.id_data
+        data = self.get_transient_data()
+        weight_sum = sum(obj.get(pose.name, 0.0) for pose in data.poses)
+
+        for bone_idx, bone_name in enumerate(data.relevant_bones):
+            blending = []
+            local_weight_sum = 0.0
+
+            for pose in data.poses:
+                transform = pose.transforms[bone_idx]
+                pose_weight = obj.get(pose.name, 0.0)
+
+                if transform and pose_weight > 0.0:
+                    if weight_sum > 1.0:
+                        pose_weight /= weight_sum
+                    blending.append((transform, pose_weight))
+                    local_weight_sum += pose_weight
+
+            blend_idx = 0 if local_weight_sum < 1.0 else 1
+
+            if not blending:
+                blended = out_pose[bone_idx]
+            elif blend_idx == 0:
+                blended = out_pose[bone_idx] * (1.0 - local_weight_sum)
+            else:
+                blended = blending[0][0] * blending[0][1]
+
+            for blend_idx in range(blend_idx, len(blending)):
+                transform, weight = blending[blend_idx]
+                blended.accumulate_with_shortest_rotation(transform, weight)
+            blended.rotation.normalize()
+
+            out_pose[bone_idx] = blended
+
+    def get_pose_additive(self, out_pose):
+        obj = self.id_data
+        data = self.get_transient_data()
+
+        for bone_idx, bone_name in enumerate(data.relevant_bones):
+            blended = out_pose[bone_idx]
+
+            for pose in data.poses:
+                transform = pose.transforms[bone_idx]
+                pose_weight = obj.get(pose.name, 0.0)
+
+                if transform and pose_weight > 0.0:
+                    blended.rotation.normalize()
+                    Transform.blend_from_identity_and_accumulate(blended, transform, pose_weight)
+            blended.rotation.normalize()
+
+            out_pose[bone_idx] = blended
+
+    def update_pose(self, force=False):
+        obj = self.id_data
+        data = self.get_transient_data()
+
+        if self.use_additive:
+            if data.base_pose:
+                current_pose = [transform.copy() if transform else Transform()
+                    for transform in data.base_pose.transforms]
+            else:
+                current_pose = [Transform() for _ in range(len(data.relevant_bones))]
+            self.get_pose_additive(current_pose)
+        else:
+            current_pose = [Transform() for _ in range(len(data.relevant_bones))]
+            self.get_pose(current_pose)
+
+        pose_bones = obj.pose.bones
+        for bone_name, transform in zip(data.relevant_bones, current_pose):
+            pb = pose_bones.get(bone_name)
+            if pb:
+                if pb.rotation_mode == 'QUATERNION':
+                    pb.rotation_quaternion = transform.rotation
+                elif pb.rotation_mode == 'AXIS_ANGLE':
+                    axis, angle = transform.rotation.to_axis_angle()
+                    pb.rotation_axis_angle[0] = angle
+                    pb.rotation_axis_angle[1] = axis[0]
+                    pb.rotation_axis_angle[2] = axis[1]
+                    pb.rotation_axis_angle[3] = axis[2]
+                else:
+                    pb.rotation_euler = transform.rotation.to_euler(pb.rotation_mode)
+                pb.location = transform.location
+                pb.scale = transform.scale
+
+        if force:
+            obj.update_tag()
+
 def draw_panel(self, context):
-    obj = context.object
+    obj = context.active_object
+    if obj.type != 'ARMATURE':
+        return
+
+    pbl = obj.pose_blender
     layout = self.layout
+    box = layout.box()
+    row = box.row(align=True)
+    row.label(text="Pose Blender", icon='MOD_ARMATURE')
+    row = row.row()
+    row.alignment = 'RIGHT'
+    row.label(text="Enabled")
+    row.prop(pbl, 'enabled', text="")
+    row.enabled = pbl.enabled or pbl.is_valid()
 
-    col = layout.column(align=True)
-    row = col.row(align=True)
-    row.operator('gret.pose_blender_add', icon='MOD_ARMATURE')
-    row.operator('gret.pose_blender_remove', icon='X', text="")
+    def draw_error(text, can_fix=False):
+        if can_fix:
+            split = box.split(align=True, factor=0.8)
+            col = split.column(align=True)
+        else:
+            col = box.column(align=True)
+        col.scale_y = 0.8
+        for n, line in enumerate(text.split('\n')):
+            col.label(text=line, icon='ERROR' if n == 0 else 'BLANK1')
+        if can_fix:
+            split.operator('gret.pose_blender_fix', text="Fix")
 
-    pose_blender = pose_blenders.get(obj.name)
-    if pose_blender:
-        col = layout.column(align=True)
-        for pose_row in pose_blender.pose_rows:
+    if not pbl.enabled:
+        col = box.column(align=True)
+        col.use_property_split = True
+        col.prop(pbl, 'action', text="Poses")
+        col.prop(pbl, 'use_additive')
+        if pbl.use_additive:
+            if pbl.action and pbl.action.pose_markers:
+                col.prop_search(pbl, 'base_pose_name', pbl.action, 'pose_markers', icon='PMARKER_ACT')
+                if pbl.base_pose_name and pbl.base_pose_name not in pbl.action.pose_markers:
+                    draw_error(text="Base pose not found in the action.")
+            else:
+                col.prop(pbl, 'base_pose_name', icon='PMARKER_ACT')
+        if pbl.action:
+            if not pbl.action.pose_markers:
+                draw_error(text="Action has no pose markers.", can_fix=not pbl.action.library)
+                if pbl.action.library:
+                    draw_error("Can't fix action because it is linked.")
+            elif any(m.name not in obj for m in pbl.action.pose_markers):
+                draw_error(text="Rig is missing pose properties.", can_fix=not obj.override_library)
+                if obj.override_library:
+                    draw_error("Can't fix rig from an override data-block.")
+    else:
+        col = box.column(align=True)
+        for pose_row in pbl.get_transient_data().pose_pairs:
             row = col.row(align=True)
-            for pose_name in pose_row:
-                row.prop(obj, '["%s"]' % pose_name, slider=True)
+            for pose_name, text in pose_row:
+                if pose_name in obj:
+                    row.prop(obj, f'["{pose_name}"]', text=text, slider=True)
 
-        row = layout.row(align=True)
+        row = box.row(align=True)
+        row.alignment = 'CENTER'
         row.operator('gret.pose_blender_clear', icon='X', text="")
         row.operator('gret.pose_blender_flip', icon='ARROW_LEFTRIGHT', text="")
         row.operator('gret.pose_blender_copy', icon='COPYDOWN', text="")
         row.operator('gret.pose_blender_paste', icon='PASTEDOWN', text="")
         row.operator('gret.pose_blender_key', icon='KEYINGSET', text="")
-    else:
-        col.operator('gret.pose_blender_sanitize', icon='HELP')
 
 classes = (
-    GRET_OT_pose_blender_add,
     GRET_OT_pose_blender_clear,
     GRET_OT_pose_blender_copy,
+    GRET_OT_pose_blender_fix,
     GRET_OT_pose_blender_flip,
     GRET_OT_pose_blender_key,
     GRET_OT_pose_blender_paste,
-    GRET_OT_pose_blender_remove,
-    GRET_OT_pose_blender_sanitize,
+    GRET_PG_pose_blender,
 )
 
 @persistent
-def load_pre_handler(scene):
-    for pose_blender in pose_blenders.values():
-        pose_blender.unhook()
-    pose_blenders.clear()
+def depsgraph_update_pre_handler(scene):
+    for obj in scene.objects:
+        if obj.pose_blender.enabled:
+            obj.pose_blender.update_pose()
 
 def register(settings, prefs):
     if not prefs.animation__register_pose_blender:
@@ -772,14 +520,17 @@ def register(settings, prefs):
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    bpy.app.handlers.load_pre.append(load_pre_handler)
+    bpy.types.Object.pose_blender = bpy.props.PointerProperty(
+        type=GRET_PG_pose_blender,
+        override={'LIBRARY_OVERRIDABLE'},
+    )
+
+    bpy.app.handlers.depsgraph_update_pre.append(depsgraph_update_pre_handler)
 
 def unregister():
-    for pose_blender in pose_blenders.values():
-        pose_blender.unhook()
-    pose_blenders.clear()
+    bpy.app.handlers.depsgraph_update_pre.remove(depsgraph_update_pre_handler)
 
-    bpy.app.handlers.load_pre.remove(load_pre_handler)
+    del bpy.types.Object.pose_blender
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

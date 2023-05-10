@@ -183,6 +183,19 @@ class GRET_OT_pose_make(bpy.types.Operator):
     bl_label = "Make Poses"
     bl_options = {'INTERNAL', 'UNDO'}
 
+    create_custom_properties: bpy.props.BoolProperty(
+        name="For Pose Blender",
+        description="Create a custom property for each pose, required for pose blending",
+        default=False,
+    )
+
+    key_custom_properties: bpy.props.BoolProperty(
+        name="For Exporting",
+        description="""Key pose weight custom property for each frame.
+Not required for pose blending but required for exporting""",
+        default=False,
+    )
+
     @classmethod
     def poll(cls, context):
         obj = context.active_object
@@ -190,25 +203,66 @@ class GRET_OT_pose_make(bpy.types.Operator):
 
     def execute(self, context):
         obj = context.active_object
-
         action = obj.animation_data.action
+        start_frame, last_frame = int(action.curve_frame_range[0]), int(action.curve_frame_range[1] + 1)
+
         unused_markers = action.pose_markers[:]
-        first_frame, last_frame = int(action.frame_range[0]), int(action.frame_range[1] + 1)
-        for frame in range(first_frame, last_frame):
+        for frame in range(start_frame, last_frame):
             marker = next((m for m in action.pose_markers if m.frame == frame), None)
             if marker:
                 # There is a marker for this frame, don't remove it
                 unused_markers.remove(marker)
             else:
                 # Create a marker for this frame
+                # Docs read that new() takes a frame argument, this doesn't seem to be the case
                 new_marker = action.pose_markers.new(name=f"Pose {frame:03d}")
-                # Docs read that new() takes a frame kwarg, this doesn't seem to be the case
                 new_marker.frame = frame
+
         for marker in unused_markers:
-            log(f"Removed unused pose marker '{marker.name}'")
+            log(f"Removed unused pose marker {marker.name}")
             action.pose_markers.remove(marker)
 
+        if self.create_custom_properties and obj.override_library:
+            self.report({'WARNING'}, "Can't create custom properties from an override data-block.")
+        elif self.create_custom_properties:
+            for marker in action.pose_markers:
+                if marker.name not in obj:
+                    obj[marker.name] = 0.0
+
+                obj.property_overridable_library_set(f'["{marker.name}"]', True)
+                obj.id_properties_ui(marker.name).update(default=0.0, description="Pose weight",
+                    min=0.0, max=1.0, soft_min=0.0, soft_max=1.0)
+
+            if self.key_custom_properties:
+                group = action.groups.get(action.name) or action.groups.new(name=action.name)
+                data_path_to_fc = {fc.data_path: fc for fc in action.fcurves}
+
+                for marker in action.pose_markers:
+                    data_path = f'["{marker.name}"]'
+                    fc = data_path_to_fc.get(data_path)
+                    if fc:
+                        action.fcurves.remove(fc)
+                    data_path_to_fc[data_path] = fc = action.fcurves.new(data_path)
+                    fc.group = group
+
+                    if marker.frame > start_frame:
+                        fc.keyframe_points.insert(marker.frame - 1, 0.0).interpolation = 'LINEAR'
+                    fc.keyframe_points.insert(marker.frame, 1.0).interpolation = 'LINEAR'
+                    if marker.frame < last_frame:
+                        fc.keyframe_points.insert(marker.frame + 1, 0.0).interpolation = 'LINEAR'
+
         return {'FINISHED'}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column(align=True)
+        col.prop(self, 'create_custom_properties')
+        row = col.row(align=True)
+        row.prop(self, 'key_custom_properties')
+        row.enabled = self.create_custom_properties
 
 def get_actions_for_rig(rig):
     for action in bpy.data.actions:
@@ -271,7 +325,7 @@ def draw_panel(self, context):
             row = box.row(align=True)
             row.label(text="Pose Markers", icon='BOOKMARKS')
             row.prop(settings, 'poses_sorted', icon='SORTALPHA', text="")
-            row.operator('gret.pose_make', icon='ADD', text="")
+            row.operator('gret.pose_make', icon='PMARKER_ACT', text="")
 
             if active_action.pose_markers:
                 col = box.column(align=True)

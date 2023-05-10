@@ -114,8 +114,6 @@ Allows blending poses together, similar to the UE4 [AnimGraph node](https://docs
 
 ![Demo](../readme/poseblender-demo.gif?raw=true)
 
-Has a performance cost, I'll try to optimize it further at some point.
-
 ## Animation: Actions Panel
 
 A panel for quick access to actions and working with pose libraries. Pose libraries are simply actions where each frame has a named marker, and normally they're very annoying to work with. A pose library is necessary to use the Pose Blender tool.

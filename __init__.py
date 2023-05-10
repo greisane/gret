@@ -100,8 +100,7 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
 
     animation__register_pose_blender: bpy.props.BoolProperty(
         name="Enable Pose Blender",
-        description="""Allows blending poses together, similar to the UE4 AnimGraph node.
-NEEDS UPDATING TO 3.0""",
+        description="Allows blending poses together, similar to the UE4 AnimGraph node",
         default=False,
         update=registered_updated,
     )

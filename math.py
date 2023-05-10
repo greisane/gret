@@ -1,11 +1,17 @@
 from collections import namedtuple
 from math import floor, sqrt
-from mathutils import Vector, Matrix
+from mathutils import Vector, Quaternion, Matrix
+from numbers import Number
 from numpy.polynomial import polynomial as pl
 import numpy as np
 
+ZERO_ANIMWEIGHT_THRESH = 0.00001
+DELTA = 0.00001
 SMALL_NUMBER = 1e-8
 KINDA_SMALL_NUMBER = 1e-4
+
+zero_vector = Vector((0.0, 0.0, 0.0))
+one_vector = Vector((1.0, 1.0, 1.0))
 
 saturate = lambda x: min(1.0, max(0.0, x))
 saturate2 = lambda x: min(1.0 - SMALL_NUMBER, max(0.0, x))
@@ -70,6 +76,141 @@ class Rect(namedtuple("Rect", ["x0", "y0", "x1", "y1"])):
 
     def inverse_transform_point(self, x, y):
         return (x - self.x0) / self.width, (y - self.y0) / self.height
+
+class Transform:
+    __slots__ = ('location', 'rotation', 'scale')
+
+    def __init__(self, location=None, rotation=None, scale=None):
+        self.location = location or Vector()
+        self.rotation = rotation or Quaternion()
+        self.scale = scale or Vector((1.0, 1.0, 1.0))
+
+    def copy(self):
+        return Transform(
+            self.location.copy(),
+            self.rotation.copy(),
+            self.scale.copy())
+
+    def equals(self, other, tolerance=0.00001):
+        return (abs(self.location.x - other.location.x) <= tolerance
+            and abs(self.location.y - other.location.y) <= tolerance
+            and abs(self.location.z - other.location.z) <= tolerance
+            and abs(self.rotation.w - other.rotation.w) <= tolerance
+            and abs(self.rotation.x - other.rotation.x) <= tolerance
+            and abs(self.rotation.y - other.rotation.y) <= tolerance
+            and abs(self.rotation.z - other.rotation.z) <= tolerance
+            and abs(self.scale.x - other.scale.x) <= tolerance
+            and abs(self.scale.y - other.scale.y) <= tolerance
+            and abs(self.scale.z - other.scale.z) <= tolerance)
+
+    def accumulate_with_shortest_rotation(self, delta_atom, blend_weight=1.0):
+        """Accumulates another transform with this one, with an optional blending weight.
+Rotation is accumulated additively, in the shortest direction."""
+
+        atom = delta_atom * blend_weight
+
+        # To ensure the shortest route, make sure the dot product between the rotations is positive
+        if self.rotation.dot(atom.rotation) < 0.0:
+            self.rotation -= atom.rotation
+        else:
+            self.rotation += atom.rotation
+        self.location += atom.location
+        self.scale += atom.scale
+
+        return self  # Return self for convenience
+
+    @staticmethod
+    def blend_from_identity_and_accumulate(final_atom, source_atom, blend_weight=1.0):
+        """Blends the identity transform with a weighted source transform \
+and accumulates that into a destination transform."""
+
+        delta_location = source_atom.location
+        delta_rotation = source_atom.rotation
+        delta_scale = source_atom.scale
+
+        # Scale delta by weight
+        if blend_weight < 1.0 - ZERO_ANIMWEIGHT_THRESH:
+            delta_location = source_atom.location * blend_weight
+            delta_scale = zero_vector.lerp(source_atom.scale, blend_weight)
+            delta_rotation = source_atom.rotation * blend_weight
+            delta_rotation.w = lerp(1.0, source_atom.rotation.w, blend_weight)
+
+        # Add ref pose relative animation to base animation, only if rotation is significant
+        if delta_rotation.w * delta_rotation.w < 1.0 - DELTA * DELTA:
+            # final_atom.rotation = delta_rotation * final_atom.rotation
+            final_atom.rotation.rotate(delta_rotation)
+
+        final_atom.location += delta_location
+        final_atom.scale.x *= 1.0 + delta_scale.x
+        final_atom.scale.y *= 1.0 + delta_scale.y
+        final_atom.scale.z *= 1.0 + delta_scale.z
+
+    def get_safe_scale_reciprocal(self, tolerance=0.00001):
+        return Vector((
+            0.0 if abs(self.scale.x) <= tolerance else 1.0 / self.scale.x,
+            0.0 if abs(self.scale.y) <= tolerance else 1.0 / self.scale.y,
+            0.0 if abs(self.scale.z) <= tolerance else 1.0 / self.scale.z))
+
+    def make_additive(self, base_transform):
+        self.location -= base_transform.location
+        self.rotation.rotate(base_transform.rotation.inverted())
+        self.rotation.normalize()
+        base_scale = base_transform.get_safe_scale_reciprocal()
+        self.scale.x = self.scale.x * base_scale.x - 1.0
+        self.scale.y = self.scale.y * base_scale.y - 1.0
+        self.scale.z = self.scale.z * base_scale.z - 1.0
+
+    def __eq__(self, other):
+        if isinstance(other, Transform):
+            return (self.location == other.location
+                and self.rotation == other.rotation
+                and self.scale == other.scale)
+        return NotImplemented
+
+    def __ne__(self, other):
+        if isinstance(other, Transform):
+            return (self.location != other.location
+                or self.rotation != other.rotation
+                or self.scale != other.scale)
+        return NotImplemented
+
+    def __add__(self, other):
+        if isinstance(other, Transform):
+            return self.copy().accumulate_with_shortest_rotation(other)
+        return NotImplemented
+
+    def __sub__(self, other):
+        if isinstance(other, Transform):
+            return self.copy().accumulate_with_shortest_rotation(-other)
+        return NotImplemented
+
+    def __mul__(self, other):
+        if isinstance(other, Number):
+            return Transform(self.location * other, self.rotation * other, self.scale * other)
+        return NotImplemented
+
+    def __iadd__(self, other):
+        if isinstance(other, Transform):
+            return self.accumulate_with_shortest_rotation(other)
+        return NotImplemented
+
+    def __isub__(self, other):
+        if isinstance(other, Transform):
+            return self.accumulate_with_shortest_rotation(-other)
+        return NotImplemented
+
+    def __imul__(self, other):
+        if isinstance(other, Number):
+            self.location *= other
+            self.rotation *= other
+            self.scale *= other
+        return NotImplemented
+
+    def __neg__(self):
+        return Transform(-self.location, -self.rotation, -self.scale)
+
+    def __pos__(self):
+        return Transform(+self.location, +self.rotation, +self.scale)
 
 def calc_bounds(points):
     xs, ys, zs = zip(*points)
