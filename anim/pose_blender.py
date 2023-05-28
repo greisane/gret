@@ -517,6 +517,12 @@ def depsgraph_update_pre_handler(scene):
         if obj.pose_blender.enabled:
             obj.pose_blender.update_pose()
 
+@persistent
+def frame_change_update_post_handler(scene):
+    for obj in scene.objects:
+        if obj.pose_blender.enabled:
+            obj.pose_blender.update_pose()
+
 def register(settings, prefs):
     if not prefs.animation__register_pose_blender:
         return False
@@ -530,9 +536,11 @@ def register(settings, prefs):
     )
 
     bpy.app.handlers.depsgraph_update_pre.append(depsgraph_update_pre_handler)
+    bpy.app.handlers.frame_change_post.append(frame_change_update_post_handler)
 
 def unregister():
     bpy.app.handlers.depsgraph_update_pre.remove(depsgraph_update_pre_handler)
+    bpy.app.handlers.frame_change_post.remove(frame_change_update_post_handler)
 
     del bpy.types.Object.pose_blender
 
