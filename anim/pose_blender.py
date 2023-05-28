@@ -167,8 +167,8 @@ class GRET_OT_pose_blender_fix(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def enabled_updated(self, context):
-    print(self.enabled, self["enabled"])
+def clear_transient_data(self, context):
+    self.clear_transient_data()
 
 class PoseBlenderData:
     def __init__(self):
@@ -196,6 +196,7 @@ Use the Pose Markers panel to create the pose markers""",
         type=bpy.types.Action,
         options=set(),
         override={'LIBRARY_OVERRIDABLE'},
+        update=clear_transient_data,
     )
     use_additive: bpy.props.BoolProperty(
         name="Additive",
@@ -203,6 +204,7 @@ Use the Pose Markers panel to create the pose markers""",
         default=True,
         options=set(),
         override={'LIBRARY_OVERRIDABLE'},
+        update=clear_transient_data,
     )
     base_pose_name: bpy.props.StringProperty(
         name="Base Pose",
@@ -211,6 +213,7 @@ A base pose is useful if the rest pose is not neutral (e.g. has an open mouth)""
         default="",
         options=set(),
         override={'LIBRARY_OVERRIDABLE'},
+        update=clear_transient_data,
     )
     _transient_data = {}
 
@@ -236,6 +239,7 @@ A base pose is useful if the rest pose is not neutral (e.g. has an open mouth)""
     def clear_transient_data(self):
         try:
             del __class__._transient_data[self.transient_data_key]
+            print("Cleared pose blender transient data")
         except KeyError:
             pass
 
