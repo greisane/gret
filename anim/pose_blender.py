@@ -464,6 +464,15 @@ def draw_panel(self, context):
         if can_fix:
             split.operator('gret.pose_blender_fix', text="Fix")
 
+    def draw_button_row():
+        row = box.row(align=True)
+        row.alignment = 'CENTER'
+        row.operator('gret.pose_blender_clear', icon='X', text="")
+        row.operator('gret.pose_blender_flip', icon='ARROW_LEFTRIGHT', text="")
+        row.operator('gret.pose_blender_copy', icon='COPYDOWN', text="")
+        row.operator('gret.pose_blender_paste', icon='PASTEDOWN', text="")
+        row.operator('gret.pose_blender_key', icon='KEYINGSET', text="")
+
     if not pbl.enabled:
         col = box.column(align=True)
         col.use_property_split = True
@@ -486,6 +495,8 @@ def draw_panel(self, context):
                 if obj.override_library:
                     draw_error("Can't fix rig from an override data-block.")
     else:
+        draw_button_row()
+
         col = box.column(align=True)
         for pose_row in pbl.get_transient_data().pose_pairs:
             row = col.row(align=True)
@@ -493,13 +504,7 @@ def draw_panel(self, context):
                 if pose_name in obj:
                     row.prop(obj, f'["{pose_name}"]', text=text, slider=True)
 
-        row = box.row(align=True)
-        row.alignment = 'CENTER'
-        row.operator('gret.pose_blender_clear', icon='X', text="")
-        row.operator('gret.pose_blender_flip', icon='ARROW_LEFTRIGHT', text="")
-        row.operator('gret.pose_blender_copy', icon='COPYDOWN', text="")
-        row.operator('gret.pose_blender_paste', icon='PASTEDOWN', text="")
-        row.operator('gret.pose_blender_key', icon='KEYINGSET', text="")
+        draw_button_row()
 
 classes = (
     GRET_OT_pose_blender_clear,
