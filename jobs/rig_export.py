@@ -457,6 +457,10 @@ def rig_export(self, context, job):
     viewport_reveal_all()
     assert rig.visible_get()
     saved_pose_position = rig.data.pose_position
+    if hasattr(rig, 'pose_blender'):
+        # ARP chokes when pose blender is enabled, regular export should be fine
+        saved_pose_blender_enable = rig.pose_blender.enabled
+        rig.pose_blender.enabled = False
     saved_bone_deform = {b: b.use_deform for b in rig.data.bones}
     saved_use_global_undo = context.preferences.edit.use_global_undo
     context.preferences.edit.use_global_undo = False
@@ -489,6 +493,8 @@ def rig_export(self, context, job):
             bone.use_deform = use_deform
 
         rig.data.pose_position = saved_pose_position
+        if hasattr(rig, 'pose_blender'):
+            rig.pose_blender.enabled = saved_pose_blender_enable
         context.preferences.edit.use_global_undo = saved_use_global_undo
         load_selection(saved_selection)
         logger.end_logging()
