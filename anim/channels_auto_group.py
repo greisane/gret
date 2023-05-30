@@ -1,6 +1,18 @@
 import bpy
 import re
 
+def get_group_name_from_data_path(data_path):
+    m = re.match(r'^pose\.bones\[\"([^\"]+)"\]', data_path)
+    if m:
+        return m[1]
+
+    # For pose blender. Should probably not be hardcoded
+    m = re.match(r'^\[\"([^\"]+)"\]$', data_path)
+    if m and m[1].endswith("_pose"):
+        return "Poses"
+
+    return None
+
 class GRET_OT_channels_auto_group(bpy.types.Operator):
     """Group animation channels by their bone name"""
 
@@ -23,7 +35,7 @@ class GRET_OT_channels_auto_group(bpy.types.Operator):
         # Create the necessary groups first THEN assign them to prevent the following error
         # https://github.com/blender/blender/blob/v3.4.1/source/blender/makesrna/intern/rna_fcurve.c#L527
         for fc in action.fcurves:
-            group_name = (re.match(r'^pose\.bones\[\"([^\"]+)"\]', fc.data_path) or ['', ''])[1]
+            group_name = get_group_name_from_data_path(fc.data_path)
             if group_name and (not fc.group or fc.group.name != group_name):
                 fcurves.append((fc, group_name))
                 if group_name not in action.groups:
