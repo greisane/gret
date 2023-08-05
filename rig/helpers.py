@@ -392,22 +392,24 @@ def export_fbx(filepath, context, rig, objects=[], action=None, options={}):
     result = bpy.ops.export_scene.fbx(
         filepath=filepath
         , check_existing=False
-        , axis_forward='-Z'
-        , axis_up='Y'
         , use_selection=True
         , use_visible=False
         , use_active_collection=False
         , global_scale=1.0
         , apply_unit_scale=True
         , apply_scale_options='FBX_SCALE_NONE'
+        , use_space_transform=True
+        , bake_space_transform=True
         , object_types={'ARMATURE', 'MESH'}
         , use_mesh_modifiers=True
         , use_mesh_modifiers_render=False
         , mesh_smooth_type='EDGE'
-        , bake_space_transform=True
+        , colors_type='SRGB'
+        , prioritize_active_color=False
         , use_subsurf=False
         , use_mesh_edges=False
         , use_tspace=False
+        , use_triangles=False
         , use_custom_props=False
         , add_leaf_bones=False
         , primary_bone_axis='Y'
@@ -419,12 +421,15 @@ def export_fbx(filepath, context, rig, objects=[], action=None, options={}):
         , bake_anim_use_nla_strips=False
         , bake_anim_use_all_actions=True
         , bake_anim_force_startend_keying=True
-        , bake_anim_step=1.0
-        , bake_anim_simplify_factor=1.0
+        , bake_anim_step=1
+        , bake_anim_simplify_factor=1
         , path_mode='STRIP'
         , embed_textures=False
         , batch_mode='OFF'
         , use_batch_own_dir=False
+        , use_metadata=False
+        , axis_forward='-Z'
+        , axis_up='Y'
     )
 
     # Clean up
