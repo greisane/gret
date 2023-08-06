@@ -1,4 +1,5 @@
 from fnmatch import fnmatch
+from itertools import chain
 from mathutils import Vector, Quaternion, Euler
 import bpy
 
@@ -6,6 +7,11 @@ from ..patcher import FunctionPatcher
 from ..helpers import intercept, get_context, select_only
 from ..log import log, logd
 
+arp_export_module_names = [
+    'auto_rig_pro.export_fbx.export_fbx_bin',
+    'auto_rig_pro.src.export_fbx.export_fbx_bin',
+]
+arp_export_function_name = 'arp_save'
 non_humanoid_bone_names = [
     'thigh_b_ref.l',
     'thigh_b_ref.r',
@@ -28,7 +34,7 @@ ik_bone_names = [
     "ik_hand.l",
     "ik_hand.r"
 ]
-# Collected keys with `sorted(set(chain.from_iterable(pb.keys() for pb in C.object.pose.bones)))`
+# Collect keys by calling gret.rig.helpers.collect_custom_values()
 arp_default_pose_values = {
     'arm_twist': 0.0,
     'auto_eyelid': 0.1,
@@ -75,6 +81,13 @@ def is_object_arp_humanoid(obj):
     if obj.rig_spine_count < 3:
         return False
     return True
+
+def collect_custom_values():
+    obj = bpy.context.object
+    assert obj and obj.type == 'ARMATURE'
+    prop_names = sorted(set(k for k, v in chain.from_iterable(pb.items() for pb in obj.pose.bones)
+        if isinstance(v, (int, float))))
+    return {k: sorted(set(pb[k] for pb in obj.pose.bones if k in pb)) for k in prop_names}
 
 def clear_pose(obj, clear_gret_props=True, clear_armature_props=False, clear_bone_props=True):
     """Resets the given armature."""
@@ -287,7 +300,7 @@ def export_autorig(filepath, context, rig, objects=[], action=None, options={}):
     select_only(context, objects)
     rig.select_set(True)
     context.view_layer.objects.active = rig
-    with FunctionPatcher('auto_rig_pro.export_fbx.export_fbx_bin', 'arp_save', arp_save) as patcher:
+    with FunctionPatcher(arp_export_module_names, arp_export_function_name, arp_save) as patcher:
         patcher['options'] = options
         return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
@@ -355,7 +368,7 @@ def export_autorig_universal(filepath, context, rig, objects=[], action=None, op
     select_only(context, objects)
     rig.select_set(True)
     context.view_layer.objects.active = rig
-    with FunctionPatcher('auto_rig_pro.export_fbx.export_fbx_bin', 'arp_save', arp_save) as patcher:
+    with FunctionPatcher(arp_export_module_names, arp_export_function_name, arp_save) as patcher:
         patcher['options'] = options
         return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 

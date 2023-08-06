@@ -81,15 +81,22 @@ class FunctionPatcher(dict):
         print(math.cos(180.0))
     """
 
-    def __init__(self, module_or_module_name, function_name, func, use_wrapper=True):
-        self.module_or_module_name = module_or_module_name
+    def __init__(self, module_names, function_name, func, use_wrapper=True):
+        self.module_names = module_names
         self.function_name = function_name
         self.func = func
 
-    def get_module(self, module_or_module_name):
-        if isinstance(module_or_module_name, str):
-            return sys.modules.get(module_or_module_name)
-        return module_or_module_name
+    def get_module(self, module_names):
+        if isinstance(module_names, str):
+            module_names = (module_names,)
+        if isinstance(module_names, (tuple, list)):
+            import importlib
+            for module_name in module_names:
+                try:
+                    return importlib.import_module(module_name)
+                except ImportError:
+                    pass
+        return None
 
     def get_func(self, module, function_name):
         for part in function_name.split("."):
@@ -97,11 +104,7 @@ class FunctionPatcher(dict):
         return module
 
     def __enter__(self):
-        module = self.get_module(self.module_or_module_name)
-        if not module:
-            logd(f"Importing module {self.module_or_module_name}")
-            import importlib
-            module = importlib.import_module(self.module_or_module_name)
+        module = self.get_module(self.module_names)
         if module:
             base_func = self.get_func(module, self.function_name)
             if base_func:
@@ -113,11 +116,12 @@ class FunctionPatcher(dict):
             else:
                 logd(f"Couldn't patch {module.__name__}.{self.function_name}, function not found")
         else:
-            logd(f"Couldn't patch {self.module_or_module_name}.{self.function_name}, module not found")
+            module_name = self.module_names if isinstance(self.module_names, str) else self.module_names[0]
+            logd(f"Couldn't patch {module_name}.{self.function_name}, module not found")
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        module = self.get_module(self.module_or_module_name)
+        module = self.get_module(self.module_names)
         if module:
             wrapper = self.get_func(module, self.function_name)
             if wrapper and hasattr(wrapper, '__wrapped__'):
