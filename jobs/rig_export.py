@@ -216,9 +216,14 @@ def _rig_export(self, context, job, rig):
             vcol = obj.data.vertex_colors.new()
             for loop in vcol.data:
                 loop.color = job.default_vertex_color
-        elif len(obj.data.vertex_colors) > 1:
+
+        # Ensure vertex color layers share a single name so they merge correctly
+        if len(obj.data.vertex_colors) > 1:
             log(f"More than one vertex color layer, is this intended?",
                 ", ".join(vc.name for vc in obj.data.vertex_colors))
+        elif obj.data.vertex_colors.active:
+            logd(f"Renamed vertex color layer {obj.data.vertex_colors.active.name}")
+            obj.data.vertex_colors.active.name = "Col"
 
         # Ensure proper mesh state
         sanitize_mesh(obj)
