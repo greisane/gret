@@ -1,40 +1,7 @@
 import bpy
-import re
 
-from ..helpers import titlecase
 from ..operator import draw_warning_if_not_overridable
-
-custom_prop_re = re.compile(r'(.+)?\["([^"]+)"\]$')
-prop_re = re.compile(r'(.+)\.([^"\.]+)$')
-
-def parse_prop_path(obj, prop_path):
-    # Returns target data, property path and pretty property text if the property was found
-    # Otherwise returns None, None, prop_path
-
-    try:
-        prop_match = custom_prop_re.search(prop_path)
-        if prop_match:
-            if prop_match[1]:
-                obj = obj.path_resolve(prop_match[1])
-            prop_path = f'["{prop_match[2]}"]'
-            # Fetch value to make sure the property exists
-            value = obj.path_resolve(prop_path)
-            # Don't attach the object name to text, custom property name should be descriptive enough
-            text = titlecase(prop_match[2])
-            return obj, prop_path, text
-
-        prop_match = prop_re.search(prop_path)
-        if prop_match:
-            obj = obj.path_resolve(prop_match[1])
-            prop_path = prop_match[2]
-            # Fetch value to make sure the property exists
-            value = obj.path_resolve(prop_path)
-            text = f"{obj.name} {titlecase(prop_match[2])}"
-            return obj, prop_path, text
-    except ValueError:
-        pass
-
-    return None, None, prop_path
+from .helpers import PropertyWrapper
 
 class GRET_OT_property_add(bpy.types.Operator):
     """Add a property to the list"""
@@ -70,7 +37,10 @@ class GRET_OT_property_add(bpy.types.Operator):
 
         properties = list(obj.get('properties', []))
         properties.append(self.path)
-        properties.sort(key=lambda prop_path: parse_prop_path(obj, prop_path)[2])
+        def get_property_title(data_path):
+            prop_wrapper = PropertyWrapper.from_path(obj, data_path)
+            return prop_wrapper.title if prop_wrapper else data_path
+        properties.sort(key=get_property_title)
         obj['properties'] = properties
 
         return {'FINISHED'}
@@ -78,7 +48,7 @@ class GRET_OT_property_add(bpy.types.Operator):
     def invoke(self, context, event):
         # Check if the clipboard already has a correct path and paste it
         clipboard = bpy.context.window_manager.clipboard
-        self.path = clipboard if parse_prop_path(context.active_object, clipboard)[0] else ""
+        self.path = clipboard if PropertyWrapper.from_path(context.active_object, clipboard) else ""
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
@@ -133,15 +103,15 @@ def draw_panel(self, context):
     if properties:
         col = box.column(align=True)
 
-        for idx, prop_path in enumerate(properties):
+        for idx, data_path in enumerate(properties):
             row = col.row(align=True)
-            data, prop_path, label = parse_prop_path(obj, prop_path)
+            prop_wrapper = PropertyWrapper.from_path(obj, data_path)
 
-            if data:
-                row.prop(data, prop_path, text=label)
+            if prop_wrapper:
+                row.prop(prop_wrapper.data, prop_wrapper.path, text=prop_wrapper.title)
             else:
                 row.alert = True
-                row.label(text=f"Missing: {label}")
+                row.label(text=f"Missing: {data_path}")
 
             if settings.properties_show_edit:
                 row.operator('gret.property_remove', icon='X', text="").index = idx

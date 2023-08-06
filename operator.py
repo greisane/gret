@@ -7,10 +7,10 @@ class GRET_OT_property_warning(bpy.types.Operator):
     bl_label = "Not Overridable"
     bl_options = {'INTERNAL'}
 
-def draw_warning_if_not_overridable(layout, obj, prop_path):
+def draw_warning_if_not_overridable(layout, obj, data_path):
     if obj and obj.override_library:
         try:
-            if not obj.is_property_overridable_library(prop_path):
+            if not obj.is_property_overridable_library(data_path):
                 layout.operator(GRET_OT_property_warning.bl_idname,
                     icon='ERROR', text="", emboss=False, depress=True)
                 return True

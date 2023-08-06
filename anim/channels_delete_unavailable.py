@@ -41,7 +41,7 @@ class GRET_OT_channels_delete_unavailable(bpy.types.Operator):
 
         for fc in action.fcurves:
             try:
-                prop = obj.path_resolve(fc.data_path, False)
+                obj.path_resolve(fc.data_path)
             except ValueError:
                 if delete_invalid:
                     print(f"Removing curve, can't resolve {fc.data_path}")

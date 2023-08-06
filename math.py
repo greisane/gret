@@ -25,8 +25,8 @@ frac = lambda x: x - int(x)
 
 class Rect(namedtuple("Rect", ["x0", "y0", "x1", "y1"])):
     @classmethod
-    def from_size(self, x, y, width, height):
-        return Rect(x, y, x + width, y + height)
+    def from_size(cls, x, y, width, height):
+        return cls(x, y, x + width, y + height)
 
     @property
     def width(self):

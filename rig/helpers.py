@@ -1,10 +1,12 @@
+from collections import namedtuple
 from fnmatch import fnmatch
 from itertools import chain
 from mathutils import Vector, Quaternion, Euler
 import bpy
+import re
 
 from ..patcher import FunctionPatcher
-from ..helpers import intercept, get_context, select_only
+from ..helpers import intercept, get_context, select_only, titlecase
 from ..log import log, logd
 
 arp_export_module_names = [
@@ -60,6 +62,61 @@ arp_default_pose_values = {
     'y_scale': 2,  # Bone original
 }
 default_pose_values = {}
+custom_prop_pattern = re.compile(r'(.+)?\["([^"]+)"\]')
+prop_pattern = re.compile(r'(?:(.+)\.)?([^"\.]+)')
+
+class PropertyWrapper(namedtuple('PrettyProperty', ['data', 'path', 'is_custom'])):
+    # To set a property given a data path it's necessary to split the object and attribute name
+    # `data.path_resolve(path, False)` returns a bpy_prop, and bpy_prop.data holds the object
+    # Unfortunately bpy_prop knows the attribute name but doesn't expose it (see `bpy_prop.__str__`)
+    # Also need to determine if it's a custom property, since those are accessed dict-like instead
+    # For these reasons, resort to the less robust way of just parsing the data path with regexes
+
+    @classmethod
+    def from_path(cls, data, data_path):
+        try:
+            prop_match = custom_prop_pattern.fullmatch(data_path)
+            if prop_match:
+                if prop_match[1]:
+                    data = data.path_resolve(prop_match[1])
+                data_path = f'["{prop_match[2]}"]'
+                data.path_resolve(data_path)  # Make sure the property exists
+                return cls(data, data_path, True)
+
+            prop_match = prop_pattern.fullmatch(data_path)
+            if prop_match:
+                if prop_match[1]:
+                    data = data.path_resolve(prop_match[1])
+                data_path = prop_match[2]
+                data.path_resolve(data_path)  # Make sure the property exists
+                return cls(data, data_path, False)
+        except ValueError:
+            return None
+
+    @property
+    def title(self):
+        if self.is_custom:
+            return titlecase(self.path[2:-2])  # Custom property name should be descriptive enough
+        else:
+            return f"{self.data.name} {titlecase(self.path)}"
+
+    @property
+    def default_value(self):
+        if self.is_custom:
+            return self.data.id_properties_ui(self.path[2:-2]).as_dict()['default']
+        else:
+            return self.data.bl_rna.properties[self.path].default
+
+    @property
+    def value(self):
+        return self.data.path_resolve(self.path, True)
+
+    @value.setter
+    def value(self, new_value):
+        if self.is_custom:
+            self.data[self.path[2:-2]] = new_value
+        else:
+            setattr(self.data, self.path, new_value)
 
 def is_object_arp(obj):
     """Returns whether the object is an Auto-Rig Pro armature."""
@@ -96,24 +153,13 @@ def clear_pose(obj, clear_gret_props=True, clear_armature_props=False, clear_bon
         return
 
     if clear_gret_props:
-        properties = obj.get('properties', [])
-        for prop_path in properties:
+        for data_path in obj.get('properties', []):
             try:
-                bpy_prop = obj.path_resolve(prop_path, False)
-                prop_data = bpy_prop.data
-                dot_pos = prop_path.rfind(".")
-                if dot_pos >= 0:
-                    # Native property
-                    prop_name = prop_path[dot_pos+1:]
-                    default_value = prop_data.bl_rna.properties[prop_name].default
-                    setattr(prop_data, prop_name, default_value)
-                else:
-                    # Custom property
-                    prop_name = prop_path[2:-2]
-                    default_value = prop_data.id_properties_ui(prop_name).as_dict()["default"]
-                    prop_data[prop_name] = default_value
+                prop_wrapper = PropertyWrapper.from_path(obj, data_path)
+                if prop_wrapper:
+                    prop_wrapper.value = prop_wrapper.default_value
             except Exception as e:
-                logd(f"Couldn't clear property \"{prop_path}\": {e}")
+                logd(f"Couldn't clear property \"{data_path}\": {e}")
 
     if clear_armature_props:
         for prop_name, prop_value in obj.items():
