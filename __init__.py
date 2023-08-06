@@ -326,10 +326,10 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
 Use `rgb` for floats and `RGB` for bytes. Color space is sRGB, prefix `l` or `L` for linear.
 Examples:
 
-Hex -- "#{R:X}{G:X}{B:X}{A:X}" (use "x" for lowercase)
+Hex -- "#{R:02X}{G:02X}{B:02X}{A:02X}" (use "x" for lowercase)
 RGB -- "{R},{G},{B}"
 UE4 -- "(R={lr:f},G={lg:f},B={lb:f},A={a:f})\"""",
-        default="#{R:X}{G:X}{B:X}{A:X}",
+        default="#{R:02X}{G:02X}{B:02X}{A:02X}",
     )
     debug: bpy.props.BoolProperty(
         name="Debug Mode",
