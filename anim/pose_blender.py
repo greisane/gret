@@ -167,6 +167,25 @@ class GRET_OT_pose_blender_fix(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class GRET_OT_pose_blender_refresh(bpy.types.Operator):
+    """Rebuild pose cache. Use if you tweaked the individual poses"""
+
+    bl_idname = 'gret.pose_blender_refresh'
+    bl_label = "Refresh Poses"
+    bl_options = {'INTERNAL', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.active_object
+        return obj and obj.type == 'ARMATURE' and obj.pose_blender.enabled
+
+    def execute(self, context):
+        obj = context.active_object
+        pbl = obj.pose_blender
+        pbl.clear_transient_data()
+
+        return {'FINISHED'}
+
 def clear_transient_data(self, context):
     self.clear_transient_data()
 
@@ -451,6 +470,7 @@ def draw_panel(self, context):
     row.label(text="Enabled")
     row.prop(pbl, 'enabled', text="")
     row.enabled = pbl.enabled or pbl.is_valid()
+    row.operator('gret.pose_blender_refresh', icon='FILE_REFRESH', text="")
 
     def draw_error(text, can_fix=False):
         if can_fix:
@@ -513,6 +533,7 @@ classes = (
     GRET_OT_pose_blender_flip,
     GRET_OT_pose_blender_key,
     GRET_OT_pose_blender_paste,
+    GRET_OT_pose_blender_refresh,
     GRET_PG_pose_blender,
 )
 
