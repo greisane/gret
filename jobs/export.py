@@ -2,7 +2,8 @@ import bpy
 import re
 import shlex
 
-from ..log import log, logger
+from .. import prefs
+from ..log import log, logd, logger
 from ..helpers import gret_operator_exists, load_properties, save_properties
 from ..rig.helpers import is_object_arp
 from .scene_export import scene_export
@@ -241,7 +242,7 @@ class GRET_OT_export_job_move_down(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_export(bpy.types.Operator):
-    """Execute the export job"""
+    """Execute the export job. Ctrl-Click to execute in debug mode"""
 
     bl_idname = 'gret.export'
     bl_label = "Export"
@@ -251,6 +252,11 @@ class GRET_OT_export(bpy.types.Operator):
     index: bpy.props.IntProperty(
         name="Index",
         description="Index of the job to execute",
+    )
+    debug: bpy.props.BoolProperty(
+        name="Debug",
+        description="Execute in debug mode",
+        options={'HIDDEN'},
     )
 
     @classmethod
@@ -267,15 +273,27 @@ class GRET_OT_export(bpy.types.Operator):
             self.report({'ERROR'}, "Invalid export job index.")
             return {'CANCELLED'}
 
-        if job.what == 'SCENE':
-            scene_export(self, context, job)
-        elif job.what == 'RIG':
-            rig_export(self, context, job)
-        elif job.what == 'ANIMATION':
-            anim_export(self, context, job)
+        saved_debug = prefs.debug
+        if self.debug:
+            prefs.debug = True
+            logger.categories.add('DEBUG')
+        try:
+            if job.what == 'SCENE':
+                scene_export(self, context, job)
+            elif job.what == 'RIG':
+                rig_export(self, context, job)
+            elif job.what == 'ANIMATION':
+                anim_export(self, context, job)
+        finally:
+            prefs.debug = saved_debug
+            if not prefs.debug:
+                logger.categories.discard('DEBUG')
 
         return {'FINISHED'}
 
+    def invoke(self, context, event):
+        self.debug = event.ctrl
+        return self.execute(context)
 
 class GRET_OT_export_by_name(bpy.types.Operator):
     """Execute the export job"""

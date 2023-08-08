@@ -7,7 +7,7 @@ from ..log import log, logd
 from ..rig.helpers import clear_pose
 
 class GRET_OT_action_set(bpy.types.Operator):
-    """Edit this action. Ctrl-click to rename"""
+    """Edit this action. Ctrl-Click to rename"""
 
     bl_idname = 'gret.action_set'
     bl_label = "Set Action"
