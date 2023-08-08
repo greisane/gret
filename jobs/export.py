@@ -4,7 +4,7 @@ import shlex
 
 from .. import prefs
 from ..log import log, logd, logger
-from ..helpers import gret_operator_exists, load_properties, save_properties
+from ..helpers import gret_operator_exists, load_properties, save_properties, show_text_window
 from ..rig.helpers import is_object_arp
 from .scene_export import scene_export
 from .rig_export import rig_export
@@ -132,14 +132,14 @@ class GRET_OT_export_job_duplicate(bpy.types.Operator):
 
     def execute(self, context):
         try:
-            other_job = context.scene.gret.export_jobs[self.index]
+            job = context.scene.gret.export_jobs[self.index]
         except IndexError:
             self.report({'ERROR'}, "Invalid export job index.")
             return {'CANCELLED'}
 
-        job = add_job(context)
-        load_properties(job, save_properties(other_job))
-        job.name = other_job.name + " (copy)"
+        new_job = add_job(context)
+        load_properties(new_job, save_properties(job))
+        new_job.name = job.name + " (copy)"
         context.scene.gret.export_jobs.move(len(context.scene.gret.export_jobs) - 1, self.index + 1)
         refresh_job_list(context)
 
@@ -169,6 +169,29 @@ class GRET_OT_export_job_remove(bpy.types.Operator):
     def execute(self, context):
         context.scene.gret.export_jobs.remove(self.index)
         refresh_job_list(context)
+
+        return {'FINISHED'}
+
+class GRET_OT_export_job_result(bpy.types.Operator):
+    """Display output log from the last time this job was run"""
+
+    bl_idname = 'gret.export_job_result'
+    bl_label = "Show Job Result"
+    bl_options = {'INTERNAL'}
+
+    index: bpy.props.IntProperty(options={'HIDDEN'})
+
+    def execute(self, context):
+        try:
+            job = context.scene.gret.export_jobs[self.index]
+        except IndexError:
+            self.report({'ERROR'}, "Invalid export job index.")
+            return {'CANCELLED'}
+
+        if job.log:
+            show_text_window(job.log, title="gret job")
+        else:
+            self.report({'INFO'}, "No results to show.")
 
         return {'FINISHED'}
 
@@ -256,7 +279,7 @@ class GRET_OT_export(bpy.types.Operator):
     debug: bpy.props.BoolProperty(
         name="Debug",
         description="Execute in debug mode",
-        options={'HIDDEN'},
+        options={'HIDDEN', 'SKIP_SAVE'},
     )
 
     @classmethod
@@ -545,7 +568,10 @@ def draw_job(layout, jobs, job_index):
         col = box.column(align=True)
         col.prop(job, 'animation_export_path', text="")
 
-    op = col.operator('gret.export', icon='PLAY', text="Execute")
+    row = col.row(align=True)
+    op = row.operator('gret.export', icon='PLAY', text="Execute")
+    op.index = job_index
+    op = row.operator('gret.export_job_result', icon='TEXT', text="")
     op.index = job_index
 
 class GRET_PT_export_jobs(bpy.types.Panel):
@@ -756,6 +782,12 @@ class GRET_PG_export_job(bpy.types.PropertyGroup):
         description="Export job name",
         default="Job",
         options=set(),
+    )
+    log: bpy.props.StringProperty(
+        name="Log",
+        description="Output log from the last time this job was run",
+        default="",
+        options={'HIDDEN'},
     )
     rig: bpy.props.PointerProperty(
         name="Rig",
@@ -1114,6 +1146,7 @@ classes = (
     GRET_OT_export_job_move_up,
     # GRET_OT_export_job_preset,
     GRET_OT_export_job_remove,
+    GRET_OT_export_job_result,
     GRET_OT_search_modifier_tags,
     GRET_PG_copy_property,
     GRET_PG_export_action,

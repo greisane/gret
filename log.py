@@ -1,7 +1,10 @@
-import time
 from functools import partial
+import io
+import time
 
 class Logger:
+    """Simple logger with the ability to defer printing until the logging session ends."""
+
     categories = set()
     logs = []
     start_time = None
@@ -16,15 +19,18 @@ class Logger:
         self.prefix = ""
 
     def end_logging(self):
-        self.flush()
+        with io.StringIO() as file:
+            self.flush(file=file)
+            string = file.getvalue()
         self.start_time = None
         self.defer_print = False
         self.indent = 0
         self.prefix = ""
+        return string
 
-    def flush(self):
+    def flush(self, file=None):
         for log in self.logs:
-            self._print_log(*log)
+            self._print_log(*log, file=file)
         self.logs.clear()
 
     def log(self, *args, sep=' ', category=None):
@@ -41,12 +47,14 @@ class Logger:
         else:
             self._print_log(*log_entry)
 
-    def _print_log(self, timestamp, message, category):
+    def _print_log(self, timestamp, message, category, file=None):
         if category and category not in self.categories:
             return
         if self.start_time is not None:
             message = f"{timestamp - self.start_time:6.2f}s | {message}"
         print(message)
+        if file is not None:
+            print(message, file=file)
 
 # Global instance
 logger = Logger()

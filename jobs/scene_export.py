@@ -357,6 +357,6 @@ def scene_export(self, context, job):
 
         load_selection(saved_selection)
         context.preferences.edit.use_global_undo = saved_use_global_undo
-        logger.end_logging()
+        job.log = logger.end_logging()
 
     return {'FINISHED'}

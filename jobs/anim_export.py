@@ -243,6 +243,6 @@ def anim_export(self, context, job):
         rig.animation_data.action = saved_action
         context.preferences.edit.use_global_undo = saved_use_global_undo
         load_selection(saved_selection)
-        logger.end_logging()
+        job.log = logger.end_logging()
 
     return {'FINISHED'}

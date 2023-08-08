@@ -567,6 +567,56 @@ def fail_if_invalid_export_path(path, allowed_field_names):
     except OSError:
         pass  # Directory already exists
 
+def show_text_window(text, title, width=0.5, height=0.5, font_size=18):
+    """Open a standalone window displaying the given text."""
+
+    # New window hack from https://blender.stackexchange.com/questions/81974
+    render = bpy.context.scene.render
+    prefs = bpy.context.preferences
+    saved_resolution_x = render.resolution_x
+    saved_resolution_y = render.resolution_y
+    saved_resolution_percentage = render.resolution_percentage
+    saved_render_display_type = prefs.view.render_display_type
+    main_window = bpy.context.window_manager.windows[0]
+
+    try:
+        # Make a temporary text
+        string = text
+        text = bpy.data.texts.get(title) or bpy.data.texts.new(name=title)
+        text.use_fake_user = False
+        text.from_string(string)
+        text.cursor_set(0)
+
+        # Open a render preview window, then modify it to show a text editor instead
+        render.resolution_x = int(main_window.width * width) if width <= 1.0 else int(width)
+        render.resolution_y = int(main_window.height * height) if height <= 1.0 else int(height)
+        render.resolution_percentage = 100
+        prefs.view.render_display_type = 'WINDOW'
+        bpy.ops.render.view_show('INVOKE_DEFAULT')
+        area = bpy.context.window_manager.windows[-1].screen.areas[0]
+        area.type = 'TEXT_EDITOR'
+        space = area.spaces[0]
+        assert isinstance(space, bpy.types.SpaceTextEditor)
+
+        # Minimal interface
+        if font_size is not None:
+            space.font_size = font_size
+        space.show_line_highlight = True
+        space.show_line_numbers = False
+        space.show_margin = False
+        space.show_region_footer = False
+        space.show_region_header = False
+        space.show_region_ui = False
+        space.show_syntax_highlight = False
+        space.show_word_wrap = True
+        space.text = text
+    finally:
+        render.resolution_x = saved_resolution_x
+        render.resolution_y = saved_resolution_y
+        render.resolution_percentage = saved_resolution_percentage
+        prefs.view.render_display_type = saved_render_display_type
+        prefs.is_dirty = False
+
 def gret_operator_exists(bl_idname):
     """Returns whether the operator is available."""
 
@@ -580,7 +630,7 @@ def get_nice_export_report(filepaths, elapsed):
     if filepaths:
         filenames = [bpy.path.basename(filepath) for filepath in filepaths]
         return f"Exported {', '.join(filenames)} in {elapsed:.2f}s."
-    return "Nothing exported."
+    return "Nothing exported. See job results for details."
 
 def snakecase(s):
     """Convert string into snake case."""

@@ -477,7 +477,7 @@ def rig_export(self, context, job):
             rig.pose_blender.enabled = saved_pose_blender_enable
         context.preferences.edit.use_global_undo = saved_use_global_undo
         load_selection(saved_selection)
-        logger.end_logging()
+        job.log = logger.end_logging()
 
     if not rig_in_scene:
         context.scene.collection.objects.unlink(rig)
