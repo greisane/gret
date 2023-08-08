@@ -7,6 +7,7 @@ import shlex
 import time
 
 from .. import prefs
+from .helpers import clone_obj
 from ..helpers import (
     beep,
     fail_if_invalid_export_path,
@@ -60,36 +61,6 @@ def export_fbx(filepath, context, objects):
         , use_batch_own_dir=False
     )
 
-def copy_obj(self, obj):
-    if obj.type == 'MESH':
-        new_obj = obj.copy()
-        new_obj.name = obj.name + "_"
-        new_data = obj.data.copy()
-        new_obj.data = new_data
-        new_obj.parent = None
-    else:
-        dg = bpy.context.evaluated_depsgraph_get()
-        new_data = bpy.data.meshes.new_from_object(obj, preserve_all_data_layers=True, depsgraph=dg)
-        new_obj = bpy.data.objects.new(obj.name + "_", new_data)
-    new_obj.matrix_world = obj.matrix_world
-    self.new_objs.append(new_obj)
-    assert isinstance(new_data, bpy.types.Mesh)
-    assert new_data.users == 1
-    self.new_meshes.append(new_data)
-
-    # Move object materials to mesh
-    for mat_idx, mat_slot in enumerate(obj.material_slots):
-        if mat_slot.link == 'OBJECT':
-            new_data.materials[mat_idx] = mat_slot.material
-            new_obj.material_slots[mat_idx].link = 'DATA'
-
-    # New objects are moved to the scene collection, ensuring they're visible
-    bpy.context.scene.collection.objects.link(new_obj)
-    new_obj.hide_set(False)
-    new_obj.hide_viewport = False
-    new_obj.hide_select = False
-    return new_obj
-
 def restore_saved_object_names(self):
     for n, obj in enumerate(self.saved_object_names.keys()):
         obj.name = f"___{n}"
@@ -125,13 +96,12 @@ def _scene_export(self, context, job):
     if not job.selection_only:
         export_objs, job_cls = job.get_export_objects(context)
     elif context.selected_objects:
-        export_objs, job_cls = [o for o in context.selected_objects if o.type == 'MESH'], []
+        export_objs, job_cls = [o for o in context.selected_objects if o.type in {'MESH', 'CURVE'}], []
     else:
         # Nothing to export
         return
 
-    ExportItem = namedtuple('ExportObject', ['original', 'obj', 'job_collection',
-        'col_objs', 'socket_objs'])
+    ExportItem = namedtuple('ExportItem', 'original obj job_collection collision_objs socket_objs')
     items = []
     groups = defaultdict(list)  # Filepath to list of ExportItems
     for obj in context.scene.objects:
@@ -141,7 +111,11 @@ def _scene_export(self, context, job):
             # Never export collision objects by themselves
             continue
         obj.hide_render = False
-        items.append(ExportItem(obj, copy_obj(self, obj), job_cl, [], []))
+        new_obj = clone_obj(context, obj, parent=None, convert_to_mesh=True)
+        if new_obj:
+            self.new_objs.append(new_obj)
+            self.new_meshes.append(new_obj.data)
+            items.append(ExportItem(obj, new_obj, job_cl, [], []))
 
     # Process individual meshes
     for item in items:
@@ -221,9 +195,9 @@ def _scene_export(self, context, job):
 
         # If enabled, pick up UE4 collision objects
         if job.export_collision:
-            item.col_objs.extend(get_collision_objects(context, item.original))
-        if item.col_objs:
-            log(f"Collected {len(item.col_objs)} collision primitives")
+            item.collision_objs.extend(get_collision_objects(context, item.original))
+        if item.collision_objs:
+            log(f"Collected {len(item.collision_objs)} collision primitives")
 
         if job.export_sockets:
             item.socket_objs.extend(o for o in item.original.children if o.type == 'EMPTY')
@@ -240,7 +214,7 @@ def _scene_export(self, context, job):
                 obj.matrix_world.identity()
                 logd(f"Zero transform for {obj.name}")
 
-            for other_obj in chain(item.col_objs, item.socket_objs):
+            for other_obj in chain(item.collision_objs, item.socket_objs):
                 logd(f"Moving collision/socket {other_obj.name}")
                 self.saved_transforms[other_obj] = other_obj.matrix_world.copy()
                 other_obj.matrix_world = world_to_pivot @ other_obj.matrix_world
@@ -321,7 +295,7 @@ def _scene_export(self, context, job):
                         break
 
         filename = bpy.path.basename(filepath)
-        objs = list(chain.from_iterable([item.obj] + item.col_objs + item.socket_objs
+        objs = list(chain.from_iterable([item.obj] + item.collision_objs + item.socket_objs
             for item in items))
 
         result = export_fbx(filepath, context, objs)

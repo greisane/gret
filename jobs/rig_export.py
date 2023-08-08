@@ -8,6 +8,7 @@ import shlex
 import time
 
 from .. import prefs
+from .helpers import clone_obj
 from ..helpers import (
     beep,
     fail_if_invalid_export_path,
@@ -50,31 +51,6 @@ from ..rig.helpers import (
     is_object_arp_humanoid,
 )
 
-def copy_obj(self, obj, copy_data=True):
-    new_obj = obj.copy()
-    new_obj.name = obj.name + "_"
-    if copy_data:
-        new_data = obj.data.copy()
-        if isinstance(new_data, bpy.types.Mesh):
-            self.new_meshes.add(new_data)
-        else:
-            log(f"Copied data of object {obj.name} won't be released!")
-        new_obj.data = new_data
-    self.new_objs.add(new_obj)
-
-    # Move object materials to mesh
-    for mat_idx, mat_slot in enumerate(obj.material_slots):
-        if mat_slot.link == 'OBJECT':
-            new_data.materials[mat_idx] = mat_slot.material
-            new_obj.material_slots[mat_idx].link = 'DATA'
-
-    # New objects are moved to the scene collection, ensuring they're visible
-    bpy.context.scene.collection.objects.link(new_obj)
-    new_obj.hide_set(False)
-    new_obj.hide_viewport = False
-    new_obj.hide_select = False
-    return new_obj
-
 def sanitize_mesh(obj):
     # Ensure basis is selected
     obj.active_shape_key_index = 0
@@ -106,20 +82,18 @@ def _rig_export(self, context, job, rig):
     # Original objects that aren't exported will be hidden for render, only for driver purposes
     export_objs, job_cls = job.get_export_objects(context)
 
-    class ExportItem:
-        def __init__(item, original, job_collection):
-            item.original = original
-            item.obj = copy_obj(self, obj)
-            item.job_collection = job_collection
-            item.subd_level = job_collection.subdivision_levels
-
+    ExportItem = namedtuple('ExportItem', 'original obj job_collection subd_level')
     items = []
     groups = defaultdict(list)  # Filepath to list of ExportItems
     for obj in context.scene.objects:
         obj.hide_render = True
     for obj, job_cl in zip(export_objs, job_cls):
         obj.hide_render = False
-        items.append(ExportItem(obj, job_cl))
+        new_obj = clone_obj(context, obj, parent=rig, convert_to_mesh=False)
+        if new_obj:
+            self.new_objs.add(new_obj)
+            self.new_meshes.add(new_obj.data)
+            items.append(ExportItem(obj, new_obj, job_cl, job_cl.subdivision_levels))
 
     # Process individual meshes
     for item in items:
@@ -426,6 +400,7 @@ def _rig_export(self, context, job, rig):
                 'remove_bones': shlex.split(job.remove_bone_names) if job.remove_bones else [],
             }
             result = exporter(filepath, context, rig, objects=objs, options=options)
+
             if result == {'FINISHED'}:
                 self.exported_files.append(filepath)
             else:

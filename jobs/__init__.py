@@ -1,6 +1,7 @@
 import bpy
 
 module_names = [
+    'helpers',
     'anim_export',
     'rig_export',
     'scene_export',
