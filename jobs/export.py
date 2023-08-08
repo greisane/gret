@@ -559,7 +559,8 @@ class GRET_PT_export_jobs(bpy.types.Panel):
 
         row = layout.row(align=True)
         row.operator('gret.export_job_add', text="Add")
-        row.operator_menu_enum('gret.export_job_preset', 'preset', text="", icon='DOWNARROW_HLT')
+        # Job presets feature is rather unfinished
+        # row.operator_menu_enum('gret.export_job_preset', 'preset', text="", icon='DOWNARROW_HLT')
 
         jobs = context.scene.gret.export_jobs
         for job_index, job in enumerate(jobs):
@@ -1111,7 +1112,7 @@ classes = (
     GRET_OT_export_job_duplicate,
     GRET_OT_export_job_move_down,
     GRET_OT_export_job_move_up,
-    GRET_OT_export_job_preset,
+    # GRET_OT_export_job_preset,
     GRET_OT_export_job_remove,
     GRET_OT_search_modifier_tags,
     GRET_PG_copy_property,
