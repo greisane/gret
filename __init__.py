@@ -1,11 +1,13 @@
 bl_info = {
     'name': "gret",
     'author': "greisane",
-    'description': "",
-    'version': (1, 2, 0),
-    'blender': (3, 5, 0),
+    'description': "Collection of Blender tools",
+    'version': (1, 3, 0),
+    'blender': (3, 6, 1),
     'location': "3D View > Tools",
-    'category': "Object"
+    'category': "Object",
+    'doc_url': "https://github.com/greisane/gret#readme",
+    'tracker_url': "https://github.com/greisane/gret/issues",
 }
 
 from bpy.app.handlers import persistent
@@ -15,7 +17,6 @@ import importlib
 import sys
 
 from .log import log, logd, logger
-# logger.categories.add("DEBUG")
 
 # Names here will be accessible as imports from other modules
 class AddonPreferencesWrapper:

@@ -913,7 +913,8 @@ All values are remapped to a [0..1] UV range""",
     )
     export_sockets: bpy.props.BoolProperty(
         name="Export Sockets",
-        description="Export any Empty parented to an object as a UE4 static mesh socket",
+        description="""Export any Empty parented to an object as a UE4 static mesh socket.
+Number suffixes are dropped, so 'Pivot.002' will be renamed to 'SOCKET_Pivot'""",
         default=True,
         options=set(),
     )

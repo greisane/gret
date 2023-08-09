@@ -5,7 +5,7 @@ from ..helpers import (
     load_selection,
     save_selection,
     select_only,
-    swap_object_names,
+    swap_names,
     try_call,
 )
 
@@ -150,11 +150,11 @@ Modifiers and shape keys are applied, optionally other data may be removed"""
 
             # Copy with the original names
             for obj, new_obj in obj_to_new_obj.items():
-                swap_object_names(obj, new_obj)
+                swap_names(obj, new_obj)
             select_only(context, obj_to_new_obj.values())
             bpy.ops.view3d.copybuffer()
             for obj, new_obj in obj_to_new_obj.items():
-                swap_object_names(obj, new_obj)
+                swap_names(obj, new_obj)
         except:
             obj_to_new_obj.clear()
             raise

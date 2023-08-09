@@ -17,7 +17,7 @@ from ..helpers import (
     get_modifier,
     get_name_safe,
     get_nice_export_report,
-    get_object_filepath,
+    get_bid_filepath,
     gret_operator_exists,
     load_properties,
     load_selection,
@@ -74,7 +74,7 @@ def sanitize_mesh(obj):
         obj.shape_key_clear()
 
 def _rig_export(self, context, job, rig):
-    rig_filepath = get_object_filepath(rig)
+    rig_filepath = get_bid_filepath(rig)
     rig_basename = os.path.splitext(bpy.path.basename(rig_filepath))[0]
     rig.data.pose_position = 'REST'
 
@@ -226,7 +226,7 @@ def _rig_export(self, context, job, rig):
 
         # Pick the object that all others will be merged into
         # First choice should be the character's body, otherwise pick the densest mesh
-        merged_item = next((it for it in items if it.original.name.lower() == 'body'), None)
+        merged_item = next((it for it in items if it.original.name.lower() == "body"), None)
         if merged_item is None:
             merged_item = max(items, key=lambda it: len(it.obj.data.vertices))
 
@@ -370,9 +370,9 @@ def _rig_export(self, context, job, rig):
 
         for old_obj in old_objs.values():
             old_data = obj.data
-            bpy.data.objects.remove(old_obj, do_unlink=True)
+            bpy.data.objects.remove(old_obj)
             if old_data.users == 0 and isinstance(old_data, bpy.types.Mesh):
-                bpy.data.meshes.remove(old_data, do_unlink=True)
+                bpy.data.meshes.remove(old_data)
     else:
         # Finally export
         for filepath, items in groups.items():
@@ -433,6 +433,7 @@ def rig_export(self, context, job):
         self.report({'ERROR'}, str(e))
         return {'CANCELLED'}
 
+    # Save state of various things and keep track of new objects that should be deleted afterwards
     saved_selection = save_selection()
     viewport_reveal_all()
     assert rig.visible_get()
@@ -442,8 +443,6 @@ def rig_export(self, context, job):
         saved_pose_blender_enable = rig.pose_blender.enabled
         rig.pose_blender.enabled = False
     saved_bone_deform = {b: b.use_deform for b in rig.data.bones}
-    saved_use_global_undo = context.preferences.edit.use_global_undo
-    context.preferences.edit.use_global_undo = False
     self.exported_files = []
     self.new_objs = set()
     self.new_meshes = set()
@@ -461,7 +460,7 @@ def rig_export(self, context, job):
         if prefs.jobs__beep_on_finish:
             beep(pitch=0)
     finally:
-        # Clean up
+        # Restore state and clean up
         while self.new_objs:
             bpy.data.objects.remove(self.new_objs.pop())
         while self.new_meshes:
@@ -475,7 +474,6 @@ def rig_export(self, context, job):
         rig.data.pose_position = saved_pose_position
         if hasattr(rig, 'pose_blender'):
             rig.pose_blender.enabled = saved_pose_blender_enable
-        context.preferences.edit.use_global_undo = saved_use_global_undo
         load_selection(saved_selection)
         job.log = logger.end_logging()
 

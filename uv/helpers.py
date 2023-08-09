@@ -8,6 +8,7 @@ class UVVector(Vector):
     """Vector with an extra component used to separately identify face corners."""
 
     __slots__ = 'vert_index'
+
     def __new__(cls, vert_index, seq):
         assert len(seq) == 2
         self = super().__new__(cls, seq).freeze()

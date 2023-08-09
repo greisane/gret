@@ -2,7 +2,6 @@ from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
 from bpy.ops import op_as_string
 from collections import namedtuple
 from functools import wraps, lru_cache
-from mathutils import Vector, Quaternion, Euler
 import bpy
 import io
 import os
@@ -12,20 +11,20 @@ from . import prefs
 
 safediv = lambda x, y: x / y if y != 0.0 else 0.0
 fmt_pct = lambda pct: f"{pct:.0f}%" if int(pct) == pct else f"{pct:.1f}%"
-fmt_fraction = lambda n, count: fmt_pct(safediv(n, count) * 100.0)
+fmt_fraction = lambda x, y: fmt_pct(safediv(x, y) * 100.0)
 
-def get_name_safe(obj):
-    return getattr(obj, 'name', "Unknown") if obj else "None"
+def get_name_safe(bid):
+    return getattr(bid, 'name', "Unknown") if bid else "None"
 
-def get_object_filepath(obj):
+def get_bid_filepath(bid):
     """Return source filepath of a proxy or library override, otherwise return the working filepath."""
 
     try:
         if bpy.app.version < (3, 2, 0):
-            if obj.proxy and obj.proxy.library:
-                return obj.proxy.library.filepath
-        if obj.override_library and obj.override_library.reference:
-            return obj.override_library.reference.library.filepath
+            if bid.proxy and bid.proxy.library:
+                return bid.proxy.library.filepath
+        if bid.override_library and bid.override_library.reference:
+            return bid.override_library.reference.library.filepath
     except:
         pass
     return bpy.data.filepath
@@ -38,9 +37,12 @@ def select_only(context, objs):
     for obj in context.selected_objects:
         obj.select_set(False)
     for obj in objs:
-        obj.hide_viewport = False
-        obj.hide_select = False
-        obj.select_set(True)
+        try:
+            obj.hide_viewport = False
+            obj.hide_select = False
+            obj.select_set(True)
+        except ReferenceError:
+            pass
     context.view_layer.objects.active = next(iter(objs), None)
 
 def show_only(context, objs):
@@ -57,13 +59,13 @@ def show_only(context, objs):
         obj.hide_render = False
         obj.hide_select = False
 
-def is_valid(data_block):
+def is_valid(bid):
     """Returns whether a reference to a data-block is valid."""
 
-    if not data_block:
+    if bid is None:
         return False
     try:
-        data_block.id_data
+        bid.id_data
     except (ReferenceError, KeyError):
         return False
     return True
@@ -267,18 +269,18 @@ class TempModifier:
         if self.saved_mode == 'EDIT_MESH':
             bpy.ops.object.editmode_toggle()
 
-SelectionState = namedtuple('SelectionState', [
-    'selected',
-    'active',
-    'collections',
-    'layers',
-    'objects',
-])
+def swap_names(bid1, bid2):
+    name1, name2 = bid1.name, bid2.name
+    bid1.name = name2
+    bid2.name = name1
+    bid1.name = name2
 
 def get_layers_recursive(layer):
     yield layer
     for child in layer.children:
         yield from get_layers_recursive(child)
+
+SelectionState = namedtuple('SelectionState', 'selected active collections layers objects')
 
 def save_selection():
     """Returns a SelectionState storing the current selection state."""
@@ -361,60 +363,60 @@ def restore_viewports():
                     if saved_value is not None:
                         setattr(space.shading, field_name, saved_value)
 
-def viewport_reveal_all():
+def viewport_reveal_all(context):
     for collection in bpy.data.collections:
         collection.hide_select = False
         collection.hide_viewport = False
-    for layer in get_layers_recursive(bpy.context.view_layer.layer_collection):
+    for layer in get_layers_recursive(context.view_layer.layer_collection):
         layer.hide_viewport = False
         layer.exclude = False
     # Not sure if this is necessary, it's not really reliable. Does object.visible_get() care?
-    space_data = bpy.context.space_data
+    space_data = context.space_data
     if space_data and getattr(space_data, 'local_view', False):
         bpy.ops.view3d.localview()
 
-def save_properties(obj):
-    """Returns a dictionary storing the properties of a Blender object."""
+def save_properties(struct):
+    """Returns a dictionary storing the properties of a Blender struct."""
 
     saved = {}
-    for prop in obj.bl_rna.properties:
+    for prop in struct.bl_rna.properties:
         if not prop.is_runtime:
             # Only save user properties
             continue
         prop_id = prop.identifier
         try:
             if prop.type == 'COLLECTION':
-                saved[prop_id] = [save_properties(el) for el in getattr(obj, prop_id)]
+                saved[prop_id] = [save_properties(el) for el in getattr(struct, prop_id)]
             elif getattr(prop, 'is_array', False):
-                saved[prop_id] = getattr(obj, prop_id)[:]
+                saved[prop_id] = getattr(struct, prop_id)[:]
             else:
-                saved[prop_id] = getattr(obj, prop_id)
+                saved[prop_id] = getattr(struct, prop_id)
         except:
             continue
     return saved
 
-def load_properties(obj, saved):
+def load_properties(struct, saved):
     """Restores properties from a dictionary returned by save_properties()"""
 
     for prop_id, value in saved.items():
         try:
-            prop = obj.bl_rna.properties[prop_id]
+            prop = struct.bl_rna.properties[prop_id]
             if prop.type == 'COLLECTION':
-                collection = getattr(obj, prop_id)
+                collection = getattr(struct, prop_id)
                 collection.clear()
                 for saved_el in value:
                     el = collection.add()
                     load_properties(el, saved_el)
             elif not prop.is_readonly:
-                setattr(obj, prop_id, value)
+                setattr(struct, prop_id, value)
         except:
             continue
 
-def is_defaulted(obj):
-    """Returns whether the properties of an object are set to their default values."""
+def is_defaulted(struct):
+    """Returns whether the properties of a Blender struct are set to their default values."""
     # This is not extensively tested, it should work for most things
 
-    for prop in obj.bl_rna.properties:
+    for prop in struct.bl_rna.properties:
         if not prop.is_runtime:
             # Only consider user properties
             continue
@@ -422,16 +424,16 @@ def is_defaulted(obj):
         try:
             if prop.type == 'COLLECTION':
                 # Consider that if the collection has any elements, then it's not default
-                current = len(getattr(obj, prop_id))
+                current = len(getattr(struct, prop_id))
                 default = 0
             elif prop.type == 'POINTER':
-                current = getattr(obj, prop_id)
+                current = getattr(struct, prop_id)
                 default = None
             elif getattr(prop, 'is_array', False):
-                current = getattr(obj, prop_id)[:]
+                current = getattr(struct, prop_id)[:]
                 default = prop.default_array[:]
             else:
-                current = getattr(obj, prop_id)
+                current = getattr(struct, prop_id)
                 default = getattr(prop, 'default', type(current)())
 
             if current != default:
@@ -477,12 +479,6 @@ def flip_names(s):
     s = re.sub(r".[_.][LlRr]\b", lambda m: m[0][:-1] + lr[m[0][-1]], s)
     return s
 
-def swap_object_names(obj1, obj2):
-    name1, name2 = obj1.name, obj2.name
-    obj1.name = name2
-    obj2.name = name1
-    obj1.name = name2
-
 def beep(pitch=0, num=2):
     try:
         import winsound
@@ -517,9 +513,9 @@ def intercept(_func=None, error_result=None):
     else:
         return decorator(_func)
 
-def try_call(f, *args, **kwargs):
+def try_call(func, *args, **kwargs):
     try:
-        f(*args, **kwargs)
+        func(*args, **kwargs)
         return True
     except RuntimeError:
         pass
@@ -567,7 +563,7 @@ def fail_if_invalid_export_path(path, allowed_field_names):
     except OSError:
         pass  # Directory already exists
 
-def show_text_window(text, title, width=0.5, height=0.5, font_size=18):
+def show_text_window(text, title, width=0.5, height=0.5, font_size=16):
     """Open a standalone window displaying the given text."""
 
     # New window hack from https://blender.stackexchange.com/questions/81974
@@ -632,6 +628,9 @@ def get_nice_export_report(filepaths, elapsed):
         return f"Exported {', '.join(filenames)} in {elapsed:.2f}s."
     return "Nothing exported. See job results for details."
 
+def ensure_starts_with(s, prefix):
+    return s if s.startswith(prefix) else prefix + s
+
 def snakecase(s):
     """Convert string into snake case."""
 
@@ -695,7 +694,7 @@ def levenshtein_distance(string1, string2):
 
 # There might be a builtin map or property in bl_rna that returns this, I couldn't find it
 # https://docs.blender.org/api/3.5/bpy_types_enum_items/id_type_items.html
-type_to_id_type = {
+bpy_type_to_id_type = {
     bpy.types.Action: 'ACTION',
     bpy.types.Armature: 'ARMATURE',
     bpy.types.Brush: 'BRUSH',
@@ -704,7 +703,7 @@ type_to_id_type = {
     bpy.types.Collection: 'COLLECTION',
     bpy.types.Curve: 'CURVE',
     bpy.types.Curves: 'CURVES',
-    # bpy.types.Font: 'FONT',  # Doesn't exist
+    # bpy.types.Font: 'FONT',  # No such type
     bpy.types.GreasePencil: 'GREASEPENCIL',
     bpy.types.Image: 'IMAGE',
     bpy.types.Key: 'KEY',
@@ -712,11 +711,11 @@ type_to_id_type = {
     bpy.types.Library: 'LIBRARY',
     bpy.types.Light: 'LIGHT',
     bpy.types.LightProbe: 'LIGHT_PROBE',
-    # bpy.types.LineStyle: 'LINESTYLE',  # Doesn't exist
+    # bpy.types.LineStyle: 'LINESTYLE',  # No such type
     bpy.types.Mask: 'MASK',
     bpy.types.Material: 'MATERIAL',
     bpy.types.Mesh: 'MESH',
-    bpy.types.MetaBall: 'META',  # Is this right? There's MetaElement
+    bpy.types.MetaBall: 'META',
     bpy.types.MovieClip: 'MOVIECLIP',
     bpy.types.NodeTree: 'NODETREE',
     bpy.types.Object: 'OBJECT',
@@ -725,23 +724,71 @@ type_to_id_type = {
     bpy.types.Particle: 'PARTICLE',
     bpy.types.PointCloud: 'POINTCLOUD',
     bpy.types.Scene: 'SCENE',
-    # bpy.types.Simulation: 'SIMULATION',  # Doesn't exist
+    # bpy.types.Simulation: 'SIMULATION',  # No such type
     bpy.types.Sound: 'SOUND',
     bpy.types.Speaker: 'SPEAKER',
     bpy.types.Text: 'TEXT',
     bpy.types.Texture: 'TEXTURE',
     bpy.types.Volume: 'VOLUME',
     bpy.types.WindowManager: 'WINDOWMANAGER',
-    # bpy.types.Workspace: 'WORKSPACE',  # Doesn't exist
+    bpy.types.WorkSpace: 'WORKSPACE',
     bpy.types.World: 'WORLD',
 }
 
-def link_properties(from_obj, from_data_path, to_obj, to_data_path, invert=False):
-    """Creates a simple driver linking properties between two objects."""
+bpy_type_to_data_collection_name = {
+    bpy.types.Action: 'actions',                # BlendDataActions
+    bpy.types.Armature: 'armatures',            # BlendDataArmatures
+    bpy.types.Brush: 'brushes',                 # BlendDataBrushes
+    bpy.types.CacheFile: 'cache_files',         # BlendDataCacheFiles
+    bpy.types.Camera: 'cameras',                # BlendDataCameras
+    bpy.types.Collection: 'collections',        # BlendDataCollections
+    bpy.types.Curve: 'curves',                  # BlendDataCurves
+    # bpy.types.Font: 'fonts',                  # BlendDataFonts -- no such type
+    bpy.types.GreasePencil: 'grease_pencils',   # BlendDataGreasePencils
+    # bpy.types.HairCurve: 'hair_curves',       # BlendDataHairCurves -- no such type
+    bpy.types.Image: 'images',                  # BlendDataImages
+    bpy.types.Lattice: 'lattices',              # BlendDataLattices
+    bpy.types.Library: 'libraries',             # BlendDataLibraries
+    bpy.types.LightProbe: 'lightprobes',        # BlendDataProbes
+    bpy.types.Light: 'lights',                  # BlendDataLights
+    # bpy.types.LineStyle: 'linestyles',          # BlendDataLineStyles -- no such type
+    bpy.types.Mask: 'masks',                    # BlendDataMasks
+    bpy.types.Material: 'materials',            # BlendDataMaterials
+    bpy.types.Mesh: 'meshes',                   # BlendDataMeshes
+    bpy.types.MetaBall: 'metaballs',            # BlendDataMetaBalls
+    bpy.types.MovieClip: 'movieclips',          # BlendDataMovieClips
+    bpy.types.NodeGroup: 'node_groups',         # BlendDataNodeTrees
+    bpy.types.Object: 'objects',                # BlendDataObjects
+    bpy.types.PaintCurve: 'paint_curves',       # BlendDataPaintCurves
+    bpy.types.Palette: 'palettes',              # BlendDataPalettes
+    bpy.types.Particle: 'particles',            # BlendDataParticles
+    bpy.types.PointCloud: 'pointclouds',        # BlendDataPointClouds
+    bpy.types.Scene: 'scenes',                  # BlendDataScenes
+    bpy.types.Screen: 'screens',                # BlendDataScreens
+    # bpy.types.ShapeKey: 'shape_keys',         # BlendData.shape_keys?
+    bpy.types.Sound: 'sounds',                  # BlendDataSounds
+    bpy.types.Speaker: 'speakers',              # BlendDataSpeakers
+    bpy.types.Text: 'texts',                    # BlendDataTexts
+    bpy.types.Texture: 'textures',              # BlendDataTextures
+    bpy.types.Volume: 'volumes',                # BlendDataVolumes
+    bpy.types.WindowManager: 'window_managers', # BlendDataWindowManagers
+    bpy.types.WorkSpace: 'workspaces',          # BlendDataWorkSpaces
+    bpy.types.World: 'worlds',                  # BlendDataWorlds
+}
 
-    if not to_obj.animation_data:
-        to_obj.animation_data_create()
-    fc = to_obj.driver_add(to_data_path)
+def get_data_collection(bid_or_type):
+    """Return the data collection that the ID belongs to, or None if not applicable."""
+
+    if isinstance(bid_or_type, bpy.types.ID):
+        bid_or_type = type(bid_or_type)
+    return getattr(bpy.data, bpy_type_to_data_collection_name.get(bid_or_type, ''), None)
+
+def link_properties(from_bid, from_data_path, to_bid, to_data_path, invert=False):
+    """Creates a simple driver linking properties between two IDs."""
+
+    if not to_bid.animation_data:
+        to_bid.animation_data_create()
+    fc = to_bid.driver_add(to_data_path)
     fc.driver.expression = '1 - var' if invert else 'var'
     fc.driver.type = 'SCRIPTED'
     fc.driver.use_self = True
@@ -750,8 +797,8 @@ def link_properties(from_obj, from_data_path, to_obj, to_data_path, invert=False
     var.type = 'SINGLE_PROP'
     tgt = var.targets[0]
     tgt.data_path = from_data_path
-    tgt.id_type = type_to_id_type.get(type(from_obj))
-    tgt.id = from_obj
+    tgt.id_type = bpy_type_to_id_type.get(type(from_bid))
+    tgt.id = from_bid
 
 def remove_subsequence(seq, subseq):
     """Removes the first instance of a subsequence from another sequence."""

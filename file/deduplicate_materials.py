@@ -31,7 +31,7 @@ class GRET_OT_deduplicate_materials(bpy.types.Operator):
 
         # Delete duplicate materials
         for mat in redirects.keys():
-            bpy.data.materials.remove(mat, do_unlink=True)
+            bpy.data.materials.remove(mat)
 
         self.report({'INFO'}, f"Deleted {len(redirects)} duplicate materials.")
         return {'FINISHED'}

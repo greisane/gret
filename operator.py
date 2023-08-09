@@ -7,10 +7,12 @@ class GRET_OT_property_warning(bpy.types.Operator):
     bl_label = "Not Overridable"
     bl_options = {'INTERNAL'}
 
-def draw_warning_if_not_overridable(layout, obj, data_path):
-    if obj and obj.override_library:
+def draw_warning_if_not_overridable(layout, bid, data_path):
+    """Adds a warning to a layout if the requested property is not available or not overridable."""
+
+    if bid and bid.override_library:
         try:
-            if not obj.is_property_overridable_library(data_path):
+            if not bid.is_property_overridable_library(data_path):
                 layout.operator(GRET_OT_property_warning.bl_idname,
                     icon='ERROR', text="", emboss=False, depress=True)
                 return True
@@ -49,6 +51,7 @@ class StateMachineBaseState:
 
 class StateMachineMixin:
     """Simple state machine."""
+
     state_stack = None
     state_events_on_reentry = True
 

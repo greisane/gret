@@ -86,7 +86,7 @@ class GRET_OT_collision_copy_to_linked(bpy.types.Operator):
 
                 # Clean collision
                 for old_col_obj in get_collision_objects(context, other_obj):
-                    bpy.data.objects.remove(old_col_obj, do_unlink=True)
+                    bpy.data.objects.remove(old_col_obj)
 
                 # Copy collision to other object's location
                 obj_to_other = obj.matrix_world.inverted() @ other_obj.matrix_world

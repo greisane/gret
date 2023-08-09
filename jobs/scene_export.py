@@ -89,7 +89,7 @@ def _scene_export(self, context, job):
         # Clean the target collection first
         log(f"Cleaning target collection")
         for obj in job.export_collection.objects:
-            bpy.data.objects.remove(obj, do_unlink=True)
+            bpy.data.objects.remove(obj)
 
     # Find and clone objects to be exported
     # Original objects that aren't exported will be hidden for render, only for driver purposes
@@ -318,10 +318,9 @@ def scene_export(self, context, job):
         self.report({'ERROR'}, str(e))
         return {'CANCELLED'}
 
+    # Save state of various things and keep track of new objects that should be deleted afterwards
     saved_selection = save_selection()
     viewport_reveal_all()
-    saved_use_global_undo = context.preferences.edit.use_global_undo
-    context.preferences.edit.use_global_undo = False
     self.exported_files = []
     self.new_objs = []
     self.new_meshes = []
@@ -341,8 +340,8 @@ def scene_export(self, context, job):
         if prefs.jobs__beep_on_finish:
             beep(pitch=2, num=1)
     finally:
-        # Clean up
         restore_saved_object_names(self)
+        # Restore state and clean up
         while self.new_objs:
             bpy.data.objects.remove(self.new_objs.pop())
         while self.new_meshes:
@@ -356,7 +355,6 @@ def scene_export(self, context, job):
         del self.saved_transforms
 
         load_selection(saved_selection)
-        context.preferences.edit.use_global_undo = saved_use_global_undo
         job.log = logger.end_logging()
 
     return {'FINISHED'}

@@ -474,8 +474,6 @@ All faces from all objects assigned to the active material are assumed to contri
         saved_render_bake_margin = context.scene.render.bake.margin  # Don't mistake for bake_margin
         saved_render_use_selected_to_active = context.scene.render.bake.use_selected_to_active
         saved_cycles_samples = context.scene.cycles.samples
-        saved_use_global_undo = context.preferences.edit.use_global_undo
-        context.preferences.edit.use_global_undo = False
         self.exported_files = []
         self.new_objs = []
         self.new_meshes = []
@@ -507,7 +505,6 @@ All faces from all objects assigned to the active material are assumed to contri
             context.scene.render.bake.margin = saved_render_bake_margin
             context.scene.render.bake.use_selected_to_active = saved_render_use_selected_to_active
             context.scene.cycles.samples = saved_cycles_samples
-            context.preferences.edit.use_global_undo = saved_use_global_undo
             logger.end_logging()
 
         return {'FINISHED'}

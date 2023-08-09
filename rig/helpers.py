@@ -65,31 +65,31 @@ default_pose_values = {}
 custom_prop_pattern = re.compile(r'(.+)?\["([^"]+)"\]')
 prop_pattern = re.compile(r'(?:(.+)\.)?([^"\.]+)')
 
-class PropertyWrapper(namedtuple('PrettyProperty', ['data', 'path', 'is_custom'])):
-    # To set a property given a data path it's necessary to split the object and attribute name
-    # `data.path_resolve(path, False)` returns a bpy_prop, and bpy_prop.data holds the object
+class PropertyWrapper(namedtuple('PropertyWrapper', ['struct', 'path', 'is_custom'])):
+    # To set a property given a data path it's necessary to split the struct and attribute name
+    # `struct.path_resolve(path, False)` returns a bpy_prop, and bpy_prop.data holds the struct
     # Unfortunately bpy_prop knows the attribute name but doesn't expose it (see `bpy_prop.__str__`)
     # Also need to determine if it's a custom property, since those are accessed dict-like instead
     # For these reasons, resort to the less robust way of just parsing the data path with regexes
 
     @classmethod
-    def from_path(cls, data, data_path):
+    def from_path(cls, struct, data_path):
         try:
             prop_match = custom_prop_pattern.fullmatch(data_path)
             if prop_match:
                 if prop_match[1]:
-                    data = data.path_resolve(prop_match[1])
+                    struct = struct.path_resolve(prop_match[1])
                 data_path = f'["{prop_match[2]}"]'
-                data.path_resolve(data_path)  # Make sure the property exists
-                return cls(data, data_path, True)
+                struct.path_resolve(data_path)  # Make sure the property exists
+                return cls(struct, data_path, True)
 
             prop_match = prop_pattern.fullmatch(data_path)
             if prop_match:
                 if prop_match[1]:
-                    data = data.path_resolve(prop_match[1])
+                    struct = struct.path_resolve(prop_match[1])
                 data_path = prop_match[2]
-                data.path_resolve(data_path)  # Make sure the property exists
-                return cls(data, data_path, False)
+                struct.path_resolve(data_path)  # Make sure the property exists
+                return cls(struct, data_path, False)
         except ValueError:
             return None
 
@@ -98,33 +98,35 @@ class PropertyWrapper(namedtuple('PrettyProperty', ['data', 'path', 'is_custom']
         if self.is_custom:
             return titlecase(self.path[2:-2])  # Custom property name should be descriptive enough
         else:
-            return f"{self.data.name} {titlecase(self.path)}"
+            return f"{self.struct.name} {titlecase(self.path)}"
 
     @property
     def default_value(self):
         if self.is_custom:
-            return self.data.id_properties_ui(self.path[2:-2]).as_dict()['default']
+            return self.struct.id_properties_ui(self.path[2:-2]).as_dict()['default']
         else:
-            return self.data.bl_rna.properties[self.path].default
+            return self.struct.bl_rna.properties[self.path].default
 
     @property
     def value(self):
-        return self.data.path_resolve(self.path, True)
+        return self.struct.path_resolve(self.path, True)
 
     @value.setter
     def value(self, new_value):
         if self.is_custom:
-            self.data[self.path[2:-2]] = new_value
+            self.struct[self.path[2:-2]] = new_value
         else:
-            setattr(self.data, self.path, new_value)
+            setattr(self.struct, self.path, new_value)
 
 def is_object_arp(obj):
     """Returns whether the object is an Auto-Rig Pro armature."""
+
     return obj and obj.type == 'ARMATURE' and "c_pos" in obj.data.bones
 
 def is_object_arp_humanoid(obj):
     """Returns whether the object is an Auto-Rig Pro humanoid armature."""
     # This is check_humanoid_limbs() from auto_rig_ge.py but less spaghetti
+
     if not is_object_arp(obj):
         return False
 
@@ -191,26 +193,26 @@ def clear_pose(obj, clear_gret_props=True, clear_armature_props=False, clear_bon
         pose_bone.rotation_axis_angle = [0.0, 0.0, 1.0, 0.0]
         pose_bone.scale = Vector((1.0, 1.0, 1.0))
 
-def try_key(obj, prop_path, frame=0):
+def try_key(struct, prop_path, frame=0):
     try:
-        return obj.keyframe_insert(prop_path, frame=frame)
+        return struct.keyframe_insert(prop_path, frame=frame)
     except TypeError:
         return False
 
-def copy_drivers(src, dst, overwrite=False):
-    """Copies drivers. src and dst should be of type bpy.types.ID with an AnimData slot."""
+def copy_drivers(src_bid, dst_bid, overwrite=False):
+    """Copies drivers between two IDs with AnimData slots."""
 
-    if src and src.animation_data and dst:
-        src_name = src.user.name if src.user else src.name
-        for src_fc in src.animation_data.drivers:
+    if src_bid and src_bid.animation_data and dst_bid:
+        src_name = getattr(src_bid, 'user', src_bid).name  # For shape keys, display the mesh name
+        for src_fc in src_bid.animation_data.drivers:
             try:
-                dst.path_resolve(src_fc.data_path)
+                dst_bid.path_resolve(src_fc.data_path)
             except ValueError:
                 logd(f"Won't copy driver {src_fc.data_path} from {src_name}")
                 continue
-            if dst.animation_data is None:
-                dst.animation_data_create()
-            dst_drivers = dst.animation_data.drivers
+            if dst_bid.animation_data is None:
+                dst_bid.animation_data_create()
+            dst_drivers = dst_bid.animation_data.drivers
             existing_fc = next((fc for fc in dst_drivers if fc.data_path == src_fc.data_path), None)
             if existing_fc and overwrite:
                 dst_drivers.remove(existing_fc)

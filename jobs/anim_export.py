@@ -10,7 +10,7 @@ from ..helpers import (
     fail_if_invalid_export_path,
     get_export_path,
     get_nice_export_report,
-    get_object_filepath,
+    get_bid_filepath,
     load_selection,
     save_selection,
 )
@@ -32,7 +32,7 @@ class ConstantCurve:
 
 def _anim_export(self, context, job, rig):
     start_time = time.time()
-    rig_filepath = get_object_filepath(rig)
+    rig_filepath = get_bid_filepath(rig)
     rig_basename = os.path.splitext(bpy.path.basename(rig_filepath))[0]
 
     # Select actions to export
@@ -197,12 +197,11 @@ def anim_export(self, context, job):
         self.report({'ERROR'}, str(e))
         return {'CANCELLED'}
 
+    # Save state of various things and keep track of new objects that should be deleted afterwards
     saved_selection = save_selection()
     saved_pose_position = rig.data.pose_position
     saved_action = rig.animation_data.action
-    saved_use_global_undo = context.preferences.edit.use_global_undo
     saved_scene_object_names = [o.name for o in context.scene.objects]
-    context.preferences.edit.use_global_undo = False
     self.exported_files = []
     self.saved_unmuted_strips = []
     self.saved_unmuted_constraints = []
@@ -221,12 +220,12 @@ def anim_export(self, context, job):
         if prefs.jobs__beep_on_finish:
             beep(pitch=1)
     finally:
-        # ARP has started leaving behind objects and it breaks subsequent exports
+        # ARP has started leaving objects behind and it breaks subsequent exports
         for obj in context.scene.objects[:]:
             if obj.name not in saved_scene_object_names:
-                log(f"Removing object '{obj.name}' that was left behind")
-                bpy.data.objects.remove(obj, do_unlink=True)
-        # Clean up
+                logd(f"Removing object {obj.name} that was left behind")
+                bpy.data.objects.remove(obj)
+        # Restore state and clean up
         for mesh in self.saved_meshes_with_relative_shape_keys:
             mesh.shape_keys.use_relative = True
         for strip in self.saved_unmuted_strips:
@@ -241,7 +240,6 @@ def anim_export(self, context, job):
         del self.new_fcurves
         rig.data.pose_position = saved_pose_position
         rig.animation_data.action = saved_action
-        context.preferences.edit.use_global_undo = saved_use_global_undo
         load_selection(saved_selection)
         job.log = logger.end_logging()
 

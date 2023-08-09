@@ -68,16 +68,16 @@ class PanelPatcher(ast.NodeTransformer):
 class FunctionPatcher(dict):
     """
     Allows patching functionality in foreign modules.
-    The patcher object acts like a keyword argument dictionary in order to pass additional data.
+    Use the patcher object as a dictionary in order to pass additional data to the override function.
     Example usage:
 
-    def cos_override(base, *args, **kwargs):
-        if kwargs.pop('to_radians', False):
-            args = (args[0] * (math.pi / 180), )
-        return base(*args, **kwargs)
+    def cos_wrapper(cos, x, **kwargs):
+        if kwargs.pop('degrees', False):
+            x *= math.pi / 180
+        return cos(x)
     import math
-    with FunctionPatcher('math', 'cos', cos_override) as patcher:
-        patcher['to_radians'] = True
+    with FunctionPatcher('math', 'cos', cos_wrapper) as patcher:
+        patcher['degrees'] = True
         print(math.cos(180.0))
     """
 
