@@ -231,105 +231,6 @@ bake_items = [
     ('CURVATURE', "Curvature", "Curvature, centered on gray"),
 ]
 
-class GRET_OT_quick_unwrap(bpy.types.Operator):
-    """Smart unwrap and pack UVs for all objects that have the active material assigned"""
-
-    bl_idname = 'gret.quick_unwrap'
-    bl_label = "Quick Unwrap"
-    bl_options = {'INTERNAL', 'UNDO'}
-
-    index: bpy.props.IntProperty(options={'HIDDEN'})
-
-    angle_limit: bpy.props.FloatProperty(
-        name="Angle Limit",
-        description="Lower for more projection groups, higher for less distortion",
-        subtype='ANGLE',
-        default=radians(66.0),
-        min=radians(0.0),
-        max=radians(89.0),
-    )
-    area_weight: bpy.props.FloatProperty(
-        name="Area Weight",
-        description="Weight projection vectors by faces with larger areas",
-        subtype='FACTOR',
-        default=0.0,
-        min=0.0,
-        max=1.0,
-    )
-    align_with_world: bpy.props.BoolProperty(
-        name="Align With World",
-        description="Rotate UV islands to flow in the direction of gravity. Requires TexTools addon",
-        default=True,
-    )
-
-    @classmethod
-    def poll(cls, context):
-        return context.object and context.object.active_material and context.mode == 'EDIT_MESH'
-
-    def execute(self, context):
-        mat = context.object.active_material
-        bake = mat.texture_bakes[self.index]
-        saved_area_ui_type = context.area.ui_type
-        saved_use_uv_select_sync = context.scene.tool_settings.use_uv_select_sync
-        saved_selection = save_selection()
-        saved_active_uv_layers = {}  # Object to UV layer
-        margin = 1.0 / 128 * 2
-
-        try:
-            # Select all faces of all objects that share the material
-            bpy.ops.object.editmode_toggle()
-            context.scene.tool_settings.use_uv_select_sync = True
-            objs = [o for o in context.scene.objects if o.type == 'MESH' and mat.name in o.data.materials]
-            select_only(context, objs)
-            bpy.ops.object.editmode_toggle()
-            bpy.ops.mesh.reveal()
-            bpy.ops.mesh.select_mode(type='FACE')
-            bpy.ops.object.editmode_toggle()
-            for obj in objs:
-                saved_active_uv_layers[obj] = obj.data.uv_layers.active
-                uv = obj.data.uv_layers.get(bake.uv_layer_name)
-                if not uv:
-                    uv = obj.data.uv_layers.new(name=bake.uv_layer_name)
-                uv.active = True
-                for face in obj.data.polygons:
-                    face.select = obj.data.materials[face.material_index] == mat
-            bpy.ops.object.editmode_toggle()
-
-            # Unwrap
-            bpy.ops.uv.smart_project(
-                angle_limit=self.angle_limit,
-                island_margin=margin,
-                area_weight=self.area_weight,
-                correct_aspect=True,
-                scale_to_bounds=False)
-
-            # If set and TexTools is available, rotate islands
-            if self.align_with_world:
-                try:
-                    context.area.ui_type = 'UV'
-                    context.scene.tool_settings.use_uv_select_sync = False
-                    bpy.ops.uv.textools_island_align_world(steps=2)
-                except AttributeError:
-                    pass
-
-            # If available, pack using an addon
-            try:
-                context.scene.uvp2_props.margin = margin
-                context.scene.uvp2_props.rot_enable = not self.align_with_world
-                bpy.ops.uvpackmaster2.uv_pack()
-            except AttributeError:
-                pass
-        finally:
-            for obj, uv_layer in saved_active_uv_layers.items():
-                obj.data.uv_layers.active = uv_layer
-            load_selection(saved_selection)
-            context.scene.tool_settings.use_uv_select_sync = saved_use_uv_select_sync
-            context.area.ui_type = saved_area_ui_type
-            # Exiting edit mode here causes uvpackmaster2 to break, it's doing some weird modal stuff
-            # bpy.ops.object.mode_set(mode='OBJECT')
-
-        return {'FINISHED'}
-
 class GRET_OT_texture_bake(bpy.types.Operator):
     """Bake and export the texture.
 All faces from all objects assigned to the active material are assumed to contribute"""
@@ -668,10 +569,6 @@ class GRET_PT_texture_bake(bpy.types.Panel):
             box = layout
             col = box.column(align=True)
 
-            # Disabled, might rework or remove in the future
-            # op = row.operator('gret.quick_unwrap', icon='MOD_UVPROJECT')
-            # op.index = bake_idx
-
             draw_bake_layout(col, bake, 'r', 'COLOR_RED')
             draw_bake_layout(col, bake, 'g', 'COLOR_GREEN')
             draw_bake_layout(col, bake, 'b', 'COLOR_BLUE')
@@ -743,7 +640,6 @@ class GRET_PG_texture_bake(bpy.types.PropertyGroup):
     )
 
 classes = (
-    # GRET_OT_quick_unwrap,
     GRET_OT_texture_bake,
     GRET_OT_texture_bake_add,
     GRET_OT_texture_bake_clear,
