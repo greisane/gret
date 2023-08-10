@@ -434,10 +434,7 @@ def load_post(_):
 def register():
     # Register prefs first so that modules can access them through gret.prefs
     bpy.utils.register_class(GretAddonPreferences)
-    if prefs.debug:
-        logger.categories.add("DEBUG")
-    else:
-        logger.categories.discard("DEBUG")
+    debug_updated(None, None)
 
     # Each module adds its own settings to the main group via add_property()
     global registered_modules
