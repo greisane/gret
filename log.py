@@ -67,4 +67,4 @@ class Logger:
 # Global instance
 logger = Logger()
 log = logger.log
-logd = partial(log, category='DEBUG')
+logd = partial(log, category="DEBUG")

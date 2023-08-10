@@ -192,16 +192,17 @@ def _rig_export(self, context, job, rig):
                 loop.color = job.default_vertex_color
 
         # Ensure vertex color layers share a single name so they merge correctly
+        default_vcol_name = "Col"
         if len(obj.data.vertex_colors) > 1:
             log(f"More than one vertex color layer, is this intended?",
-                ", ".join(vc.name for vc in obj.data.vertex_colors))
-        elif obj.data.vertex_colors.active:
-            logd(f"Renamed vertex color layer {obj.data.vertex_colors.active.name}")
-            obj.data.vertex_colors.active.name = "Col"
+                ", ".join(vcol.name for vcol in obj.data.vertex_colors))
+        elif obj.data.vertex_colors.active and obj.data.vertex_colors.active.name != default_vcol_name:
+            logd(f"Renamed vertex color layer {obj.data.vertex_colors.active.name} to {default_name}")
+            obj.data.vertex_colors.active.name = default_name
 
         # Ensure proper mesh state
         sanitize_mesh(obj)
-        if gret_operator_exists('gret.vertex_group_remove_unused'):
+        if gret_operator_exists('vertex_group_remove_unused'):
             bpy.ops.gret.vertex_group_remove_unused(ctx)
         obj.data.transform(obj.matrix_basis, shape_keys=True)
         obj.matrix_basis.identity()
@@ -411,6 +412,7 @@ def rig_export(self, context, job):
     assert job.what == 'RIG'
     rig = job.rig
 
+    # Validate job settings
     if not rig or rig.type != 'ARMATURE':
         self.report({'ERROR'}, "No armature selected.")
         return {'CANCELLED'}
@@ -481,8 +483,7 @@ def rig_export(self, context, job):
         context.scene.collection.objects.unlink(rig)
 
     if job.to_collection:
-        # Crashes if undo is attempted right after a simulate export job
-        # Pushing an undo step here seems to prevent that
+        # Scene has new objects
         bpy.ops.ed.undo_push()
 
     return {'FINISHED'}

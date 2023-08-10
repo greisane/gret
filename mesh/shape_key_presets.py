@@ -48,7 +48,7 @@ class GRET_OT_shape_key_preset(bpy.types.Operator):
         obj = context.active_object
         slots = obj.data.shape_key_storage
 
-        # For human readability, store info as comma separated values instead of using save_properties
+        # For readability, store info as comma separated values instead of using save_properties
         if self.load:
             # Load from slot
             data = StringIO(slots[self.index].data if self.index < len(slots) else "")

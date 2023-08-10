@@ -32,11 +32,9 @@ def get_bid_filepath(bid):
 def select_only(context, objs):
     """Ensures only the given object or objects are selected."""
 
-    if not hasattr(objs, '__iter__'):
-        objs = [objs]
     for obj in context.selected_objects:
         obj.select_set(False)
-    for obj in objs:
+    for obj in ensure_iterable(objs):
         try:
             obj.hide_viewport = False
             obj.hide_select = False
@@ -48,16 +46,17 @@ def select_only(context, objs):
 def show_only(context, objs):
     """Ensures only the given object or objects are visible in viewport or render."""
 
-    if not hasattr(objs, '__iter__'):
-        objs = [objs]
     for obj in context.scene.objects:
         obj.hide_viewport = True
         obj.hide_render = True
         obj.hide_select = True
-    for obj in objs:
-        obj.hide_viewport = False
-        obj.hide_render = False
-        obj.hide_select = False
+    for obj in ensure_iterable(objs):
+        try:
+            obj.hide_viewport = False
+            obj.hide_render = False
+            obj.hide_select = False
+        except ReferenceError:
+            pass
 
 def is_valid(bid):
     """Returns whether a reference to a data-block is valid."""
@@ -412,38 +411,6 @@ def load_properties(struct, saved):
         except:
             continue
 
-def is_defaulted(struct):
-    """Returns whether the properties of a Blender struct are set to their default values."""
-    # This is not extensively tested, it should work for most things
-
-    for prop in struct.bl_rna.properties:
-        if not prop.is_runtime:
-            # Only consider user properties
-            continue
-        prop_id = prop.identifier
-        try:
-            if prop.type == 'COLLECTION':
-                # Consider that if the collection has any elements, then it's not default
-                current = len(getattr(struct, prop_id))
-                default = 0
-            elif prop.type == 'POINTER':
-                current = getattr(struct, prop_id)
-                default = None
-            elif getattr(prop, 'is_array', False):
-                current = getattr(struct, prop_id)[:]
-                default = prop.default_array[:]
-            else:
-                current = getattr(struct, prop_id)
-                default = getattr(prop, 'default', type(current)())
-
-            if current != default:
-                return False
-        except TypeError:
-            # The value type is not trivially initializable, omit it
-            continue
-
-    return True
-
 def get_topmost_parent(obj):
     while obj.parent:
         obj = obj.parent
@@ -626,7 +593,7 @@ def get_nice_export_report(filepaths, elapsed):
     if filepaths:
         filenames = [bpy.path.basename(filepath) for filepath in filepaths]
         return f"Exported {', '.join(filenames)} in {elapsed:.2f}s."
-    return "Nothing exported. See job results for details."
+    return "Nothing exported."
 
 def ensure_starts_with(s, prefix):
     return s if s.startswith(prefix) else prefix + s
@@ -777,7 +744,7 @@ bpy_type_to_data_collection_name = {
 }
 
 def get_data_collection(bid_or_type):
-    """Return the data collection that the ID belongs to, or None if not applicable."""
+    """Return the bpy.data collection that the ID belongs to, or None if not applicable."""
 
     if isinstance(bid_or_type, bpy.types.ID):
         bid_or_type = type(bid_or_type)
@@ -800,6 +767,9 @@ def link_properties(from_bid, from_data_path, to_bid, to_data_path, invert=False
     tgt.id_type = bpy_type_to_id_type.get(type(from_bid))
     tgt.id = from_bid
 
+def ensure_iterable(seq_or_el):
+    return seq_or_el if hasattr(seq_or_el, '__iter__') else (seq_or_el,)
+
 def remove_subsequence(seq, subseq):
     """Removes the first instance of a subsequence from another sequence."""
 
@@ -814,16 +784,16 @@ def remove_subsequence(seq, subseq):
             break
     return seq
 
-def split_sequence(seq, function=None):
-    """Returns two lists containing items for which function(item) returns true or false respectively.
-    If function is None, bool(element) is tested instead."""
+def split_sequence(seq, key=None):
+    """Returns two lists containing items for which key(item) returns true or false respectively.
+    If key is None, bool(element) is tested instead."""
 
     a, b = [], []
     for el in seq:
-        if function is None:
+        if key is None:
             (a if bool(el) else b).append(el)
         else:
-            (a if function(el) else b).append(el)
+            (a if key(el) else b).append(el)
     return a, b
 
 def get_visible_objects_and_duplis(context):

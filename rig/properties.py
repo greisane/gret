@@ -108,7 +108,7 @@ def draw_panel(self, context):
             prop_wrapper = PropertyWrapper.from_path(obj, data_path)
 
             if prop_wrapper:
-                row.prop(prop_wrapper.data, prop_wrapper.path, text=prop_wrapper.title)
+                row.prop(prop_wrapper.struct, prop_wrapper.path, text=prop_wrapper.title)
             else:
                 row.alert = True
                 row.label(text=f"Missing: {data_path}")

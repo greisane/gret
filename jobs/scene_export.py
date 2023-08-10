@@ -131,7 +131,7 @@ def _scene_export(self, context, job):
             unsubdivide_preserve_uvs(obj, -subd_level)
             log(f"Unsubdivided {-subd_level} times")
         elif subd_level > 0:
-            subd_mod = self.obj.modifiers.new(type='SUBSURF', name="")
+            subd_mod = obj.modifiers.new(type='SUBSURF', name="")
             subd_mod.levels = subd_level
             subd_mod.use_creases = True
             subd_mod.use_custom_normals = True
@@ -310,7 +310,7 @@ def _scene_export(self, context, job):
 def scene_export(self, context, job):
     assert job.what == 'SCENE'
 
-    # Check addon availability and export path
+    # Validate job settings
     try:
         field_names = ['job', 'scene', 'object', 'topobject', 'collection']
         fail_if_invalid_export_path(job.scene_export_path, field_names)

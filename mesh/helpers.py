@@ -286,7 +286,7 @@ def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name="", override
                     if fc.data_path.startswith(sk_data_path):
                         if fc.data_path.endswith('.value') and is_rig_driven(fc):
                             # Influence was being driven, assume user would want to merge it fully
-                            logd(f"Maxed value of shape key {sk.name} (rig driven)")
+                            logd(f"Maxed value of shape key {sk.name} (it was rig driven)")
                             sk.value = sk.slider_max
                         if sk.name == target_shape_key_name:
                             # Don't remove, mute temporarily

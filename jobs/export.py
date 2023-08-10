@@ -438,7 +438,7 @@ def draw_job(layout, jobs, job_index):
         sub = row.row(align=True)
         sub.prop(job, 'default_vertex_color', text="")
         sub.enabled = job.ensure_vertex_color
-        # if gret_operator_exists("gret.vertex_color_mapping_add"):
+        # if gret_operator_exists('vertex_color_mapping_add'):
             # col.prop(job, 'invert_vertex_color_mappings')
 
         row = col.row(align=True)
@@ -489,17 +489,12 @@ def draw_job(layout, jobs, job_index):
 
         row = col.row(align=True)
         row.prop(job, 'mirror_shape_keys')
-        # sub = row.row(align=True)
-        # sub.prop(job, 'side_vgroup_name', text="")
-        # sub.enabled = job.mirror_shape_keys
 
         row = col.row(align=True)
         row.prop(job, 'ensure_vertex_color')
         sub = row.row(align=True)
         sub.prop(job, 'default_vertex_color', text="")
         sub.enabled = job.ensure_vertex_color
-        # if gret_operator_exists("gret.vertex_color_mapping_add"):
-        #     col.prop(job, 'invert_vertex_color_mappings')
 
         row = col.row(align=True)
         row.prop(job, 'subdivide_faces')
