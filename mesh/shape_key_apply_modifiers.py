@@ -14,6 +14,8 @@ from ..helpers import get_context, get_modifier_mask
 
 class ShapeKeyInfo(namedtuple('ShapeKeyInfo', ['coords', 'interpolation', 'mute', 'name',
     'slider_max', 'slider_min', 'value', 'vertex_group'])):
+    __slots__ = ()
+
     """Helper to preserve shape key information."""
 
     @classmethod

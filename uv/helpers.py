@@ -24,6 +24,8 @@ class UVVector(Vector):
         return f"UVVector(i={self.vert_index}, u={self.x:.3f}, v={self.y:.3f})"
 
 class UVPoint(namedtuple('UVPoint', ['uv', 'links', 'bmloops'])):
+    __slots__ = ()
+
     @property
     def vert(self):
         return self.bmloops[0].vert

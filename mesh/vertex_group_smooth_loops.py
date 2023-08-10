@@ -5,6 +5,8 @@ import bpy
 from .helpers import bmesh_vertex_group_bleed, get_operator_target_vertex_groups
 
 class EdgeKey(namedtuple("EdgeKey", ['a', 'b'])):
+    __slots__ = ()
+
     @classmethod
     def from_edge(cls, bm_edge):
         return cls(bm_edge.verts[0].index, bm_edge.verts[1].index)

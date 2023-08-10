@@ -33,6 +33,8 @@ simple_nodes = (Node('OutputMaterial')
 is_color_none = lambda c: c[0] == 0.0 and c[1] == 0.0 and c[2] == 0.0 and c[3] == 0.0
 
 class Quad(namedtuple("Quad", ["uv_sheet", "x0", "y0", "x1", "y1", "rotation"])):
+    __slots__ = ()
+
     @classmethod
     def from_uv_sheet(cls, uv_sheet, rotation=-1):
         if not uv_sheet:

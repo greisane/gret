@@ -24,6 +24,8 @@ avg = lambda l, f: sum(f(el) for el in l) / len(l)
 frac = lambda x: x - int(x)
 
 class Rect(namedtuple("Rect", ["x0", "y0", "x1", "y1"])):
+    __slots__ = ()
+
     @classmethod
     def from_size(cls, x, y, width, height):
         return cls(x, y, x + width, y + height)
