@@ -111,38 +111,54 @@ def refresh_active_color_attribute(mesh):
     if mesh.color_attributes.render_color_index < 0:
         mesh.color_attributes.render_color_index = 0
 
-def clear_mesh_data(obj, vertex_groups=True, shape_keys=True, uv_layers=True, face_maps=True,
-    materials=True, attributes=True):
-    assert obj.type == 'MESH'
-
-    if vertex_groups:
-        obj.vertex_groups.clear()
+def clear_object_data(obj, vertex_groups=True, shape_keys=True, face_maps=True, constraints=True,
+    custom_properties=True, uv_layers=True, materials=True, attributes=True):
+    # Clear object data
+    if vertex_groups and hasattr(obj, 'vertex_groups'):
+        try:
+            obj.vertex_groups.clear()
+        except RuntimeError:
+            pass  # Most objects have vertex groups but only a few support them
     if shape_keys:
         obj.shape_key_clear()
-    if face_maps:
-        while obj.face_maps.active:
-            obj.face_maps.remove(obj.face_maps.active)
+    if face_maps and hasattr(obj, 'face_maps'):
+        obj.face_maps.clear()
+    if custom_properties:
+        for key in list(obj.keys()):
+            del obj[key]
+    if constraints:
+        ctx = get_context(obj)
+        try_call(bpy.ops.rigidbody.constraint_remove, ctx)
+        try_call(bpy.ops.rigidbody.object_remove, ctx)
+        # bpy.ops.object.forcefield_toggle(obj)  # Didn't bother
 
-    mesh = obj.data
-    if materials:
-        mesh.materials.clear()
-    if uv_layers:
-        while mesh.uv_layers.active:
-            mesh.uv_layers.remove(mesh.uv_layers.active)
-    if face_maps:
-        while mesh.face_maps.active:
-            mesh.face_maps.remove(mesh.face_maps.active)
-    if attributes:
-        for attribute in mesh.attributes:
+    # Clear data data
+    data = obj.data
+    if uv_layers and hasattr(data, 'uv_layers'):
+        while data.uv_layers.active:
+            data.uv_layers.remove(data.uv_layers.active)
+    if materials and hasattr(data, 'materials'):
+        # This should also clear object material slots
+        data.materials.clear()
+    # if vertex_colors and hasattr(data, 'vertex_colors'):
+    #     while data.vertex_colors.active:
+    #         data.vertex_colors.remove(data.vertex_colors.active)
+    if attributes and hasattr(data, 'attributes'):
+        for attribute in list(data.attributes):
             try:
-                mesh.attributes.remove(attribute)
+                data.attributes.remove(attribute)
             except RuntimeError:
                 pass
+    if face_maps and hasattr(data, 'face_maps'):
+        # Note these are not the same as object face maps
+        while data.face_maps.active:
+            data.face_maps.remove(data.face_maps.active)
+    if custom_properties:
+        for key in list(data.keys()):
+            del data[key]
 
 def clear_mesh_customdata(obj, sculpt_mask_data=True, skin_data=True, custom_split_normals=True,
     edge_bevel_weight=True, vertex_bevel_weight=True, edge_crease=True, vertex_crease=True):
-    assert obj.type == 'MESH'
-
     ctx = get_context(obj)
     if sculpt_mask_data:
         try_call(bpy.ops.mesh.customdata_mask_clear, ctx)

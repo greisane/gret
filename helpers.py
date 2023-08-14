@@ -39,9 +39,9 @@ def select_only(context, objs):
             obj.hide_viewport = False
             obj.hide_select = False
             obj.select_set(True)
+            context.view_layer.objects.active = obj
         except ReferenceError:
             pass
-    context.view_layer.objects.active = next(iter(objs), None)
 
 def show_only(context, objs):
     """Ensures only the given object or objects are visible in viewport or render."""
@@ -111,7 +111,7 @@ def get_collection(context, name, allow_duplicate=False, clean=True):
         context.scene.collection.children.link(collection)
     return collection
 
-def get_vgroup(obj, name, clean=True):
+def get_vgroup(obj, name="", clean=True):
     """Ensures that a vertex group with the given name exists."""
 
     vgroup = obj.vertex_groups.get(name)
@@ -256,7 +256,7 @@ class TempModifier:
 
         return self.modifier
 
-    def __exit__(self, exc_type, exc_value, exc_traceback):
+    def __exit__(self, exc_type, exc_value, traceback):
         ctx = get_context(self.obj)
 
         if self.obj.data.shape_keys and self.obj.data.shape_keys.key_blocks:
@@ -269,6 +269,8 @@ class TempModifier:
             bpy.ops.object.editmode_toggle()
 
 def swap_names(bid1, bid2):
+    if bid1 == bid2:
+        return
     name1, name2 = bid1.name, bid2.name
     bid1.name = name2
     bid2.name = name1
@@ -278,89 +280,6 @@ def get_layers_recursive(layer):
     yield layer
     for child in layer.children:
         yield from get_layers_recursive(child)
-
-SelectionState = namedtuple('SelectionState', 'selected active collections layers objects')
-
-def save_selection():
-    """Returns a SelectionState storing the current selection state."""
-
-    return SelectionState(
-        selected=bpy.context.selected_objects[:],
-        active=bpy.context.view_layer.objects.active,
-        collections=[(c, c.hide_select, c.hide_viewport, c.hide_render) for c in bpy.data.collections],
-        layers=[(l, l.hide_viewport, l.exclude) for l in
-            get_layers_recursive(bpy.context.view_layer.layer_collection)],
-        objects=[(o, o.hide_select, o.hide_viewport, o.hide_render) for o in bpy.data.objects],
-    )
-
-def load_selection(state):
-    """Restores selection state from a SelectionState returned by save_selection()"""
-
-    for collection, hide_select, hide_viewport, hide_render in state.collections:
-        if is_valid(collection):
-            collection.hide_select = hide_select
-            collection.hide_viewport = hide_viewport
-            collection.hide_render = hide_render
-    for layer, hide_viewport, exclude in state.layers:
-        if is_valid(layer):
-            layer.hide_viewport = hide_viewport
-            layer.exclude = exclude
-    for obj, hide_select, hide_viewport, hide_render in state.objects:
-        if is_valid(obj):
-            obj.hide_select = hide_select
-            obj.hide_viewport = hide_viewport
-            obj.hide_render = hide_render
-
-    select_only(bpy.context, (obj for obj in state.selected if is_valid(obj)))
-
-    if is_valid(state.active):
-        bpy.context.view_layer.objects.active = state.active
-
-view3d_shading_field_names = (
-    'type',
-    'light',
-    'color_type',
-    'background_type',
-    'show_backface_culling',
-    'show_xray',
-    'show_shadows',
-    'show_cavity',
-    'use_dof',
-    'show_object_outline',
-)
-
-def override_viewports(header_text=None, show_overlays=None, **kwargs):
-    """Saves and overrides 3D viewport settings. Call restore_viewports() to load previous state."""
-
-    for area in bpy.context.screen.areas:
-        if area.type == 'VIEW_3D' and header_text:
-            area.header_text_set(header_text)
-        for space in area.spaces:
-            if space.type == 'VIEW_3D':
-                space.shading['saved_show_overlays'] = space.overlay.show_overlays
-                if show_overlays is not None:
-                    space.overlay.show_overlays = show_overlays
-                for field_name in view3d_shading_field_names:
-                    space.shading['saved_' + field_name] = getattr(space.shading, field_name)
-                    new_value = kwargs.get(field_name, None)
-                    if new_value is not None:
-                        setattr(space.shading, field_name, new_value)
-
-def restore_viewports():
-    """Restores overridden 3D viewport settings."""
-
-    for area in bpy.context.screen.areas:
-        if area.type == 'VIEW_3D':
-            area.header_text_set(None)
-        for space in area.spaces:
-            if space.type == 'VIEW_3D':
-                saved_show_overlays = space.shading.pop('saved_show_overlays', None)
-                if saved_show_overlays is not None:
-                    space.overlay.show_overlays = saved_show_overlays
-                for field_name in view3d_shading_field_names:
-                    saved_value = space.shading.pop('saved_' + field_name, None)
-                    if saved_value is not None:
-                        setattr(space.shading, field_name, saved_value)
 
 def viewport_reveal_all(context):
     for collection in bpy.data.collections:
@@ -529,56 +448,6 @@ def fail_if_invalid_export_path(path, allowed_field_names):
         raise Exception("Invalid export path.")
     except OSError:
         pass  # Directory already exists
-
-def show_text_window(text, title, width=0.5, height=0.5, font_size=16):
-    """Open a standalone window displaying the given text."""
-
-    # New window hack from https://blender.stackexchange.com/questions/81974
-    render = bpy.context.scene.render
-    prefs = bpy.context.preferences
-    saved_resolution_x = render.resolution_x
-    saved_resolution_y = render.resolution_y
-    saved_resolution_percentage = render.resolution_percentage
-    saved_render_display_type = prefs.view.render_display_type
-    main_window = bpy.context.window_manager.windows[0]
-
-    try:
-        # Make a temporary text
-        string = text
-        text = bpy.data.texts.get(title) or bpy.data.texts.new(name=title)
-        text.use_fake_user = False
-        text.from_string(string)
-        text.cursor_set(0)
-
-        # Open a render preview window, then modify it to show a text editor instead
-        render.resolution_x = int(main_window.width * width) if width <= 1.0 else int(width)
-        render.resolution_y = int(main_window.height * height) if height <= 1.0 else int(height)
-        render.resolution_percentage = 100
-        prefs.view.render_display_type = 'WINDOW'
-        bpy.ops.render.view_show('INVOKE_DEFAULT')
-        area = bpy.context.window_manager.windows[-1].screen.areas[0]
-        area.type = 'TEXT_EDITOR'
-        space = area.spaces[0]
-        assert isinstance(space, bpy.types.SpaceTextEditor)
-
-        # Minimal interface
-        if font_size is not None:
-            space.font_size = font_size
-        space.show_line_highlight = True
-        space.show_line_numbers = False
-        space.show_margin = False
-        space.show_region_footer = False
-        space.show_region_header = False
-        space.show_region_ui = False
-        space.show_syntax_highlight = False
-        space.show_word_wrap = True
-        space.text = text
-    finally:
-        render.resolution_x = saved_resolution_x
-        render.resolution_y = saved_resolution_y
-        render.resolution_percentage = saved_resolution_percentage
-        prefs.view.render_display_type = saved_render_display_type
-        prefs.is_dirty = False
 
 def gret_operator_exists(bl_idname):
     """Returns whether the operator is available."""
@@ -768,7 +637,7 @@ def link_properties(from_bid, from_data_path, to_bid, to_data_path, invert=False
     tgt.id = from_bid
 
 def ensure_iterable(seq_or_el):
-    return seq_or_el if hasattr(seq_or_el, '__iter__') else (seq_or_el,)
+    return seq_or_el if hasattr(seq_or_el, '__iter__') and not isinstance(seq_or_el, str) else (seq_or_el,)
 
 def remove_subsequence(seq, subseq):
     """Removes the first instance of a subsequence from another sequence."""

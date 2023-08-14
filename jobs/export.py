@@ -4,7 +4,8 @@ import shlex
 
 from .. import prefs
 from ..log import log, logd, logger
-from ..helpers import gret_operator_exists, load_properties, save_properties, show_text_window
+from ..helpers import gret_operator_exists, load_properties, save_properties
+from ..operator import show_text_window
 from ..rig.helpers import is_object_arp
 from .scene_export import scene_export
 from .rig_export import rig_export

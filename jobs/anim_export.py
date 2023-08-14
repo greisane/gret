@@ -2,7 +2,6 @@ from collections import namedtuple
 from fnmatch import fnmatch
 import bpy
 import os
-import time
 
 from .. import prefs
 from ..helpers import (
@@ -11,8 +10,6 @@ from ..helpers import (
     get_export_path,
     get_nice_export_report,
     get_bid_filepath,
-    load_selection,
-    save_selection,
 )
 from ..log import logger, log, logd
 from ..rig.helpers import (
@@ -30,10 +27,14 @@ class ConstantCurve:
     def evaluate(self, frame_index):
         return self.value
 
-def _anim_export(self, context, job, rig):
-    start_time = time.time()
+def _anim_export(context, job, rig, save, results):
     rig_filepath = get_bid_filepath(rig)
     rig_basename = os.path.splitext(bpy.path.basename(rig_filepath))[0]
+
+    save.selection()
+    save.prop(rig.data, 'pose_position', 'REST')
+    save.prop(rig.animation_data, 'action')
+    context.view_layer.objects.active = rig
 
     # Select actions to export
     actions = set()
@@ -82,7 +83,7 @@ def _anim_export(self, context, job, rig):
                 continue
 
             dst_fc = action.fcurves.new(cp.destination)
-            self.new_fcurves.append((action, dst_fc))
+            save.temporary(action.fcurves, dest_fc)
 
             log(f"Baking {desc}")
             for frame_idx in range(0, int(action.frame_end) + 1):
@@ -95,33 +96,29 @@ def _anim_export(self, context, job, rig):
         for bone_name in ('c_eyelid_base.l', 'c_eyelid_base.r'):
             pb = rig.pose.bones.get(bone_name)
             if pb:
-                for constraint in pb.constraints:
-                    if not constraint.mute:
-                        constraint.mute = True
-                        self.saved_unmuted_constraints.append(constraint)
+                save.prop_foreach(pb.constraints, 'mute', True)
 
     # Don't want shape keys animated as I'm using armature custom props to drive them
     # export_fbx_bin.py will skip over absolute shape keys so use that to disable them
     # TODO this should be configurable
     no_shape_keys = True
     if no_shape_keys:
-        for mesh in bpy.data.meshes:
-            if mesh.shape_keys and mesh.shape_keys.use_relative:
-                self.saved_meshes_with_relative_shape_keys.append(mesh)
-                mesh.shape_keys.use_relative = False
+        # Might not work
+        save.prop_foreach(bpy.data.shape_keys, 'use_relative')
+
+        # for mesh in bpy.data.meshes:
+            # if mesh.shape_keys and mesh.shape_keys.use_relative:
+            #     self.saved_meshes_with_relative_shape_keys.append(mesh)
+            #     mesh.shape_keys.use_relative = False
 
     # Auto-Rig is not exporting some bones properly when there are strips in the NLA
     # I don't want to dig into the mess that is ARP code, so temporarily mute strips as a workaround
     for obj in bpy.data.objects:
         if obj.animation_data:
             for track in obj.animation_data.nla_tracks:
-                for strip in track.strips:
-                    if not strip.mute:
-                        logd(f"Muting strip {strip.name}")
-                        strip.mute = True
-                        self.saved_unmuted_strips.append(strip)
+                save.prop_foreach(track.strips, 'mute', True)
 
-    # Finally export
+    # Export each file
     for export_group in export_groups:
         path_fields = {
             'job': job.name,
@@ -133,7 +130,7 @@ def _anim_export(self, context, job, rig):
         }
         filepath = get_export_path(job.animation_export_path, path_fields)
         filename = bpy.path.basename(filepath)
-        if filepath in self.exported_files:
+        if filepath in results:
             log(f"Skipping {filename} as it would overwrite a file that was just exported")
             continue
 
@@ -148,14 +145,14 @@ def _anim_export(self, context, job, rig):
             exporter = export_fbx
         logger.indent += 1
 
+        # If enabled and present, export action markers as a comma separated list
         markers = export_group.action.pose_markers
         if markers and job.export_markers:
-            # Export action markers as a comma separated list
             csv_filepath = get_export_path(job.markers_export_path, path_fields)
             csv_filename = bpy.path.basename(csv_filepath)
             csv_separator = ','
             fps = float(context.scene.render.fps)
-            if csv_filepath not in self.exported_files:
+            if csv_filepath not in results:
                 log(f"Writing markers to {csv_filename}")
                 with open(csv_filepath, 'w') as fout:
                     field_headers = ["Name", "Frame", "Time"]
@@ -166,28 +163,30 @@ def _anim_export(self, context, job, rig):
             else:
                 log(f"Skipping {csv_filename} as it would overwrite a file that was just exported")
 
-        options = {'export_twist': not job.disable_twist_bones}
+        # Finally export
+        options = {
+            'export_twist': not job.disable_twist_bones,
+        }
         result = exporter(filepath, context, rig, action=export_group.action, options=options)
 
         if result == {'FINISHED'}:
-            self.exported_files.append(filepath)
+            results.append(filepath)
         else:
             log("Failed to export!")
+
         logger.indent -= 1
 
 def anim_export(self, context, job):
     assert job.what == 'ANIMATION'
     rig = job.rig
 
+    # Validate job settings
     if not rig or rig.type != 'ARMATURE':
         self.report({'ERROR'}, "No armature selected.")
         return {'CANCELLED'}
     if not rig.visible_get():
         self.report({'ERROR'}, "Currently the rig must be visible to export.")
         return {'CANCELLED'}
-    context.view_layer.objects.active = rig
-
-    # Check addon availability and export path
     try:
         field_names = ['job', 'scene', 'rigfile', 'rig', 'action']
         fail_if_invalid_export_path(job.animation_export_path, field_names)
@@ -197,50 +196,20 @@ def anim_export(self, context, job):
         self.report({'ERROR'}, str(e))
         return {'CANCELLED'}
 
-    # Save state of various things and keep track of new objects that should be deleted afterwards
-    saved_selection = save_selection()
-    saved_pose_position = rig.data.pose_position
-    saved_action = rig.animation_data.action
-    saved_scene_object_names = [o.name for o in context.scene.objects]
-    self.exported_files = []
-    self.saved_unmuted_strips = []
-    self.saved_unmuted_constraints = []
-    self.saved_meshes_with_relative_shape_keys = []
-    self.new_fcurves = []  # List of (action, fcurve)
+    results = []
     logger.start_logging()
     log(f"Beginning animation export job '{job.name}'")
 
     try:
-        start_time = time.time()
-        _anim_export(self, context, job, rig)
+        with SaveContext(context, "anim_export") as save:
+            _anim_export(context, job, rig, save, results)
+
         # Finished without errors
-        elapsed = time.time() - start_time
-        self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
         log("Job complete")
         if prefs.jobs__beep_on_finish:
             beep(pitch=1)
+        self.report({'INFO'}, get_nice_export_report(results, logger.time_elapsed))
     finally:
-        # ARP has started leaving objects behind and it breaks subsequent exports
-        for obj in context.scene.objects[:]:
-            if obj.name not in saved_scene_object_names:
-                logd(f"Removing object {obj.name} that was left behind")
-                bpy.data.objects.remove(obj)
-        # Restore state and clean up
-        for mesh in self.saved_meshes_with_relative_shape_keys:
-            mesh.shape_keys.use_relative = True
-        for strip in self.saved_unmuted_strips:
-            strip.mute = False
-        for modifier in self.saved_unmuted_constraints:
-            modifier.mute = False
-        for action, fcurve in self.new_fcurves:
-            action.fcurves.remove(fcurve)
-        del self.saved_meshes_with_relative_shape_keys
-        del self.saved_unmuted_strips
-        del self.saved_unmuted_constraints
-        del self.new_fcurves
-        rig.data.pose_position = saved_pose_position
-        rig.animation_data.action = saved_action
-        load_selection(saved_selection)
         job.log = logger.end_logging()
 
     return {'FINISHED'}

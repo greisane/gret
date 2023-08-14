@@ -1,11 +1,10 @@
-from collections import namedtuple
 from fnmatch import fnmatch
 from itertools import chain
 from mathutils import Vector, Quaternion, Euler
 import bpy
-import re
 
 from ..patcher import FunctionPatcher
+from ..operator import PropertyWrapper, SaveContext
 from ..helpers import intercept, get_context, select_only, titlecase
 from ..log import log, logd
 
@@ -62,61 +61,6 @@ arp_default_pose_values = {
     'y_scale': 2,  # Bone original
 }
 default_pose_values = {}
-custom_prop_pattern = re.compile(r'(.+)?\["([^"]+)"\]')
-prop_pattern = re.compile(r'(?:(.+)\.)?([^"\.]+)')
-
-class PropertyWrapper(namedtuple('PropertyWrapper', ['struct', 'path', 'is_custom'])):
-    # To set a property given a data path it's necessary to split the struct and attribute name
-    # `struct.path_resolve(path, False)` returns a bpy_prop, and bpy_prop.data holds the struct
-    # Unfortunately bpy_prop knows the attribute name but doesn't expose it (see `bpy_prop.__str__`)
-    # Also need to determine if it's a custom property, since those are accessed dict-like instead
-    # For these reasons, resort to the less robust way of just parsing the data path with regexes
-
-    @classmethod
-    def from_path(cls, struct, data_path):
-        try:
-            prop_match = custom_prop_pattern.fullmatch(data_path)
-            if prop_match:
-                if prop_match[1]:
-                    struct = struct.path_resolve(prop_match[1])
-                data_path = f'["{prop_match[2]}"]'
-                struct.path_resolve(data_path)  # Make sure the property exists
-                return cls(struct, data_path, True)
-
-            prop_match = prop_pattern.fullmatch(data_path)
-            if prop_match:
-                if prop_match[1]:
-                    struct = struct.path_resolve(prop_match[1])
-                data_path = prop_match[2]
-                struct.path_resolve(data_path)  # Make sure the property exists
-                return cls(struct, data_path, False)
-        except ValueError:
-            return None
-
-    @property
-    def title(self):
-        if self.is_custom:
-            return titlecase(self.path[2:-2])  # Custom property name should be descriptive enough
-        else:
-            return f"{self.struct.name} {titlecase(self.path)}"
-
-    @property
-    def default_value(self):
-        if self.is_custom:
-            return self.struct.id_properties_ui(self.path[2:-2]).as_dict()['default']
-        else:
-            return self.struct.bl_rna.properties[self.path].default
-
-    @property
-    def value(self):
-        return self.struct.path_resolve(self.path, True)
-
-    @value.setter
-    def value(self, new_value):
-        if self.is_custom:
-            self.struct[self.path[2:-2]] = new_value
-        else:
-            setattr(self.struct, self.path, new_value)
 
 def is_object_arp(obj):
     """Returns whether the object is an Auto-Rig Pro armature."""
@@ -350,7 +294,11 @@ def export_autorig(filepath, context, rig, objects=[], action=None, options={}):
     context.view_layer.objects.active = rig
     with FunctionPatcher(arp_export_module_names, arp_export_function_name, arp_save) as patcher:
         patcher['options'] = options
-        return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
+        with SaveContext(context, "export_autorig") as save:
+            # ARP leaves a lot of garbage behind
+            save.collection(bpy.data.meshes)
+            save.collection(bpy.data.objects)
+            return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})
 def export_autorig_universal(filepath, context, rig, objects=[], action=None, options={}):
@@ -418,7 +366,11 @@ def export_autorig_universal(filepath, context, rig, objects=[], action=None, op
     context.view_layer.objects.active = rig
     with FunctionPatcher(arp_export_module_names, arp_export_function_name, arp_save) as patcher:
         patcher['options'] = options
-        return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
+        with SaveContext(context, "export_autorig_universal") as save:
+            # ARP leaves a lot of garbage behind
+            save.collection(bpy.data.meshes)
+            save.collection(bpy.data.objects)
+            return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})
 def export_fbx(filepath, context, rig, objects=[], action=None, options={}):

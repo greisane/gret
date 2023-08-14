@@ -4,12 +4,12 @@ from math import pi
 import bpy
 import re
 import shlex
-import time
 
 from .. import prefs
-from .helpers import clone_obj
+from ..log import logger, log, logd
 from ..helpers import (
     beep,
+    ensure_starts_with,
     fail_if_invalid_export_path,
     get_context,
     get_export_path,
@@ -17,12 +17,9 @@ from ..helpers import (
     get_nice_export_report,
     get_topmost_parent,
     intercept,
-    load_selection,
-    save_selection,
     select_only,
     viewport_reveal_all,
 )
-from ..log import logger, log, logd
 from ..mesh.helpers import (
     apply_modifiers,
     delete_faces_with_no_material,
@@ -32,6 +29,7 @@ from ..mesh.helpers import (
 )
 from ..mesh.vertex_color_mapping import get_first_mapping
 from ..mesh.collision import collision_prefixes, get_collision_objects
+from ..operator import SaveContext
 
 def export_fbx(filepath, context, objects):
     select_only(context, objects)
@@ -61,35 +59,16 @@ def export_fbx(filepath, context, objects):
         , use_batch_own_dir=False
     )
 
-def restore_saved_object_names(self):
-    for n, obj in enumerate(self.saved_object_names.keys()):
-        obj.name = f"___{n}"
-    for obj, name in self.saved_object_names.items():
-        obj.name = name
-    self.saved_object_names.clear()
-
-def swap_object_names(self, obj1, obj2):
-    assert obj1 not in self.saved_object_names
-    assert obj2 not in self.saved_object_names
-    name1, name2 = obj1.name, obj2.name
-    self.saved_object_names[obj1] = name1
-    self.saved_object_names[obj2] = name2
-    obj1.name = name2
-    obj2.name = name1
-    obj1.name = name2
-
 def set_parent_keep_parent_inverse(objs, new_parent):
     for obj in objs:
         m = obj.matrix_parent_inverse.copy()
         obj.parent = new_parent
         obj.matrix_parent_inverse = m
 
-def _scene_export(self, context, job):
-    if job.to_collection and job.clean_collection:
-        # Clean the target collection first
-        log(f"Cleaning target collection")
-        for obj in job.export_collection.objects:
-            bpy.data.objects.remove(obj)
+def _scene_export(context, job, save, results):
+    save.selection()
+    save.prop_foreach(context.scene.objects, 'matrix_local')
+    viewport_reveal_all(context)
 
     # Find and clone objects to be exported
     # Original objects that aren't exported will be hidden for render, only for driver purposes
@@ -111,11 +90,8 @@ def _scene_export(self, context, job):
             # Never export collision objects by themselves
             continue
         obj.hide_render = False
-        new_obj = clone_obj(context, obj, parent=None, convert_to_mesh=True)
-        if new_obj:
-            self.new_objs.append(new_obj)
-            self.new_meshes.append(new_obj.data)
-            items.append(ExportItem(obj, new_obj, job_cl, [], []))
+        new_obj = save.clone_obj(obj, to_mesh=True, parent=None)
+        items.append(ExportItem(obj, new_obj, job_cl, [], []))
 
     # Process individual meshes
     for item in items:
@@ -216,7 +192,6 @@ def _scene_export(self, context, job):
 
             for other_obj in chain(item.collision_objs, item.socket_objs):
                 logd(f"Moving collision/socket {other_obj.name}")
-                self.saved_transforms[other_obj] = other_obj.matrix_world.copy()
                 other_obj.matrix_world = world_to_pivot @ other_obj.matrix_world
 
         obj.data.transform(obj.matrix_basis, shape_keys=True)
@@ -264,48 +239,41 @@ def _scene_export(self, context, job):
 
     # Export each file
     for filepath, items in sorted(groups.items()):
-        for item in items:
-            # If set, ensure prefix for exported materials
-            if job.material_name_prefix:
-                for mat_slot in item.obj.material_slots:
-                    mat = mat_slot.material
-                    if mat:
-                        if not mat.name.startswith(job.material_name_prefix):
-                            self.saved_material_names[mat] = mat.name
-                            mat.name = job.material_name_prefix + mat.name
-
-            swap_object_names(self, item.original, item.obj)
-            # Rename sockets to lose the .001 .002 suffix while avoiding name collisions
-            # Normally it's not possible to have two objects with the same name in Blender
-            # That's unwieldy when you want e.g. a socket named "Pivot" in every mesh
-            for socket_obj in item.socket_objs:
-                name_base = "SOCKET_" + re.sub(r"\.\d\d\d$", "", socket_obj.name)
-                name_number = 0
-                while True:
-                    new_name = name_base if name_number == 0 else f"{name_base}{name_number}"
-                    existing_obj = context.scene.objects.get(new_name)
-                    if existing_obj and existing_obj in self.saved_object_names:
-                        name_number += 1
-                    elif existing_obj:
-                        swap_object_names(self, existing_obj, socket_obj)
-                        break
-                    else:
-                        self.saved_object_names[socket_obj] = socket_obj.name
-                        socket_obj.name = new_name
-                        break
-
         filename = bpy.path.basename(filepath)
-        objs = list(chain.from_iterable([item.obj] + item.collision_objs + item.socket_objs
+        objs = [item.obj for item in items]
+        all_objs = list(chain.from_iterable([item.obj] + item.collision_objs + item.socket_objs
             for item in items))
 
-        result = export_fbx(filepath, context, objs)
-        if result == {'FINISHED'}:
-            log(f"Exported {filename} with {len(objs)} objects")
-            self.exported_files.append(filename)
-        else:
-            log(f"Failed to export {filename}")
+        log(f"Exporting {filename} with {len(all_objs)} objects")
+        logger.indent += 1
 
-        restore_saved_object_names(self)
+        with SaveContext(context, "_scene_export") as save2:
+            for item in items:
+                # Export with the original names
+                save2.rename(item.obj, item.original.name)
+
+                # Drop Blender number suffixes (.001, .002) from socket names
+                for socket_obj in item.socket_objs:
+                    socket_name = "SOCKET_" + re.sub(r"\.\d\d\d$", "", socket_obj.name)
+                    save2.rename(socket_obj, socket_name)
+
+            # If set, ensure prefix for exported materials
+            materials_used = set(chain.from_iterable(obj.data.materials for obj in objs
+                if obj.type == 'MESH'))
+            if job.material_name_prefix:
+                for mat in materials_used:
+                    save2.rename(mat, ensure_starts_with(mat.name, job.material_name_prefix))
+            log(f"Materials used: {', '.join(sorted(mat.name for mat in materials_used))}")
+
+            # Finally export
+            result = export_fbx(filepath, context, all_objs)
+
+            if result == {'FINISHED'}:
+                results.append(filename)
+            else:
+                log(f"Failed to export!")
+
+        logger.indent -= 1
 
 def scene_export(self, context, job):
     assert job.what == 'SCENE'
@@ -318,43 +286,21 @@ def scene_export(self, context, job):
         self.report({'ERROR'}, str(e))
         return {'CANCELLED'}
 
-    # Save state of various things and keep track of new objects that should be deleted afterwards
-    saved_selection = save_selection()
-    viewport_reveal_all()
-    self.exported_files = []
-    self.new_objs = []
-    self.new_meshes = []
-    self.saved_object_names = {}
-    self.saved_material_names = {}
-    self.saved_transforms = {}
+    results = []
     logger.start_logging()
     log(f"Beginning scene export job '{job.name}'")
 
     try:
-        start_time = time.time()
-        _scene_export(self, context, job)
+        with SaveContext(context, "scene_export") as save:
+            _scene_export(context, job, save, results)
+
         # Finished without errors
-        elapsed = time.time() - start_time
-        self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
         log("Job complete")
         if prefs.jobs__beep_on_finish:
             beep(pitch=2, num=1)
+        if not results:
+            self.report({'INFO'}, "No results. See job output log for details.")
+        else:
+            self.report({'INFO'}, get_nice_export_report(results, logger.time_elapsed))
     finally:
-        restore_saved_object_names(self)
-        # Restore state and clean up
-        while self.new_objs:
-            bpy.data.objects.remove(self.new_objs.pop())
-        while self.new_meshes:
-            bpy.data.meshes.remove(self.new_meshes.pop())
-        for mat, name in self.saved_material_names.items():
-            mat.name = name
-        for obj, matrix_world in self.saved_transforms.items():
-            obj.matrix_world = matrix_world
-        del self.saved_object_names
-        del self.saved_material_names
-        del self.saved_transforms
-
-        load_selection(saved_selection)
         job.log = logger.end_logging()
-
-    return {'FINISHED'}

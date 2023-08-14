@@ -5,12 +5,12 @@ import bpy
 import os
 import re
 import shlex
-import time
 
 from .. import prefs
-from .helpers import clone_obj
+from ..log import logger, log, logd
 from ..helpers import (
     beep,
+    ensure_starts_with,
     fail_if_invalid_export_path,
     get_context,
     get_export_path,
@@ -19,13 +19,17 @@ from ..helpers import (
     get_nice_export_report,
     get_bid_filepath,
     gret_operator_exists,
-    load_properties,
-    load_selection,
-    save_properties,
-    save_selection,
     split_sequence,
     TempModifier,
     viewport_reveal_all,
+)
+from ..rig.helpers import (
+    copy_drivers,
+    export_autorig,
+    export_autorig_universal,
+    export_fbx,
+    is_object_arp,
+    is_object_arp_humanoid,
 )
 from ..mesh.helpers import (
     apply_modifiers,
@@ -41,15 +45,7 @@ from ..mesh.helpers import (
     unsubdivide_preserve_uvs,
 )
 from ..mesh.vertex_color_mapping import get_first_mapping
-from ..log import logger, log, logd
-from ..rig.helpers import (
-    copy_drivers,
-    export_autorig,
-    export_autorig_universal,
-    export_fbx,
-    is_object_arp,
-    is_object_arp_humanoid,
-)
+from ..operator import SaveContext
 
 def sanitize_mesh(obj):
     # Ensure basis is selected
@@ -73,10 +69,21 @@ def sanitize_mesh(obj):
     if obj.data.shape_keys and len(obj.data.shape_keys.key_blocks) == 1:
         obj.shape_key_clear()
 
-def _rig_export(self, context, job, rig):
+def _rig_export(context, job, rig, save, results):
     rig_filepath = get_bid_filepath(rig)
     rig_basename = os.path.splitext(bpy.path.basename(rig_filepath))[0]
-    rig.data.pose_position = 'REST'
+
+    save.selection()
+    if rig.name not in context.view_layer.objects:
+        # Workaround for ARP, ensure the rig is in the scene
+        context.scene.collection.objects.link(rig)
+        save.temporary(context.scene.collection.objects, rig)
+    viewport_reveal_all(context)
+    assert rig.visible_get()
+    context.view_layer.objects.active = rig
+    save.prop(rig, 'pose_blender.enabled', False)  # ARP doesn't like it
+    save.prop(rig.data, 'pose_position', 'REST')
+    save.prop_foreach(rig.data.bones, 'use_deform')
 
     # Find and clone objects to be exported
     # Original objects that aren't exported will be hidden for render, only for driver purposes
@@ -89,16 +96,14 @@ def _rig_export(self, context, job, rig):
         obj.hide_render = True
     for obj, job_cl in zip(export_objs, job_cls):
         obj.hide_render = False
-        new_obj = clone_obj(context, obj, parent=rig, convert_to_mesh=False)
-        if new_obj:
-            self.new_objs.add(new_obj)
-            self.new_meshes.add(new_obj.data)
-            items.append(ExportItem(obj, new_obj, job_cl, job_cl.subdivision_levels))
+        new_obj = save.clone_obj(obj, parent=rig)
+        items.append(ExportItem(obj, new_obj, job_cl, job_cl.subdivision_levels))
 
     # Process individual meshes
     for item in items:
         log(f"Processing {item.original.name}")
         obj = item.obj
+        mesh = obj.data
         job_cl = item.job_collection
         ctx = get_context(obj)
         logger.indent += 1
@@ -111,8 +116,8 @@ def _rig_export(self, context, job, rig):
 
         # Ensure mesh has custom normals so that they won't be recalculated on masking
         bpy.ops.mesh.customdata_custom_splitnormals_add(ctx)
-        obj.data.use_auto_smooth = True
-        obj.data.auto_smooth_angle = pi
+        mesh.use_auto_smooth = True
+        mesh.auto_smooth_angle = pi
 
         # Remove vertex group filtering from shapekeys before merging
         apply_shape_keys_with_vertex_groups(obj)
@@ -122,8 +127,8 @@ def _rig_export(self, context, job, rig):
                 merge_shape_keys_pattern(obj, shape_key_pattern)
 
         # Don't export muted shape keys
-        if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
-            for sk in obj.data.shape_keys.key_blocks:
+        if mesh.shape_keys and mesh.shape_keys.key_blocks:
+            for sk in mesh.shape_keys.key_blocks:
                 if sk.mute:
                     obj.shape_key_remove(sk)
 
@@ -142,69 +147,61 @@ def _rig_export(self, context, job, rig):
         remapped_to_none = False
         for remap in job.remap_materials:
             if remap.source:
-                for mat_idx, mat in enumerate(obj.data.materials):
+                for mat_index, mat in enumerate(mesh.materials):
                     if mat and mat == remap.source:
                         log(f"Remapped material {mat.name} to {get_name_safe(remap.destination)}")
-                        obj.data.materials[mat_idx] = remap.destination
+                        mesh.materials[mat_index] = remap.destination
                         remapped_to_none = remapped_to_none or not remap.destination
-            elif remap.destination and all_none(obj.data.materials):
+            elif remap.destination and all_none(mesh.materials):
                 log(f"Added material {get_name_safe(remap.destination)}")
-                obj.data.materials.append(remap.destination)
+                mesh.materials.append(remap.destination)
 
-        if all_none(obj.data.materials):
+        if all_none(mesh.materials):
             log(f"Object has no materials and won't be exported")
             logger.indent -= 1
             continue
 
         if remapped_to_none:
             delete_faces_with_no_material(obj)
-            if not obj.data.polygons:
+            if not mesh.polygons:
                 log(f"Object has no faces and won't be exported")
                 logger.indent -= 1
                 continue
 
         # Holes in the material list tend to mess everything up on joining objects
         # Note this is not the same as bpy.ops.object.material_slot_remove_unused
-        for mat_idx in range(len(obj.data.materials) - 1, -1, -1):
-            if not obj.data.materials[mat_idx]:
-                logd(f"Popped empty material #{mat_idx}")
-                obj.data.materials.pop(index=mat_idx)
-
-        # If set, ensure prefix for exported materials
-        if job.material_name_prefix:
-            for mat_slot in obj.material_slots:
-                mat = mat_slot.material
-                if mat and not mat.name.startswith(job.material_name_prefix):
-                    self.saved_material_names[mat] = mat.name
-                    mat.name = job.material_name_prefix + mat.name
+        for mat_index in range(len(mesh.materials) - 1, -1, -1):
+            if not mesh.materials[mat_index]:
+                logd(f"Popped empty material #{mat_index}")
+                mesh.materials.pop(index=mat_index)
 
         # Bake and clear vertex color mappings before merging
         if get_first_mapping(obj):
-            if not obj.data.vertex_colors:
+            if not mesh.vertex_colors:
                 log("Baking vertex color mappings")
                 bpy.ops.gret.vertex_color_mapping_refresh(ctx, invert=job.invert_vertex_color_mappings)
             bpy.ops.gret.vertex_color_mapping_clear(ctx)
 
-        if job.ensure_vertex_color and not obj.data.vertex_colors:
+        if job.ensure_vertex_color and not mesh.vertex_colors:
             log("Created default vertex color layer")
-            vcol = obj.data.vertex_colors.new()
+            vcol = mesh.vertex_colors.new()
             for loop in vcol.data:
                 loop.color = job.default_vertex_color
 
         # Ensure vertex color layers share a single name so they merge correctly
         default_vcol_name = "Col"
-        if len(obj.data.vertex_colors) > 1:
+        if len(mesh.vertex_colors) > 1:
             log(f"More than one vertex color layer, is this intended?",
-                ", ".join(vcol.name for vcol in obj.data.vertex_colors))
-        elif obj.data.vertex_colors.active and obj.data.vertex_colors.active.name != default_vcol_name:
-            logd(f"Renamed vertex color layer {obj.data.vertex_colors.active.name} to {default_name}")
-            obj.data.vertex_colors.active.name = default_name
+                ", ".join(vcol.name for vcol in mesh.vertex_colors))
+        elif mesh.vertex_colors.active and mesh.vertex_colors.active.name != default_vcol_name:
+            logd(f"Renamed vertex color layer {mesh.vertex_colors.active.name} to {default_vcol_name}")
+            mesh.vertex_colors.active.name = default_vcol_name
 
         # Ensure proper mesh state
         sanitize_mesh(obj)
         if gret_operator_exists('vertex_group_remove_unused'):
             bpy.ops.gret.vertex_group_remove_unused(ctx)
-        obj.data.transform(obj.matrix_basis, shape_keys=True)
+        mesh.transform(obj.matrix_basis, shape_keys=True)
         obj.matrix_basis.identity()
 
         # Put the objects in a group
@@ -231,10 +228,6 @@ def _rig_export(self, context, job, rig):
         if merged_item is None:
             merged_item = max(items, key=lambda it: len(it.obj.data.vertices))
 
-        # TODO this sucks
-        for obj in (it.obj for it in items if it is not merged_item):
-            self.new_objs.discard(obj)
-            self.new_meshes.discard(obj.data)
         obj = merged_item.obj
         objs = [item.obj for item in items]
         ctx = get_context(active_obj=obj, selected_objs=objs)
@@ -360,22 +353,25 @@ def _rig_export(self, context, job, rig):
                     obj.vertex_groups.remove(obj.vertex_groups[vg_index])
 
             # Auto-smooth has a noticeable impact in performance while animating,
-            # disable unless the user explicitly enabled it back in the previous build result
+            # disable unless the user explicitly enabled it in the previous build result
             obj.data.use_auto_smooth = False
             if old_obj and old_obj.type == 'MESH':
                 obj.data.use_auto_smooth = old_obj.data.use_auto_smooth
 
-            # Don't delete this
-            self.new_objs.discard(obj)
-            self.new_meshes.discard(obj.data)
+            results.extend([obj, obj.data])
 
         for old_obj in old_objs.values():
             old_data = obj.data
             bpy.data.objects.remove(old_obj)
             if old_data.users == 0 and isinstance(old_data, bpy.types.Mesh):
                 bpy.data.meshes.remove(old_data)
+
+        # Don't delete the produced objects
+        save.keep_temporary_bids(results)
     else:
-        # Finally export
+        remove_bones = shlex.split(job.remove_bone_names) if job.remove_bones else []
+
+        # Export each file
         for filepath, items in groups.items():
             filename = bpy.path.basename(filepath)
             objs = [item.obj for item in items]
@@ -391,21 +387,33 @@ def _rig_export(self, context, job, rig):
                 exporter = export_fbx
             logger.indent += 1
 
-            logd(f"{len(objs)} object{'s' if len(objs) > 1 else ''} in group")
-            materials_used = set(chain.from_iterable(obj.data.materials for obj in objs
-                if obj.type == 'MESH'))
-            log(f"Materials used: {', '.join(sorted(mat.name for mat in materials_used))}")
+            with SaveContext(context, "_rig_export") as save2:
+                logd(f"{len(objs)} object{'s' if len(objs) > 1 else ''} in group")
 
-            options = {
-                'minimize_bones': job.minimize_bones,
-                'remove_bones': shlex.split(job.remove_bone_names) if job.remove_bones else [],
-            }
-            result = exporter(filepath, context, rig, objects=objs, options=options)
+                # Export with the original names
+                for item in items:
+                    save2.rename(item.obj, item.original.name)
 
-            if result == {'FINISHED'}:
-                self.exported_files.append(filepath)
-            else:
-                log("Failed to export!")
+                # If set, ensure prefix for exported materials
+                materials_used = set(chain.from_iterable(obj.data.materials for obj in objs
+                    if obj.type == 'MESH'))
+                if job.material_name_prefix:
+                    for mat in materials_used:
+                        save2.rename(mat, ensure_starts_with(mat.name, job.material_name_prefix))
+                log(f"Materials used: {', '.join(sorted(mat.name for mat in materials_used))}")
+
+                # Finally export
+                options = {
+                    'minimize_bones': job.minimize_bones,
+                    'remove_bones': remove_bones,
+                }
+                result = exporter(filepath, context, rig, objects=objs, options=options)
+
+                if result == {'FINISHED'}:
+                    results.append(filepath)
+                else:
+                    log("Failed to export!")
+
             logger.indent -= 1
 
 def rig_export(self, context, job):
@@ -419,14 +427,6 @@ def rig_export(self, context, job):
     if job.to_collection and not job.export_collection:
         self.report({'ERROR'}, "No collection selected to export to.")
         return {'CANCELLED'}
-
-    rig_in_scene = rig.name in context.view_layer.objects
-    if not rig_in_scene:
-        # Workaround for ARP hating it when rigs are present in multiple scenes...
-        context.scene.collection.objects.link(rig)
-    context.view_layer.objects.active = rig
-
-    # Check addon availability and export path
     try:
         if not job.to_collection:
             field_names = ['job', 'scene', 'rigfile', 'rig', 'object', 'collection']
@@ -435,52 +435,26 @@ def rig_export(self, context, job):
         self.report({'ERROR'}, str(e))
         return {'CANCELLED'}
 
-    # Save state of various things and keep track of new objects that should be deleted afterwards
-    saved_selection = save_selection()
-    viewport_reveal_all()
-    assert rig.visible_get()
-    saved_pose_position = rig.data.pose_position
-    if hasattr(rig, 'pose_blender'):
-        # ARP chokes when pose blender is enabled, regular export should be fine
-        saved_pose_blender_enable = rig.pose_blender.enabled
-        rig.pose_blender.enabled = False
-    saved_bone_deform = {b: b.use_deform for b in rig.data.bones}
-    self.exported_files = []
-    self.new_objs = set()
-    self.new_meshes = set()
-    self.saved_material_names = {}
+    results = []
     logger.start_logging()
     log(f"Beginning rig export job '{job.name}'")
 
     try:
-        start_time = time.time()
-        _rig_export(self, context, job, rig)
+        with SaveContext(context, "rig_export") as save:
+            _rig_export(context, job, rig, save, results)
+
         # Finished without errors
-        elapsed = time.time() - start_time
-        self.report({'INFO'}, get_nice_export_report(self.exported_files, elapsed))
         log("Job complete")
         if prefs.jobs__beep_on_finish:
             beep(pitch=0)
+        if not results:
+            self.report({'INFO'}, "No results. See job output log for details.")
+        elif job.to_collection:
+            self.report({'INFO'}, f"Result placed in collection '{job.export_collection.name}'.")
+        else:
+            self.report({'INFO'}, get_nice_export_report(results, logger.time_elapsed))
     finally:
-        # Restore state and clean up
-        while self.new_objs:
-            bpy.data.objects.remove(self.new_objs.pop())
-        while self.new_meshes:
-            bpy.data.meshes.remove(self.new_meshes.pop())
-        for mat, name in self.saved_material_names.items():
-            mat.name = name
-        del self.saved_material_names
-        for bone, use_deform in saved_bone_deform.items():
-            bone.use_deform = use_deform
-
-        rig.data.pose_position = saved_pose_position
-        if hasattr(rig, 'pose_blender'):
-            rig.pose_blender.enabled = saved_pose_blender_enable
-        load_selection(saved_selection)
         job.log = logger.end_logging()
-
-    if not rig_in_scene:
-        context.scene.collection.objects.unlink(rig)
 
     if job.to_collection:
         # Scene has new objects

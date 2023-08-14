@@ -9,12 +9,10 @@ from ..helpers import (
     get_modifier,
     get_vgroup,
     link_properties,
-    load_selection,
-    save_selection,
     TempModifier,
 )
+from ..operator import SaveContext
 
-temp_boundary_vg_name = "__boundary"
 face_map_name = "Graft"
 
 class GRET_OT_graft(bpy.types.Operator):
@@ -75,8 +73,9 @@ class GRET_OT_graft(bpy.types.Operator):
     def poll(cls, context):
         return context.mode == 'OBJECT'
 
-    def _execute(self, context, dst_obj, objs):
+    def _execute(self, context, dst_obj, objs, save):
         assert dst_obj not in objs
+        save.selection()
 
         # Get an evaluated version of the destination object
         # Can't use to_mesh because we will need to enter edit mode on it
@@ -87,6 +86,7 @@ class GRET_OT_graft(bpy.types.Operator):
         dst_obj = bpy.data.objects.new(eval_obj.name, dst_mesh)
         dst_obj.matrix_world = eval_obj.matrix_world
         context.scene.collection.objects.link(dst_obj)
+        save.temporary_bids([dst_mesh, dst_obj])
 
         for obj in objs:
             # Initial setup
@@ -95,7 +95,8 @@ class GRET_OT_graft(bpy.types.Operator):
             dst_to_obj = world_to_obj @ dst_obj.matrix_world
             obj_to_dst = dst_to_obj.inverted()
 
-            boundary_vg = get_vgroup(obj, temp_boundary_vg_name)
+            boundary_vg = get_vgroup(obj)
+            save.temporary(obj.vertex_groups, boundary_vg.name)
             bm = bmesh.new()
             bm.from_mesh(obj.data)
 
@@ -106,8 +107,6 @@ class GRET_OT_graft(bpy.types.Operator):
 
             if not edges1:
                 bm.free()
-                bpy.data.objects.remove(dst_obj)
-                bpy.data.meshes.remove(dst_mesh)
                 self.report({'ERROR'}, f"The object must have an open boundary.")
                 return
 
@@ -122,7 +121,7 @@ class GRET_OT_graft(bpy.types.Operator):
             wrap_mod.wrap_method = 'TARGET_PROJECT' # 'NEAREST_SURFACEPOINT'
             wrap_mod.wrap_mode = 'INSIDE'
             wrap_mod.target = dst_obj
-            wrap_mod.vertex_group = temp_boundary_vg_name
+            wrap_mod.vertex_group = boundary_vg.name
             wrap_mod.offset = 0.01
             bool_mod = obj.modifiers.new(type='BOOLEAN', name="")
             bool_mod.operation = 'INTERSECT'
@@ -150,8 +149,6 @@ class GRET_OT_graft(bpy.types.Operator):
 
             if not intersecting_face_indices:
                 bm.free()
-                bpy.data.objects.remove(dst_obj)
-                bpy.data.meshes.remove(dst_mesh)
                 self.report({'ERROR'}, f"No intersection found between the objects.")
                 return
 
@@ -183,8 +180,6 @@ class GRET_OT_graft(bpy.types.Operator):
                         ret['geom']))
             except RuntimeError:
                 bm.free()
-                bpy.data.objects.remove(dst_obj)
-                bpy.data.meshes.remove(dst_mesh)
                 self.report({'ERROR'}, f"Couldn't bridge edge loops.")
                 return
 
@@ -216,7 +211,7 @@ class GRET_OT_graft(bpy.types.Operator):
 
                 with TempModifier(obj, type='DATA_TRANSFER') as data_mod:
                     data_mod.object = dst_obj
-                    data_mod.vertex_group = temp_boundary_vg_name
+                    data_mod.vertex_group = boundary_vg.name
                     data_mod.use_object_transform = True
                     data_mod.use_loop_data = True
                     data_mod.data_types_loops = {'CUSTOM_NORMAL'}
@@ -248,8 +243,6 @@ class GRET_OT_graft(bpy.types.Operator):
                 # Can't create a hide_viewport driver for reasons
                 link_properties(obj, 'hide_render', orig_dst_obj, mod_dp + '.show_render', invert=True)
 
-        bpy.data.objects.remove(dst_obj)
-        bpy.data.meshes.remove(dst_mesh)
         return {'FINISHED'}
 
     def execute(self, context):
@@ -263,17 +256,8 @@ class GRET_OT_graft(bpy.types.Operator):
             self.report({'ERROR'}, f"Active object is not a selected mesh.")
             return {'CANCELLED'}
 
-        saved_selection = save_selection()
-
-        try:
-            self._execute(context, obj, objs)
-        finally:
-            # Clean up
-            boundary_vg = obj.vertex_groups.get(temp_boundary_vg_name)
-            if boundary_vg:
-                obj.vertex_groups.remove(boundary_vg)
-
-            load_selection(saved_selection)
+        with SaveContext(context, "gret.graft") as save:
+            self._execute(context, obj, objs, save)
 
         return {'FINISHED'}
 

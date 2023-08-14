@@ -409,3 +409,14 @@ def calc_fit_curve(points, num_segments, polydeg=3, max_iter=20):
 
     step = len(f_uu) // (num_segments + 1) + 1
     return f_uu[::step]
+
+def reverse_morton3(x):
+    x &= 0x09249249
+    x = (x ^ (x >> 2)) & 0x030c30c3
+    x = (x ^ (x >> 4)) & 0x0300f00f
+    x = (x ^ (x >> 8)) & 0xff0000ff
+    x = (x ^ (x >> 16)) & 0x000003ff
+    return x
+
+def zagzig(x):
+    return (x >> 1) ^ -(x & 1)

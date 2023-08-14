@@ -8,9 +8,9 @@ import numpy as np
 import sys
 
 from ..math import SMALL_NUMBER, saturate, lerp, get_dist
-from ..operator import ScopedRestore
-from ..helpers import save_selection, load_selection, override_viewports, restore_viewports, show_only
+from ..helpers import show_only
 from .helpers import get_vcolor
+from ..operator import SaveContext, SaveState
 
 src_items = [
     ('NONE', "", "Leave the channel unchanged"),
@@ -103,8 +103,8 @@ def get_distance_values(obj, src_obj, extents=0.0, along_curve=False):
     elif src_obj.type == 'CURVE' and along_curve:
         # To find the progress along the curve it would be enough to look at the generated UVs
         # Again the API isn't very useful, so measure edge lengths to obtain distance instead
-        with ScopedRestore(src_obj.data, 'extrude bevel_depth'):
-            src_obj.data.extrude = src_obj.data.bevel_depth = 0.0
+        with SaveContext(bpy.context, 'get_distance_values') as save:
+            save.prop(src_obj.data, 'extrude bevel_depth', 0.0)
             src_mesh = src_obj.to_mesh(preserve_all_data_layers=False, depsgraph=dg)
         src_verts = src_mesh.vertices
         kd = KDTree(len(src_verts))
@@ -397,19 +397,9 @@ class GRET_OT_vertex_color_mapping_preview(bpy.types.Operator):
 
     def modal(self, context, event):
         if event.type in {'LEFTMOUSE', 'RIGHTMOUSE', 'ESC', 'RET', 'SPACE'}:
-            # Revert screen changes
-            restore_viewports()
-
-            # Clean up
-            obj = context.active_object
-            mesh = obj.data
-            mesh.vertex_colors.remove(mesh.vertex_colors[mesh.attributes.active_color_index])
-            mesh.update()
-            if self.saved_active_color_index >= 0:
-                mesh.attributes.active_color_index = self.saved_active_color_index
-
-            load_selection(self.saved_selection)
-            del self.saved_selection
+            self.save.revert()
+            del self.save
+            context.active_object.data.update()
 
             return {'CANCELLED'}
 
@@ -427,41 +417,48 @@ class GRET_OT_vertex_color_mapping_preview(bpy.types.Operator):
         if not mapping or self.prefix not in {'r', 'g', 'b', 'a', 'rgb'}:
             return {'CANCELLED'}
 
-        self.saved_active_color_index = mesh.attributes.active_color_index
-        self.saved_selection = save_selection()
-        show_only(context, obj)
+        try:
+            self.save = save = SaveState(context, "gret.vertex_color_mapping_preview")
+            save.selection()
+            save.prop(mesh.attributes, 'active_color_index')
+            src_vcol = mesh.vertex_colors.get(mapping.vertex_color_layer_name) or mesh.vertex_colors.active
+            dst_vcol = get_vcolor(obj, "__preview")
+            save.temporary(mesh.vertex_colors, dst_vcol)
 
-        src_vcol = mesh.vertex_colors.get(mapping.vertex_color_layer_name) or mesh.vertex_colors.active
-        dst_vcol = get_vcolor(obj, "__preview")
-        if self.prefix == 'rgb':
-            src = "RGB"
-            update_vcol_from(obj, mapping, 'r', src_vcol, dst_vcol, 0, invert=mapping.invert)
-            update_vcol_from(obj, mapping, 'g', src_vcol, dst_vcol, 1, invert=mapping.invert)
-            update_vcol_from(obj, mapping, 'b', src_vcol, dst_vcol, 2, invert=mapping.invert)
-        else:
-            src = f"{getattr(mapping, self.prefix)} ({self.prefix.upper()})"
-            src_channel_idx = ('r', 'g', 'b', 'a').index(self.prefix)
-            values = get_vcol_values(obj, mapping, self.prefix, src_vcol, src_channel_idx)
-            invert = mapping.invert != getattr(mapping, self.prefix + '_invert')
-            values_to_vcol(obj.data, values, dst_vcol, 0, invert=invert)
-            values_to_vcol(obj.data, values, dst_vcol, 1, invert=invert)
-            values_to_vcol(obj.data, values, dst_vcol, 2, invert=invert)
-        mesh.update()
-        mesh.attributes.active_color_index = len(obj.data.color_attributes) - 1
+            if self.prefix == 'rgb':
+                src = "RGB"
+                update_vcol_from(obj, mapping, 'r', src_vcol, dst_vcol, 0, invert=mapping.invert)
+                update_vcol_from(obj, mapping, 'g', src_vcol, dst_vcol, 1, invert=mapping.invert)
+                update_vcol_from(obj, mapping, 'b', src_vcol, dst_vcol, 2, invert=mapping.invert)
+            else:
+                src = f"{getattr(mapping, self.prefix)} ({self.prefix.upper()})"
+                src_channel_idx = ('r', 'g', 'b', 'a').index(self.prefix)
+                values = get_vcol_values(obj, mapping, self.prefix, src_vcol, src_channel_idx)
+                invert = mapping.invert != getattr(mapping, self.prefix + '_invert')
+                values_to_vcol(obj.data, values, dst_vcol, 0, invert=invert)
+                values_to_vcol(obj.data, values, dst_vcol, 1, invert=invert)
+                values_to_vcol(obj.data, values, dst_vcol, 2, invert=invert)
+            mesh.update()
+            mesh.attributes.active_color_index = len(obj.data.color_attributes) - 1
 
-        # Set all 3D views to flat shading
-        override_viewports(
-            header_text=f"Previewing {src} vertex color mapping",
-            type='SOLID',
-            light='FLAT',
-            color_type='VERTEX',
-            show_xray=False,
-            show_shadows=False,
-            show_cavity=False,
-            use_dof=False,
-            show_object_outline=False,
-            show_overlays=False,
-        )
+            # Set all 3D views to flat shading
+            show_only(context, obj)
+            save.viewports(
+                header_text=f"Previewing {src} vertex color mapping",
+                type='SOLID',
+                light='FLAT',
+                color_type='VERTEX',
+                show_xray=False,
+                show_shadows=False,
+                show_cavity=False,
+                use_dof=False,
+                show_object_outline=False,
+                show_overlays=False,
+            )
+        except:
+            self.save.revert()
+            del self.save
+            raise
 
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}

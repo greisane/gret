@@ -11,7 +11,7 @@ from ..math import (
     get_point_dist_to_line_sq,
     get_range_pct,
 )
-from .helpers import clear_mesh_data, clear_mesh_customdata
+from .helpers import clear_object_data, clear_mesh_customdata
 from ..helpers import get_collection, TempModifier
 
 # make_collision TODO:
@@ -313,7 +313,7 @@ class GRET_OT_collision_make(bpy.types.Operator):
         col_obj.display_type = 'WIRE' if self.wire else 'SOLID'
         col_obj.display.show_shadows = False
         # bmeshes created with from_mesh or from_object may have some UVs or customdata
-        clear_mesh_data(col_obj)
+        clear_object_data(col_obj)
         clear_mesh_customdata(col_obj)
 
         # Link to scene

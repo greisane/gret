@@ -1,7 +1,6 @@
 import bpy
 
-from ..operator import draw_warning_if_not_overridable
-from .helpers import PropertyWrapper
+from ..operator import PropertyWrapper, draw_warning_if_not_overridable
 
 class GRET_OT_property_add(bpy.types.Operator):
     """Add a property to the list"""
@@ -108,7 +107,7 @@ def draw_panel(self, context):
             prop_wrapper = PropertyWrapper.from_path(obj, data_path)
 
             if prop_wrapper:
-                row.prop(prop_wrapper.struct, prop_wrapper.path, text=prop_wrapper.title)
+                row.prop(prop_wrapper.struct, prop_wrapper.data_path, text=prop_wrapper.title)
             else:
                 row.alert = True
                 row.label(text=f"Missing: {data_path}")

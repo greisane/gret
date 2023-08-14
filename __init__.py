@@ -66,10 +66,10 @@ module_names = [
     'patcher',
     'rbf',
     # Submodules
-    'file',
     'material',
     'mesh',
     'rig',
+    'file',  # Depends on mesh
     'uv',  # Depends on material
     'anim',  # Depends on rig
     'jobs',  # Depends on mesh, rig
@@ -91,8 +91,10 @@ def registered_updated(self, context):
 def debug_updated(self, context):
     if prefs.debug:
         logger.categories.add("DEBUG")
+        logger.categories.add("SAVE")
     else:
         logger.categories.discard("DEBUG")
+        logger.categories.discard("SAVE")
 
 class GretAddonPreferences(bpy.types.AddonPreferences):
     # This must match the addon name, use '__package__'
@@ -100,7 +102,7 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
     bl_idname = __name__
 
     animation__register_pose_blender: bpy.props.BoolProperty(
-        name="Enable Pose Blender",
+        name="Enable \"Pose Blender\"",
         description="Allows blending poses together, similar to the UE4 AnimGraph node",
         default=False,
         update=registered_updated,
@@ -152,6 +154,11 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         default=False,
         update=registered_updated,
     )
+    texture_bake__explode_objects: bpy.props.BoolProperty(
+        name="Explode Objects",
+        description="Spread out objects in every direction. Should not be necessary",
+        default=False,
+    )
     texture_bake__uv_layer_name: bpy.props.StringProperty(
         name="UV Layer",
         description="Name of the default UV layer for texture bakes",
@@ -164,7 +171,7 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
     )
     mesh__enable_make_collision: bpy.props.BoolProperty(
         name="Enable \"Make Collision\"",
-        description="Generate collision selected geometry",
+        description="Generate collision for selected geometry",
         default=True,
         update=registered_updated,
     )
@@ -182,7 +189,7 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
     )
     mesh__enable_merge: bpy.props.BoolProperty(
         name="Enable \"Merge\"",
-        description="Boolean merge one or more objects, cleaning up the result for normal transfer",
+        description="Boolean merge one or more objects and smooth normals",
         default=True,
         update=registered_updated,
     )
@@ -212,7 +219,7 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
     )
     mesh__enable_vertex_group_bleed: bpy.props.BoolProperty(
         name="Enable \"Vertex Group Bleed\"",
-        description="Expand weights for selected vertices via flood fill",
+        description="Expand vertex weights via flood fill",
         default=True,
         update=registered_updated,
     )
@@ -323,7 +330,7 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
     )
     uv_paint__picker_copy_color_format: bpy.props.StringProperty(
         name="Clipboard Color Format",
-        description="""Specifies the color format when copied to clipboard.
+        description="""Specifies the color format when copying to clipboard.
 Use `rgb` for floats and `RGB` for bytes. Color space is sRGB, prefix `l` or `L` for linear.
 Examples:
 
@@ -382,7 +389,7 @@ UE4 -- "(R={lr:f},G={lg:f},B={lb:f},A={a:f})\"""",
         if needs_restart:
             alert_row = layout.row()
             alert_row.alert = True
-            alert_row.operator("gret.save_userpref_and_quit_blender", icon='ERROR',
+            alert_row.operator('gret.save_userpref_and_quit_blender', icon='ERROR',
                 text="Save preferences and quit Blender")
 
         row0 = layout.row(align=False)
@@ -401,7 +408,7 @@ UE4 -- "(R={lr:f},G={lg:f},B={lb:f},A={a:f})\"""",
             # Sorted properties
             for prop_name in prop_names:
                 col.prop(self, prop_name)
-                if prop_name.endswith("__enable") and not getattr(self, prop_name):
+                if prop_name.endswith('__enable') and not getattr(self, prop_name):
                     # Category main toggle is off, don't show the other propeties
                     break
             col.separator()
