@@ -3,11 +3,34 @@ from itertools import chain
 from mathutils import Vector, Quaternion, Euler
 import bpy
 
-from ..patcher import FunctionPatcher
-from ..operator import PropertyWrapper, SaveContext
-from ..helpers import intercept, get_context, select_only, titlecase
+from .. import prefs
 from ..log import log, logd
+from ..helpers import intercept, get_context, select_only, titlecase
+from ..operator import PropertyWrapper, SaveContext
+from ..patcher import FunctionPatcher
 
+export_presets = {
+    'UE4': {
+        'arp_ue4': True,
+        'arp_engine_type': 'unreal',
+        'primary_bone_axis': 'Y',
+        'secondary_bone_axis': 'X',
+        'mesh_smooth_type': 'EDGE',
+    },
+    'UE5': {
+        'arp_ue4': False,
+        'arp_engine_type': 'unreal',
+        'primary_bone_axis': 'Y',
+        'secondary_bone_axis': 'X',
+        'mesh_smooth_type': 'EDGE',
+    },
+    'UNITY': {
+        'arp_engine_type': 'unity',
+        'primary_bone_axis': 'X',
+        'secondary_bone_axis': 'Z',
+        'mesh_smooth_type': 'OFF',
+    },
+}
 arp_export_module_names = [
     'auto_rig_pro.export_fbx.export_fbx_bin',
     'auto_rig_pro.src.export_fbx.export_fbx_bin',
@@ -211,6 +234,7 @@ def arp_save(base, *args, **kwargs):
 @intercept(error_result={'CANCELLED'})
 def export_autorig(filepath, context, rig, objects=[], action=None, options={}, humanoid=False):
     scn = context.scene
+    preset = export_presets.get(prefs.jobs__export_preset, {})
 
     add_ik_bones = False
     if humanoid:
@@ -229,25 +253,25 @@ def export_autorig(filepath, context, rig, objects=[], action=None, options={}, 
                 + ", ".join(ik_bones_not_found))
 
     with SaveContext(context, "export_autorig") as save:
-        save.prop(scn, 'arp_engine_type', 'unreal')
+        save.prop(scn, 'arp_engine_type', prefs.get('arp_engine_type', 'unreal'))
         save.prop(scn, 'arp_export_rig_type', 'humanoid' if humanoid else 'mped')
         save.prop(scn, 'arp_ge_sel_only', True)
         save.prop(scn, 'arp_ge_sel_bones_only', False)
 
         # Rig Definition
         save.prop(scn, 'arp_keep_bend_bones', False)
-        save.prop(scn, 'arp_push_bend', False)
+        save.prop(scn, 'arp_push_bend', False)  # TODO should be exposed in job
         save.prop(scn, 'arp_full_facial', True)  # Humanoid only
         save.prop(scn, 'arp_export_twist', options.get('export_twist', True))
         save.prop(scn, 'arp_export_noparent', False)
         save.prop(scn, 'arp_export_renaming', True)  # Just prints a message if the file doesn't exist
-        save.prop(scn, 'arp_export_rig_name', 'root')
+        save.prop(scn, 'arp_export_rig_name', prefs.jobs__rig_export_name)
 
         # Units
         save.prop(scn, 'arp_units_x100', True)
 
         # Unreal Options (most are humanoid only)
-        save.prop(scn, 'arp_ue4', True)
+        save.prop(scn, 'arp_ue4', preset.get('arp_ue4', True))
         save.prop(scn, 'arp_ue_root_motion', True)
         save.prop(scn, 'arp_rename_for_ue', True)
         save.prop(scn, 'arp_ue_ik', add_ik_bones)
@@ -280,17 +304,20 @@ def export_autorig(filepath, context, rig, objects=[], action=None, options={}, 
         # Misc
         save.prop(scn, 'arp_custom_export_script', "//")
         save.prop(scn, 'arp_global_scale', 1.0)
-        save.prop(scn, 'arp_mesh_smooth_type', 'EDGE')
-        save.prop(scn, 'arp_use_tspace', False)
+        save.prop(scn, 'arp_mesh_smooth_type', preset.get('mesh_smooth_type', 'OFF'))
+        save.prop(scn, 'arp_use_tspace', prefs.jobs__use_tspace)
         save.prop(scn, 'arp_apply_mods', False)
         save.prop(scn, 'arp_apply_subsurf', False)
-        save.prop(scn, 'arp_export_triangulate', False)
-        save.prop(scn, 'arp_fix_fbx_rot', True)
+        save.prop(scn, 'arp_export_triangulate', prefs.jobs__use_triangles)
+        save.prop(scn, 'arp_fix_fbx_rot', False)
         save.prop(scn, 'arp_fix_fbx_matrix', True)
+        save.prop(scn, 'arp_ge_add_dummy_mesh', False)  # Unity only
+        save.prop(scn, 'arp_ge_force_rest_pose_export', True)  # Unity only
         save.prop(scn, 'arp_init_fbx_rot', False)
         save.prop(scn, 'arp_init_fbx_rot_mesh', False)
-        save.prop(scn, 'arp_bone_axis_primary_export', 'Y')
-        save.prop(scn, 'arp_bone_axis_secondary_export', 'X')
+        save.prop(scn, 'arp_export_bake_axis_convert', True)  # Unity only
+        save.prop(scn, 'arp_bone_axis_primary_export', preset.get('primary_bone_axis', 'Y'))
+        save.prop(scn, 'arp_bone_axis_secondary_export', preset.get('secondary_bone_axis', 'X'))
         save.prop(scn, 'arp_export_rig_name', 'root')
         save.prop(scn, 'arp_export_tex', False)
 
@@ -317,80 +344,72 @@ def export_autorig(filepath, context, rig, objects=[], action=None, options={}, 
 
 @intercept(error_result={'CANCELLED'})
 def export_fbx(filepath, context, rig, objects=[], action=None, options={}):
-    if action:
-        # TODO Put action in the timeline
-        # rig.animation_data.action = action
-        # context.scene.frame_preview_start = int(action.frame_start)
-        # context.scene.frame_preview_end = int(action.frame_end)
-        # context.scene.use_preview_range = True
-        # context.scene.frame_current = context.scene.frame_preview_start
-        raise NotImplementedError
+    preset = export_presets.get(prefs.jobs__export_preset, {})
 
-    # Temporarily rename the armature since it will become the root bone
-    root_bone_name = "root"
-    existing_obj_named_root = bpy.data.objects.get(root_bone_name)
-    if existing_obj_named_root:
-        existing_obj_named_root.name = root_bone_name + "_"
-    saved_rig_name = rig.name
-    rig.name = root_bone_name
-    rig.data.pose_position = 'POSE'
-    clear_pose(rig)
+    with SaveContext(context, "export_fbx") as save:
+        if action:
+            # TODO Put action in the timeline
+            # rig.animation_data.action = action
+            # context.scene.frame_preview_start = int(action.frame_start)
+            # context.scene.frame_preview_end = int(action.frame_end)
+            # context.scene.use_preview_range = True
+            # context.scene.frame_current = context.scene.frame_preview_start
+            raise NotImplementedError
 
-    if options.get('minimize_bones'):
-        unmark_unused_bones(rig, objects)
-    remove_bone_names = options.get('remove_bones', [])
-    if remove_bone_names:
-        unmark_bones(rig, remove_bone_names)
+        # Temporarily rename the armature since it will become the root bone
+        save.rename(rig, prefs.jobs__rig_export_name)
+        rig.data.pose_position = 'POSE'
+        clear_pose(rig)
 
-    select_only(context, objects)
-    rig.select_set(True)
-    context.view_layer.objects.active = rig
-    result = bpy.ops.export_scene.fbx(
-        filepath=filepath
-        , check_existing=False
-        , use_selection=True
-        , use_visible=False
-        , use_active_collection=False
-        , global_scale=1.0
-        , apply_unit_scale=True
-        , apply_scale_options='FBX_SCALE_NONE'
-        , use_space_transform=True
-        , bake_space_transform=True
-        , object_types={'ARMATURE', 'MESH'}
-        , use_mesh_modifiers=True
-        , use_mesh_modifiers_render=False
-        , mesh_smooth_type='EDGE'
-        , colors_type='SRGB'
-        , prioritize_active_color=False
-        , use_subsurf=False
-        , use_mesh_edges=False
-        , use_tspace=False
-        , use_triangles=False
-        , use_custom_props=False
-        , add_leaf_bones=False
-        , primary_bone_axis='Y'
-        , secondary_bone_axis='X'
-        , use_armature_deform_only=True
-        , armature_nodetype='NULL'
-        , bake_anim=action is not None
-        , bake_anim_use_all_bones=False
-        , bake_anim_use_nla_strips=False
-        , bake_anim_use_all_actions=True
-        , bake_anim_force_startend_keying=True
-        , bake_anim_step=1
-        , bake_anim_simplify_factor=1
-        , path_mode='STRIP'
-        , embed_textures=False
-        , batch_mode='OFF'
-        , use_batch_own_dir=False
-        , use_metadata=False
-        , axis_forward='-Z'
-        , axis_up='Y'
-    )
+        if options.get('minimize_bones'):
+            unmark_unused_bones(rig, objects)
+        remove_bone_names = options.get('remove_bones', [])
+        if remove_bone_names:
+            unmark_bones(rig, remove_bone_names)
 
-    # Clean up
-    rig.name = saved_rig_name
-    if existing_obj_named_root:
-        existing_obj_named_root.name = root_bone_name
+        select_only(context, objects)
+        rig.select_set(True)
+        context.view_layer.objects.active = rig
 
-    return result
+        return bpy.ops.export_scene.fbx(
+            filepath=filepath
+            , check_existing=False
+            , use_selection=True
+            , use_visible=False
+            , use_active_collection=False
+            , global_scale=1.0
+            , apply_unit_scale=True
+            , apply_scale_options='FBX_SCALE_NONE'
+            , use_space_transform=True
+            , bake_space_transform=True
+            , object_types={'ARMATURE', 'MESH'}
+            , use_mesh_modifiers=True
+            , use_mesh_modifiers_render=False
+            , mesh_smooth_type=preset.get('mesh_smooth_type', 'OFF')
+            , colors_type='SRGB'
+            , prioritize_active_color=False
+            , use_subsurf=False
+            , use_mesh_edges=False
+            , use_tspace=prefs.jobs__use_tspace
+            , use_triangles=prefs.jobs__use_triangles
+            , use_custom_props=False
+            , add_leaf_bones=False
+            , primary_bone_axis=preset.get('primary_bone_axis', 'Y')
+            , secondary_bone_axis=preset.get('secondary_bone_axis', 'X')
+            , use_armature_deform_only=True
+            , armature_nodetype='NULL'
+            , bake_anim=action is not None
+            , bake_anim_use_all_bones=False
+            , bake_anim_use_nla_strips=False
+            , bake_anim_use_all_actions=True
+            , bake_anim_force_startend_keying=True
+            , bake_anim_step=1
+            , bake_anim_simplify_factor=1
+            , path_mode='STRIP'
+            , embed_textures=False
+            , batch_mode='OFF'
+            , use_batch_own_dir=False
+            , use_metadata=False
+            , axis_forward='-Z'
+            , axis_up='Y'
+        )

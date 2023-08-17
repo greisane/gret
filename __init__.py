@@ -148,6 +148,36 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         min=0,
         max=32,
     )
+    jobs__rig_export_name: bpy.props.StringProperty(
+        name="Rig Name",
+        description="Name of the exported skeleton",
+        default="root",
+    )
+    jobs__export_preset: bpy.props.EnumProperty(
+        items=[
+            ('UE4', "UE4", """Bone axes: Y (primary), X (secondary).
+Mesh smoothing: Edge.
+ARP humanoids require 4 spine bones"""),
+            ('UE5', "UE5", """Bone axes: Y (primary), X (secondary).
+Mesh smoothing: Edge.
+ARP humanoids require 6 spine bones and 2 neck bones"""),
+            ('UNITY', "Unity", """Bone axes: X (primary), Z (secondary).
+Mesh smoothing: Normals only"""),
+        ],
+        name="Export Preset",
+        description="Settings applied on export",
+        default='UE4',
+    )
+    jobs__use_tspace: bpy.props.BoolProperty(
+        name="Tangent Space",
+        description="Add binormal and tangent vectors. Will only work correctly with tris/quads meshes",
+        default=False,
+    )
+    jobs__use_triangles: bpy.props.BoolProperty(
+        name="Triangulate Faces",
+        description="Convert all faces to triangles",
+        default=False,
+    )
     texture_bake__enable: bpy.props.BoolProperty(
         name="Enable",
         description="One-click bake and export of curvature and AO masks",
@@ -407,7 +437,8 @@ UE4 -- "(R={lr:f},G={lg:f},B={lb:f},A={a:f})\"""",
             box0.label(text=category_name, icon=icon)
             # Sorted properties
             for prop_name in prop_names:
-                col.prop(self, prop_name)
+                row = col.row(align=True)
+                row.prop(self, prop_name, expand=True)
                 if prop_name.endswith('__enable') and not getattr(self, prop_name):
                     # Category main toggle is off, don't show the other propeties
                     break

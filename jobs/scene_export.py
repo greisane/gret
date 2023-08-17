@@ -20,6 +20,7 @@ from ..helpers import (
     select_only,
     viewport_reveal_all,
 )
+from ..rig.helpers import export_presets
 from ..mesh.helpers import (
     apply_modifiers,
     delete_faces_with_no_material,
@@ -32,31 +33,44 @@ from ..mesh.collision import collision_prefixes, get_collision_objects
 from ..operator import SaveContext
 
 def export_fbx(filepath, context, objects):
+    preset = export_presets.get(prefs.jobs__export_preset, {})
+
     select_only(context, objects)
     return bpy.ops.export_scene.fbx(
         filepath=filepath
         , check_existing=False
-        , axis_forward='-Z'
-        , axis_up='Y'
         , use_selection=True
+        , use_visible=False
         , use_active_collection=False
         , global_scale=1.0
         , apply_unit_scale=True
         , apply_scale_options='FBX_SCALE_NONE'
+        , use_space_transform=True
+        , bake_space_transform=True
         , object_types={'MESH', 'EMPTY'}
         , use_mesh_modifiers=True
         , use_mesh_modifiers_render=False
-        , mesh_smooth_type='EDGE'
-        , bake_space_transform=True
+        , mesh_smooth_type=preset.get('mesh_smooth_type', 'OFF')
+        , colors_type='SRGB'
+        , prioritize_active_color=False
         , use_subsurf=False
         , use_mesh_edges=False
-        , use_tspace=False
+        , use_tspace=prefs.jobs__use_tspace
+        , use_triangles=prefs.jobs__use_triangles
         , use_custom_props=False
+        , add_leaf_bones=False
+        , primary_bone_axis=preset.get('primary_bone_axis', 'Y')
+        , secondary_bone_axis=preset.get('secondary_bone_axis', 'X')
+        , use_armature_deform_only=True
+        , armature_nodetype='NULL'
         , bake_anim=False
         , path_mode='STRIP'
         , embed_textures=False
         , batch_mode='OFF'
         , use_batch_own_dir=False
+        , use_metadata=False
+        , axis_forward='-Z'
+        , axis_up='Y'
     )
 
 def set_parent_keep_parent_inverse(objs, new_parent):
