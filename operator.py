@@ -11,6 +11,8 @@ from .helpers import (
     get_context,
     get_data_collection,
     get_layers_recursive,
+    load_property,
+    save_property,
     select_only,
     swap_names,
     titlecase,
@@ -89,21 +91,21 @@ class PropertyWrapper(namedtuple('PropertyWrapper', 'struct prop_name is_custom'
         if self.is_custom:
             return self.struct.id_properties_ui(self.prop_name).as_dict()['default']
         else:
-            return self.struct.bl_rna.properties[self.prop_name].default
+            return getattr(self.struct.bl_rna.properties[self.prop_name], 'default', None)
 
     @property
     def value(self):
         if self.is_custom:
             return self.struct[self.prop_name]
         else:
-            return getattr(self.struct, self.prop_name)
+            return save_property(self.struct, self.prop_name)
 
     @value.setter
     def value(self, new_value):
         if self.is_custom:
             self.struct[self.prop_name] = new_value
         else:
-            setattr(self.struct, self.prop_name, new_value)
+            load_property(self.struct, self.prop_name, new_value)
 
 class PropOp(namedtuple('PropOp', 'prop_wrapper value')):
     __slots__ = ()

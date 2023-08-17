@@ -209,167 +209,110 @@ def arp_save(base, *args, **kwargs):
     return base(*args, **kwargs)
 
 @intercept(error_result={'CANCELLED'})
-def export_autorig(filepath, context, rig, objects=[], action=None, options={}):
+def export_autorig(filepath, context, rig, objects=[], action=None, options={}, humanoid=False):
     scn = context.scene
 
-    ik_bones_not_found = [s for s in ik_bone_names if
-        s not in rig.pose.bones or 'custom_bone' not in rig.pose.bones[s]]
-    if not ik_bones_not_found:
-        # All IK bones accounted for
-        add_ik_bones = False
-    elif len(ik_bones_not_found) == len(ik_bone_names):
-        # No IK bones present, let ARP create them
-        log("IK bones will be created")
-        add_ik_bones = True
-    else:
-        # Only some IK bones found. Probably a mistake
-        raise Exception("Some IK bones are missing or not marked for export: "
-            + ", ".join(ik_bones_not_found))
-
-    # Configure Auto-Rig and then finally export
-    scn.arp_engine_type = 'unreal'
-    scn.arp_export_rig_type = 'humanoid'
-    scn.arp_ge_sel_only = True
-
-    # Rig Definition
-    scn.arp_keep_bend_bones = False
-    scn.arp_push_bend = False
-    scn.arp_full_facial = True
-    scn.arp_export_twist = options.get('export_twist', True)
-    scn.arp_export_noparent = False
-    scn.arp_export_renaming = True  # Just prints a message if the file doesn't exist
-
-    # Units
-    scn.arp_units_x100 = True
-
-    # Unreal Options
-    scn.arp_ue4 = True
-    scn.arp_ue_root_motion = True
-    scn.arp_rename_for_ue = True
-    scn.arp_ue_ik = add_ik_bones
-    scn.arp_ue_ik_anim = True  # This only works with arp_ue_ik. I patched ARP to address this
-    scn.arp_mannequin_axes = True
-
-    # Animation
-    if not action:
-        scn.arp_bake_anim = False
-    else:
-        scn.arp_bake_anim = True
-        scn.arp_bake_type = 'ACTIONS'
-        scn.arp_export_separate_fbx = False
-        scn.arp_frame_range_type = 'CUSTOM'
-        if action.use_frame_range:
-            scn.arp_export_start_frame = int(action.frame_start)
-            scn.arp_export_end_frame = int(action.frame_end)
+    add_ik_bones = False
+    if humanoid:
+        ik_bones_not_found = [s for s in ik_bone_names if
+            s not in rig.pose.bones or 'custom_bone' not in rig.pose.bones[s]]
+        if not ik_bones_not_found:
+            # All IK bones accounted for
+            add_ik_bones = False
+        elif len(ik_bones_not_found) == len(ik_bone_names):
+            # No IK bones present, let ARP create them
+            log("IK bones will be created")
+            add_ik_bones = True
         else:
-            scn.arp_export_start_frame = int(action.curve_frame_range[0])
-            scn.arp_export_end_frame = int(action.curve_frame_range[1])
-        scn.arp_export_act_name = 'DEFAULT'
-        scn.arp_simplify_fac = 0.0
-        scn.arp_export_use_actlist = True
-        scn.arp_export_actlist.clear()
-        arp_actlist = scn.arp_export_actlist.add()
-        arp_action = arp_actlist.actions.add()
-        arp_action.action = action
+            # Only some IK bones found. Probably a mistake
+            raise Exception("Some IK bones are missing or not marked for export: "
+                + ", ".join(ik_bones_not_found))
 
-    # Misc
-    scn.arp_global_scale = 1.0
-    scn.arp_mesh_smooth_type = 'EDGE'
-    scn.arp_use_tspace = False
-    scn.arp_fix_fbx_rot = True
-    scn.arp_fix_fbx_matrix = True
-    scn.arp_init_fbx_rot = False
-    scn.arp_init_fbx_rot_mesh = False
-    scn.arp_bone_axis_primary_export = 'Y'
-    scn.arp_bone_axis_secondary_export = 'X'
-    scn.arp_export_rig_name = 'root'
-    scn.arp_export_tex = False
+    with SaveContext(context, "export_autorig") as save:
+        save.prop(scn, 'arp_engine_type', 'unreal')
+        save.prop(scn, 'arp_export_rig_type', 'humanoid' if humanoid else 'mped')
+        save.prop(scn, 'arp_ge_sel_only', True)
+        save.prop(scn, 'arp_ge_sel_bones_only', False)
 
-    rig.data.pose_position = 'POSE'
-    clear_pose(rig)
+        # Rig Definition
+        save.prop(scn, 'arp_keep_bend_bones', False)
+        save.prop(scn, 'arp_push_bend', False)
+        save.prop(scn, 'arp_full_facial', True)  # Humanoid only
+        save.prop(scn, 'arp_export_twist', options.get('export_twist', True))
+        save.prop(scn, 'arp_export_noparent', False)
+        save.prop(scn, 'arp_export_renaming', True)  # Just prints a message if the file doesn't exist
+        save.prop(scn, 'arp_export_rig_name', 'root')
 
-    # ARP doesn't respect context unfortunately
-    select_only(context, objects)
-    rig.select_set(True)
-    context.view_layer.objects.active = rig
-    with FunctionPatcher(arp_export_module_names, arp_export_function_name, arp_save) as patcher:
-        patcher['options'] = options
-        with SaveContext(context, "export_autorig") as save:
-            # ARP leaves a lot of garbage behind
-            save.collection(bpy.data.meshes)
-            save.collection(bpy.data.objects)
-            return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
+        # Units
+        save.prop(scn, 'arp_units_x100', True)
 
-@intercept(error_result={'CANCELLED'})
-def export_autorig_universal(filepath, context, rig, objects=[], action=None, options={}):
-    scn = context.scene
+        # Unreal Options (most are humanoid only)
+        save.prop(scn, 'arp_ue4', True)
+        save.prop(scn, 'arp_ue_root_motion', True)
+        save.prop(scn, 'arp_rename_for_ue', True)
+        save.prop(scn, 'arp_ue_ik', add_ik_bones)
+        save.prop(scn, 'arp_ue_ik_anim', True)  # This only works with arp_ue_ik (ARP needs patching)
+        save.prop(scn, 'arp_mannequin_axes', True)
 
-    # Configure Auto-Rig and then finally export
-    scn.arp_engine_type = 'unreal'
-    scn.arp_export_rig_type = 'mped'
-    scn.arp_ge_sel_only = True
-
-    # Rig Definition
-    scn.arp_keep_bend_bones = False
-    scn.arp_push_bend = False
-    scn.arp_export_twist = options.get('export_twist', True)
-    scn.arp_export_noparent = False
-    scn.arp_export_renaming = True  # Just prints a message if the file doesn't exist
-
-    # Units
-    scn.arp_units_x100 = True
-
-    # Unreal Options
-    scn.arp_ue_root_motion = True
-
-    # Animation
-    if not action:
-        scn.arp_bake_anim = False
-    else:
-        scn.arp_bake_anim = True
-        scn.arp_bake_type = 'ACTIONS'
-        scn.arp_export_separate_fbx = False
-        scn.arp_frame_range_type = 'CUSTOM'
-        if action.use_frame_range:
-            scn.arp_export_start_frame = int(action.frame_start)
-            scn.arp_export_end_frame = int(action.frame_end)
+        # Animation
+        if not action:
+            save.prop(scn, 'arp_bake_anim', False)
         else:
-            scn.arp_export_start_frame = int(action.curve_frame_range[0])
-            scn.arp_export_end_frame = int(action.curve_frame_range[1])
-        scn.arp_export_act_name = 'DEFAULT'
-        scn.arp_simplify_fac = 0.0
-        scn.arp_export_use_actlist = True
-        scn.arp_export_actlist.clear()
-        arp_actlist = scn.arp_export_actlist.add()
-        arp_action = arp_actlist.actions.add()
-        arp_action.action = action
+            save.prop(scn, 'arp_bake_anim', True)
+            save.prop(scn, 'arp_bake_type', 'ACTIONS')
+            save.prop(scn, 'arp_export_separate_fbx', False)
+            save.prop(scn, 'arp_frame_range_type', 'CUSTOM')
+            if action.use_frame_range:
+                save.prop(scn, 'arp_export_start_frame', int(action.frame_start))
+                save.prop(scn, 'arp_export_end_frame', int(action.frame_end))
+            else:
+                save.prop(scn, 'arp_export_start_frame', int(action.curve_frame_range[0]))
+                save.prop(scn, 'arp_export_end_frame', int(action.curve_frame_range[1]))
+            save.prop(scn, 'arp_export_act_name', 'DEFAULT')
+            save.prop(scn, 'arp_simplify_fac', 0.0)
+            save.prop(scn, 'arp_export_use_actlist', True)
+            save.prop(scn, 'arp_export_actlist')
+            scn.arp_export_actlist.clear()
+            arp_actlist = scn.arp_export_actlist.add()
+            arp_action = arp_actlist.actions.add()
+            arp_action.action = action
 
-    # Misc
-    scn.arp_global_scale = 1.0
-    scn.arp_mesh_smooth_type = 'EDGE'
-    scn.arp_use_tspace = False
-    scn.arp_fix_fbx_rot = True
-    scn.arp_fix_fbx_matrix = True
-    scn.arp_init_fbx_rot = False
-    scn.arp_init_fbx_rot_mesh = False
-    scn.arp_bone_axis_primary_export = 'Y'
-    scn.arp_bone_axis_secondary_export = 'X'
-    scn.arp_export_rig_name = 'root'
-    scn.arp_export_tex = False
+        # Misc
+        save.prop(scn, 'arp_custom_export_script', "//")
+        save.prop(scn, 'arp_global_scale', 1.0)
+        save.prop(scn, 'arp_mesh_smooth_type', 'EDGE')
+        save.prop(scn, 'arp_use_tspace', False)
+        save.prop(scn, 'arp_apply_mods', False)
+        save.prop(scn, 'arp_apply_subsurf', False)
+        save.prop(scn, 'arp_export_triangulate', False)
+        save.prop(scn, 'arp_fix_fbx_rot', True)
+        save.prop(scn, 'arp_fix_fbx_matrix', True)
+        save.prop(scn, 'arp_init_fbx_rot', False)
+        save.prop(scn, 'arp_init_fbx_rot_mesh', False)
+        save.prop(scn, 'arp_bone_axis_primary_export', 'Y')
+        save.prop(scn, 'arp_bone_axis_secondary_export', 'X')
+        save.prop(scn, 'arp_export_rig_name', 'root')
+        save.prop(scn, 'arp_export_tex', False)
 
-    rig.data.pose_position = 'POSE'
-    clear_pose(rig)
+        # Backwards compatibility
+        save.prop(scn, 'arp_retro_axes', False)
+        save.prop(scn, 'arp_retro_action_prefix', False)
+        save.prop(scn, 'arp_retro_export_soft_fix', False)
+        save.prop(scn, 'arp_retro_ge_mesh', False)
+        save.prop(scn, 'arp_retro_ge_UE_twist_pos', False)
 
-    # ARP doesn't respect context unfortunately
-    select_only(context, objects)
-    rig.select_set(True)
-    context.view_layer.objects.active = rig
-    with FunctionPatcher(arp_export_module_names, arp_export_function_name, arp_save) as patcher:
-        patcher['options'] = options
-        with SaveContext(context, "export_autorig_universal") as save:
-            # ARP leaves a lot of garbage behind
-            save.collection(bpy.data.meshes)
-            save.collection(bpy.data.objects)
+        rig.data.pose_position = 'POSE'
+        clear_pose(rig)
+
+        # ARP doesn't respect context unfortunately, also leaves garbage behind
+        select_only(context, objects)
+        rig.select_set(True)
+        context.view_layer.objects.active = rig
+        save.collection(bpy.data.meshes)
+        save.collection(bpy.data.objects)
+
+        with FunctionPatcher(arp_export_module_names, arp_export_function_name, arp_save) as patcher:
+            patcher['options'] = options
             return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})

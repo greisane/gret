@@ -1,5 +1,6 @@
 from collections import namedtuple
 from fnmatch import fnmatch
+from functools import partial
 import bpy
 import os
 
@@ -14,7 +15,6 @@ from ..helpers import (
 from ..log import logger, log, logd
 from ..rig.helpers import (
     export_autorig,
-    export_autorig_universal,
     export_fbx,
     is_object_arp,
     is_object_arp_humanoid,
@@ -135,11 +135,11 @@ def _anim_export(context, job, rig, save, results):
             continue
 
         if is_object_arp_humanoid(rig):
-            log(f"Exporting {filename} via Auto-Rig export")
-            exporter = export_autorig
+            log(f"Exporting {filename} via Auto-Rig export (humanoid)")
+            exporter = partial(export_autorig, humanoid=True)
         elif is_object_arp(rig):
             log(f"Exporting {filename} via Auto-Rig export (universal)")
-            exporter = export_autorig_universal
+            exporter = partial(export_autorig, humanoid=False)
         else:
             log(f"Exporting {filename}")
             exporter = export_fbx

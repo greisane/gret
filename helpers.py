@@ -293,42 +293,46 @@ def viewport_reveal_all(context):
     if space_data and getattr(space_data, 'local_view', False):
         bpy.ops.view3d.localview()
 
+def save_property(struct, prop_name):
+    """Returns a Python representation of a Blender property value."""
+
+    prop = struct.bl_rna.properties[prop_name]
+    if prop.type == 'COLLECTION':
+        return [save_properties(el) for el in getattr(struct, prop_name)]
+    elif getattr(prop, 'is_array', False):
+        return getattr(struct, prop_name)[:]
+    else:
+        return getattr(struct, prop_name)
+
 def save_properties(struct):
-    """Returns a dictionary storing the properties of a Blender struct."""
+    """Returns a dictionary representing the properties of a Blender struct."""
 
     saved = {}
     for prop in struct.bl_rna.properties:
         if not prop.is_runtime:
             # Only save user properties
             continue
-        prop_id = prop.identifier
-        try:
-            if prop.type == 'COLLECTION':
-                saved[prop_id] = [save_properties(el) for el in getattr(struct, prop_id)]
-            elif getattr(prop, 'is_array', False):
-                saved[prop_id] = getattr(struct, prop_id)[:]
-            else:
-                saved[prop_id] = getattr(struct, prop_id)
-        except:
-            continue
+        saved[prop.identifier] = save_property(struct, prop.identifier)
     return saved
+
+def load_property(struct, prop_name, value):
+    """Sets the value of a property from its Python representation."""
+
+    prop = struct.bl_rna.properties[prop_name]
+    if prop.type == 'COLLECTION':
+        collection = getattr(struct, prop_name)
+        collection.clear()
+        for saved_el in value:
+            el = collection.add()
+            load_properties(el, saved_el)
+    elif not prop.is_readonly:
+        setattr(struct, prop_name, value)
 
 def load_properties(struct, saved):
     """Restores properties from a dictionary returned by save_properties()"""
 
-    for prop_id, value in saved.items():
-        try:
-            prop = struct.bl_rna.properties[prop_id]
-            if prop.type == 'COLLECTION':
-                collection = getattr(struct, prop_id)
-                collection.clear()
-                for saved_el in value:
-                    el = collection.add()
-                    load_properties(el, saved_el)
-            elif not prop.is_readonly:
-                setattr(struct, prop_id, value)
-        except:
-            continue
+    for prop_name, value in saved.items():
+        load_property(struct, prop_name, value)
 
 def get_topmost_parent(obj):
     while obj.parent:

@@ -1,4 +1,5 @@
 from collections import namedtuple, defaultdict
+from functools import partial
 from itertools import chain
 from math import pi
 import bpy
@@ -26,7 +27,6 @@ from ..helpers import (
 from ..rig.helpers import (
     copy_drivers,
     export_autorig,
-    export_autorig_universal,
     export_fbx,
     is_object_arp,
     is_object_arp_humanoid,
@@ -377,11 +377,11 @@ def _rig_export(context, job, rig, save, results):
             objs = [item.obj for item in items]
 
             if is_object_arp_humanoid(rig):
-                log(f"Exporting {filename} via Auto-Rig export")
-                exporter = export_autorig
+                log(f"Exporting {filename} via Auto-Rig export (humanoid)")
+                exporter = partial(export_autorig, humanoid=True)
             elif is_object_arp(rig):
                 log(f"Exporting {filename} via Auto-Rig export (universal)")
-                exporter = export_autorig_universal
+                exporter = partial(export_autorig, humanoid=False)
             else:
                 log(f"Exporting {filename}")
                 exporter = export_fbx
