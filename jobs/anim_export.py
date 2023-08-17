@@ -5,6 +5,7 @@ import bpy
 import os
 
 from .. import prefs
+from ..log import logger, log, logd
 from ..helpers import (
     beep,
     fail_if_invalid_export_path,
@@ -12,13 +13,13 @@ from ..helpers import (
     get_nice_export_report,
     get_bid_filepath,
 )
-from ..log import logger, log, logd
 from ..rig.helpers import (
     export_autorig,
     export_fbx,
     is_object_arp,
     is_object_arp_humanoid,
 )
+from ..operator import SaveContext
 
 class ConstantCurve:
     """Mimics FCurve and always returns the same value on evaluation."""

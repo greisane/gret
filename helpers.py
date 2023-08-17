@@ -591,7 +591,7 @@ bpy_type_to_data_collection_name = {
     bpy.types.Library: 'libraries',             # BlendDataLibraries
     bpy.types.LightProbe: 'lightprobes',        # BlendDataProbes
     bpy.types.Light: 'lights',                  # BlendDataLights
-    # bpy.types.LineStyle: 'linestyles',          # BlendDataLineStyles -- no such type
+    # bpy.types.LineStyle: 'linestyles',        # BlendDataLineStyles -- no such type
     bpy.types.Mask: 'masks',                    # BlendDataMasks
     bpy.types.Material: 'materials',            # BlendDataMaterials
     bpy.types.Mesh: 'meshes',                   # BlendDataMeshes
