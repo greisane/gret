@@ -26,8 +26,8 @@ export_presets = {
     },
     'UNITY': {
         'arp_engine_type': 'unity',
-        'primary_bone_axis': 'X',
-        'secondary_bone_axis': 'Z',
+        'primary_bone_axis': 'Z',
+        'secondary_bone_axis': 'X',
         'mesh_smooth_type': 'OFF',
     },
 }
