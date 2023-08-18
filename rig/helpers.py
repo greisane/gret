@@ -263,6 +263,7 @@ def export_autorig(filepath, context, rig, objects=[], action=None, options={}, 
         save.prop(scn, 'arp_push_bend', False)  # TODO should be exposed in job
         save.prop(scn, 'arp_full_facial', True)  # Humanoid only
         save.prop(scn, 'arp_export_twist', options.get('export_twist', True))
+        save.prop(scn, 'arp_twist_fac', 0.5)
         save.prop(scn, 'arp_export_noparent', False)
         save.prop(scn, 'arp_export_renaming', True)  # Just prints a message if the file doesn't exist
         save.prop(scn, 'arp_export_rig_name', prefs.jobs__rig_export_name)
@@ -294,6 +295,7 @@ def export_autorig(filepath, context, rig, objects=[], action=None, options={}, 
                 save.prop(scn, 'arp_export_end_frame', int(action.curve_frame_range[1]))
             save.prop(scn, 'arp_export_act_name', 'DEFAULT')
             save.prop(scn, 'arp_simplify_fac', 0.0)
+            save.prop(scn, 'arp_ge_bake_sample', 1.0)
             save.prop(scn, 'arp_export_use_actlist', True)
             save.prop(scn, 'arp_export_actlist')
             scn.arp_export_actlist.clear()
@@ -309,9 +311,9 @@ def export_autorig(filepath, context, rig, objects=[], action=None, options={}, 
         save.prop(scn, 'arp_apply_mods', False)
         save.prop(scn, 'arp_apply_subsurf', False)
         save.prop(scn, 'arp_export_triangulate', prefs.jobs__use_triangles)
-        save.prop(scn, 'arp_fix_fbx_rot', False)
+        save.prop(scn, 'arp_fix_fbx_rot', True)
         save.prop(scn, 'arp_fix_fbx_matrix', True)
-        save.prop(scn, 'arp_ge_add_dummy_mesh', False)  # Unity only
+        save.prop(scn, 'arp_ge_add_dummy_mesh', True)  # Unity only
         save.prop(scn, 'arp_ge_force_rest_pose_export', True)  # Unity only
         save.prop(scn, 'arp_init_fbx_rot', False)
         save.prop(scn, 'arp_init_fbx_rot_mesh', False)
