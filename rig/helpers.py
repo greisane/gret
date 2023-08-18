@@ -235,9 +235,10 @@ def arp_save(base, *args, **kwargs):
 def export_autorig(filepath, context, rig, objects=[], action=None, options={}, humanoid=False):
     scn = context.scene
     preset = export_presets.get(prefs.jobs__export_preset, {})
+    arp_engine_type = preset.get('arp_engine_type', 'unreal')
 
     add_ik_bones = False
-    if humanoid:
+    if humanoid and arp_engine_type == 'unreal':
         ik_bones_not_found = [s for s in ik_bone_names if
             s not in rig.pose.bones or 'custom_bone' not in rig.pose.bones[s]]
         if not ik_bones_not_found:
@@ -253,7 +254,7 @@ def export_autorig(filepath, context, rig, objects=[], action=None, options={}, 
                 + ", ".join(ik_bones_not_found))
 
     with SaveContext(context, "export_autorig") as save:
-        save.prop(scn, 'arp_engine_type', prefs.get('arp_engine_type', 'unreal'))
+        save.prop(scn, 'arp_engine_type', arp_engine_type)
         save.prop(scn, 'arp_export_rig_type', 'humanoid' if humanoid else 'mped')
         save.prop(scn, 'arp_ge_sel_only', True)
         save.prop(scn, 'arp_ge_sel_bones_only', False)
