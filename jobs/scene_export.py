@@ -81,7 +81,8 @@ def set_parent_keep_parent_inverse(objs, new_parent):
 
 def _scene_export(context, job, save, results):
     save.selection()
-    save.prop_foreach(context.scene.objects, 'matrix_local')
+    save.prop_foreach(bpy.data.objects, 'matrix_world')
+    save.prop_foreach(bpy.data.objects, 'matrix_local')
     viewport_reveal_all(context)
 
     # Find and clone objects to be exported

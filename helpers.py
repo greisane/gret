@@ -300,7 +300,8 @@ def save_property(struct, prop_name):
     if prop.type == 'COLLECTION':
         return [save_properties(el) for el in getattr(struct, prop_name)]
     elif getattr(prop, 'is_array', False):
-        return getattr(struct, prop_name)[:]
+        # Vectors to tuples, Matrices to tuples of tuples
+        return tuple(el[:] if hasattr(el, '__getitem__') else el for el in getattr(struct, prop_name))
     else:
         return getattr(struct, prop_name)
 
@@ -657,17 +658,18 @@ def remove_subsequence(seq, subseq):
             break
     return seq
 
-def split_sequence(seq, key=None):
-    """Returns two lists containing items for which key(item) returns true or false respectively.
-    If key is None, bool(element) is tested instead."""
+def split_sequence(iterable, key=lambda item: item):
+    """Returns two lists containing items for which key(item) returns True or False respectively."""
 
     a, b = [], []
-    for el in seq:
-        if key is None:
-            (a if bool(el) else b).append(el)
-        else:
-            (a if key(el) else b).append(el)
+    for el in iterable:
+        (a if key(el) else b).append(el)
     return a, b
+
+def first_index(iterable, key=lambda item: item):
+    """Return the index of the first item for which key(item) returns True, or -1 otherwise."""
+
+    return next((n for n, el in enumerate(iterable) if key(el)), -1)
 
 def get_visible_objects_and_duplis(context):
     """Loop over (object, matrix) pairs."""

@@ -1080,7 +1080,7 @@ Wildcards are allowed. Separate names with spaces""",
 {file} = Name of this .blend file without extension.
 {rigfile} = Name of the .blend file the rig is linked from, without extension.
 {rig} = Name of the rig being exported.
-{action} = Name of the action being exported, if exporting animation""",
+{action} = Name of the action being exported""",
         default="//export/A_{rigfile}_{action}.fbx",
         subtype='FILE_PATH',
         options=set(),
