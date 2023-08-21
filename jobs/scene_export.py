@@ -81,8 +81,6 @@ def set_parent_keep_parent_inverse(objs, new_parent):
 
 def _scene_export(context, job, save, results):
     save.selection()
-    save.prop_foreach(bpy.data.objects, 'matrix_world')
-    save.prop_foreach(bpy.data.objects, 'matrix_local')
     viewport_reveal_all(context)
 
     # Find and clone objects to be exported
@@ -105,7 +103,7 @@ def _scene_export(context, job, save, results):
             # Never export collision objects by themselves
             continue
         obj.hide_render = False
-        new_obj = save.clone_obj(obj, to_mesh=True, parent=None)
+        new_obj = save.clone_obj(obj, parent=None)
         items.append(ExportItem(obj, new_obj, job_cl, [], []))
 
     # Process individual meshes
@@ -206,8 +204,8 @@ def _scene_export(context, job, save, results):
                 logd(f"Zero transform for {obj.name}")
 
             for other_obj in chain(item.collision_objs, item.socket_objs):
-                logd(f"Moving collision/socket {other_obj.name}")
-                other_obj.matrix_world = world_to_pivot @ other_obj.matrix_world
+                save.prop(other_obj, 'matrix_world', world_to_pivot @ other_obj.matrix_world)
+                logd(f"Moved collision/socket {other_obj.name}")
 
         obj.data.transform(obj.matrix_basis, shape_keys=True)
         obj.matrix_basis.identity()

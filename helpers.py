@@ -3,6 +3,7 @@ from bpy.ops import op_as_string
 from collections import namedtuple
 from functools import wraps, lru_cache
 from itertools import islice
+from mathutils import Matrix
 import bpy
 import io
 import os
@@ -327,6 +328,11 @@ def load_property(struct, prop_name, value):
             el = collection.add()
             load_properties(el, saved_el)
     elif not prop.is_readonly:
+        if prop.subtype == 'MATRIX' and not isinstance(value, Matrix):
+            # Setting a matrix property like matrix_world has some side effects that don't happen
+            # when passing in Python types. It worked as expected for the vector properties I tried,
+            # so I guess this workaround for matrices only is sufficient for now.
+            value = Matrix(value)
         setattr(struct, prop_name, value)
 
 def load_properties(struct, saved):
