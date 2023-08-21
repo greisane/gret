@@ -2,6 +2,7 @@ from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
 from bpy.ops import op_as_string
 from collections import namedtuple
 from functools import wraps, lru_cache
+from itertools import islice
 import bpy
 import io
 import os
@@ -300,8 +301,7 @@ def save_property(struct, prop_name):
     if prop.type == 'COLLECTION':
         return [save_properties(el) for el in getattr(struct, prop_name)]
     elif getattr(prop, 'is_array', False):
-        # Vectors to tuples, Matrices to tuples of tuples
-        return tuple(el[:] if hasattr(el, '__getitem__') else el for el in getattr(struct, prop_name))
+        return reshape(ravel(getattr(struct, prop_name)), prop.array_dimensions)
     else:
         return getattr(struct, prop_name)
 
@@ -658,7 +658,7 @@ def remove_subsequence(seq, subseq):
             break
     return seq
 
-def split_sequence(iterable, key=lambda item: item):
+def partition(iterable, key=lambda item: item):
     """Returns two lists containing items for which key(item) returns True or False respectively."""
 
     a, b = [], []
@@ -670,6 +670,27 @@ def first_index(iterable, key=lambda item: item):
     """Return the index of the first item for which key(item) returns True, or -1 otherwise."""
 
     return next((n for n, el in enumerate(iterable) if key(el)), -1)
+
+def ravel(iterable):
+    """Return a contiguous flattened iterable."""
+
+    for el in iterable:
+        if not isinstance(el, str):
+            try:
+                yield from ravel(el)
+                continue
+            except TypeError:
+                pass
+        yield el
+
+def reshape(iterable, shape):
+    """Clumsy Python implementation of numpy.reshape. Accepts zeros in the shape tuple."""
+
+    it = iter(iterable)
+    if len(shape) > 1 and shape[1] != 0:
+        return tuple(reshape(it, shape[1:]) for _ in range(shape[0]))
+    else:
+        return tuple(islice(it, shape[0]))
 
 def get_visible_objects_and_duplis(context):
     """Loop over (object, matrix) pairs."""

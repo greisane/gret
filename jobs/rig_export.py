@@ -13,14 +13,14 @@ from ..helpers import (
     beep,
     ensure_starts_with,
     fail_if_invalid_export_path,
+    get_bid_filepath,
     get_context,
     get_export_path,
     get_modifier,
     get_name_safe,
     get_nice_export_report,
-    get_bid_filepath,
     gret_operator_exists,
-    split_sequence,
+    partition,
     TempModifier,
     viewport_reveal_all,
 )
@@ -253,7 +253,7 @@ def _rig_export(context, job, rig, save, results):
         while len(items) > 1:
             # Merge items with the same requested subdiv level. Repeat until there's one item left
             max_subd_level = max(it.subd_level for it in items)
-            items_to_merge, items = split_sequence(items, lambda it: it.subd_level == max_subd_level)
+            items_to_merge, items = partition(items, lambda it: it.subd_level == max_subd_level)
             item = merge_items(items_to_merge)
             items.append(item)
 

@@ -12,6 +12,7 @@ from .helpers import (
     get_data_collection,
     get_layers_recursive,
     load_property,
+    reshape,
     save_property,
     select_only,
     swap_names,
@@ -91,7 +92,10 @@ class PropertyWrapper(namedtuple('PropertyWrapper', 'struct prop_name is_custom'
         if self.is_custom:
             return self.struct.id_properties_ui(self.prop_name).as_dict()['default']
         else:
-            return getattr(self.struct.bl_rna.properties[self.prop_name], 'default', None)
+            prop = self.struct.bl_rna.properties[self.prop_name]
+            if getattr(prop, 'is_array', False):
+                return reshape(prop.default_array, prop.array_dimensions)
+            return getattr(prop, 'default', None)
 
     @property
     def value(self):
