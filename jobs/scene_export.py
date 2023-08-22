@@ -273,6 +273,7 @@ def _scene_export(context, job, save, results):
             # If set, ensure prefix for exported materials
             materials_used = set(chain.from_iterable(obj.data.materials for obj in objs
                 if obj.type == 'MESH'))
+            materials_used.discard(None)
             if job.material_name_prefix:
                 for mat in materials_used:
                     save2.rename(mat, ensure_starts_with(mat.name, job.material_name_prefix))
