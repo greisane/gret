@@ -13,7 +13,7 @@ from .helpers import get_vcolor
 from ..operator import SaveContext, SaveState
 
 src_items = [
-    ('NONE', "", "Leave the channel unchanged"),
+    ('NONE', "", "Use the current channel value"),
     ('ZERO', "Zero", "Fill the channel with the minimum value"),
     ('ONE', "One", "Fill the channel with the maximum value"),
     ('VERTEX_GROUP', "Group", "Weight of specified vertex group"),
@@ -266,9 +266,6 @@ def update_vcol_from(obj, mapping, prefix, src_vcol, dst_vcol, channel_idx, inve
 def update_vcols(obj, invert=False):
     mapping = get_first_mapping(obj)
     if not mapping:
-        return
-    if all(src == 'NONE' for src in (mapping.r, mapping.g, mapping.b, mapping.a)):
-        # Avoid creating a vertex group if nothing would be done anyway
         return
 
     vcol = get_vcolor(obj, mapping.vertex_color_layer_name)
