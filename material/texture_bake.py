@@ -231,9 +231,12 @@ def _texture_bake(context, texture_bake, save, results):
         (bakers[texture_bake.g], {'scale': texture_bake.g_scale}),
         (bakers[texture_bake.b], {'scale': texture_bake.b_scale}),
     ]
-    fill_color = [baker.neutral_value for bake in bakes] + [0.0]
+    fill_color = [bake[0].neutral_value for bake in bakes] + [0.0]
 
     for bake in bakes:
+        if not bake:
+            continue
+
         # Avoid redundant work, bake only once for all channels sharing the same settings
         target_channel_indices = []
         for channel_index, other_bake in enumerate(bakes):
