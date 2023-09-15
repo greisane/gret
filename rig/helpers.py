@@ -2,6 +2,7 @@ from fnmatch import fnmatch
 from itertools import chain
 from mathutils import Vector, Quaternion, Euler
 import bpy
+import sys
 
 from .. import prefs
 from ..log import log, logd
@@ -12,20 +13,20 @@ from ..patcher import FunctionPatcher
 export_presets = {
     'UE4': {
         'arp_ue4': True,
-        'arp_engine_type': 'unreal',
+        'arp_engine_type': 'UNREAL',
         'primary_bone_axis': 'Y',
         'secondary_bone_axis': 'X',
         'mesh_smooth_type': 'EDGE',
     },
     'UE5': {
         'arp_ue4': False,
-        'arp_engine_type': 'unreal',
+        'arp_engine_type': 'UNREAL',
         'primary_bone_axis': 'Y',
         'secondary_bone_axis': 'X',
         'mesh_smooth_type': 'EDGE',
     },
     'UNITY': {
-        'arp_engine_type': 'unity',
+        'arp_engine_type': 'UNITY',
         'primary_bone_axis': 'Z',
         'secondary_bone_axis': 'X',
         'mesh_smooth_type': 'OFF',
@@ -84,6 +85,10 @@ arp_default_pose_values = {
     'y_scale': 2,  # Bone original
 }
 default_pose_values = {}
+
+def get_arp_version():
+    arp_module = sys.modules.get('auto_rig_pro')
+    return arp_module.bl_info['version'] if arp_module else (0, 0, 0)
 
 def is_object_arp(obj):
     """Returns whether the object is an Auto-Rig Pro armature."""
@@ -235,10 +240,11 @@ def arp_save(base, *args, **kwargs):
 def export_autorig(filepath, context, rig, objects=[], action=None, options={}, humanoid=False):
     scn = context.scene
     preset = export_presets.get(prefs.jobs__export_preset, {})
-    arp_engine_type = preset.get('arp_engine_type', 'unreal')
+    arp_version = get_arp_version()
+    arp_engine_type = preset.get('arp_engine_type', 'UNREAL')
 
     add_ik_bones = False
-    if humanoid and arp_engine_type == 'unreal':
+    if humanoid and arp_engine_type == 'UNREAL':
         ik_bones_not_found = [s for s in ik_bone_names if
             s not in rig.pose.bones or 'custom_bone' not in rig.pose.bones[s]]
         if not ik_bones_not_found:
@@ -256,8 +262,12 @@ def export_autorig(filepath, context, rig, objects=[], action=None, options={}, 
     with SaveContext(context, "export_autorig") as save:
         save.prop(context.preferences.addons['auto_rig_pro'].preferences, 'show_export_popup', False)
 
-        save.prop(scn, 'arp_engine_type', arp_engine_type)
-        save.prop(scn, 'arp_export_rig_type', 'humanoid' if humanoid else 'mped')
+        if arp_version >= (3, 68, 64):
+            save.prop(scn, 'arp_engine_type', arp_engine_type)
+            save.prop(scn, 'arp_export_rig_type', 'HUMANOID' if humanoid else 'UNIVERSAL')
+        else:
+            save.prop(scn, 'arp_engine_type', arp_engine_type.lower())
+            save.prop(scn, 'arp_export_rig_type', 'humanoid' if humanoid else 'mped')
         save.prop(scn, 'arp_ge_sel_only', True)
         save.prop(scn, 'arp_ge_sel_bones_only', False)
 
