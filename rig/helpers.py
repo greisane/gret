@@ -6,6 +6,7 @@ import sys
 
 from .. import prefs
 from ..log import log, logd
+from ..mesh.helpers import merge_vertex_groups
 from ..helpers import intercept, get_context, select_only, titlecase
 from ..operator import PropertyWrapper, SaveContext
 from ..patcher import FunctionPatcher
@@ -101,7 +102,6 @@ def is_object_arp_humanoid(obj):
 
     if not is_object_arp(obj):
         return False
-
     if any(bname in obj.data.bones for bname in non_humanoid_bone_names):
         return False
     if not all(bname in obj.data.bones for bname in humanoid_bone_names):
@@ -193,7 +193,7 @@ def copy_drivers(src_bid, dst_bid, overwrite=False):
                 dst_drivers.from_existing(src_driver=src_fc)
                 logd(f"Copied driver for {src_fc.data_path} from {src_name}")
 
-def unmark_bones(rig, bone_names):
+def undeform_bones(rig, bone_names):
     num_deform = sum(b.use_deform for b in rig.data.bones)
     for bone in rig.data.bones:
         if bone.use_deform and any(fnmatch(bone.name, s) for s in bone_names):
@@ -205,7 +205,7 @@ def unmark_bones(rig, bone_names):
     if num_unmarked > 0:
         log(f"{num_unmarked} additional bone{'s' if num_unmarked > 1 else ''} won't be exported")
 
-def unmark_unused_bones(rig, objs):
+def undeform_unused_bones(rig, objs):
     """Unmarks deform for all bones that aren't relevant to the given meshes."""
 
     bones = rig.data.bones
@@ -225,15 +225,33 @@ def unmark_unused_bones(rig, objs):
             bone = bone.parent
     log(f"{num_deform} bones out of {len(bones)} marked for export")
 
+def fix_undeforming_bones(rig, objs):
+    """Transfers vertex weights from undeforming bones to the nearest deforming bone."""
+
+    bones = rig.data.bones
+    for obj in objs:
+        if obj.type == 'MESH':
+            for vg in obj.vertex_groups:
+                bone = bones.get(vg.name)
+                while bone and not bone.use_deform:
+                    bone = bone.parent
+                if bone:
+                    merge_vertex_groups(obj, vg.name, bone.name, remove_src=False)
+
 def arp_save(base, *args, **kwargs):
     options = kwargs.pop('options')
     op, context = args
     logd(f"arp_save overriden with options: {options}")
+
     if options.get('minimize_bones'):
-        unmark_unused_bones(context.active_object, context.selected_objects)
+        undeform_unused_bones(context.active_object, context.selected_objects)
+
     remove_bone_names = options.get('remove_bones', [])
     if remove_bone_names:
-        unmark_bones(context.active_object, remove_bone_names)
+        undeform_bones(context.active_object, remove_bone_names)
+
+    fix_undeforming_bones(context.active_object, context.selected_objects)
+
     return base(*args, **kwargs)
 
 @intercept(error_result={'CANCELLED'})
@@ -377,10 +395,13 @@ def export_fbx(filepath, context, rig, objects=[], action=None, options={}):
         clear_pose(rig)
 
         if options.get('minimize_bones'):
-            unmark_unused_bones(rig, objects)
+            undeform_unused_bones(rig, objects)
+
         remove_bone_names = options.get('remove_bones', [])
         if remove_bone_names:
-            unmark_bones(rig, remove_bone_names)
+            undeform_bones(rig, remove_bone_names)
+
+        fix_undeforming_bones(rig, objects)
 
         select_only(context, objects)
         rig.select_set(True)
