@@ -254,6 +254,8 @@ def export_autorig(filepath, context, rig, objects=[], action=None, options={}, 
                 + ", ".join(ik_bones_not_found))
 
     with SaveContext(context, "export_autorig") as save:
+        save.prop(context.preferences.addons['auto_rig_pro'].preferences, 'show_export_popup', False)
+
         save.prop(scn, 'arp_engine_type', arp_engine_type)
         save.prop(scn, 'arp_export_rig_type', 'humanoid' if humanoid else 'mped')
         save.prop(scn, 'arp_ge_sel_only', True)
