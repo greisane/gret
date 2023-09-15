@@ -266,7 +266,7 @@ class GRET_OT_export_job_move_down(bpy.types.Operator):
         return {'FINISHED'}
 
 class GRET_OT_export(bpy.types.Operator):
-    """Execute the export job. Ctrl-Click to execute in debug mode"""
+    """Execute the export job"""
 
     bl_idname = 'gret.export'
     bl_label = "Export"
@@ -314,10 +314,6 @@ class GRET_OT_export(bpy.types.Operator):
                 logger.categories.discard('DEBUG')
 
         return {'FINISHED'}
-
-    def invoke(self, context, event):
-        self.debug = event.ctrl
-        return self.execute(context)
 
 class GRET_OT_export_by_name(bpy.types.Operator):
     """Execute the export job"""
