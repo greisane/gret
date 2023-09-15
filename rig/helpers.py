@@ -43,11 +43,11 @@ non_humanoid_bone_names = [
 humanoid_bone_names = [
     'c_root_master.x',
 ]
-limb_bone_names = [
-    ('shoulder_ref.', 2),
-    ('thigh_ref.', 2),
-    ('neck_ref.', 1),
-    ('ear_01_ref.', 2),
+humanoid_limb_bone_names_max_num = [
+    ('shoulder_ref', 2),
+    ('thigh_ref', 2),
+    ('neck_ref', 1),
+    ('ear_01_ref', 2),
 ]
 ik_bone_names = [
     "ik_foot_root",
@@ -88,7 +88,7 @@ default_pose_values = {}
 def is_object_arp(obj):
     """Returns whether the object is an Auto-Rig Pro armature."""
 
-    return obj and obj.type == 'ARMATURE' and "c_pos" in obj.data.bones
+    return obj and obj.type == 'ARMATURE' and 'c_pos' in obj.data.bones
 
 def is_object_arp_humanoid(obj):
     """Returns whether the object is an Auto-Rig Pro humanoid armature."""
@@ -101,8 +101,8 @@ def is_object_arp_humanoid(obj):
         return False
     if not all(bname in obj.data.bones for bname in humanoid_bone_names):
         return False
-    for limb_bone_name, max_bones in limb_bone_names:
-        if sum(b.name.startswith(limb_bone_name) for b in obj.data.bones) > max_bones:
+    for limb_bone_name, max_num in humanoid_limb_bone_names_max_num:
+        if sum(b.name.startswith(limb_bone_name) for b in obj.data.bones) > max_num:
             return False
     if obj.rig_spine_count < 3:
         return False
