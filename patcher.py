@@ -65,26 +65,23 @@ class PanelPatcher(ast.NodeTransformer):
         elif self.fallback_func:
             self.panel_type.remove(self.fallback_func)
 
-class FunctionPatcher(dict):
+class FunctionPatcher:
     """
-    Allows patching functionality in foreign modules.
-    Use the patcher object as a dictionary in order to pass additional data to the override function.
-    Example usage:
+    Allows monkey-patching functions in foreign modules. Example usage:
 
-    def cos_wrapper(cos, x, **kwargs):
-        if kwargs.pop('degrees', False):
-            x *= math.pi / 180
-        return cos(x)
-    import math
-    with FunctionPatcher('math', 'cos', cos_wrapper) as patcher:
-        patcher['degrees'] = True
-        print(math.cos(180.0))
+    from math import sin, radians
+    def sin_override(sin, x, degrees=False):
+        return sin(radians(x) if degrees else x)
+    with FunctionPatcher('math', 'sin', sin_override) as sin:
+        print(sin(90))  # Result: 0.8939...
+        print(sin(90, degrees=True))  # Result: 1
     """
 
-    def __init__(self, module_names, function_name, func, use_wrapper=True):
+    def __init__(self, module_names, function_name, override_function, **kwargs):
         self.module_names = module_names
         self.function_name = function_name
-        self.func = func
+        self.override_function = override_function
+        self.extra_kwargs = kwargs
 
     def get_module(self, module_names):
         if isinstance(module_names, str):
@@ -98,32 +95,35 @@ class FunctionPatcher(dict):
                     pass
         return None
 
-    def get_func(self, module, function_name):
+    def get_function(self, module, function_name):
         for part in function_name.split("."):
             module = getattr(module, part, None)
         return module
 
     def __enter__(self):
         module = self.get_module(self.module_names)
-        if module:
-            base_func = self.get_func(module, self.function_name)
-            if base_func:
-                @wraps(base_func)
-                def wrapper(*args, **kwargs):
-                    kwargs.update(self)
-                    return self.func(base_func, *args, **kwargs)
-                setattr(module, self.function_name, wrapper)
-            else:
-                logd(f"Couldn't patch {module.__name__}.{self.function_name}, function not found")
-        else:
+        if not module:
             module_name = self.module_names if isinstance(self.module_names, str) else self.module_names[0]
             logd(f"Couldn't patch {module_name}.{self.function_name}, module not found")
-        return self
+            return None
+
+        base_function = self.get_function(module, self.function_name)
+        if not base_function:
+            logd(f"Couldn't patch {module.__name__}.{self.function_name}, function not found")
+            return None
+
+        @wraps(base_function)
+        def wrapper(*args, **kwargs):
+            kwargs.update(self.extra_kwargs)
+            return self.override_function(base_function, *args, **kwargs)
+        setattr(module, self.function_name, wrapper)
+
+        return wrapper
 
     def __exit__(self, exc_type, exc_value, traceback):
         module = self.get_module(self.module_names)
         if module:
-            wrapper = self.get_func(module, self.function_name)
+            wrapper = self.get_function(module, self.function_name)
             if wrapper and hasattr(wrapper, '__wrapped__'):
                 setattr(module, self.function_name, wrapper.__wrapped__)
 

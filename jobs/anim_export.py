@@ -165,10 +165,9 @@ def _anim_export(context, job, rig, save, results):
                 log(f"Skipping {csv_filename} as it would overwrite a file that was just exported")
 
         # Finally export
-        options = {
-            'export_twist': not job.disable_twist_bones,
-        }
-        result = exporter(filepath, context, rig, action=export_group.action, options=options)
+        result = exporter(filepath, context, rig,
+            action=export_group.action,
+            export_twist=not job.disable_twist_bones)
 
         if result == {'FINISHED'}:
             results.append(filepath)

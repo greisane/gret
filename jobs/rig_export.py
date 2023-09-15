@@ -369,7 +369,8 @@ def _rig_export(context, job, rig, save, results):
         # Don't delete the produced objects
         save.keep_temporary_bids(results)
     else:
-        remove_bones = shlex.split(job.remove_bone_names) if job.remove_bones else []
+        # Prepare export options
+        remove_bone_names = shlex.split(job.remove_bone_names) if job.remove_bones else []
 
         # Export each file
         for filepath, items in groups.items():
@@ -403,11 +404,10 @@ def _rig_export(context, job, rig, save, results):
                 log(f"Materials used: {', '.join(sorted(mat.name for mat in materials_used))}")
 
                 # Finally export
-                options = {
-                    'minimize_bones': job.minimize_bones,
-                    'remove_bones': remove_bones,
-                }
-                result = exporter(filepath, context, rig, objects=objs, options=options)
+                result = exporter(filepath, context, rig,
+                    objects=objs,
+                    minimize_bones=job.minimize_bones,
+                    remove_bone_names=remove_bone_names)
 
                 if result == {'FINISHED'}:
                     results.append(filepath)

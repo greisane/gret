@@ -33,11 +33,6 @@ export_presets = {
         'mesh_smooth_type': 'OFF',
     },
 }
-arp_export_module_names = [
-    'auto_rig_pro.export_fbx.export_fbx_bin',
-    'auto_rig_pro.src.export_fbx.export_fbx_bin',
-]
-arp_export_function_name = 'arp_save'
 non_humanoid_bone_names = [
     'thigh_b_ref.l',
     'thigh_b_ref.r',
@@ -238,24 +233,10 @@ def fix_undeforming_bones(rig, objs):
                 if bone:
                     merge_vertex_groups(obj, vg.name, bone.name, remove_src=False)
 
-def arp_save(base, *args, **kwargs):
-    options = kwargs.pop('options')
-    op, context = args
-    logd(f"arp_save overriden with options: {options}")
-
-    if options.get('minimize_bones'):
-        undeform_unused_bones(context.active_object, context.selected_objects)
-
-    remove_bone_names = options.get('remove_bones', [])
-    if remove_bone_names:
-        undeform_bones(context.active_object, remove_bone_names)
-
-    fix_undeforming_bones(context.active_object, context.selected_objects)
-
-    return base(*args, **kwargs)
-
 @intercept(error_result={'CANCELLED'})
-def export_autorig(filepath, context, rig, objects=[], action=None, options={}, humanoid=False):
+def export_autorig(filepath, context, rig, objects=[], action=None,
+    humanoid=False, export_twist=True,  # ARP options
+    minimize_bones=False, remove_bone_names=[]):
     scn = context.scene
     preset = export_presets.get(prefs.jobs__export_preset, {})
     arp_version = get_arp_version()
@@ -293,7 +274,7 @@ def export_autorig(filepath, context, rig, objects=[], action=None, options={}, 
         save.prop(scn, 'arp_keep_bend_bones', False)
         save.prop(scn, 'arp_push_bend', False)  # TODO should be exposed in job
         save.prop(scn, 'arp_full_facial', True)  # Humanoid only
-        save.prop(scn, 'arp_export_twist', options.get('export_twist', True))
+        save.prop(scn, 'arp_export_twist', export_twist)
         save.prop(scn, 'arp_twist_fac', 0.5)
         save.prop(scn, 'arp_export_noparent', False)
         save.prop(scn, 'arp_export_renaming', True)  # Just prints a message if the file doesn't exist
@@ -371,12 +352,26 @@ def export_autorig(filepath, context, rig, objects=[], action=None, options={}, 
         save.collection(bpy.data.meshes)
         save.collection(bpy.data.objects)
 
-        with FunctionPatcher(arp_export_module_names, arp_export_function_name, arp_save) as patcher:
-            patcher['options'] = options
+        def arp_save_override(base, *args, **kwargs):
+            rig = bpy.context.active_object
+            objects = bpy.context.selected_objects
+
+            if minimize_bones:
+                undeform_unused_bones(rig, objects)
+            if remove_bone_names:
+                undeform_bones(rig, remove_bone_names)
+            fix_undeforming_bones(rig, objects)
+
+            return base(*args, **kwargs)
+
+        arp_src_module_name = 'auto_rig_pro.src' if arp_version >= (3, 68, 47) else 'auto_rig_pro'
+        arp_fbx_module_name = arp_src_module_name + '.export_fbx.export_fbx_bin'
+        with FunctionPatcher(arp_fbx_module_name, 'arp_save', arp_save_override):
             return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})
-def export_fbx(filepath, context, rig, objects=[], action=None, options={}):
+def export_fbx(filepath, context, rig, objects=[], action=None,
+    minimize_bones=False, remove_bone_names=[]):
     preset = export_presets.get(prefs.jobs__export_preset, {})
 
     with SaveContext(context, "export_fbx") as save:
@@ -394,13 +389,10 @@ def export_fbx(filepath, context, rig, objects=[], action=None, options={}):
         rig.data.pose_position = 'POSE'
         clear_pose(rig)
 
-        if options.get('minimize_bones'):
+        if minimize_bones:
             undeform_unused_bones(rig, objects)
-
-        remove_bone_names = options.get('remove_bones', [])
         if remove_bone_names:
             undeform_bones(rig, remove_bone_names)
-
         fix_undeforming_bones(rig, objects)
 
         select_only(context, objects)
