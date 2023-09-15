@@ -2,6 +2,7 @@ from fnmatch import fnmatch
 from itertools import chain
 from mathutils import Vector, Quaternion, Euler
 import bpy
+import re
 import sys
 
 from .. import prefs
@@ -233,10 +234,28 @@ def fix_undeforming_bones(rig, objs):
                 if bone:
                     merge_vertex_groups(obj, vg.name, bone.name, remove_src=False)
 
+def rename_bones(rig, name_pairs):
+    """Rename bones according to a list of (str|re.Pattern, str) replacement pairs."""
+
+    for bone in rig.data.bones:
+        new_name = bone.name
+        for pattern, replacement in name_pairs:
+            if isinstance(pattern, re.Pattern):
+                new_name = pattern.sub(replacement, new_name)
+            elif new_name == pattern:
+                new_name = replacement
+        if new_name == bone.name or not new_name:
+            continue
+        if new_name in rig.data.bones:
+            log(f"Can't rename {bone.name} to {new_name}, bone already exists")
+            continue
+        logd(f"Rename bone {bone.name} to {new_name}")
+        bone.name = new_name
+
 @intercept(error_result={'CANCELLED'})
 def export_autorig(filepath, context, rig, objects=[], action=None,
     humanoid=False, export_twist=True,  # ARP options
-    minimize_bones=False, remove_bone_names=[]):
+    minimize_bones=False, remove_bone_names=[], rename_bone_pairs=[]):
     scn = context.scene
     preset = export_presets.get(prefs.jobs__export_preset, {})
     arp_version = get_arp_version()
@@ -364,14 +383,22 @@ def export_autorig(filepath, context, rig, objects=[], action=None,
 
             return base(*args, **kwargs)
 
+        def arp_rename_override(base, *args, **kwargs):
+            rig = bpy.context.active_object
+
+            if rename_bone_pairs:
+                rename_bones(rig, rename_bone_pairs)
+
         arp_src_module_name = 'auto_rig_pro.src' if arp_version >= (3, 68, 47) else 'auto_rig_pro'
         arp_fbx_module_name = arp_src_module_name + '.export_fbx.export_fbx_bin'
-        with FunctionPatcher(arp_fbx_module_name, 'arp_save', arp_save_override):
+        arp_ge_module_name = arp_src_module_name + '.auto_rig_ge'
+        with (FunctionPatcher(arp_fbx_module_name, 'arp_save', arp_save_override),
+            FunctionPatcher(arp_ge_module_name, 'rename_custom', arp_rename_override)):
             return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})
 def export_fbx(filepath, context, rig, objects=[], action=None,
-    minimize_bones=False, remove_bone_names=[]):
+    minimize_bones=False, remove_bone_names=[], rename_bone_pairs=[]):
     preset = export_presets.get(prefs.jobs__export_preset, {})
 
     with SaveContext(context, "export_fbx") as save:
@@ -394,6 +421,8 @@ def export_fbx(filepath, context, rig, objects=[], action=None,
         if remove_bone_names:
             undeform_bones(rig, remove_bone_names)
         fix_undeforming_bones(rig, objects)
+        if rename_bone_pairs:
+            rename_bones(rig, rename_bone_pairs)
 
         select_only(context, objects)
         rig.select_set(True)

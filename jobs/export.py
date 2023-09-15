@@ -523,6 +523,12 @@ def draw_job(layout, jobs, job_index):
             sub.prop(job, 'remove_bone_names', text="")
             sub.enabled = job.remove_bones
 
+            row = col.row(align=True)
+            row.prop(job, 'rename_bones')
+            sub = row.row(align=True)
+            sub.prop(job, 'rename_bones_text', text="")
+            sub.enabled = job.rename_bones
+
             col.prop(job, 'material_name_prefix', text="M. Prefix")
 
             col.prop(job, 'rig_export_path', text="")
@@ -999,6 +1005,26 @@ Requires a mirror modifier""",
         description="""Names of bones to remove, including their children.
 Wildcards are allowed. Separate names with spaces""",
         default="",
+        options=set(),
+    )
+    rename_bones: bpy.props.BoolProperty(
+        name="Rename Bones",
+        description="Rename bones according to a list of replacements",
+        default=False,
+        options=set(),
+    )
+    rename_bones_text: bpy.props.PointerProperty(
+        name="Rename Bones Text",
+        description="""Each line is a replacement pair separated by `=`. For example:
+
+Change suffix from dot to underscore:
+head.L = head_L
+
+Same for all bones, with a regular expression (note `.` is escaped now):
+(.*)\\.L = \\1_L
+
+Lines without `=` are ignored as comments.""",
+        type=bpy.types.Text,
         options=set(),
     )
     to_collection: bpy.props.BoolProperty(
