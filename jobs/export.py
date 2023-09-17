@@ -872,14 +872,22 @@ Meshes with existing vertex color layers won't be affected""",
     )
     basis_shape_key_pattern: bpy.props.StringProperty(
         name="Shape Key Merge Patterns",
-        description="""Patterns for shape keys to be merged into basis, wildcards are allowed.
-Can also specify the target shape key with an arrow, e.g. 'SmileTweak->Smile'""",
+        description="""Patterns for shape keys to be merged. Examples below.
+
+Merge into another shape key instead of basis:
+SmileTweak->Smile
+
+Discard all shape keys:
+*->_
+
+Separate patterns with spaces, using quotes if necessary.""",
         default='"Key [0-9]*" b_*',
         options=set(),
     )
     encode_shape_keys: bpy.props.BoolProperty(
         name="Encode Shape Keys",
         description="""Shape keys suffixed '_UV' are encoded in UV channels instead of being exported.
+
 UVn+1: deltaXY, UVn+2: deltaZnormalX, UVn+3: normalYZ.
 All values are remapped to a [0..1] UV range""",
         default=False,
@@ -931,6 +939,8 @@ Number suffixes are dropped, so 'Pivot.002' will be renamed to 'SOCKET_Pivot'"""
     scene_export_path: bpy.props.StringProperty(
         name="Export Path",
         description="""Export path relative to the current folder.
+
+Available fields:
 {job} = Name of the export job.
 {scene} = Name of the current scene.
 {file} = Name of this .blend file without extension.
@@ -1015,7 +1025,7 @@ Wildcards are allowed. Separate names with spaces""",
     )
     rename_bones_text: bpy.props.PointerProperty(
         name="Rename Bones Text",
-        description="""Each line is a replacement pair separated by `=`. For example:
+        description="""Each line is a replacement pair separated by `=`. Examples below.
 
 Change suffix from dot to underscore:
 head.L = head_L
@@ -1023,7 +1033,7 @@ head.L = head_L
 Same for all bones, with a regular expression (note `.` is escaped now):
 (.*)\\.L = \\1_L
 
-Lines without `=` are ignored as comments.""",
+Lines without `=` are ignored as comments""",
         type=bpy.types.Text,
         options=set(),
     )
@@ -1042,6 +1052,8 @@ Lines without `=` are ignored as comments.""",
     rig_export_path: bpy.props.StringProperty(
         name="Export Path",
         description="""Export path relative to the current folder.
+
+Available fields:
 {job} = Name of the export job.
 {scene} = Name of the current scene.
 {file} = Name of this .blend file without extension.
@@ -1080,6 +1092,8 @@ Lines without `=` are ignored as comments.""",
     markers_export_path: bpy.props.StringProperty(
         name="Markers Export Path",
         description="""Export path for markers relative to the current folder.
+
+Available fields:
 {job} = Name of the export job.
 {scene} = Name of the current scene.
 {file} = Name of this .blend file without extension.
@@ -1097,6 +1111,8 @@ Lines without `=` are ignored as comments.""",
     animation_export_path: bpy.props.StringProperty(
         name="Export Path",
         description="""Export path relative to the current folder.
+
+Available fields:
 {job} = Name of the export job.
 {scene} = Name of the current scene.
 {file} = Name of this .blend file without extension.
