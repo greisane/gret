@@ -1,9 +1,9 @@
 from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
 from bpy.ops import op_as_string
-from collections import namedtuple
 from functools import wraps, lru_cache
 from itertools import islice
 from mathutils import Matrix
+from typing import Sequence
 import bpy
 import io
 import os
@@ -14,6 +14,23 @@ from . import prefs
 safediv = lambda x, y: x / y if y != 0.0 else 0.0
 fmt_pct = lambda pct: f"{pct:.0f}%" if int(pct) == pct else f"{pct:.1f}%"
 fmt_fraction = lambda x, y: fmt_pct(safediv(x, y) * 100.0)
+
+class namedtupleish:
+    """Functions similarly to a mutable namedtuple. Not terribly tested."""
+
+    def __new__(cls, typename, field_names):
+        class _namedtupleish(Sequence):
+            __slots__ = ()
+            def __init__(self, *args):
+                for slot, arg in zip(self.__slots__, args):
+                    setattr(self, slot, arg)
+            def __repr__(self):
+                return f'{self.__class__.__name__}({", ".join(f"{s}={getattr(self, s)}" for s in self.__slots__)})'
+            def __getitem__(self, index):
+                return getattr(self, self.__slots__[index])
+            def __len__(self):
+                return len(self.__slots__)
+        return type(typename, (_namedtupleish,), {'__slots__': field_names.split()})
 
 def get_name_safe(bid):
     return getattr(bid, 'name', "Unknown") if bid else "None"

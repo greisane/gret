@@ -1,4 +1,4 @@
-from collections import namedtuple, defaultdict
+from collections import defaultdict
 from functools import partial
 from itertools import chain
 from math import pi
@@ -20,6 +20,7 @@ from ..helpers import (
     get_name_safe,
     get_nice_export_report,
     gret_operator_exists,
+    namedtupleish,
     partition,
     TempModifier,
     viewport_reveal_all,
@@ -89,7 +90,7 @@ def _rig_export(context, job, rig, save, results):
     # Original objects that aren't exported will be hidden for render, only for driver purposes
     export_objs, job_cls = job.get_export_objects(context)
 
-    ExportItem = namedtuple('ExportItem', 'original obj job_collection subd_level')
+    ExportItem = namedtupleish('ExportItem', 'original obj job_collection subd_level')
     items = []
     groups = defaultdict(list)  # Filepath to list of ExportItems
     for obj in context.scene.objects:
