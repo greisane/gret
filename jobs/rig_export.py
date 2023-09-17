@@ -4,7 +4,6 @@ from itertools import chain
 from math import pi
 import bpy
 import os
-import re
 import shlex
 
 from .. import prefs
@@ -372,26 +371,7 @@ def _rig_export(context, job, rig, save, results):
     else:
         # Prepare export options
         remove_bone_names = shlex.split(job.remove_bone_names) if job.remove_bones else []
-        rename_bone_pairs = []
-        if job.rename_bones and job.rename_bones_text:
-            log(f"Renaming bones according to {job.rename_bones_text.name}")
-            logger.indent += 1
-            for line_num, line in enumerate(job.rename_bones_text.as_string().splitlines()):
-                pattern, sep, repl = (s.strip() for s in line.partition('='))
-                if not sep:
-                    continue
-                if not pattern or not repl:
-                    log(f"Invalid pair at line {line_num}")
-                    continue
-                if re.match(r'\\[1-9]', repl):
-                    # Group reference in the replacement, it's a regular expression
-                    try:
-                        pattern = re.compile(rf"^{pattern}$")
-                    except re.error as e:
-                        log(f"Bad pattern at line {line_num}: {e}")
-                        continue
-                rename_bone_pairs.append((pattern, repl))
-            logger.indent -= 1
+        rename_bone_pairs = job.get_rename_bone_pairs()
 
         # Export each file
         for filepath, items in groups.items():

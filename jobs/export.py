@@ -564,6 +564,13 @@ def draw_job(layout, jobs, job_index):
             row.prop(copy_property, 'destination', text="")
 
         col = box.column(align=True)
+
+        row = col.row(align=True)
+        row.prop(job, 'rename_bones')
+        sub = row.row(align=True)
+        sub.prop(job, 'rename_bones_text', text="")
+        sub.enabled = job.rename_bones
+
         col.prop(job, 'animation_export_path', text="")
 
     row = col.row(align=True)
@@ -1172,6 +1179,29 @@ Available fields:
                     s = f"Modifier {modifier.name} {'enabled' if enabled else 'disabled'} by tag {tag}"
                     return enabled, s
         return modifier.show_render, None
+
+    def get_rename_bone_pairs(self):
+        rename_bone_pairs = []
+        if self.rename_bones and self.rename_bones_text:
+            log(f"Renaming bones according to {self.rename_bones_text.name}")
+            logger.indent += 1
+            for line_num, line in enumerate(self.rename_bones_text.as_string().splitlines()):
+                pattern, sep, repl = (s.strip() for s in line.partition('='))
+                if not sep:
+                    continue
+                if not pattern or not repl:
+                    log(f"Invalid replacement pair at line {line_num}")
+                    continue
+                if re.match(r'\\[1-9]', repl):
+                    # Group reference in the replacement, it's a regular expression
+                    try:
+                        pattern = re.compile(rf"^{pattern}$")
+                    except re.error as e:
+                        log(f"Bad pattern at line {line_num}: {e}")
+                        continue
+                rename_bone_pairs.append((pattern, repl))
+            logger.indent -= 1
+        return rename_bone_pairs
 
 classes = (
     GRET_OT_export,

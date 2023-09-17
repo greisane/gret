@@ -119,6 +119,9 @@ def _anim_export(context, job, rig, save, results):
             for track in obj.animation_data.nla_tracks:
                 save.prop_foreach(track.strips, 'mute', True)
 
+    # Prepare export options
+    rename_bone_pairs = job.get_rename_bone_pairs()
+
     # Export each file
     for export_group in export_groups:
         path_fields = {
@@ -167,7 +170,8 @@ def _anim_export(context, job, rig, save, results):
         # Finally export
         result = exporter(filepath, context, rig,
             action=export_group.action,
-            export_twist=not job.disable_twist_bones)
+            export_twist=not job.disable_twist_bones,
+            rename_bone_pairs=rename_bone_pairs)
 
         if result == {'FINISHED'}:
             results.append(filepath)
