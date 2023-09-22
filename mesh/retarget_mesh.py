@@ -57,7 +57,7 @@ class GRET_OT_retarget_mesh(bpy.types.Operator):
         default=0.5,
         min=0.0,
     )
-    only_selection: bpy.props.BoolProperty(
+    use_selection: bpy.props.BoolProperty(
         name="Only Vertex Selection",
         description="""Sample only the current vertex selection of the source mesh.
 Use to speed up retargeting by selecting only the areas of importance""",
@@ -107,7 +107,7 @@ Doubles the input vertex count, don't enable if not necessary""",
             vertex_cap = prefs.retarget__max_vertices_high
         else:
             vertex_cap = prefs.retarget__max_vertices_low
-        mask = [v.select for v in src_obj.data.vertices] if self.only_selection else None
+        mask = [v.select for v in src_obj.data.vertices] if self.use_selection else None
         num_masked = sum(mask) if mask else num_vertices
         stride = ceil(num_masked / vertex_cap)
         if num_masked == 0:
@@ -185,7 +185,8 @@ def draw_panel(self, context):
         row.prop(settings, 'retarget_function', text="")
         row.prop(settings, 'retarget_radius', text="")
 
-        col.prop(settings, 'retarget_only_selection')
+        col.prop(settings, 'retarget_use_object_transform')
+        col.prop(settings, 'retarget_use_selection')
         col.prop(settings, 'retarget_high_quality')
         col.prop(settings, 'retarget_use_mirror_x')
 
@@ -201,7 +202,8 @@ def draw_panel(self, context):
         op1.invert = op2.invert = settings.retarget_invert
         op1.function = op2.function = settings.retarget_function
         op1.radius = op2.radius = settings.retarget_radius
-        op1.only_selection = op2.only_selection = settings.retarget_only_selection
+        op1.use_object_transform = op2.use_object_transform = settings.retarget_use_object_transform
+        op1.use_selection = op2.use_selection = settings.retarget_use_selection
         op1.high_quality = op2.high_quality = settings.retarget_high_quality
         op1.use_mirror_x = op2.use_mirror_x = settings.retarget_use_mirror_x
         op1.as_shape_key = False
@@ -258,7 +260,8 @@ Expected to share topology and vertex order with the source mesh""",
     settings.add_property('retarget_invert', retarget_props['invert'])
     settings.add_property('retarget_function', retarget_props['function'])
     settings.add_property('retarget_radius', retarget_props['radius'])
-    settings.add_property('retarget_only_selection', retarget_props['only_selection'])
+    settings.add_property('retarget_use_object_transform', retarget_props['use_object_transform'])
+    settings.add_property('retarget_use_selection', retarget_props['use_selection'])
     settings.add_property('retarget_high_quality', retarget_props['high_quality'])
     settings.add_property('retarget_use_mirror_x', retarget_props['use_mirror_x'])
 

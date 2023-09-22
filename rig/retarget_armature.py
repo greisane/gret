@@ -58,7 +58,7 @@ class GRET_OT_retarget_armature(bpy.types.Operator):
         default=0.5,
         min=0.0,
     )
-    only_selection: bpy.props.BoolProperty(
+    use_selection: bpy.props.BoolProperty(
         name="Only Vertex Selection",
         description="""Sample only the current vertex selection of the source mesh.
 Use to speed up retargeting by selecting only the areas of importance""",
@@ -114,7 +114,7 @@ Doubles the input vertex count, don't enable if not necessary""",
             vertex_cap = prefs.retarget__max_vertices_high
         else:
             vertex_cap = prefs.retarget__max_vertices_low
-        mask = [v.select for v in src_obj.data.vertices] if self.only_selection else None
+        mask = [v.select for v in src_obj.data.vertices] if self.use_selection else None
         num_masked = sum(mask) if mask else num_vertices
         stride = ceil(num_masked / vertex_cap)
         if num_masked == 0:
@@ -208,7 +208,7 @@ def draw_panel(self, context):
         row.prop(settings, 'retarget_function', text="")
         row.prop(settings, 'retarget_radius', text="")
 
-        col.prop(settings, 'retarget_only_selection')
+        col.prop(settings, 'retarget_use_selection')
         col.prop(settings, 'retarget_high_quality')
         col.prop(settings, 'retarget_use_mirror_x')
         col.prop(settings, 'retarget_lock_length')
@@ -229,9 +229,11 @@ def draw_panel(self, context):
         op.source = settings.retarget_src.name
         op.use_shape_key = settings.retarget_dst.startswith('s_')
         op.destination = settings.retarget_dst[2:]
+        op.invert = settings.retarget_invert
         op.function = settings.retarget_function
         op.radius = settings.retarget_radius
-        op.only_selection = settings.retarget_only_selection
+        op.use_object_transform = settings.retarget_use_object_transform
+        op.use_selection = settings.retarget_use_selection
         op.high_quality = settings.retarget_high_quality
         op.use_mirror_x = settings.retarget_use_mirror_x
         op.lock_length = settings.retarget_lock_length
@@ -288,7 +290,8 @@ Expected to share topology and vertex order with the source mesh""",
     settings.add_property('retarget_invert', retarget_props['invert'])
     settings.add_property('retarget_function', retarget_props['function'])
     settings.add_property('retarget_radius', retarget_props['radius'])
-    settings.add_property('retarget_only_selection', retarget_props['only_selection'])
+    settings.add_property('retarget_use_object_transform', retarget_props['use_object_transform'])
+    settings.add_property('retarget_use_selection', retarget_props['use_selection'])
     settings.add_property('retarget_high_quality', retarget_props['high_quality'])
     settings.add_property('retarget_use_mirror_x', retarget_props['use_mirror_x'])
     settings.add_property('retarget_lock_length', retarget_props['lock_length'])
