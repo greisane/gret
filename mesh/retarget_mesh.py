@@ -196,7 +196,7 @@ def draw_panel(self, context):
     op2 = row.operator('gret.retarget_mesh', icon='SHAPEKEY_DATA', text="To Shape Key")
     if settings.retarget_src and settings.retarget_dst != 'NONE':
         op1.source = op2.source = settings.retarget_src.name
-        op1.use_shape_key = settings.retarget_dst.startswith('s_')
+        op1.use_shape_key = op2.use_shape_key = settings.retarget_dst.startswith('s_')
         op1.destination = op2.destination = settings.retarget_dst[2:]
         op1.invert = op2.invert = settings.retarget_invert
         op1.function = op2.function = settings.retarget_function

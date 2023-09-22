@@ -267,7 +267,6 @@ def merge_shape_keys_pattern(obj, shape_key_pattern):
 def merge_shape_keys(obj, shape_key_name="*", target_shape_key_name="", override_value=None):
     """Merges one or more shape keys into the basis, or target shape key if specified."""
 
-
     mesh = obj.data
     if not mesh.shape_keys or not mesh.shape_keys.key_blocks:
         # No shape keys
