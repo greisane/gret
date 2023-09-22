@@ -93,9 +93,10 @@ Doubles the input vertex count, don't enable if not necessary""",
 
     def execute(self, context):
         src_obj = bpy.data.objects.get(self.source)
-        dst_is_shape_key = self.destination.startswith('s_')
-        dst_obj = bpy.data.objects.get(self.destination[2:]) if not dst_is_shape_key else src_obj
-        dst_shape_key_name = self.destination[2:] if dst_is_shape_key else None
+        if self.use_shape_key:
+            dst_obj, dst_shape_key_name = src_obj, self.destination
+        else:
+            dst_obj, dst_shape_key_name = bpy.data.objects.get(self.destination), None
         assert src_obj and dst_obj and src_obj.type == 'MESH' and dst_obj.type == 'MESH'
 
         num_vertices = len(src_obj.data.vertices)
@@ -226,7 +227,8 @@ def draw_panel(self, context):
     op = row.operator('gret.retarget_armature', icon='CHECKMARK', text=text)
     if settings.retarget_src and settings.retarget_dst != 'NONE':
         op.source = settings.retarget_src.name
-        op.destination = settings.retarget_dst
+        op.use_shape_key = settings.retarget_dst.startswith('s_')
+        op.destination = settings.retarget_dst[2:]
         op.function = settings.retarget_function
         op.radius = settings.retarget_radius
         op.only_selection = settings.retarget_only_selection
