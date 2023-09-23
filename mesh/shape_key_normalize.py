@@ -1,6 +1,8 @@
 import bpy
 import bmesh
 
+from ..math import invlerp
+
 class GRET_OT_shape_key_normalize(bpy.types.Operator):
     """Resets Min and Max of shape keys while keeping the range of motion.
 Basis will change if Min is negative"""
@@ -23,57 +25,45 @@ Basis will change if Min is negative"""
 
     def execute(self, context):
         obj = context.active_object
-        this_sk = obj.active_shape_key
+        sk = obj.active_shape_key
+        sk_value, sk_max, sk_min = sk.value, sk.slider_max, sk.slider_min
+        sk.slider_min = 0.0
+        sk.slider_max = 1.0
+        sk.value = invlerp(sk_min, sk_max, sk_value)
 
-        # Store state
-        saved_show_only_shape_key = obj.show_only_shape_key
-        saved_active_shape_key_index = obj.active_shape_key_index
-        saved_unmuted_shape_keys = [sk for sk in obj.data.shape_keys.key_blocks if not sk.mute]
-        saved_vertex_group = this_sk.vertex_group
-        new_value = (this_sk.value - this_sk.slider_min) / (this_sk.slider_max - this_sk.slider_min)
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+        bm.verts.layers.shape.verify()
+        if sk.relative_key == obj.data.shape_keys.key_blocks[0]:
+            base_shape_layer = None
+        else:
+            base_shape_layer = bm.verts.layers.shape[sk.relative_key.name]
+        sk_layer = bm.verts.layers.shape[sk.name]
+        if self.apply_vertex_group and sk.vertex_group:
+            deform_layer = bm.verts.layers.deform.verify()
+            vertex_group_index = obj.vertex_groups[sk.vertex_group].index
+            sk.vertex_group = ''
+        else:
+            vertex_group_index = -1
 
-        # Create a new shape key from the maximum range of motion by muting all except current
-        # Can't use show_only_shape_key for this because it ignores the value slider
-        for sk_idx, sk in enumerate(obj.data.shape_keys.key_blocks):
-            sk.mute = sk_idx != obj.active_shape_key_index
-        this_sk.slider_max = this_sk.slider_max - this_sk.slider_min
-        this_sk.value = this_sk.slider_max
-        if not self.apply_vertex_group:
-            this_sk.vertex_group = ""
-        obj.show_only_shape_key = False
-        new_sk = obj.shape_key_add(name="New", from_mix=True)
+        for vert in bm.verts:
+            w = vert[deform_layer].get(vertex_group_index, 0.0) if vertex_group_index >= 0 else 1.0
+            if base_shape_layer is None:
+                co = vert.co.copy()
+                if sk_min < 0.0:
+                    vert.co = vert.co.lerp(vert[sk_layer], sk_min * w)
+                vert[sk_layer] = co.lerp(vert[sk_layer], (sk_max - sk_min) * w)
+            else:
+                vert[sk_layer] = vert[base_shape_layer].lerp(vert[sk_layer], sk_max * w)
+                if sk_min < 0.0:
+                    vert[base_shape_layer] = vert[base_shape_layer].lerp(vert[sk_layer], sk_min * w)
 
-        new_basis = None
-        if this_sk.slider_min < 0.0:
-            # Need to create new basis
-            this_sk.value = this_sk.slider_min
-            new_basis = obj.shape_key_add(name="New Basis", from_mix=True)
-            bm = bmesh.new()
-            bm.from_mesh(obj.data)
-            new_basis_layer = bm.verts.layers.shape[new_basis.name]
-            for vert in bm.verts:
-                vert.co[:] = vert[new_basis_layer]
-            bm.to_mesh(obj.data)
-            bm.free()
-
-        # Replace current with new
-        this_sk.slider_min = 0.0
-        this_sk.slider_max = 1.0
-        this_sk.value = new_value
-        this_sk.vertex_group = saved_vertex_group if not self.apply_vertex_group else ""
-        for vert, new_vert in zip(this_sk.data, new_sk.data):
-            vert.co[:] = new_vert.co
+        bm.to_mesh(obj.data)
+        bm.free()
         obj.data.update()
 
-        # Restore state
-        obj.shape_key_remove(new_sk)
-        if new_basis:
-            obj.shape_key_remove(new_basis)
-            self.report({'INFO'}, "Basis was updated to accomodate for negative minimum.")
-        obj.show_only_shape_key = saved_show_only_shape_key
-        obj.active_shape_key_index = saved_active_shape_key_index
-        for sk in saved_unmuted_shape_keys:
-            sk.mute = False
+        if sk_min < 0.0:
+            self.report({'INFO'}, f"{sk.relative_key.name} was updated to accomodate negative minimum.")
 
         return {'FINISHED'}
 
