@@ -7,8 +7,8 @@ import bpy
 import gpu
 import numpy as np
 
-shader_image = gpu.shader.from_builtin('2D_IMAGE')
-shader_solid = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
+shader_image = gpu.shader.from_builtin('IMAGE')
+shader_solid = gpu.shader.from_builtin('UNIFORM_COLOR')
 shader_image_alpha = gpu.types.GPUShader("""
 uniform mat4 ModelViewProjectionMatrix;
 /* Keep in sync with intern/opencolorio/gpu_shader_display_transform_vertex.glsl */
