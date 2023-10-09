@@ -58,7 +58,7 @@ class GRET_OT_shape_key_preset(bpy.types.Operator):
         elif self.index >= len(slots) or not slots[self.index].data:
             # Save to slot
             data = StringIO()
-            writer = csv.writer(data)
+            writer = csv.writer(data, lineterminator='\n')
             for sk in obj.data.shape_keys.key_blocks:
                 writer.writerow(dump_shape_key_info(sk))
 
