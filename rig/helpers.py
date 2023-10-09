@@ -333,6 +333,7 @@ def export_autorig(filepath, context, rig, objects=[], action=None,
             arp_actlist = scn.arp_export_actlist.add()
             arp_action = arp_actlist.actions.add()
             arp_action.action = action
+            save.prop(action, '["arp_export"]', True)  # why is this a thing
 
         # Misc
         save.prop(scn, 'arp_custom_export_script', "//")
