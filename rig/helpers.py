@@ -237,7 +237,19 @@ def fix_undeforming_bones(rig, objs):
 def rename_bones(rig, name_pairs):
     """Rename bones according to a list of (str|re.Pattern, str) replacement pairs."""
 
+    export_bones = set()
     for bone in rig.data.bones:
+        if bone.use_deform:
+            while bone:
+                if bone in export_bones:
+                    break
+                export_bones.add(bone)
+                bone = bone.parent
+
+    for bone in rig.data.bones:
+        if bone not in export_bones:
+            # Don't bother with bones that won't be exported
+            continue
         new_name = bone.name
         for pattern, replacement in name_pairs:
             if isinstance(pattern, re.Pattern):
