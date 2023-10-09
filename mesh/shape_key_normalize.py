@@ -27,8 +27,12 @@ Basis will change if Min is negative"""
         obj = context.active_object
         sk = obj.active_shape_key
         sk_value, sk_max, sk_min = sk.value, sk.slider_max, sk.slider_min
-        sk.slider_min = 0.0
-        sk.slider_max = 1.0
+
+        # Slider min/max setters clamp, so change them in the right order
+        if sk.slider_max > 0.0:
+            sk.slider_min, sk.slider_max = 0.0, 1.0
+        else:
+            sk.slider_max, sk.slider_min = 1.0, 0.0
         sk.value = invlerp(sk_min, sk_max, sk_value)
 
         bm = bmesh.new()
