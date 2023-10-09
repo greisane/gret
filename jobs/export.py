@@ -1192,7 +1192,7 @@ Available fields:
                 if not pattern or not repl:
                     log(f"Invalid replacement pair at line {line_num}")
                     continue
-                if re.match(r'\\[1-9]', repl):
+                if re.search(r'\\[1-9]', repl):
                     # Group reference in the replacement, it's a regular expression
                     try:
                         pattern = re.compile(rf"^{pattern}$")
