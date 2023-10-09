@@ -31,6 +31,7 @@ class GRET_OT_property_add(bpy.types.Operator):
                 obj[self.path] = 0.0
                 obj.id_properties_ui(self.path).update(min=0.0, max=1.0,
                     soft_min=0.0, soft_max=1.0, default=0.0)
+                obj.property_overridable_library_set(f'["{self.path}"]', True)
                 obj.update_tag()
             self.path = f'["{self.path}"]'
 
