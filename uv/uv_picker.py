@@ -483,12 +483,14 @@ def register(settings, prefs):
     settings.add_property('uv_picker_pos', bpy.props.FloatVectorProperty(
         name="UV Picker Position",
         description="Offset of the UV picker from the lower left corner of the viewport",
+        options=set(),
         size=2,
         default=(30.0, 30.0),
     ))
     settings.add_property('uv_picker_size', bpy.props.FloatProperty(
         name="UV Picker Size",
         description="Size in pixels of the UV picker",
+        options=set(),
         default=256.0,
         min=64.0,
         max=1024.0,
@@ -496,6 +498,7 @@ def register(settings, prefs):
     settings.add_property('uv_picker_quad', bpy.props.IntProperty(
         name="UV Picker Quad",
         description="Portion of the UV sheet image shown",
+        options=set(),
         default=-1,
         min=-1,
         max=3,
@@ -503,6 +506,7 @@ def register(settings, prefs):
     settings.add_property('uv_picker_show_grid', bpy.props.BoolProperty(
         name="UV Picker Show Grid",
         description="Draw a grid on UV picker grid",
+        options=set(),
         default=True,
     ))
 

@@ -391,6 +391,7 @@ def register(settings, prefs):
         name="Sort Poses",
         description="Displays pose markers sorted alphabetically",
         default=False,
+        options=set(),
     ))
 
     if prefs.animation__sync_action_frame_range:

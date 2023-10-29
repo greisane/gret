@@ -256,6 +256,7 @@ def register(settings, prefs):
         name="Edit Selection Sets",
         description="Show buttons to edit bone selection sets",
         default=False,
+        options=set(),
     ))
 
 def unregister():

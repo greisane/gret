@@ -17,24 +17,29 @@ class GRET_OT_retarget_mesh(bpy.types.Operator):
     source: bpy.props.StringProperty(
         name="Source",
         description="Source mesh object that the meshes were originally fit to",
+        options=set(),
     )
     destination: bpy.props.StringProperty(
         name="Destination",
         description="Modified mesh object to retarget to",
+        options=set(),
     )
     invert: bpy.props.BoolProperty(
         name="Invert",
         description="Swap source and destination meshes, produces the inverse result",
+        options=set(),
         default=False,
     )
     use_object_transform: bpy.props.BoolProperty(
         name="Use Object Transform",
         description="Evaluate source and destination meshes in global space",
+        options=set(),
         default=False,
     )
     use_shape_key: bpy.props.BoolProperty(
         name="Use Shape Key",
         description="Destination is the name of a shape key in the source mesh",
+        options=set(),
         default=False,
     )
     function: bpy.props.EnumProperty(
@@ -48,12 +53,14 @@ class GRET_OT_retarget_mesh(bpy.types.Operator):
         ],
         name="Function",
         description="Radial basis function kernel",
+        options=set(),
         default='BIHARMONIC',  # Least prone to explode and not too slidy
     )
     radius: bpy.props.FloatProperty(
         name="Radius",
         description="Smoothing parameter for the radial basis function",
         subtype='DISTANCE',
+        options=set(),
         default=0.5,
         min=0.0,
     )
@@ -62,21 +69,25 @@ class GRET_OT_retarget_mesh(bpy.types.Operator):
         description="""Sample only the current vertex selection of the source mesh.
 Use to speed up retargeting by selecting only the areas of importance""",
         default=False,
+        options=set(),
     )
     high_quality: bpy.props.BoolProperty(
         name="High Quality",
         description="Sample more vertices for higher accuracy. Slow on dense meshes",
+        options=set(),
         default=False,
     )
     use_mirror_x: bpy.props.BoolProperty(
         name="X-Axis Mirror",
         description="""Enable X symmetry of the source mesh.
 Doubles the input vertex count, don't enable if not necessary""",
+        options=set(),
         default=False,
     )
     as_shape_key: bpy.props.BoolProperty(
         name="As Shape Key",
         description="Save the result as a shape key",
+        options=set(),
         default=False,
     )
 
@@ -243,6 +254,7 @@ def register(settings, prefs):
         name="Mesh Retarget Source",
         description="Original mesh that the meshes are fit to",
         type=bpy.types.Object,
+        options=set(),
         poll=lambda self, obj: obj and obj.type == 'MESH',
         update=retarget_src_update,
     ))
@@ -250,10 +262,12 @@ def register(settings, prefs):
         name="Mesh Retarget Destination",
         description="""Mesh or shape key to retarget to.
 Expected to share topology and vertex order with the source mesh""",
+        options=set(),
         items=retarget_dst_items,
     ))
     settings.add_property('retarget_show_advanced', bpy.props.BoolProperty(
         name="Advanced Options",
+        options=set(),
         description="Show advanced options",
     ))
     retarget_props = GRET_OT_retarget_mesh.__annotations__
