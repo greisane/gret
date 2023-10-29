@@ -225,7 +225,7 @@ def retarget_dst_items(self, context):
     items.append(('NONE', "", ""))
     if src_obj:
         src_mesh = src_obj.data
-        for o in context.scene.objects:
+        for o in bpy.data.objects:
             if o.type == 'MESH' and o != src_obj and len(o.data.vertices) == len(src_mesh.vertices):
                 items.append(('o_' + o.name, o.name, f"Object '{o.name}'", 'OBJECT_DATA', len(items)))
         if src_mesh.shape_keys:
