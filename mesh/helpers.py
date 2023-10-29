@@ -112,7 +112,7 @@ def refresh_active_color_attribute(mesh):
         mesh.color_attributes.render_color_index = 0
 
 def clear_object_data(obj, vertex_groups=True, shape_keys=True, face_maps=True, constraints=True,
-    custom_properties=True, uv_layers=True, materials=True, attributes=True):
+    custom_properties=True, uv_layers=True, vertex_colors=True, attributes=True, materials=True):
     # Clear object data
     if vertex_groups and hasattr(obj, 'vertex_groups'):
         try:
@@ -134,21 +134,23 @@ def clear_object_data(obj, vertex_groups=True, shape_keys=True, face_maps=True, 
 
     # Clear data data
     data = obj.data
-    if uv_layers and hasattr(data, 'uv_layers'):
-        while data.uv_layers.active:
-            data.uv_layers.remove(data.uv_layers.active)
     if materials and hasattr(data, 'materials'):
-        # This should also clear object material slots
-        data.materials.clear()
-    # if vertex_colors and hasattr(data, 'vertex_colors'):
-    #     while data.vertex_colors.active:
-    #         data.vertex_colors.remove(data.vertex_colors.active)
-    if attributes and hasattr(data, 'attributes'):
-        for attribute in list(data.attributes):
-            try:
-                data.attributes.remove(attribute)
-            except RuntimeError:
-                pass
+        data.materials.clear()  # This should also clear object material slots
+    if hasattr(data, 'attributes'):
+        # Iterating backwards seems to fix an issue where color layers just refuse to be removed
+        for attribute in reversed(data.attributes):
+            if attribute.domain == 'CORNER' and attribute.data_type == 'FLOAT2':
+                should_delete = uv_layers
+            elif (attribute.domain in {'POINT', 'CORNER'}
+                and attribute.data_type in {'BYTE_COLOR', 'FLOAT_COLOR'}):
+                should_delete = vertex_colors
+            else:
+                should_delete = attributes
+            if should_delete:
+                try:
+                    data.attributes.remove(attribute)
+                except RuntimeError:
+                    pass
     if face_maps and hasattr(data, 'face_maps'):
         # Note these are not the same as object face maps
         while data.face_maps.active:

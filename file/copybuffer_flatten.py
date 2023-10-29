@@ -40,9 +40,14 @@ Modifiers and shape keys are applied, optionally other data may be removed"""
         description="Don't copy UV layers",
         default=False,
     )
+    clear_vertex_colors: bpy.props.BoolProperty(
+        name="Clear Vertex Colors",
+        description="Don't copy vertex colors",
+        default=False,
+    )
     clear_attributes: bpy.props.BoolProperty(
         name="Clear Attributes",
-        description="Don't copy non-essential attributes",
+        description="Don't copy other non-essential attributes",
         default=False,
     )
     clear_face_maps: bpy.props.BoolProperty(
@@ -84,8 +89,9 @@ Modifiers and shape keys are applied, optionally other data may be removed"""
                     face_maps=self.clear_face_maps,
                     custom_properties=self.clear_custom_properties,
                     uv_layers=self.clear_uv_layers,
-                    materials=self.clear_materials,
-                    attributes=self.clear_attributes)
+                    vertex_colors=self.clear_vertex_colors,
+                    attributes=self.clear_attributes,
+                    materials=self.clear_materials)
                 clear_mesh_customdata(obj,
                     sculpt_mask_data=True,
                     skin_data=False,
