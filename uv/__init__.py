@@ -1,7 +1,7 @@
 import bpy
 
 module_names = [
-    'align_each',
+    # 'align_each',  # Needs work
     'helpers',
     'relax_loops',
     'uv_texture_sync',
