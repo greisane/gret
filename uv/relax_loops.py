@@ -105,6 +105,9 @@ def draw_menu(self, context):
     self.layout.operator(GRET_OT_relax_loops.bl_idname)
 
 def register(settings, prefs):
+    if not prefs.uv__enable_relax_loops:
+        return False
+
     bpy.utils.register_class(GRET_OT_relax_loops)
     bpy.types.IMAGE_MT_uvs.append(draw_menu)
 

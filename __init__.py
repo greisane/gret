@@ -277,6 +277,12 @@ Mesh smoothing: Normals only"""),
         default=True,
         update=registered_updated,
     )
+    mesh__enable_shape_key_select: bpy.props.BoolProperty(
+        name="Enable \"Select Shape Key\"",
+        description="Select vertices affected by the current shape key",
+        default=True,
+        update=registered_updated,
+    )
     retarget__enable: bpy.props.BoolProperty(
         name="Enable",
         description="Retarget meshes or armatures to fit a modified version of the source mesh",
@@ -328,6 +334,12 @@ Mesh smoothing: Normals only"""),
     rig__enable_constraints_stretchto_reset: bpy.props.BoolProperty(
         name="Enable \"Reset Stretch To Constraints\"",
         description="""Reset rest length of "Stretch To" constraints""",
+        default=True,
+        update=registered_updated,
+    )
+    uv__enable_relax_loops: bpy.props.BoolProperty(
+        name="Enable \"Relax Loops\"",
+        description="Relax selected edge loops to their respective mesh length",
         default=True,
         update=registered_updated,
     )

@@ -41,6 +41,9 @@ def draw_menu(self, context):
     self.layout.operator(GRET_OT_shape_key_select.bl_idname)
 
 def register(settings, prefs):
+    if not prefs.mesh__enable_shape_key_select:
+        return False
+
     bpy.utils.register_class(GRET_OT_shape_key_select)
     bpy.types.MESH_MT_shape_key_context_menu.append(draw_menu)
 
