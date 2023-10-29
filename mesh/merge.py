@@ -188,7 +188,7 @@ class GRET_OT_merge(bpy.types.Operator):
 
     bl_idname = 'gret.merge'
     bl_label = "Merge & Clean"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER', 'UNDO', 'PRESET'}
 
     use_cache: bpy.props.BoolProperty(
         options={'HIDDEN'},

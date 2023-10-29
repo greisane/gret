@@ -20,7 +20,7 @@ class GRET_OT_graft(bpy.types.Operator):
 
     bl_idname = 'gret.graft'
     bl_label = "Graft"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER', 'UNDO', 'PRESET'}
 
     expand: bpy.props.IntProperty(
         name="Expand",
