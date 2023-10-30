@@ -15,25 +15,18 @@ class GRET_OT_deduplicate_materials(bpy.types.Operator):
     def execute(self, context):
         # Find duplicate materials
         # For now, duplicate means they are suffixed with ".001", ".002" while the original exists
-        redirects = {}
-        for mat in bpy.data.materials:
-            match = re.match(r"^(.*)\.\d\d\d$", mat.name)
-            if match:
-                original_name, = match.groups(0)
-                original = bpy.data.materials.get(original_name)
-                if original:
-                    redirects[mat] = original
-
-        # Replace references in existing meshes
-        for me in bpy.data.meshes:
-            for idx, mat in enumerate(me.materials):
-                me.materials[idx] = redirects.get(mat, mat)
+        delete_materials = []
+        for material in bpy.data.materials:
+            if match := re.fullmatch(r"(.*)\.\d\d\d", material.name):
+                if original_material := bpy.data.materials.get(match[1]):
+                    material.user_remap(original_material)
+                    delete_materials.append(material)
 
         # Delete duplicate materials
-        for mat in redirects.keys():
-            bpy.data.materials.remove(mat)
+        for material in delete_materials:
+            bpy.data.materials.remove(material)
 
-        self.report({'INFO'}, f"Deleted {len(redirects)} duplicate materials.")
+        self.report({'INFO'}, f"Deleted {len(delete_materials)} duplicate materials.")
         return {'FINISHED'}
 
 def draw_menu(self, context):
