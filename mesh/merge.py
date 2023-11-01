@@ -59,7 +59,8 @@ def do_union(context, objs, dst_obj):
     return bm
 
 @lru_cache(maxsize=20)
-def do_clean(union_bm, weld_uv_direction, weld_uv_distance, weld_iterations, delete_non_manifold):
+def do_clean(union_bm, weld_distance=0.0, weld_uv_direction='XY', weld_uv_distance=0.0,
+    weld_iterations=0, delete_non_manifold=False):
     """Reduce bmesh excess geometry and ensure it is watertight. Returns the resulting bmesh."""
 
     bm = union_bm.copy()
@@ -90,6 +91,9 @@ def do_clean(union_bm, weld_uv_direction, weld_uv_distance, weld_iterations, del
             bmesh.ops.collapse(bm, edges=list(set(collapse_edges)), uvs=True)
             for edge in bm.edges:
                 edge.tag = False
+
+    if weld_distance > 0.0:
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=weld_distance)
 
     # Delete non-manifold edges, then verts. This will likely create holes, close them too
     # bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0001)
@@ -191,9 +195,9 @@ class GRET_OT_merge(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO', 'PRESET'}
 
     use_cache: bpy.props.BoolProperty(
-        options={'HIDDEN'},
         name="Use Cache",
         default=True,
+        options={'HIDDEN'},
     )
     weld_uv_direction: bpy.props.EnumProperty(
         name="Weld UV Direction",
@@ -208,7 +212,7 @@ Used to simplify the mesh along, and not across when merging hair strands""",
     )
     weld_uv_distance: bpy.props.FloatProperty(
         name="Weld UV Distance",
-        description="",
+        description="UV distance below which to merge vertices",
         subtype='DISTANCE',
         default=0.0,
         min=0.0,
@@ -218,6 +222,13 @@ Used to simplify the mesh along, and not across when merging hair strands""",
         description="",
         default=5,
         min=0,
+    )
+    weld_distance: bpy.props.FloatProperty(
+        name="Weld Distance",
+        description="Limit below which to merge vertices",
+        subtype='DISTANCE',
+        default=1e-4,
+        min=0.0,
     )
     delete_non_manifold: bpy.props.BoolProperty(
         name="Delete Non-Manifold",
@@ -247,6 +258,7 @@ Use to leave normals intact on hair ends and crevices""",
         default=0.05,
         min=0.0,
     )
+    show_weld_by_uv = False  # Not a property because it shouldn't be saved with presets
 
     @classmethod
     def poll(cls, context):
@@ -256,10 +268,16 @@ Use to leave normals intact on hair ends and crevices""",
         layout = self.layout
         layout.use_property_split = True
 
-        layout.label(text="Weld by UVs:")
-        layout.prop(self, "weld_uv_direction", text="Direction")
-        layout.prop(self, "weld_uv_distance", text="Distance")
-        layout.prop(self, "weld_iterations", text="Iterations")
+        layout.label(text="Geometry:")
+        if self.show_weld_by_uv:
+            layout.prop(self, "weld_uv_direction", text="UV Direction")
+            layout.prop(self, "weld_uv_distance", text="UV Distance")
+            layout.prop(self, "weld_iterations", text="Iterations")
+        else:
+            col = layout.column(align=True)
+            col.label(text="One or more objects have no UV layers.", icon='ERROR')
+            col.label(text="Using regular welding. Bad for hair since it destroys seams.")
+            layout.prop(self, "weld_distance", text="Distance")
         layout.prop(self, "delete_non_manifold", text="Delete Non-Manifold")
 
         layout.label(text="Normals:")
@@ -275,6 +293,8 @@ Use to leave normals intact on hair ends and crevices""",
         do_smooth_normals.cache_clear()
 
     def invoke(self, context, event):
+        has_uvs = all(o.data.uv_layers.active for o in context.selected_objects if o.type == 'MESH')
+        self.show_weld_by_uv = has_uvs
         self.cache_clear()
         return self.execute(context)
 
@@ -289,10 +309,15 @@ Use to leave normals intact on hair ends and crevices""",
 
         # Process the boolean result, fixing and removing excess geometry
         if dst_mesh.uv_layers.active and self.weld_iterations > 0 and self.weld_uv_distance > 0.0:
-            clean_bm = do_clean(union_bm, self.weld_uv_direction, self.weld_uv_distance,
-                self.weld_iterations, self.delete_non_manifold)
+            clean_bm = do_clean(union_bm,
+                weld_uv_direction=self.weld_uv_direction,
+                weld_uv_distance=self.weld_uv_distance,
+                weld_iterations=self.weld_iterations,
+                delete_non_manifold=self.delete_non_manifold)
         else:
-            clean_bm = do_clean(union_bm, 'XY', 0, 0.0, self.delete_non_manifold)
+            clean_bm = do_clean(union_bm,
+                weld_distance=self.weld_distance,
+                delete_non_manifold=self.delete_non_manifold)
 
         curvature_mask = grid_snap(self.curvature_mask, 0.05)  # Less precision, less cache misses
         vnor_mask = do_curvature_mask(clean_bm, curvature_mask, self.curvature_distance)
@@ -340,7 +365,7 @@ Use to leave normals intact on hair ends and crevices""",
             self.report({'ERROR'}, f"Active object is not a selected mesh.")
             return {'CANCELLED'}
         if obj.data.shape_keys:
-            self.report({'ERROR'}, f"Active object cannot have shape keys.")
+            self.report({'ERROR'}, f"Active object cannot have shape keys.")  # Why?
             return {'CANCELLED'}
 
         try:
