@@ -57,7 +57,8 @@ class GRET_OT_property_add(bpy.types.Operator):
 
         col = layout.column(align=True)
         col.label(text="Enter a path or name of a new property.")
-        col.label(text="You can Shift-Ctrl-C any field (like the influence of a constraint) to get its path.")
+        col.label(text="You can Shift-Ctrl-C any field (like the influence slider of a constraint) "
+            "to copy its path to clipboard.")
         col.separator()
         col.prop(self, 'path', text="")
 

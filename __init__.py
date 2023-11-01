@@ -130,6 +130,19 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         default=True,
         update=prefs_updated,
     )
+    file__enable_copybuffer_flatten: bpy.props.BoolProperty(
+        name="Enable \"Copy Alone\"",
+        description="Selected objects alone are copied to the clipboard, "
+            "even if they reference other objects",
+        default=True,
+        update=registered_updated,
+    )
+    file__enable_deduplicate_materials: bpy.props.BoolProperty(
+        name="Enable \"Deduplicate Materials\"",
+        description="Squashes duplicate materials (.001, .002) into the original material",
+        default=True,
+        update=registered_updated,
+    )
     jobs__enable: bpy.props.BoolProperty(
         name="Enable",
         description="Jobs automate the export process for multiple objects or complex setups",
@@ -417,6 +430,7 @@ UE4 -- "(R={lr:f},G={lg:f},B={lb:f},A={a:f})\"""",
             category_sort_key = lambda s: "ZZ" if s == unnamed_category_name else s  # Unnamed last
             category_icons = {
                 "Animation": 'CAMERA_DATA',
+                "File": 'FILE',
                 "Jobs": 'SCRIPT',
                 "Mesh": 'MESH_DATA',
                 "Retarget": 'MOD_MESHDEFORM',

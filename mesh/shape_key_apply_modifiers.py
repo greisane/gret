@@ -12,11 +12,11 @@ from ..helpers import get_context, get_modifier_mask
 # - Transfer vertex order. Is it still necessary if all merging modifiers are covered?
 #   Is it possible to identify which face went where without guessing?
 
-class ShapeKeyInfo(namedtuple('ShapeKeyInfo', ['coords', 'interpolation', 'mute', 'name',
-    'slider_max', 'slider_min', 'value', 'vertex_group'])):
-    __slots__ = ()
-
+class ShapeKeyInfo(namedtuple('ShapeKeyInfo', 'coords interpolation mute name slider_max slider_min '
+    'value vertex_group')):
     """Helper to preserve shape key information."""
+
+    __slots__ = ()
 
     @classmethod
     def from_shape_key_with_empty_data(cls, shape_key):

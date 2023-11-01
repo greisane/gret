@@ -361,11 +361,9 @@ class GRET_GT_uv_picker_gizmo(bpy.types.Gizmo, StateMachineMixin):
 
     @staticmethod
     def get_active_image_info(context):
-        tool = context.workspace.tools.get(GRET_TT_uv_paint.bl_idname)
-        if tool:
+        if tool := context.workspace.tools.get(GRET_TT_uv_paint.bl_idname):
             props = tool.operator_properties(GRET_OT_uv_paint.bl_idname)
-            image = bpy.data.images.get(props.image)
-            if image:
+            if image := bpy.data.images.get(props.image):
                 return image, image.uv_sheet
         return None, None
 

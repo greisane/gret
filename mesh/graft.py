@@ -15,6 +15,12 @@ from ..operator import SaveContext
 
 face_map_name = "Graft"
 
+# Graft should detect when there's multiple open boundaries and warn the user or block the operation
+# It's possible to work around the limitation: separate every mesh, graft each piece, then combine
+# the result using "Merge & Clean". Afterwards normals have to be transferred manually.
+# It has worked pretty well for clumps of fur made from curves--usually I duplicate the body
+# and make liberal use of snakehook--so I would like to automate this in the future.
+
 class GRET_OT_graft(bpy.types.Operator):
     """Connect boundaries of selected objects to the active object"""
 

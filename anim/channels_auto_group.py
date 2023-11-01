@@ -2,15 +2,16 @@ import bpy
 import re
 
 def get_group_name_from_data_path(data_path):
-    m = re.match(r'^pose\.bones\[\"([^\"]+)"\]', data_path)
-    if m:
-        return m[1]
-
-    # For pose blender. Should probably not be hardcoded
-    m = re.match(r'^\[\"([^\"]+)"\]$', data_path)
-    if m and m[1].endswith("_pose"):
-        return "Poses"
-
+    if match := re.match(r'^pose\.bones\[\"([^\"]+)"\]', data_path):
+        # Bone property, group by bone name
+        return match[1]
+    if match := re.match(r'^\[\"([^\"]+)"\]$', data_path):
+        if match[1].endswith("_pose"):
+            # For pose blender. Should probably not be hardcoded
+            return "Poses"
+        else:
+            # Other custom properties. Ungrouped?
+            pass
     return None
 
 class GRET_OT_channels_auto_group(bpy.types.Operator):

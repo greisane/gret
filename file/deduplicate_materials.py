@@ -2,7 +2,7 @@ import bpy
 import re
 
 class GRET_OT_deduplicate_materials(bpy.types.Operator):
-    """Deletes duplicate materials and fixes meshes referencing them"""
+    """Squashes duplicate materials (.001, .002) into the original material"""
 
     bl_idname = 'gret.deduplicate_materials'
     bl_label = "Deduplicate Materials"
@@ -33,6 +33,9 @@ def draw_menu(self, context):
     self.layout.operator(GRET_OT_deduplicate_materials.bl_idname)
 
 def register(settings, prefs):
+    if not prefs.file__enable_deduplicate_materials:
+        return False
+
     bpy.utils.register_class(GRET_OT_deduplicate_materials)
     bpy.types.TOPBAR_MT_file_cleanup.append(draw_menu)
 

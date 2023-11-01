@@ -32,10 +32,10 @@ class namedtupleish:
                 return len(self.__slots__)
         return type(typename, (_namedtupleish,), {'__slots__': field_names.split()})
 
-def get_name_safe(bid):
+def get_name_safe(bid, /):
     return getattr(bid, 'name', "Unknown") if bid else "None"
 
-def get_bid_filepath(bid):
+def get_bid_filepath(bid, /):
     """Return source filepath of a proxy or library override, otherwise return the working filepath."""
 
     try:
@@ -48,7 +48,7 @@ def get_bid_filepath(bid):
         pass
     return bpy.data.filepath
 
-def select_only(context, objs):
+def select_only(context, objs, /):
     """Ensures only the given object or objects are selected."""
 
     for obj in context.selected_objects:
@@ -62,7 +62,7 @@ def select_only(context, objs):
         except ReferenceError:
             pass
 
-def show_only(context, objs):
+def show_only(context, objs, /):
     """Ensures only the given object or objects are visible in viewport or render."""
 
     for obj in context.scene.objects:
@@ -77,7 +77,7 @@ def show_only(context, objs):
         except ReferenceError:
             pass
 
-def is_valid(bid):
+def is_valid(bid, /):
     """Returns whether a reference to a data-block is valid."""
 
     if bid is None:
@@ -287,7 +287,7 @@ class TempModifier:
         if self.saved_mode == 'EDIT_MESH':
             bpy.ops.object.editmode_toggle()
 
-def swap_names(bid1, bid2):
+def swap_names(bid1, bid2, /):
     if bid1 == bid2:
         return
     name1, name2 = bid1.name, bid2.name
@@ -295,12 +295,12 @@ def swap_names(bid1, bid2):
     bid2.name = name1
     bid1.name = name2
 
-def get_layers_recursive(layer):
+def get_layers_recursive(layer, /):
     yield layer
     for child in layer.children:
         yield from get_layers_recursive(child)
 
-def viewport_reveal_all(context):
+def viewport_reveal_all(context, /):
     for collection in bpy.data.collections:
         collection.hide_select = False
         collection.hide_viewport = False
@@ -312,7 +312,7 @@ def viewport_reveal_all(context):
     if space_data and getattr(space_data, 'local_view', False):
         bpy.ops.view3d.localview()
 
-def save_property(struct, prop_name):
+def save_property(struct, prop_name, /):
     """Returns a Python representation of a Blender property value."""
 
     prop = struct.bl_rna.properties[prop_name]
@@ -323,7 +323,7 @@ def save_property(struct, prop_name):
     else:
         return getattr(struct, prop_name)
 
-def save_properties(struct):
+def save_properties(struct, /):
     """Returns a dictionary representing the properties of a Blender struct."""
 
     saved = {}
@@ -334,7 +334,7 @@ def save_properties(struct):
         saved[prop.identifier] = save_property(struct, prop.identifier)
     return saved
 
-def load_property(struct, prop_name, value):
+def load_property(struct, prop_name, value, /):
     """Sets the value of a property from its Python representation."""
 
     prop = struct.bl_rna.properties[prop_name]
@@ -352,13 +352,13 @@ def load_property(struct, prop_name, value):
             value = Matrix(value)
         setattr(struct, prop_name, value)
 
-def load_properties(struct, saved):
+def load_properties(struct, saved, /):
     """Restores properties from a dictionary returned by save_properties()"""
 
     for prop_name, value in saved.items():
         load_property(struct, prop_name, value)
 
-def get_topmost_parent(obj):
+def get_topmost_parent(obj, /):
     while obj.parent:
         obj = obj.parent
     return obj
@@ -366,14 +366,13 @@ def get_topmost_parent(obj):
 lr = {'l': 'r', 'L': 'R', 'r': 'l', 'R': 'L',
     'left': 'right', 'Left': 'Right', 'right': 'left', 'Right': 'Left'}
 
-def flip_name(s, suffix_only=False):
+def flip_name(s, /, suffix_only=False):
     """Returns the given name with flipped side affixes, or None if not applicable."""
 
     if not suffix_only:
         # Prefix with no delimiter, case sensitive (lBone -> rBone)
-        m = re.match(r"^([lr]|[lL]eft|[rR]ight)[A-Z]", s)
-        if m:
-            return lr[m[1]] + s[len(m[1]):]
+        if match := re.match(r"^([lr]|[lL]eft|[rR]ight)[A-Z]", s):
+            return lr[match[1]] + s[len(match[1]):]
         # Prefix with delimiter
         if re.match(r"^[LlRr][_.].", s):
             return lr[s[0]] + s[1:]
@@ -382,7 +381,7 @@ def flip_name(s, suffix_only=False):
         return s[:-1] + lr[s[-1]]
     return None
 
-def flip_names(s):
+def flip_names(s, /):
     """Flips all names with side affixes found in the string."""
 
     # Prefix with no delimiter, case sensitive (lBone -> rBone)
@@ -477,7 +476,7 @@ def fail_if_invalid_export_path(path, allowed_field_names):
     except OSError:
         pass  # Directory already exists
 
-def gret_operator_exists(bl_idname):
+def gret_operator_exists(bl_idname, /):
     """Returns whether the operator is available."""
 
     return hasattr(bpy.types, "GRET_OT_" + bl_idname.removeprefix("gret."))
@@ -492,10 +491,10 @@ def get_nice_export_report(filepaths, elapsed):
         return f"Exported {', '.join(filenames)} in {elapsed:.2f}s."
     return "Nothing exported."
 
-def ensure_starts_with(s, prefix):
+def ensure_starts_with(s, prefix, /):
     return s if s.startswith(prefix) else prefix + s
 
-def snakecase(s):
+def snakecase(s, /):
     """Convert string into snake case."""
 
     s = re.sub(r"[\-\.\s]", '_', str(s))
@@ -507,14 +506,15 @@ def snakecase(s):
 two_letter_words = frozenset(("an", "as", "at", "be", "bi", "by", "ex", "go", "he", "hi", "if",
     "in", "is", "it", "mu", "my", "no", "of", "on", "or", "ox", "pi", "re", "to", "up", "us", "we"))
 titlecase_word = lambda s: s[0].upper() + s[1:] if s and len(s) != 2 or s in two_letter_words else s.upper()
-def titlecase(s):
+
+def titlecase(s, /):
     """Convert string into sentence case."""
 
     if not s:
         return s
     return " ".join(titlecase_word(word) for word in snakecase(s).split("_"))
 
-def sentence_join(seq, ignore_empty=True):
+def sentence_join(seq, /, ignore_empty=True):
     """Concatenate a sequence with commas. Last element is concatenated with 'and' instead."""
 
     seq = list(str(el) for el in seq if not ignore_empty or str(el))
@@ -524,7 +524,7 @@ def sentence_join(seq, ignore_empty=True):
         return seq[0]
     return ""
 
-def path_split_all(path):
+def path_split_all(path, /):
     """Returns a path split into a list of its parts."""
 
     all_parts = []
@@ -640,7 +640,7 @@ bpy_type_to_data_collection_name = {
     bpy.types.World: 'worlds',                  # BlendDataWorlds
 }
 
-def get_data_collection(bid_or_type):
+def get_data_collection(bid_or_type, /):
     """Return the bpy.data collection that the ID belongs to, or None if not applicable."""
 
     if isinstance(bid_or_type, bpy.types.ID):
@@ -664,10 +664,10 @@ def link_properties(from_bid, from_data_path, to_bid, to_data_path, invert=False
     tgt.id_type = bpy_type_to_id_type.get(type(from_bid))
     tgt.id = from_bid
 
-def ensure_iterable(seq_or_el):
+def ensure_iterable(seq_or_el, /):
     return seq_or_el if hasattr(seq_or_el, '__iter__') and not isinstance(seq_or_el, str) else (seq_or_el,)
 
-def remove_subsequence(seq, subseq):
+def remove_subsequence(seq, subseq, /):
     """Removes the first instance of a subsequence from another sequence."""
 
     for i in range(0, len(seq) - len(subseq) + 1):
@@ -681,7 +681,7 @@ def remove_subsequence(seq, subseq):
             break
     return seq
 
-def partition(iterable, key=lambda item: item):
+def partition(iterable, /, key=lambda item: item):
     """Returns two lists containing items for which key(item) returns True or False respectively."""
 
     a, b = [], []
@@ -689,12 +689,12 @@ def partition(iterable, key=lambda item: item):
         (a if key(el) else b).append(el)
     return a, b
 
-def first_index(iterable, key=lambda item: item):
+def first_index(iterable, /, key=lambda item: item):
     """Return the index of the first item for which key(item) returns True, or -1 otherwise."""
 
     return next((n for n, el in enumerate(iterable) if key(el)), -1)
 
-def ravel(iterable):
+def ravel(iterable, /):
     """Return a contiguous flattened iterable."""
 
     for el in iterable:
@@ -706,7 +706,7 @@ def ravel(iterable):
                 pass
         yield el
 
-def reshape(iterable, shape):
+def reshape(iterable, /, shape):
     """Clumsy Python implementation of numpy.reshape. Accepts zeros in the shape tuple."""
 
     it = iter(iterable)
