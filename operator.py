@@ -141,7 +141,7 @@ class PropForeachOp(namedtuple('PropForeachOp', 'id_data collection prop_name va
 
         prop = collection[0].bl_rna.properties[prop_name]
         element_type = type(prop.default)
-        num_elements = len(collection) * prop.array_length
+        num_elements = len(collection) * max(1, prop.array_length)
         saved_values = np.empty(num_elements, dtype=element_type)
         collection.foreach_get(prop_name, saved_values)
         if value is not None:
@@ -157,6 +157,11 @@ class PropForeachOp(namedtuple('PropForeachOp', 'id_data collection prop_name va
 
         if self.values.size > 0:
             self.collection.foreach_set(self.prop_name, self.values)
+            try:
+                # Updates won't be triggered when using foreach to change visibility, modifiers, etc.
+                self.id_data.update_tag()
+            except:
+                pass
 
 class CallOp(namedtuple('CallOp', 'func args kwargs')):
     __slots__ = ()
