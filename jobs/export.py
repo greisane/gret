@@ -540,7 +540,7 @@ def draw_job(layout, jobs, job_index):
         for action in job.actions:
             row = col.row(align=True)
             if not action.use_pattern:
-                row.prop_search(action, 'action', bpy.data, "actions", text="")
+                row.prop_search(action, 'action', bpy.data, 'actions', text="")
             else:
                 row.prop(action, 'action', text="")
             row.prop(action, 'use_pattern', icon='SELECT_SET', text="")

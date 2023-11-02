@@ -11,6 +11,7 @@ from .helpers import (
     get_context,
     get_data_collection,
     get_layers_recursive,
+    is_valid,
     load_property,
     reshape,
     save_property,
@@ -128,7 +129,7 @@ class PropOp(namedtuple('PropOp', 'prop_wrapper value')):
     def revert(self, context):
         self.prop_wrapper.value = self.value
 
-class PropForeachOp(namedtuple('PropForeachOp', 'collection prop_name values')):
+class PropForeachOp(namedtuple('PropForeachOp', 'id_data collection prop_name values')):
     __slots__ = ()
 
     def __new__(cls, collection, prop_name, value=None):
@@ -136,7 +137,7 @@ class PropForeachOp(namedtuple('PropForeachOp', 'collection prop_name values')):
 
         if len(collection) == 0:
             # Can't investigate array type if there are no elements (would do nothing anyway)
-            return super().__new__(cls, collection, prop_name, np.empty(0))
+            return super().__new__(cls, collection.id_data, collection, prop_name, np.empty(0))
 
         prop = collection[0].bl_rna.properties[prop_name]
         element_type = type(prop.default)
@@ -147,9 +148,13 @@ class PropForeachOp(namedtuple('PropForeachOp', 'collection prop_name values')):
             values = np.full(num_elements, value, dtype=element_type)
             collection.foreach_set(prop_name, values)
 
-        return super().__new__(cls, collection, prop_name, saved_values)
+        return super().__new__(cls, collection.id_data, collection, prop_name, saved_values)
 
     def revert(self, context):
+        if self.id_data is not None and not is_valid(self.id_data):
+            # This collection belonged to a bid which has been removed
+            return
+
         if self.values.size > 0:
             self.collection.foreach_set(self.prop_name, self.values)
 
@@ -205,7 +210,7 @@ class SelectionOp(namedtuple('SelectionOp', 'selected_objects active_object coll
         except ReferenceError:
             pass
 
-class CollectionOp(namedtuple('CollectionOp', 'collection remove_func_name items is_whitelist')):
+class CollectionOp(namedtuple('CollectionOp', 'id_data collection remove_func_name items is_whitelist')):
     __slots__ = ()
 
     def __new__(cls, collection, items=None):
@@ -221,14 +226,19 @@ class CollectionOp(namedtuple('CollectionOp', 'collection remove_func_name items
         if not func_name:
             raise RuntimeError(f"'{collection.bl_rna.name}' is not supported")
 
+        id_data = collection.id_data
         if items is None:
             # On reverting, remove all but the current items
-            return super().__new__(cls, collection, func_name, set(collection), True)
+            return super().__new__(cls, id_data, collection, func_name, set(collection), True)
         else:
             # On reverting, remove the specified items
-            return super().__new__(cls, collection, func_name, set(items), False)
+            return super().__new__(cls, id_data, collection, func_name, set(items), False)
 
     def revert(self, context):
+        if self.id_data is not None and not is_valid(self.id_data):
+            # This collection belonged to a bid which has been removed
+            return
+
         # Allow passing in object names instead of object references
         # Compare types, don't use `isinstance` as that will throw on removed objects
         items = set(self.collection.get(el) if type(el) == str else el for el in self.items)
