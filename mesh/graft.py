@@ -14,7 +14,7 @@ class GraftError(Exception):
     pass
 
 def do_graft(context, save, obj, dst_obj, expand=0, cuts=0, blend_distance=0.0, blend_power=0.0,
-    face_map_name=""):
+    face_map_name="", copy_normals=False, copy_vertex_groups=False, copy_uv_layers=False):
     """Bridge the open boundary of a source mesh with a target mesh.
     Returns (vertex indices, face indices) of the intersection on the target mesh."""
 
@@ -117,7 +117,7 @@ def do_graft(context, save, obj, dst_obj, expand=0, cuts=0, blend_distance=0.0, 
         if edge.is_boundary:
             for vert in edge.verts:
                 vert[deform_layer][blend_vg.index] = 1.0
-    if blend_distance > 0.0:
+    if copy_normals and blend_distance > 0.0:
         bmesh_vertex_group_bleed(bm, blend_vg.index, distance=blend_distance, power=blend_power)
 
     # Apply the result
@@ -125,13 +125,9 @@ def do_graft(context, save, obj, dst_obj, expand=0, cuts=0, blend_distance=0.0, 
     bm.free()
 
     # Transfer stuff
-    transfer_normals = blend_distance > 0.0
-    transfer_vertex_groups = len(obj.vertex_groups) == 1
-    transfer_uv_layers = not obj.data.uv_layers.active
-    transfer_modifiers = True
     ctx = get_context(obj)
 
-    if transfer_normals:
+    if copy_normals:
         obj.data.use_auto_smooth = True
         obj.data.auto_smooth_angle = pi
         bpy.ops.mesh.customdata_custom_splitnormals_clear(ctx)
@@ -144,15 +140,15 @@ def do_graft(context, save, obj, dst_obj, expand=0, cuts=0, blend_distance=0.0, 
             data_mod.data_types_loops = {'CUSTOM_NORMAL'}
             data_mod.loop_mapping = 'POLYINTERP_NEAREST'
 
-    if transfer_vertex_groups or transfer_uv_layers:
+    if copy_vertex_groups or copy_uv_layers:
         with TempModifier(obj, type='DATA_TRANSFER') as data_mod:
             data_mod.object = dst_obj
             data_mod.use_object_transform = True
-            if transfer_vertex_groups:
+            if copy_vertex_groups:
                 data_mod.use_vert_data = True
                 data_mod.data_types_verts = {'VGROUP_WEIGHTS'}
                 data_mod.vert_mapping = 'EDGEINTERP_NEAREST'
-            if transfer_uv_layers:
+            if copy_uv_layers:
                 data_mod.use_loop_data = True
                 data_mod.data_types_loops = {'UV'}  # Automatically turns on use_poly_data
                 data_mod.loop_mapping = 'POLYINTERP_NEAREST'
@@ -208,6 +204,26 @@ class GRET_OT_graft(bpy.types.Operator):
         description="Optional name of a vertex group that contains the intersection (for masking)",
         default="_mask_graft_{object}",
     )
+    copy_normals: bpy.props.BoolProperty(
+        name="Copy Normals",
+        description="Transfer normals from the target mesh",
+        default=True,
+    )
+    copy_vertex_groups: bpy.props.BoolProperty(
+        name="Copy Vertex Groups",
+        description="Transfer vertex groups from the target mesh",
+        default=True,
+    )
+    copy_uv_layers: bpy.props.BoolProperty(
+        name="Copy Uv Layers",
+        description="Transfer UV layers from the target mesh",
+        default=True,
+    )
+    copy_modifiers: bpy.props.BoolProperty(
+        name="Copy Modifiers",
+        description="Transfer modifiers from the target mesh",
+        default=True,
+    )
 
     @classmethod
     def poll(cls, context):
@@ -260,7 +276,10 @@ class GRET_OT_graft(bpy.types.Operator):
                             cuts=self.cuts,
                             blend_distance=self.blend_distance,
                             blend_power=self.blend_power,
-                            face_map_name=self.face_map_name)
+                            face_map_name=self.face_map_name,
+                            copy_normals=self.copy_normals,
+                            copy_vertex_groups=self.copy_vertex_groups,
+                            copy_uv_layers=self.copy_uv_layers)
                     except GraftError as e:
                         self.report({'WARNING'}, f"Can't graft {obj.name}: {e}")
                         continue
@@ -281,17 +300,14 @@ class GRET_OT_graft(bpy.types.Operator):
                     bpy.ops.object.join(ctx)
 
         # Transfer more stuff
-        transfer_modifiers = True
-        transfer_parent = orig_dst_obj.parent is not None
-
         for obj in objs:
             obj.color = orig_dst_obj.color
-            if transfer_parent:
+            if orig_dst_obj.parent:
                 obj_matrix_world = obj.matrix_world.copy()
                 obj.parent = orig_dst_obj.parent
                 obj.matrix_world = obj_matrix_world
 
-        if transfer_modifiers:
+        if self.copy_modifiers:
             ctx = get_context(active_obj=orig_dst_obj, selected_objs=objs)
             bpy.ops.object.make_links_data(ctx, type='MODIFIERS')
 
@@ -306,13 +322,20 @@ class GRET_OT_graft(bpy.types.Operator):
         layout.prop(self, 'expand')
         layout.prop(self, 'cuts')
 
-        row = layout.row(align=True)
-        row.prop(self, 'blend_distance', text="Blend Distance")
-        row.prop(self, 'blend_power', text="Power")
-
         # layout.prop_search(self, 'vertex_group_name', obj, 'vertex_groups')
         layout.prop(self, 'vertex_group_name', icon='GROUP_VERTEX')
         layout.prop(self, 'face_map_name', icon='FACE_MAPS')
+
+        row = layout.row(align=True, heading="Copy")
+        row.prop(self, 'copy_normals', text="Norms.", toggle=1)
+        row.prop(self, 'copy_vertex_groups', text="Groups", toggle=1)
+        row.prop(self, 'copy_uv_layers', text="UVs", toggle=1)
+        row.prop(self, 'copy_modifiers', text="Modif.", toggle=1)
+
+        row = layout.row(align=True)
+        row.prop(self, 'blend_distance', text="Blend Distance")
+        row.prop(self, 'blend_power', text="Power")
+        row.enabled = self.copy_normals
 
 def draw_panel(self, context):
     layout = self.layout
