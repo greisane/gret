@@ -36,7 +36,7 @@ def do_union(context, objs, dst_obj):
 
         bm = bmesh.new()
         bm.from_mesh(obj.data)
-        id_layer = bm.verts.layers.float.new("id")
+        id_layer = bm.verts.layers.float.new('id')
 
         hole_faces = bmesh.ops.holes_fill(bm, edges=bm.edges)['faces']
         # Don't use center mode MEAN_WEIGHTED, breaks when face is too small (probably div by zero)
@@ -182,11 +182,6 @@ def do_smooth_normals(clean_bm, iterations, mesh):
 
     return vnors_orig, vnors1
 
-def delete_obj_with_mesh(obj):
-    mesh = obj.data
-    bpy.data.objects.remove(obj)
-    bpy.data.meshes.remove(mesh)
-
 class GRET_OT_merge(bpy.types.Operator):
     """Boolean merge one or more objects, cleaning up the result for normal transfer"""
 
@@ -270,21 +265,21 @@ Use to leave normals intact on hair ends and crevices""",
 
         layout.label(text="Geometry:")
         if self.show_weld_by_uv:
-            layout.prop(self, "weld_uv_direction", text="UV Direction")
-            layout.prop(self, "weld_uv_distance", text="UV Distance")
-            layout.prop(self, "weld_iterations", text="Iterations")
+            layout.prop(self, 'weld_uv_direction', text="UV Direction")
+            layout.prop(self, 'weld_uv_distance', text="UV Distance")
+            layout.prop(self, 'weld_iterations', text="Iterations")
         else:
             col = layout.column(align=True)
             col.label(text="One or more objects have no UV layers.", icon='ERROR')
             col.label(text="Using regular welding. Bad for hair since it destroys seams.")
-            layout.prop(self, "weld_distance", text="Distance")
-        layout.prop(self, "delete_non_manifold", text="Delete Non-Manifold")
+            layout.prop(self, 'weld_distance', text="Distance")
+        layout.prop(self, 'delete_non_manifold', text="Delete Non-Manifold")
 
         layout.label(text="Normals:")
-        layout.prop(self, "smooth_iterations", text="Smooth")
+        layout.prop(self, 'smooth_iterations', text="Smooth")
         row = layout.row(align=True)
-        layout.prop(self, "curvature_mask")
-        layout.prop(self, "curvature_distance")
+        layout.prop(self, 'curvature_mask')
+        layout.prop(self, 'curvature_distance')
 
     def cache_clear(self):
         do_union.cache_clear()
@@ -349,7 +344,9 @@ Use to leave normals intact on hair ends and crevices""",
         for obj in objs:
             if obj == dst_obj:
                 continue
-            delete_obj_with_mesh(obj)
+            mesh = obj.data
+            bpy.data.objects.remove(obj)
+            bpy.data.meshes.remove(mesh)
 
     def execute(self, context):
         if not self.use_cache:

@@ -30,51 +30,6 @@ def xyz_from_index(i):
     z = zagzig(reverse_morton3(i >> 2))
     return x, y, z
 
-def clone_obj(context, obj):
-    """Clones or converts a mesh object. Returns a new, visible scene object with an unique mesh."""
-
-    # Only apply render modifiers
-    saved_modifier_show_viewport = []
-    for mod in obj.modifiers:
-        saved_modifier_show_viewport.append(mod.show_viewport)
-        mod.show_viewport = mod.show_render
-
-    new_obj = new_mesh = None
-    try:
-        dg = context.evaluated_depsgraph_get()
-        new_data = bpy.data.meshes.new_from_object(obj.evaluated_get(dg),
-            preserve_all_data_layers=True, depsgraph=dg)
-        new_obj = bpy.data.objects.new(obj.name + "_", new_data)
-        new_data.transform(obj.matrix_world)
-        bpy.ops.object.origin_set(get_context(new_obj), type='ORIGIN_GEOMETRY', center='MEDIAN')
-        assert isinstance(new_data, bpy.types.Mesh)
-        assert new_data.users == 1
-
-        # Move object materials to mesh
-        for mat_index, mat_slot in enumerate(obj.material_slots):
-            if mat_slot.link == 'OBJECT':
-                new_mesh.materials[mat_index] = mat_slot.material
-                new_obj.material_slots[mat_index].link = 'DATA'
-
-        # New objects are moved to the scene collection, ensuring they're visible
-        context.scene.collection.objects.link(new_obj)
-        new_obj.hide_set(False)
-        new_obj.hide_viewport = False
-        new_obj.hide_render = False
-        new_obj.hide_select = False
-    except Exception as e:
-        if new_obj:
-            bpy.data.objects.remove(new_obj)
-        if new_mesh:
-            bpy.data.meshes.remove(new_mesh)
-        logd(f"Couldn't clone object {obj.name}: {e}")
-    finally:
-        # Restore modifiers
-        for mod, show_viewport in zip(obj.modifiers, saved_modifier_show_viewport):
-            mod.show_viewport = show_viewport
-
-    return new_obj
-
 def remap_materials(obj, src_mat, dst_mat):
     for mat_index, mat in enumerate(obj.data.materials):
         obj.data.materials[mat_index] = dst_mat if mat == src_mat else None
@@ -295,8 +250,8 @@ def _texture_bake(context, texture_bake, save, results):
     logger.indent -= 1
 
 class GRET_OT_texture_bake(bpy.types.Operator):
-    """Bake and export the texture.
-All faces from all objects assigned to the active material are assumed to contribute"""
+    """Bake and export the texture. All faces from all objects assigned to the active material \
+are assumed to contribute"""
 
     bl_idname = 'gret.texture_bake'
     bl_label = "Bake Textures"

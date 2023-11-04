@@ -318,15 +318,15 @@ class UVPickerInfoControl(UVPickerBaseControl):
 class UVPickerHelpControl(UVPickerBaseControl):
     help_boxes = [
         {
-            "title": "1. Select UVs",
-            "texts": [
+            'title': "1. Select UVs",
+            'texts': [
                 "\u2022 Click on the picker to select a region.",
                 "\u2022 Ctrl+Click and drag to use a custom region.",
             ],
         },
         {
-            "title": "2. Paint in the viewport",
-            "texts": [
+            'title': "2. Paint in the viewport",
+            'texts': [
                 "\u2022 Click on mesh faces or Ctrl+Click to sample UVs.",
                 "\u2022 Shift+Click to fill.",
                 "\u2022 Shift+Ctrl+Click to replace similar.",
@@ -347,13 +347,13 @@ class UVPickerHelpControl(UVPickerBaseControl):
         if self.is_active:
             x, y = rect.x1 + 8.0, rect.y1
             for box in reversed(self.help_boxes):
-                width, height = draw_help_box(x, y, box["texts"], box["title"], width=320.0)
+                width, height = draw_help_box(x, y, box['texts'], box['title'], width=320.0)
                 y += height + 8.0
 
 class GRET_GT_uv_picker_gizmo(bpy.types.Gizmo, StateMachineMixin):
     __slots__ = (
-        "controls",
-        "active_control",
+        'controls',
+        'active_control',
     )
 
     state_events_on_reentry = False
