@@ -522,6 +522,7 @@ def apply_modifiers(obj, should_apply_modifier, keep_armature=False):
 
     # Remember layer names in case they're destroyed by geometry nodes
     uv_layer_names = [uv_layer.name for uv_layer in obj.data.uv_layers]
+    vertex_group_names = [vertex_group.name for vertex_group in obj.vertex_groups]
     vertex_color_names = [vertex_color.name for vertex_color in obj.data.vertex_colors]
 
     override_reasons = []
@@ -578,10 +579,11 @@ def apply_modifiers(obj, should_apply_modifier, keep_armature=False):
         if name not in obj.data.uv_layers:
             attr = obj.data.attributes.get(name)
             if attr and attr.domain == 'CORNER' and attr.data_type == 'FLOAT2':
-                log(f"Restoring UV layer {name} from attributes")
+                log(f"Restoring UV layer {name} from attribute")
                 uvs = [0.0] * (len(attr.data) * 2)
                 attr.data.foreach_get('vector', uvs)
                 obj.data.attributes.remove(attr)  # Avoid collisions
+
                 uv_layer = obj.data.uv_layers.new(name=name, do_init=False)
                 uv_layer.data.foreach_set('uv', uvs)
             elif attr:
@@ -589,15 +591,40 @@ def apply_modifiers(obj, should_apply_modifier, keep_armature=False):
             else:
                 log(f"Can't restore UV layer {name}, attribute doesn't exist")
 
+    # Restore vertex groups from attributes
+    for name in vertex_group_names:
+        if name not in obj.vertex_groups:
+            attr = obj.data.attributes.get(name)
+            if attr and attr.domain == 'POINT' and attr.data_type == 'FLOAT':
+                log(f"Restoring vertex group {name} from attribute")
+                values = [0.0] * (len(attr.data) * 1)
+                attr.data.foreach_get('value', values)
+                obj.data.attributes.remove(attr)  # Avoid collisions
+
+                vertex_group = obj.vertex_groups.new(name=name)
+                vertex_group_index = vertex_group.index
+                bm = bmesh.new()
+                bm.from_mesh(obj.data)
+                deform_layer = bm.verts.layers.deform.verify()
+                for vert, value in zip(bm.verts, values):
+                    vert[deform_layer][vertex_group_index] = value
+                bm.to_mesh(obj.data)
+                bm.free()
+            elif attr:
+                log(f"Can't restore vertex group {name}, attribute has wrong domain or data type")
+            else:
+                log(f"Can't restore vertex group {name}, attribute doesn't exist")
+
     # Restore vertex color layers from attributes
     for name in vertex_color_names:
         if name not in obj.data.vertex_colors:
             attr = obj.data.attributes.get(name)
             if attr and attr.domain == 'CORNER' and attr.data_type == 'FLOAT_COLOR':
-                log(f"Restoring vertex color layer {name} from attributes")
+                log(f"Restoring vertex color layer {name} from attribute")
                 colors = [0.0] * (len(attr.data) * 4)
                 attr.data.foreach_get('color', colors)
                 obj.data.attributes.remove(attr)  # Avoid collisions
+
                 vertex_color = obj.data.vertex_colors.new(name=name, do_init=False)
                 vertex_color.data.foreach_set('color', colors)
             elif attr:
