@@ -244,20 +244,11 @@ class GRET_OT_graft(bpy.types.Operator):
             save.selection()
 
             if self.use_viewport_modifiers:
-                # Get an evaluated version of the destination object
-                # Can't use to_mesh because we will need to enter edit mode on it
-                dg = context.evaluated_depsgraph_get()
-                eval_dst_obj = orig_dst_obj.evaluated_get(dg)
-                dst_mesh = bpy.data.meshes.new_from_object(eval_dst_obj)
-                dst_obj = bpy.data.objects.new(eval_dst_obj.name, dst_mesh)
-                dst_obj.matrix_world = eval_dst_obj.matrix_world
-                del eval_dst_obj
-                context.scene.collection.objects.link(dst_obj)
-                save.temporary_bids([dst_mesh, dst_obj])
+                dst_obj = save.clone_obj(orig_dst_obj, to_mesh=True, evaluated=True)
             else:
                 dst_obj = orig_dst_obj
-                dst_mesh = dst_obj.data
                 save.prop_foreach(dst_obj.modifiers, 'show_viewport', False)
+            dst_mesh = dst_obj.data
 
             for obj in objs:
                 # Separate by loose parts

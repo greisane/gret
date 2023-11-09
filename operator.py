@@ -391,22 +391,25 @@ class SaveState:
 
         self._push_op(RenameOp, bid, name)
 
-    def clone_obj(self, obj, to_mesh=False, parent=None, reset_origin=False):
-        """Clones or converts an object. Returns a new, visible scene object with unique data."""
+    def clone_obj(self, obj, to_mesh=False, evaluated=False, parent=None, reset_origin=False):
+        """Returns a temporary copy of an object, with unique data and guaranteed to be editable."""
 
         if to_mesh:
             dg = self.context.evaluated_depsgraph_get()
-            new_data = bpy.data.meshes.new_from_object(obj, preserve_all_data_layers=True, depsgraph=dg)
-            self.temporary_bids(new_data)
+            if evaluated:
+                eval_obj = obj.evaluated_get(dg)
+                new_data = bpy.data.meshes.new_from_object(eval_obj)
+            else:
+                new_data = bpy.data.meshes.new_from_object(obj,
+                    preserve_all_data_layers=True, depsgraph=dg)
             new_obj = bpy.data.objects.new(obj.name + "_", new_data)
-            self.temporary_bids(new_obj)
         else:
             new_data = obj.data.copy()
-            self.temporary_bids(new_data)
             new_obj = obj.copy()
-            self.temporary_bids(new_obj)
             new_obj.name = obj.name + "_"
             new_obj.data = new_data
+        self.temporary_bids(new_data)
+        self.temporary_bids(new_obj)
         assert new_data.users == 1
 
         if obj.type == 'MESH':
