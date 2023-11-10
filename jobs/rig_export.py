@@ -73,6 +73,7 @@ def _rig_export(context, job, rig, save, results):
     rig_filepath = get_bid_filepath(rig)
     rig_basename = os.path.splitext(bpy.path.basename(rig_filepath))[0]
 
+    save.mode()
     save.selection()
     if rig.name not in context.view_layer.objects:
         # Workaround for ARP, ensure the rig is in the scene

@@ -32,6 +32,7 @@ def _anim_export(context, job, rig, save, results):
     rig_filepath = get_bid_filepath(rig)
     rig_basename = os.path.splitext(bpy.path.basename(rig_filepath))[0]
 
+    save.mode()
     save.selection()
     save.prop(rig.data, 'pose_position', 'REST')
     save.prop(rig.animation_data, 'action')

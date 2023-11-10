@@ -166,7 +166,7 @@ class PropForeachOp(namedtuple('PropForeachOp', 'id_data collection prop_name va
 class CallOp(namedtuple('CallOp', 'func args kwargs')):
     __slots__ = ()
 
-    def __new__(cls, func, *args, **kwargs):
+    def __new__(cls, func, /, *args, **kwargs):
         assert callable(func)
         return super().__new__(cls, func, args, kwargs)
 
@@ -323,6 +323,18 @@ class SaveState:
             op.revert(self.context)
         except Exception as e:
             logs(f"Error reverting {op.__class__.__name__}: {e}")
+
+    def mode(self, mode=None, mesh_select_mode=set()):
+        """Save the current object interaction mode and switch to a new one."""
+
+        self._push_op(PropOp, self.context.scene.tool_settings, 'mesh_select_mode')
+        if self.context.active_object:
+            self._push_op(CallOp, bpy.ops.object.mode_set, mode=self.context.active_object.mode)
+        else:
+            self._push_op(CallOp, bpy.ops.object.mode_set, mode=self.context.mode)
+
+        if mode:
+            bpy.ops.object.mode_set_with_submode(mode=mode, mesh_select_mode=mesh_select_mode)
 
     def prop(self, struct, data_paths, values=[None]):
         """Save the specified properties and optionally assign new values."""

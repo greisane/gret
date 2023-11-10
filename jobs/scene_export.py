@@ -80,6 +80,7 @@ def set_parent_keep_parent_inverse(objs, new_parent):
         obj.matrix_parent_inverse = m
 
 def _scene_export(context, job, save, results):
+    save.mode()
     save.selection()
     viewport_reveal_all(context)
 

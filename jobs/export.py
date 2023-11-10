@@ -283,10 +283,6 @@ class GRET_OT_export(bpy.types.Operator):
         options={'HIDDEN', 'SKIP_SAVE'},
     )
 
-    @classmethod
-    def poll(cls, context):
-        return context.mode == 'OBJECT'
-
     def execute(self, context):
         if not context.scene.gret.export_jobs:
             self.report({'ERROR'}, "No export jobs created!")
@@ -327,10 +323,6 @@ class GRET_OT_export_by_name(bpy.types.Operator):
         name="Job Name",
         description="Name of the job to execute",
     )
-
-    @classmethod
-    def poll(cls, context):
-        return context.mode == 'OBJECT'
 
     def execute(self, context):
         if not context.scene.gret.export_jobs:
