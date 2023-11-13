@@ -67,11 +67,12 @@ class PanelPatcher(ast.NodeTransformer):
 
 class FunctionPatcher:
     """
-    Allows monkey-patching functions in foreign modules. Example usage:
+    Allows monkey-patching functions in foreign modules. Note that it doesn't replace references,
+    in cases where the function was already imported in a different module. Example usage:
 
     from math import sin, radians
-    def sin_override(sin, x, degrees=False):
-        return sin(radians(x) if degrees else x)
+    def sin_override(base_fn, x, /, degrees=False):
+        return base_fn(radians(x) if degrees else x)
     with FunctionPatcher('math', 'sin', sin_override) as sin:
         print(sin(90))  # Result: 0.8939...
         print(sin(90, degrees=True))  # Result: 1
@@ -104,12 +105,12 @@ class FunctionPatcher:
         module = self.get_module(self.module_names)
         if not module:
             module_name = self.module_names if isinstance(self.module_names, str) else self.module_names[0]
-            logd(f"Couldn't patch {module_name}.{self.function_name}, module not found")
+            log(f"Couldn't patch {module_name}.{self.function_name}, module not found")
             return None
 
         base_function = self.get_function(module, self.function_name)
         if not base_function:
-            logd(f"Couldn't patch {module.__name__}.{self.function_name}, function not found")
+            log(f"Couldn't patch {module.__name__}.{self.function_name}, function not found")
             return None
 
         @wraps(base_function)

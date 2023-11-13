@@ -385,6 +385,7 @@ def export_autorig(filepath, context, rig, objects=[], action=None,
         save.collection(bpy.data.objects)
 
         def arp_save_override(base, *args, **kwargs):
+            # Override to allow skipping bones
             rig = bpy.context.active_object
             objects = bpy.context.selected_objects
 
@@ -396,16 +397,57 @@ def export_autorig(filepath, context, rig, objects=[], action=None,
 
             return base(*args, **kwargs)
 
+        def arp_check_twist_override(base, *args, **kwargs):
+            # Override to prevent ARP from forcing it on
+            if export_twist:
+                return base(*args, **kwargs)
+
         def arp_rename_override(base, *args, **kwargs):
-            rig = bpy.context.active_object
-
+            # Override to use regex rename pairs
             if rename_bone_pairs:
-                rename_bones(rig, rename_bone_pairs)
+                rename_bones(bpy.context.active_object, rename_bone_pairs)
 
+        def arp_bake_anim_override(base, *args, **kwargs):
+            # Override to disable exporting shape keys and export armature properties as AnimCurves
+            kwargs['shape_keys'] = False
+            base(*args, **kwargs)
+
+            arp_armature = bpy.data.objects[rig.name + '_arpexp']
+            baked_armature = bpy.context.active_object
+            action = baked_armature.animation_data.action
+
+            # Old code, could be done better?
+            driver_data_paths = [dr.data_path for dr in arp_armature.animation_data.drivers
+                if dr.data_path.startswith('["')]
+            for prop_name, prop_value in arp_armature.items():
+                if isinstance(prop_value, float):
+                    baked_armature[prop_name] = 0.0
+                data_path = '["%s"]' % prop_name
+
+                if data_path in driver_data_paths:
+                    new_fc = action.fcurves.new(data_path)
+                    for fr in range(0, int(action.frame_range[1]) + 1):
+                        scn.frame_set(fr)
+                        val = arp_armature[prop_name]
+                        new_fc.keyframe_points.insert(fr, val)
+                    continue
+
+                fcurve_source = arp_armature.animation_data.action.fcurves.find(data_path)
+                if fcurve_source != None:
+                    new_fc = action.fcurves.new(data_path)
+                    for fr in range(0, int(action.frame_range[1]) + 1):
+                        val = fcurve_source.evaluate(fr)
+                        new_fc.keyframe_points.insert(fr, val)
+
+        # Source for bake_anim is in auto_rig_pro.src.lib.animation but it's currently beyond the
+        # scope of FunctionPatcher to replace all references. See 'jurigged' for an implementation.
         arp_src_module_name = 'auto_rig_pro.src' if arp_version >= (3, 68, 47) else 'auto_rig_pro'
         arp_fbx_module_name = arp_src_module_name + '.export_fbx.export_fbx_bin'
         arp_ge_module_name = arp_src_module_name + '.auto_rig_ge'
+
         with (FunctionPatcher(arp_fbx_module_name, 'arp_save', arp_save_override),
+            FunctionPatcher(arp_ge_module_name, 'bake_anim', arp_bake_anim_override),
+            FunctionPatcher(arp_ge_module_name, 'check_multiple_twist_bones', arp_check_twist_override),
             FunctionPatcher(arp_ge_module_name, 'rename_custom', arp_rename_override)):
             return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
