@@ -341,7 +341,7 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
             save.prop(context.scene, 'cycles.preview_samples', 8)
 
             # Clone all the objects that contribute to the bake
-            objs = [save.clone_obj(obj, to_mesh=True, reset_origin=True)
+            objs = [save.clone_obj(obj, to_mesh=True, reset_origin=False)
                 for obj in texture_bake.get_bake_objects(context)]
 
             preview_mat = bpy.data.materials.new(name=f"_preview_{baker.enum}")
