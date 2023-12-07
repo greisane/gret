@@ -353,7 +353,9 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
                 remap_materials(obj, mat, preview_mat)
 
             show_only(context, objs)
-            save.viewports(header_text=f"Previewing {baker.enum} baker", type='RENDERED')
+            save.viewports(header_text=f"Previewing {baker.enum} baker",
+                show_overlays=False,
+                type='RENDERED')
         except:
             self.save.revert()
             del self.save

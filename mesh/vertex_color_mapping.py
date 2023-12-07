@@ -440,8 +440,7 @@ class GRET_OT_vertex_color_mapping_preview(bpy.types.Operator):
 
             # Set all 3D views to flat shading
             show_only(context, obj)
-            save.viewports(
-                header_text=f"Previewing {src} vertex color mapping",
+            save.viewports(header_text=f"Previewing {src} vertex color mapping",
                 type='SOLID',
                 light='FLAT',
                 color_type='VERTEX',
@@ -450,8 +449,7 @@ class GRET_OT_vertex_color_mapping_preview(bpy.types.Operator):
                 show_cavity=False,
                 use_dof=False,
                 show_object_outline=False,
-                show_overlays=False,
-            )
+                show_overlays=False)
         except:
             self.save.revert()
             del self.save
