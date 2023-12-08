@@ -159,21 +159,26 @@ def clear_object_data(obj, vertex_groups=True, shape_keys=True, face_maps=True, 
             del data[key]
 
 def clear_mesh_customdata(obj, sculpt_mask_data=True, skin_data=True, custom_split_normals=True,
-    edge_bevel_weight=True, vertex_bevel_weight=True, edge_crease=True, vertex_crease=True):
+    edge_bevel_weight=True, vertex_bevel_weight=True, edge_crease=True, vertex_crease=True,
+    face_sharp=True, edge_sharp=True):
     if sculpt_mask_data:
         try_with_object(bpy.ops.mesh.customdata_mask_clear, obj)
     if skin_data:
         try_with_object(bpy.ops.mesh.customdata_skin_clear, obj)
     if custom_split_normals:
         try_with_object(bpy.ops.mesh.customdata_custom_splitnormals_clear, obj)
-    if edge_bevel_weight:
-        try_with_object(bpy.ops.mesh.customdata_bevel_weight_edge_clear, obj)
-    if vertex_bevel_weight:
-        try_with_object(bpy.ops.mesh.customdata_bevel_weight_vertex_clear, obj)
-    if edge_crease:
-        try_with_object(bpy.ops.mesh.customdata_crease_edge_clear, obj)
-    if vertex_crease:
-        try_with_object(bpy.ops.mesh.customdata_crease_vertex_clear, obj)
+    if edge_bevel_weight and (attr := obj.data.attributes.get('bevel_weight_edge')):
+        obj.data.attributes.remove(attr)
+    if vertex_bevel_weight and (attr := obj.data.attributes.get('bevel_weight_vert')):
+        obj.data.attributes.remove(attr)
+    if edge_crease and (attr := obj.data.attributes.get('crease_edge')):
+        obj.data.attributes.remove(attr)
+    if vertex_crease and (attr := obj.data.attributes.get('crease_vert')):
+        obj.data.attributes.remove(attr)
+    if edge_sharp and (attr := obj.data.attributes.get('sharp_edge')):
+        obj.data.attributes.remove(attr)
+    if face_sharp and (attr := obj.data.attributes.get('sharp_face')):
+        obj.data.attributes.remove(attr)
 
 def merge_vertex_groups(obj, src_name, dst_name, remove_src=True):
     """Merges the source vertex group into the destination vertex group."""

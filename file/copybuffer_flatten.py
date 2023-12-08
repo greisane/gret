@@ -99,7 +99,9 @@ Modifiers and shape keys are applied, optionally other data may be removed"""
                     edge_bevel_weight=False,
                     vertex_bevel_weight=False,
                     edge_crease=False,
-                    vertex_crease=False)
+                    vertex_crease=False,
+                    face_sharp=False,
+                    edge_sharp=False)
 
                 # Sever all remaining references
                 # TODO Armatures will still copy custom bone shapes, need to check in pose mode
