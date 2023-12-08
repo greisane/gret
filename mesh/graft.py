@@ -5,7 +5,7 @@ import bpy
 
 from ..math import get_dist_sq
 from .helpers import edit_mesh_elements, bmesh_vertex_group_bleed
-from ..helpers import get_context, get_modifier, get_vgroup, select_only, TempModifier
+from ..helpers import with_object, get_modifier, get_vgroup, select_only, TempModifier
 from ..operator import SaveContext
 
 # TODO Detect multiple source mesh boundaries and fail with a helpful message
@@ -90,7 +90,7 @@ def do_graft(context, save, obj, dst_obj, expand=0, cuts=0, blend_distance=0.0, 
     edges2 = [bm.edges.new((idx_to_bmvert[e.vertices[0]], idx_to_bmvert[e.vertices[1]]))
         for e in dst_mesh.edges if e.select]
     bm.edges.index_update()
-    fm_layer = bm.faces.layers.face_map.verify()
+    # fm_layer = bm.faces.layers.face_map.verify()
 
     try:
         ret = bmesh.ops.bridge_loops(bm, edges=edges1+edges2, use_pairs=False,
@@ -103,10 +103,11 @@ def do_graft(context, save, obj, dst_obj, expand=0, cuts=0, blend_distance=0.0, 
         raise GraftError("Couldn't bridge loops.")
 
     # If requested, fill a face map with the new faces
-    if face_map_name:
-        face_map = obj.face_maps.get(face_map_name) or obj.face_maps.new(name=face_map_name)
-        for face in new_faces:
-            face[fm_layer] = face_map.index
+    # Disabled for 4.0 since there is no actual replacement for face-based selection haha
+    # if face_map_name:
+    #     face_map = obj.face_maps.get(face_map_name) or obj.face_maps.new(name=face_map_name)
+    #     for face in new_faces:
+    #         face[fm_layer] = face_map.index
 
     if cuts > 0:
         bmesh.ops.subdivide_edges(bm, edges=ret['edges'], smooth=1.0, smooth_falloff='LINEAR', cuts=cuts)
@@ -125,12 +126,10 @@ def do_graft(context, save, obj, dst_obj, expand=0, cuts=0, blend_distance=0.0, 
     bm.free()
 
     # Transfer stuff
-    ctx = get_context(obj)
-
     if copy_normals:
         obj.data.use_auto_smooth = True
         obj.data.auto_smooth_angle = pi
-        bpy.ops.mesh.customdata_custom_splitnormals_clear(ctx)
+        with_object(bpy.ops.mesh.customdata_custom_splitnormals_clear, obj)
 
         with TempModifier(obj, type='DATA_TRANSFER') as data_mod:
             data_mod.object = dst_obj
@@ -152,7 +151,7 @@ def do_graft(context, save, obj, dst_obj, expand=0, cuts=0, blend_distance=0.0, 
                 data_mod.use_loop_data = True
                 data_mod.data_types_loops = {'UV'}  # Automatically turns on use_poly_data
                 data_mod.loop_mapping = 'POLYINTERP_NEAREST'
-            bpy.ops.object.datalayout_transfer(ctx, modifier=data_mod.name)
+            with_object(bpy.ops.object.datalayout_transfer, obj, modifier=data_mod.name)
 
     return intersection_vert_indices, intersection_face_indices
 
@@ -287,8 +286,7 @@ class GRET_OT_graft(bpy.types.Operator):
 
                 # Rejoin loose parts
                 if len(src_objs) > 1:
-                    ctx = get_context(active_obj=obj, selected_objs=src_objs)
-                    bpy.ops.object.join(ctx)
+                    with_object(bpy.ops.object.join, obj, src_objs)
 
         # Transfer more stuff
         for obj in objs:
@@ -299,8 +297,7 @@ class GRET_OT_graft(bpy.types.Operator):
                 obj.matrix_world = obj_matrix_world
 
         if self.copy_modifiers:
-            ctx = get_context(active_obj=orig_dst_obj, selected_objs=objs)
-            bpy.ops.object.make_links_data(ctx, type='MODIFIERS')
+            with_object(bpy.ops.object.make_links_data, orig_dst_obj, objs, type='MODIFIERS')
 
         return {'FINISHED'}
 
@@ -315,7 +312,7 @@ class GRET_OT_graft(bpy.types.Operator):
 
         # layout.prop_search(self, 'vertex_group_name', obj, 'vertex_groups')
         layout.prop(self, 'vertex_group_name', icon='GROUP_VERTEX')
-        layout.prop(self, 'face_map_name', icon='FACE_MAPS')
+        # layout.prop(self, 'face_map_name', icon='FACE_MAPS')
 
         row = layout.row(align=True, heading="Copy")
         row.prop(self, 'copy_normals', text="Norms.", toggle=1)

@@ -10,11 +10,11 @@ from ..heapdict import heapdict
 from ..helpers import (
     flip_name,
     fmt_fraction,
-    get_context,
     get_modifier_mask,
     get_vgroup,
     select_only,
-    try_call,
+    try_with_object,
+    with_object,
 )
 from ..log import logger, log, logd
 from ..math import lerp
@@ -127,9 +127,8 @@ def clear_object_data(obj, vertex_groups=True, shape_keys=True, face_maps=True, 
         for key in list(obj.keys()):
             del obj[key]
     if constraints:
-        ctx = get_context(obj)
-        try_call(bpy.ops.rigidbody.constraint_remove, ctx)
-        try_call(bpy.ops.rigidbody.object_remove, ctx)
+        try_with_object(bpy.ops.rigidbody.constraint_remove, obj)
+        try_with_object(bpy.ops.rigidbody.object_remove, obj)
         # bpy.ops.object.forcefield_toggle(obj)  # Didn't bother
 
     # Clear data data
@@ -161,21 +160,20 @@ def clear_object_data(obj, vertex_groups=True, shape_keys=True, face_maps=True, 
 
 def clear_mesh_customdata(obj, sculpt_mask_data=True, skin_data=True, custom_split_normals=True,
     edge_bevel_weight=True, vertex_bevel_weight=True, edge_crease=True, vertex_crease=True):
-    ctx = get_context(obj)
     if sculpt_mask_data:
-        try_call(bpy.ops.mesh.customdata_mask_clear, ctx)
+        try_with_object(bpy.ops.mesh.customdata_mask_clear, obj)
     if skin_data:
-        try_call(bpy.ops.mesh.customdata_skin_clear, ctx)
+        try_with_object(bpy.ops.mesh.customdata_skin_clear, obj)
     if custom_split_normals:
-        try_call(bpy.ops.mesh.customdata_custom_splitnormals_clear, ctx)
+        try_with_object(bpy.ops.mesh.customdata_custom_splitnormals_clear, obj)
     if edge_bevel_weight:
-        try_call(bpy.ops.mesh.customdata_bevel_weight_edge_clear, ctx)
+        try_with_object(bpy.ops.mesh.customdata_bevel_weight_edge_clear, obj)
     if vertex_bevel_weight:
-        try_call(bpy.ops.mesh.customdata_bevel_weight_vertex_clear, ctx)
+        try_with_object(bpy.ops.mesh.customdata_bevel_weight_vertex_clear, obj)
     if edge_crease:
-        try_call(bpy.ops.mesh.customdata_crease_edge_clear, ctx)
+        try_with_object(bpy.ops.mesh.customdata_crease_edge_clear, obj)
     if vertex_crease:
-        try_call(bpy.ops.mesh.customdata_crease_vertex_clear, ctx)
+        try_with_object(bpy.ops.mesh.customdata_crease_vertex_clear, obj)
 
 def merge_vertex_groups(obj, src_name, dst_name, remove_src=True):
     """Merges the source vertex group into the destination vertex group."""
@@ -518,8 +516,6 @@ def get_operator_target_vertex_groups(obj, group_select_mode, only_unlocked=Fals
 def apply_modifiers(obj, should_apply_modifier, keep_armature=False):
     """Apply modifiers while preserving shape keys and UV layers."""
 
-    ctx = get_context(obj)
-
     # Remember layer names in case they're destroyed by geometry nodes
     uv_layer_names = [uv_layer.name for uv_layer in obj.data.uv_layers]
     vertex_group_names = [vertex_group.name for vertex_group in obj.vertex_groups]
@@ -554,7 +550,7 @@ def apply_modifiers(obj, should_apply_modifier, keep_armature=False):
     # then it's safe to just flatten instead of applying.
     if num_modifiers:
         if num_shape_keys or keep_armature:
-            bpy.ops.gret.shape_key_apply_modifiers(ctx, modifier_mask=modifier_mask)
+            with_object(bpy.ops.gret.shape_key_apply_modifiers, obj, modifier_mask=modifier_mask)
         else:
             for modifier, mask in zip(obj.modifiers, modifier_mask):
                 modifier.show_viewport = mask
@@ -570,7 +566,7 @@ def apply_modifiers(obj, should_apply_modifier, keep_armature=False):
                 modifier.show_viewport = True
             else:
                 logd(f"Removed {modifier.type} modifier {modifier.name}")
-                bpy.ops.object.modifier_remove(ctx, modifier=modifier.name)
+                with_object(bpy.ops.object.modifier_remove, obj, modifier=modifier.name)
     else:
         obj.modifiers.clear()
 

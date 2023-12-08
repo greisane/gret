@@ -347,7 +347,7 @@ class UVPickerHelpControl(UVPickerBaseControl):
         if self.is_active:
             x, y = rect.x1 + 8.0, rect.y1
             for box in reversed(self.help_boxes):
-                width, height = draw_help_box(x, y, box['texts'], box['title'], width=320.0)
+                width, height = draw_help_box(x, y, box['texts'], box['title'], width=340.0)
                 y += height + 8.0
 
 class GRET_GT_uv_picker_gizmo(bpy.types.Gizmo, StateMachineMixin):

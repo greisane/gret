@@ -900,7 +900,7 @@ All values are remapped to a [0..1] UV range""",
     )
     postprocess_script: bpy.props.PointerProperty(
         name="Post Process Script",
-        description="Script to run. `obj` is the object to modify and `ctx` is its context",
+        description="Script to run. `obj` is the object to modify",
         type=bpy.types.Text,
         options=set(),
     )

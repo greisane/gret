@@ -6,7 +6,7 @@ import bpy
 import numpy as np
 
 from ..cache import lru_cache, hash_key
-from ..helpers import get_context, get_collection, get_vgroup, TempModifier, select_only
+from ..helpers import get_collection, get_vgroup, with_object, TempModifier, select_only
 from ..math import get_direction_safe, grid_snap
 from .helpers import bmesh_vertex_group_bleed_internal
 
@@ -326,10 +326,9 @@ Use to leave normals intact on hair ends and crevices""",
         clean_bm.to_mesh(dst_mesh)
 
         # Normals post-processing and transfer
-        ctx = get_context(dst_obj)
         dst_mesh.use_auto_smooth = True
         dst_mesh.auto_smooth_angle = pi
-        bpy.ops.mesh.customdata_custom_splitnormals_clear(ctx)
+        with_object(bpy.ops.mesh.customdata_custom_splitnormals_clear, dst_obj)
 
         if self.smooth_iterations > 0:
             vnors_orig, vnors_smooth = do_smooth_normals(clean_bm, self.smooth_iterations, dst_mesh)

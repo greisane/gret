@@ -8,7 +8,6 @@ import re
 from .log import log, logd
 from .helpers import (
     ensure_iterable,
-    get_context,
     get_data_collection,
     get_layers_recursive,
     is_valid,
@@ -18,6 +17,7 @@ from .helpers import (
     select_only,
     swap_names,
     titlecase,
+    with_object,
 )
 
 logs = partial(log, category="SAVE")
@@ -441,7 +441,7 @@ class SaveState:
 
         if reset_origin:
             new_data.transform(new_obj.matrix_world)
-            bpy.ops.object.origin_set(get_context(new_obj), type='ORIGIN_GEOMETRY', center='MEDIAN')
+            with_object(bpy.ops.object.origin_set, new_obj, type='ORIGIN_GEOMETRY', center='MEDIAN')
         else:
             new_obj.matrix_world = obj.matrix_world
 

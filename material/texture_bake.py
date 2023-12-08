@@ -12,7 +12,6 @@ from .helpers import SolidPixels, Node
 from ..helpers import (
     beep,
     fail_if_invalid_export_path,
-    get_context,
     get_export_path,
     get_nice_export_report,
     select_only,
@@ -220,9 +219,8 @@ def _texture_bake(context, texture_bake, save, results):
 
             # Fixes a bug where bake fails because it polls for context.object being visible
             # Why the hell is 'object' not in sync with 'active_object'?
-            ctx = bpy.context.copy()
-            ctx['object'] = ctx['active_object']
-            bpy.ops.object.bake(ctx, type='EMIT')
+            with context.copy().temp_override(object=context.active_object):
+                bpy.ops.object.bake(type='EMIT')
 
         # Store the result
         pixels = bake_img.pixels[:]

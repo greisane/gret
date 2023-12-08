@@ -88,24 +88,26 @@ def is_valid(bid, /):
         return False
     return True
 
-def get_context(active_obj=None, selected_objs=None):
-    """Returns context for single object operators."""
+def get_object_context_override(active_obj, selected_objs=[]):
+    selected_objs = list(selected_objs)
+    if active_obj not in selected_objs:
+        selected_objs.append(active_obj)
+    return {
+        'object': active_obj,
+        'active_object': active_obj,
+        'selected_objs': selected_objs,
+        'selected_editable_objects': selected_objs,
+    }
 
-    ctx = {}
-    if active_obj and selected_objs:
-        # Operate on all the objects, active object is specified. Selected should include active
-        ctx['object'] = ctx['active_object'] = active_obj
-        selected_objs = selected_objs if active_obj in selected_objs else list(selected_objs) + [active_obj]
-        ctx['selected_objects'] = ctx['selected_editable_objects'] = selected_objs
-    elif not active_obj and selected_objs:
-        # Operate on all the objects, it isn't important which one is active
-        ctx['object'] = ctx['active_object'] = next(iter(selected_objs))
-        ctx['selected_objects'] = ctx['selected_editable_objects'] = [active_obj]
-    elif active_obj and not selected_objs:
-        # Operate on a single object
-        ctx['object'] = ctx['active_object'] = active_obj
-        ctx['selected_objects'] = ctx['selected_editable_objects'] = [active_obj]
-    return ctx
+def with_object(operator, active_obj, selected_objs=[], /, *args, **kwargs):
+    with bpy.context.temp_override(**get_object_context_override(active_obj, selected_objs)):
+        operator(*args, **kwargs)
+
+def try_with_object(operator, active_obj, selected_objs=[], /, *args, **kwargs):
+    try:
+        return with_object(operator, active_obj, selected_objs, *args, **kwargs)
+    except RuntimeError:
+        pass
 
 def get_collection(context, name, allow_duplicate=False, clean=True):
     """Ensures that a collection with the given name exists in the scene."""
@@ -152,8 +154,7 @@ def get_modifier(obj, type, name="", index=None):
     if index is not None:
         index %= len(obj.modifiers)
         if index != obj.modifiers.find(modifier.name):
-            ctx = get_context(obj)
-            bpy.ops.object.modifier_move_to_index(ctx, modifier=modifier.name, index=index)
+            with_object(bpy.ops.object.modifier_move_to_index, obj, modifier=modifier.name, index=index)
     return modifier
 
 def get_node_group(name, type='GeometryNodeTree', clean=True):
@@ -270,19 +271,16 @@ class TempModifier:
 
         self.modifier = self.obj.modifiers.new(type=self.type, name="")
         # Move first to avoid the warning on applying
-        ctx = get_context(self.obj)
-        bpy.ops.object.modifier_move_to_index(ctx, modifier=self.modifier.name, index=0)
+        with_object(bpy.ops.object.modifier_move_to_index, self.obj, modifier=self.modifier.name, index=0)
 
         return self.modifier
 
     def __exit__(self, exc_type, exc_value, traceback):
-        ctx = get_context(self.obj)
-
         if self.obj.data.shape_keys and self.obj.data.shape_keys.key_blocks:
-            bpy.ops.gret.shape_key_apply_modifiers(ctx,
+            with_object(bpy.ops.gret.shape_key_apply_modifiers, self.obj,
                 modifier_mask=get_modifier_mask(self.obj, key=lambda mod: mod == self.modifier))
         else:
-            bpy.ops.object.modifier_apply(ctx, modifier=self.modifier.name)
+            with_object(bpy.ops.object.modifier_apply, self.obj, modifier=self.modifier.name)
 
         if self.saved_mode == 'EDIT_MESH':
             bpy.ops.object.editmode_toggle()
@@ -425,14 +423,6 @@ def intercept(_func=None, error_result=None):
         return decorator
     else:
         return decorator(_func)
-
-def try_call(func, *args, **kwargs):
-    try:
-        func(*args, **kwargs)
-        return True
-    except RuntimeError:
-        pass
-    return False
 
 def get_export_path(path, fields):
     """Returns an absolute path from an export path."""

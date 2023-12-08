@@ -65,7 +65,7 @@ class PanelPatcher(ast.NodeTransformer):
         elif self.fallback_func:
             self.panel_type.remove(self.fallback_func)
 
-class FunctionPatcher:
+class FunctionWrapper:
     """
     Allows monkey-patching functions in foreign modules. Note that it doesn't replace references,
     in cases where the function was already imported in a different module. Example usage:
@@ -73,7 +73,7 @@ class FunctionPatcher:
     from math import sin, radians
     def sin_override(base_fn, x, /, degrees=False):
         return base_fn(radians(x) if degrees else x)
-    with FunctionPatcher('math', 'sin', sin_override) as sin:
+    with FunctionWrapper('math', 'sin', sin_override) as sin:
         print(sin(90))  # Result: 0.8939...
         print(sin(90, degrees=True))  # Result: 1
     """

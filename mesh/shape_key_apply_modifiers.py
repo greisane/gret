@@ -5,7 +5,7 @@ import bpy
 
 from ..math import get_dist_sq
 from ..log import log, logd
-from ..helpers import get_context, get_modifier_mask
+from ..helpers import with_object, get_modifier_mask
 
 # shape_key_apply_modifiers TODO:
 # - Specialcase more merging modifiers, solidify for example
@@ -58,7 +58,7 @@ def weld_mesh(mesh, weld_map):
 
 def apply_modifier(modifier):
     try:
-        bpy.ops.object.modifier_apply(get_context(modifier.id_data), modifier=modifier.name)
+        with_object(bpy.ops.object.modifier_apply, modifier.id_data, modifier=modifier.name)
     except RuntimeError:
         logd(f"Couldn't apply {modifier.type} modifier {modifier.name}")
 
@@ -95,7 +95,7 @@ class MirrorModifierHandler(ModifierHandler):
         modifier = obj.modifiers[self.modifier_name]
 
         modifier.use_mirror_merge = False
-        bpy.ops.object.modifier_apply(get_context(obj), modifier=modifier.name)
+        with_object(bpy.ops.object.modifier_apply, obj, modifier=modifier.name)
 
         if not self.weld_map:
             self.fill_weld_map(obj)
@@ -152,7 +152,7 @@ class WeldModifierHandler(ModifierHandler):
     def apply(self, obj):
         modifier = obj.modifiers[self.modifier_name]
 
-        bpy.ops.object.modifier_remove(get_context(obj), modifier=modifier.name)
+        with_object(bpy.ops.object.modifier_remove, obj, modifier=modifier.name)
 
         if not self.weld_map:
             self.fill_weld_map(obj)

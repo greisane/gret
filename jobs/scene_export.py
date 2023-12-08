@@ -11,7 +11,6 @@ from ..helpers import (
     beep,
     ensure_starts_with,
     fail_if_invalid_export_path,
-    get_context,
     get_export_path,
     get_name_safe,
     get_nice_export_report,
@@ -19,6 +18,7 @@ from ..helpers import (
     intercept,
     select_only,
     viewport_reveal_all,
+    with_object,
 )
 from ..rig.helpers import export_presets
 from ..mesh.helpers import (
@@ -112,7 +112,6 @@ def _scene_export(context, job, save, results):
         log(f"Processing {item.original.name}")
         obj = item.obj
         job_cl = item.job_collection
-        ctx = get_context(obj)
         logger.indent += 1
 
         # Simplify if specified in job collection
@@ -140,7 +139,7 @@ def _scene_export(context, job, save, results):
             try:
                 log(f"Running post-process script {job.postprocess_script.name}")
                 global_dict = globals().copy()
-                global_dict.update({'ctx': ctx, 'obj': obj})
+                global_dict.update({'obj': obj})
                 exec(job.postprocess_script.as_string(), global_dict, global_dict)
             except:
                 raise
@@ -149,11 +148,10 @@ def _scene_export(context, job, save, results):
             # Instancing is a bit annoying since it relies on hierarchy and matrices get reset
             original_children = item.original.children[:]
             set_parent_keep_parent_inverse(original_children, obj)
-            bpy.ops.object.duplicates_make_real(ctx, use_base_parent=True)
+            with_object(bpy.ops.object.duplicates_make_real, obj, use_base_parent=True)
             set_parent_keep_parent_inverse(original_children, item.original)
             if obj.children:
-                ctx = get_context(active_obj=obj, selected_objs=obj.children)
-                bpy.ops.object.join(ctx)
+                with_object(bpy.ops.object.join, obj, obj.children)
                 log(f"Joined {len(obj.children)} instanced objects")
 
         # Remap materials, any objects or faces with no material won't be exported
@@ -220,8 +218,9 @@ def _scene_export(context, job, save, results):
         if get_first_mapping(obj):
             if not obj.data.vertex_colors:
                 log("Baking vertex color mappings")
-                bpy.ops.gret.vertex_color_mapping_refresh(ctx, invert=job.invert_vertex_color_mappings)
-            bpy.ops.gret.vertex_color_mapping_clear(ctx)
+                with_object(bpy.ops.gret.vertex_color_mapping_refresh, obj,
+                    invert=job.invert_vertex_color_mappings)
+            with_object(bpy.ops.gret.vertex_color_mapping_clear, obj)
 
         if job.ensure_vertex_color and not obj.data.vertex_colors:
             log("Created default vertex color layer")

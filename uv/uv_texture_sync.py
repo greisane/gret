@@ -155,27 +155,33 @@ op.direction = 'UP'
 op = col.operator('gret.uv_texture_move', icon='TRIA_DOWN', text="")
 op.direction = 'DOWN'
 col.operator('gret.uv_texture_sync', icon='UV_SYNC_SELECT', text="")
+
+# Avoid an ImportError since PanelPatcher currently doesn't capture globals
+from bl_ui.properties_data_mesh import draw_attribute_warnings
 """
 
 class UVTexturePanelPatcher(PanelPatcher):
     fallback_func = staticmethod(draw_uv_texture_panel_addon)
-    panel_type = getattr(bpy.types, "DATA_PT_uv_texture", None)
+    panel_type = getattr(bpy.types, 'DATA_PT_uv_texture', None)
 
     def visit_Call(self, node):
         super().generic_visit(node)
-        # Modify `col.template_list(...)`
-        if node.func.attr == "template_list":
+        if getattr(node.func, 'attr', "") == 'template_list':
+            # Modify `col.template_list(...)`
             for kw in node.keywords:
-                if kw.arg == "rows":
+                if kw.arg == 'rows':
                     kw.value.value = 4
         return node
 
-    def visit_FunctionDef(self, node):
+    def visit_Expr(self, node):
         super().generic_visit(node)
-        # Add more buttons at the end
-        import ast
-        tree_addon = ast.parse(uv_texture_panel_addon)
-        node.body += tree_addon.body
+        try:
+            if node.value.func.id == 'draw_attribute_warnings':
+                import ast
+                module = ast.parse(uv_texture_panel_addon)
+                return module.body + [node]
+        except AttributeError:
+            pass
         return node
 
 panel_patcher = UVTexturePanelPatcher()

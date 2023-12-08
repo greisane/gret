@@ -32,8 +32,8 @@ void main()
 }
 """)
 
-h1_font_size = 19
-p_font_size = 15
+h1_font_size = 17
+p_font_size = 13
 line_height_h1 = int(1.3 * h1_font_size)
 line_height_p = int(1.3 * p_font_size)
 font_id = 0
@@ -246,7 +246,7 @@ def draw_text(x, y, text, color, pivot=(0.0, 0.0), clip_rect=None):
         return
 
     blf.color(font_id, *color)
-    blf.size(font_id, p_font_size, 60)
+    blf.size(font_id, p_font_size)
     width, height = blf.dimensions(font_id, text)
     blf.position(font_id, x - width * pivot[0], y - height * pivot[1], 0.0)
     if clip_rect is not None:
@@ -283,7 +283,7 @@ def draw_help_box(x0, y0, texts, title="", padding=16.0, width=None):
 
     for text in reversed(texts):
         if text:
-            blf.size(font_id, p_font_size, 60)
+            blf.size(font_id, p_font_size)
             blf.position(font_id, x0 + padding, y, 0)
             blf.draw(font_id, text)
             y += line_height_p
@@ -293,7 +293,7 @@ def draw_help_box(x0, y0, texts, title="", padding=16.0, width=None):
     if title:
         if texts:
             y += 8.0
-        blf.size(font_id, h1_font_size, 60)
+        blf.size(font_id, h1_font_size)
         blf.position(font_id, x0 + padding, y, 0)
         blf.draw(font_id, title)
 

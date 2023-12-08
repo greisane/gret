@@ -1,6 +1,7 @@
-from mathutils import Vector
 from math import sin, cos, pi
+from mathutils import Vector
 import bpy
+from .helpers import select_only
 
 def get_selected_active_object(context, types=set()):
     if not context.active_object or not context.active_object.select_get():
@@ -283,9 +284,10 @@ class GRET_OT_rope_add(bpy.types.Operator):
             face.use_smooth = self.use_smooth_shade
         mesh.use_auto_smooth = True
         mesh.auto_smooth_angle = pi
+        crease_data = mesh.attributes.new('crease_edge', type='FLOAT', domain='EDGE').data
         for edge in (mesh.edges[4], mesh.edges[8]):
             edge.use_edge_sharp = True
-            edge.crease = 1.0
+            crease_data[edge.index].value = 1.0
         mesh.update()
 
         obj = bpy.data.objects.new("Rope", mesh)
@@ -332,6 +334,8 @@ class GRET_OT_rope_add(bpy.types.Operator):
         mod = obj.modifiers.new(type='SUBSURF', name="")
         mod.levels = self.subdivisions
         mod.render_levels = self.subdivisions
+
+        select_only(context, obj)
 
         return {'FINISHED'}
 

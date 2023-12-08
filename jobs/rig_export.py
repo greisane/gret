@@ -13,7 +13,6 @@ from ..helpers import (
     ensure_starts_with,
     fail_if_invalid_export_path,
     get_bid_filepath,
-    get_context,
     get_export_path,
     get_modifier,
     get_name_safe,
@@ -22,6 +21,7 @@ from ..helpers import (
     namedtupleish,
     partition,
     TempModifier,
+    with_object,
     viewport_reveal_all,
 )
 from ..rig.helpers import (
@@ -106,7 +106,6 @@ def _rig_export(context, job, rig, save, results):
         obj = item.obj
         mesh = obj.data
         job_cl = item.job_collection
-        ctx = get_context(obj)
         logger.indent += 1
 
         # Simplify now if specified in job collection. Subdivision is handled after merging
@@ -116,7 +115,7 @@ def _rig_export(context, job, rig, save, results):
             item.subd_level = 0
 
         # Ensure mesh has custom normals so that they won't be recalculated on masking
-        bpy.ops.mesh.customdata_custom_splitnormals_add(ctx)
+        with_object(bpy.ops.mesh.customdata_custom_splitnormals_add, obj)
         mesh.use_auto_smooth = True
         mesh.auto_smooth_angle = pi
 
@@ -180,8 +179,9 @@ def _rig_export(context, job, rig, save, results):
         if get_first_mapping(obj):
             if not mesh.vertex_colors:
                 log("Baking vertex color mappings")
-                bpy.ops.gret.vertex_color_mapping_refresh(ctx, invert=job.invert_vertex_color_mappings)
-            bpy.ops.gret.vertex_color_mapping_clear(ctx)
+                with_object(bpy.ops.gret.vertex_color_mapping_refresh, obj,
+                    invert=job.invert_vertex_color_mappings)
+            with_object(bpy.ops.gret.vertex_color_mapping_clear, obj)
 
         if job.ensure_vertex_color and not mesh.vertex_colors:
             log("Created default vertex color layer")
@@ -201,7 +201,7 @@ def _rig_export(context, job, rig, save, results):
         # Ensure proper mesh state
         sanitize_mesh(obj)
         if gret_operator_exists('vertex_group_remove_unused'):
-            bpy.ops.gret.vertex_group_remove_unused(ctx)
+            with_object(bpy.ops.gret.vertex_group_remove_unused, obj)
         mesh.transform(obj.matrix_basis, shape_keys=True)
         obj.matrix_basis.identity()
 
@@ -229,16 +229,13 @@ def _rig_export(context, job, rig, save, results):
         if merged_item is None:
             merged_item = max(items, key=lambda it: len(it.obj.data.vertices))
 
-        obj = merged_item.obj
-        objs = [item.obj for item in items]
-        ctx = get_context(active_obj=obj, selected_objs=objs)
-        bpy.ops.object.join(ctx)
-        del objs
-
+        with_object(bpy.ops.object.join, merged_item.obj, [item.obj for item in items])
         log(f"Merged {', '.join(it.original.name for it in items if it is not merged_item)} "
             f"into {merged_item.original.name}")
 
-        num_verts_merged = merge_islands(obj, mode=job.weld_mode, threshold=job.weld_distance)
+        num_verts_merged = merge_islands(merged_item.obj,
+            mode=job.weld_mode,
+            threshold=job.weld_distance)
         if num_verts_merged > 0:
             log(f"Welded {num_verts_merged} vertices")
 
@@ -259,9 +256,8 @@ def _rig_export(context, job, rig, save, results):
             items.append(item)
 
             if item.subd_level > 0:
-                ctx = get_context(item.obj)
                 # Meshes can deform unpredictably if weights weren't normalized before subdivision
-                # bpy.ops.object.vertex_group_normalize_all(ctx,
+                # with_object(bpy.ops.object.vertex_group_normalize_all, item.obj,
                     # group_select_mode='BONE_DEFORM', lock_active=False)
                 with TempModifier(item.obj, type='SUBSURF') as subd_mod:
                     subd_mod.levels = item.subd_level
@@ -281,7 +277,6 @@ def _rig_export(context, job, rig, save, results):
     for item in chain.from_iterable(groups.values()):
         log(f"Post-processing mesh {item.original.name}")
         obj = item.obj
-        ctx = get_context(obj)
         logger.indent += 1
 
         if job.subdivide_faces and obj.face_maps and obj.data.face_maps:
@@ -290,7 +285,7 @@ def _rig_export(context, job, rig, save, results):
                     num_selected = edit_face_map_elements(obj, face_map_name)
                     if num_selected:
                         log(f"Subdividing face map {face_map_name} ({num_selected} faces)")
-                        bpy.ops.gret.cut_faces_smooth(ctx)
+                        with_object(bpy.ops.gret.cut_faces_smooth, obj)
                     bpy.ops.object.editmode_toggle()
 
         if job.encode_shape_keys:
@@ -306,7 +301,8 @@ def _rig_export(context, job, rig, save, results):
 
         if prefs.jobs__limit_vertex_weights > 0:
             log(f"Limiting vertex weights to {prefs.jobs__limit_vertex_weights}")
-            bpy.ops.object.vertex_group_limit_total(ctx, group_select_mode='BONE_DEFORM',
+            with_object(bpy.ops.object.vertex_group_limit_total, obj,
+                group_select_mode='BONE_DEFORM',
                 limit=prefs.jobs__limit_vertex_weights)
 
         # Ensure proper mesh state

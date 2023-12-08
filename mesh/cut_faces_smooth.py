@@ -1,7 +1,7 @@
 import bmesh
 import bpy
 
-from ..helpers import get_context, TempModifier
+from ..helpers import with_object, TempModifier
 
 class GRET_OT_cut_faces_smooth(bpy.types.Operator):
     """Subdivide selected faces and join the result with the surrounding geometry"""
@@ -25,7 +25,7 @@ class GRET_OT_cut_faces_smooth(bpy.types.Operator):
         new_mesh = mesh.copy()
         bm = bmesh.new()
         bm.from_mesh(new_mesh)
-        crease_layer = bm.verts.layers.crease.verify()
+        crease_layer = bm.verts.layers.float.get('crease_vert') or bm.verts.layers.float.new('crease_vert')
 
         if not any(f.select for f in bm.faces):
             self.report({'WARNING'}, "No suitable selection found.")
@@ -62,8 +62,7 @@ class GRET_OT_cut_faces_smooth(bpy.types.Operator):
         bm.to_mesh(new_mesh)
 
         # Join and delete temporary mesh
-        ctx = get_context(active_obj=obj, selected_objs=[new_obj])
-        bpy.ops.object.join(ctx)
+        with_object(bpy.ops.object.join, obj, [obj, new_obj])
         bpy.data.meshes.remove(new_mesh)
 
         bpy.ops.object.editmode_toggle()

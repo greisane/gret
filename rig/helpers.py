@@ -8,9 +8,9 @@ import sys
 from .. import prefs
 from ..log import log, logd
 from ..mesh.helpers import merge_vertex_groups
-from ..helpers import intercept, get_context, select_only, titlecase
+from ..helpers import intercept, select_only, titlecase
 from ..operator import PropertyWrapper, SaveContext
-from ..patcher import FunctionPatcher
+from ..patcher import FunctionWrapper
 
 export_presets = {
     'UE4': {
@@ -440,15 +440,15 @@ def export_autorig(filepath, context, rig, objects=[], action=None,
                         new_fc.keyframe_points.insert(fr, val)
 
         # Source for bake_anim is in auto_rig_pro.src.lib.animation but it's currently beyond the
-        # scope of FunctionPatcher to replace all references. See 'jurigged' for an implementation.
+        # scope of FunctionWrapper to replace all references. See 'jurigged' for an implementation.
         arp_src_module_name = 'auto_rig_pro.src' if arp_version >= (3, 68, 47) else 'auto_rig_pro'
         arp_fbx_module_name = arp_src_module_name + '.export_fbx.export_fbx_bin'
         arp_ge_module_name = arp_src_module_name + '.auto_rig_ge'
 
-        with (FunctionPatcher(arp_fbx_module_name, 'arp_save', arp_save_override),
-            FunctionPatcher(arp_ge_module_name, 'bake_anim', arp_bake_anim_override),
-            FunctionPatcher(arp_ge_module_name, 'check_multiple_twist_bones', arp_check_twist_override),
-            FunctionPatcher(arp_ge_module_name, 'rename_custom', arp_rename_override)):
+        with (FunctionWrapper(arp_fbx_module_name, 'arp_save', arp_save_override),
+            FunctionWrapper(arp_ge_module_name, 'bake_anim', arp_bake_anim_override),
+            FunctionWrapper(arp_ge_module_name, 'check_multiple_twist_bones', arp_check_twist_override),
+            FunctionWrapper(arp_ge_module_name, 'rename_custom', arp_rename_override)):
             return bpy.ops.id.arp_export_fbx_panel(filepath=filepath)
 
 @intercept(error_result={'CANCELLED'})
