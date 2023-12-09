@@ -455,76 +455,90 @@ A base pose is useful if the rest pose is not neutral (e.g. has an open mouth)""
         if force:
             obj.update_tag()
 
-def draw_panel(self, context):
-    obj = context.active_object
-    if obj.type != 'ARMATURE':
-        return
+class GRET_PT_pose_blender(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "gret"
+    bl_label = "Pose Blender"
+    bl_parent_id = 'GRET_PT_animation'
 
-    pbl = obj.pose_blender
-    layout = self.layout
-    box = layout.box()
-    row = box.row(align=True)
-    row.label(text="Pose Blender", icon='MOD_ARMATURE')
-    row = row.row()
-    row.alignment = 'RIGHT'
-    row.label(text="Enabled")
-    row.prop(pbl, 'enabled', text="")
-    row.enabled = pbl.enabled or pbl.is_valid()
-    row.operator('gret.pose_blender_refresh', icon='FILE_REFRESH', text="")
+    @classmethod
+    def poll(cls, context):
+        return (context.active_object
+            and context.active_object.type == 'ARMATURE')
 
-    def draw_error(text, can_fix=False):
-        if can_fix:
-            split = box.split(align=True, factor=0.8)
-            col = split.column(align=True)
-        else:
-            col = box.column(align=True)
-        col.scale_y = 0.8
-        for n, line in enumerate(text.split('\n')):
-            col.label(text=line, icon='ERROR' if n == 0 else 'BLANK1')
-        if can_fix:
-            split.operator('gret.pose_blender_fix', text="Fix")
+    def draw_header(self, context):
+        layout = self.layout
+        obj = context.active_object
+        pbl = obj.pose_blender
 
-    def draw_button_row():
-        row = box.row(align=True)
-        row.alignment = 'CENTER'
-        row.operator('gret.pose_blender_clear', icon='X', text="")
-        row.operator('gret.pose_blender_flip', icon='ARROW_LEFTRIGHT', text="")
-        row.operator('gret.pose_blender_copy', icon='COPYDOWN', text="")
-        row.operator('gret.pose_blender_paste', icon='PASTEDOWN', text="")
-        row.operator('gret.pose_blender_key', icon='KEYINGSET', text="")
+        layout.label(text="", icon='MOD_ARMATURE')
+        row = layout.row()
+        row.prop(pbl, 'enabled', text="")
+        row.enabled = pbl.enabled or pbl.is_valid()
 
-    if not pbl.enabled:
-        col = box.column(align=True)
-        col.use_property_split = True
-        col.prop(pbl, 'action', text="Poses")
-        col.prop(pbl, 'use_additive')
-        if pbl.use_additive:
-            if pbl.action and pbl.action.pose_markers:
-                col.prop_search(pbl, 'base_pose_name', pbl.action, 'pose_markers', icon='PMARKER_ACT')
-                if pbl.base_pose_name and pbl.base_pose_name not in pbl.action.pose_markers:
-                    draw_error(text="Base pose not found in the action.")
+    def draw(self, context):
+        layout = self.layout
+        obj = context.active_object
+        pbl = obj.pose_blender
+
+        def draw_error(text, can_fix=False):
+            if can_fix:
+                split = layout.split(align=True, factor=0.8)
+                col = split.column(align=True)
             else:
-                col.prop(pbl, 'base_pose_name', icon='PMARKER_ACT')
-        if pbl.action:
-            if not pbl.action.pose_markers:
-                draw_error(text="Action has no pose markers.", can_fix=not pbl.action.library)
-                if pbl.action.library:
-                    draw_error("Can't fix action because it is linked.")
-            elif any(m.name not in obj for m in pbl.action.pose_markers):
-                draw_error(text="Rig is missing pose properties.", can_fix=not obj.override_library)
-                if obj.override_library:
-                    draw_error("Can't fix rig from an override data-block.")
-    else:
-        draw_button_row()
+                col = layout.column(align=True)
+            col.scale_y = 0.8
+            for n, line in enumerate(text.split('\n')):
+                col.label(text=line, icon='ERROR' if n == 0 else 'BLANK1')
+            if can_fix:
+                split.operator('gret.pose_blender_fix', text="Fix")
 
-        col = box.column(align=True)
-        for pose_row in pbl.get_transient_data().pose_pairs:
-            row = col.row(align=True)
-            for pose_name, text in pose_row:
-                if pose_name in obj:
-                    row.prop(obj, f'["{pose_name}"]', text=text, slider=True)
+        def draw_button_row():
+            row = layout.row(align=True)
+            row.alignment = 'CENTER'
+            row.operator('gret.pose_blender_clear', icon='X', text="")
+            row.operator('gret.pose_blender_flip', icon='ARROW_LEFTRIGHT', text="")
+            row.operator('gret.pose_blender_copy', icon='COPYDOWN', text="")
+            row.operator('gret.pose_blender_paste', icon='PASTEDOWN', text="")
+            row.operator('gret.pose_blender_key', icon='KEYINGSET', text="")
+            row.operator('gret.pose_blender_refresh', icon='FILE_REFRESH', text="")
 
-        draw_button_row()
+        if not pbl.enabled:
+            col = layout.column(align=True)
+            col.use_property_split = True
+            col.prop(pbl, 'action', text="Poses")
+            col.prop(pbl, 'use_additive')
+            if pbl.use_additive:
+                if pbl.action and pbl.action.pose_markers:
+                    col.prop_search(pbl, 'base_pose_name', pbl.action, 'pose_markers', icon='PMARKER_ACT')
+                    if pbl.base_pose_name and pbl.base_pose_name not in pbl.action.pose_markers:
+                        draw_error(text="Base pose not found in the action.")
+                else:
+                    col.prop(pbl, 'base_pose_name', icon='PMARKER_ACT')
+            if pbl.action:
+                if not pbl.action.pose_markers:
+                    draw_error(text="Action has no pose markers.", can_fix=not pbl.action.library)
+                    if pbl.action.library:
+                        draw_error("Can't fix action because it is linked.")
+                elif any(m.name not in obj for m in pbl.action.pose_markers):
+                    draw_error(text="Rig is missing pose properties.", can_fix=not obj.override_library)
+                    if obj.override_library:
+                        draw_error("Can't fix rig from an override data-block.")
+        else:
+            draw_button_row()
+
+            col = layout.column(align=True)
+            pose_pairs = pbl.get_transient_data().pose_pairs
+            for pose_row in pose_pairs:
+                row = col.row(align=True)
+                for pose_name, text in pose_row:
+                    if pose_name in obj:
+                        row.prop(obj, f'["{pose_name}"]', text=text, slider=True)
+
+            if len(pose_pairs) > 10:
+                # If there are enough rows, repeat the buttons at the end
+                draw_button_row()
 
 classes = (
     GRET_OT_pose_blender_clear,
@@ -535,6 +549,7 @@ classes = (
     GRET_OT_pose_blender_paste,
     GRET_OT_pose_blender_refresh,
     GRET_PG_pose_blender,
+    GRET_PT_pose_blender,
 )
 
 @persistent

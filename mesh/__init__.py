@@ -33,19 +33,19 @@ class GRET_PT_mesh(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.active_object and context.active_object.type == 'MESH' and cls.draw_funcs
+        return cls.bl_category and context.active_object and context.active_object.type == 'MESH'
 
     def draw(self, context):
         for draw_func in __class__.draw_funcs:
             draw_func(self, context)
 
 def register(settings, prefs):
+    bpy.utils.register_class(GRET_PT_mesh)
+
     global registered_modules
     registered_modules = register_submodules(modules, settings, GRET_PT_mesh.draw_funcs)
 
-    bpy.utils.register_class(GRET_PT_mesh)
-
 def unregister():
-    bpy.utils.unregister_class(GRET_PT_mesh)
-
     unregister_submodules(registered_modules, GRET_PT_mesh.draw_funcs)
+
+    bpy.utils.unregister_class(GRET_PT_mesh)

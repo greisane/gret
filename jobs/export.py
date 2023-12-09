@@ -581,7 +581,7 @@ class GRET_PT_export_jobs(bpy.types.Panel):
         layout = self.layout
 
         row = layout.row(align=True)
-        row.operator('gret.export_job_add', text="Add")
+        row.operator('gret.export_job_add', icon='ADD')
         # Job presets feature is rather unfinished
         # row.operator_menu_enum('gret.export_job_preset', 'preset', text="", icon='DOWNARROW_HLT')
 

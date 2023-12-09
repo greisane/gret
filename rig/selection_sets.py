@@ -190,51 +190,63 @@ class GRET_OT_selection_set_overwrite(bpy.types.Operator):
                 bone_id.name = bone.name
         return {'FINISHED'}
 
-def draw_panel(self, context):
-    if context.mode != 'POSE':
-        return
+class GRET_PT_selection_sets(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "gret"
+    bl_label = "Selection Sets"
+    bl_parent_id = 'GRET_PT_rig'
 
-    layout = self.layout
-    settings = context.scene.gret
-    obj = context.active_object
+    @classmethod
+    def poll(cls, context):
+        return (context.mode == 'POSE'
+            and context.active_object
+            and hasattr(context.active_object, 'selection_sets'))
 
-    if not hasattr(obj, 'selection_sets'):
-        return
+    def draw_header(self, context):
+        layout = self.layout
+        layout.label(text="", icon='GROUP_BONE')
 
-    box = layout.box()
-    row = box.row()
-    row.label(text="Bone Selection Sets", icon='GROUP_BONE')
-    row = row.row(align=True)
-    if settings.selection_sets_show_edit:
-        if draw_warning_if_not_overridable(row, obj, 'selection_sets'):
-            row.separator()
-        row.operator('gret.selection_set_copy', icon='COPYDOWN', text="")
-        row.operator('gret.selection_set_paste', icon='PASTEDOWN', text="")
-        row.operator('gret.selection_set_add', icon='ADD', text="")
-    row.prop(settings, 'selection_sets_show_edit', icon='SETTINGS', text="")
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.gret
+        obj = context.active_object
 
-    def draw_sel_set_item(layout, sel_set):
-        name = sel_set.name
-        op = layout.operator('gret.selection_set_toggle', text=name, depress=sel_set.is_selected)
-        op.name = name
+        col = layout.column(align=True)
+
+        def draw_sel_set_item(layout, sel_set):
+            name = sel_set.name
+            op = layout.operator('gret.selection_set_toggle', text=name, depress=sel_set.is_selected)
+            op.name = name
+            if settings.selection_sets_show_edit:
+                layout.operator('gret.selection_set_overwrite', icon='ADD', text="").name = name
+                layout.operator('gret.selection_set_remove', icon='X', text="").name = name
+
+        if selection_sets := OrderedDict(reversed(obj.selection_sets.items())):
+            while selection_sets:
+                name, sel_set = selection_sets.popitem()
+                other_name = flip_name(name)
+                other_sel_set = selection_sets.pop(other_name, None)
+
+                row = col.row(align=True)
+                if other_sel_set:
+                    draw_sel_set_item(row, other_sel_set)
+                    if settings.selection_sets_show_edit:
+                        row.separator()
+                draw_sel_set_item(row, sel_set)
+
+        row = col.row(align=True)
+        if obj.selection_sets:
+            row.split()
+        else:
+            row.label(text="There are no selection sets.")
         if settings.selection_sets_show_edit:
-            layout.operator('gret.selection_set_overwrite', icon='ADD', text="").name = name
-            layout.operator('gret.selection_set_remove', icon='X', text="").name = name
-
-    selection_sets = OrderedDict(reversed(obj.selection_sets.items()))
-    if selection_sets:
-        col = box.column(align=True)
-        while selection_sets:
-            name, sel_set = selection_sets.popitem()
-            other_name = flip_name(name)
-            other_sel_set = selection_sets.pop(other_name, None)
-
-            row = col.row(align=True)
-            if other_sel_set:
-                draw_sel_set_item(row, other_sel_set)
-                if settings.selection_sets_show_edit:
-                    row.separator()
-            draw_sel_set_item(row, sel_set)
+            if draw_warning_if_not_overridable(row, obj, 'selection_sets'):
+                row.separator()
+            row.operator('gret.selection_set_copy', icon='COPYDOWN', text="")
+            row.operator('gret.selection_set_paste', icon='PASTEDOWN', text="")
+            row.operator('gret.selection_set_add', icon='ADD', text="")
+        row.prop(settings, 'selection_sets_show_edit', icon='SETTINGS', text="")
 
 classes = (
     GRET_OT_selection_set_add,
@@ -243,6 +255,7 @@ classes = (
     GRET_OT_selection_set_paste,
     GRET_OT_selection_set_remove,
     GRET_OT_selection_set_toggle,
+    GRET_PT_selection_sets,
 )
 
 def register(settings, prefs):

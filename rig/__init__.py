@@ -22,22 +22,19 @@ class GRET_PT_rig(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return (context.active_object
-            and context.active_object.type == 'ARMATURE'
-            and context.mode in {'OBJECT', 'POSE', 'EDIT_ARMATURE'}
-            and cls.draw_funcs)
+        return context.active_object and context.active_object.type == 'ARMATURE'
 
     def draw(self, context):
         for draw_func in __class__.draw_funcs:
             draw_func(self, context)
 
 def register(settings, prefs):
+    bpy.utils.register_class(GRET_PT_rig)
+
     global registered_modules
     registered_modules = register_submodules(modules, settings, GRET_PT_rig.draw_funcs)
 
-    bpy.utils.register_class(GRET_PT_rig)
-
 def unregister():
-    bpy.utils.unregister_class(GRET_PT_rig)
-
     unregister_submodules(registered_modules, GRET_PT_rig.draw_funcs)
+
+    bpy.utils.unregister_class(GRET_PT_rig)

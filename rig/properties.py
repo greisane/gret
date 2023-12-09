@@ -85,41 +85,60 @@ class GRET_OT_property_remove(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def draw_panel(self, context):
-    layout = self.layout
-    settings = context.scene.gret
-    obj = context.active_object
+class GRET_PT_properties(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "gret"
+    bl_label = "Properties"
+    bl_parent_id = 'GRET_PT_rig'
 
-    box = layout.box()
-    row = box.row()
-    row.label(text="Properties", icon='PROPERTIES')
-    row = row.row(align=True)
-    if settings.properties_show_edit:
-        if draw_warning_if_not_overridable(row, obj, '["properties"]'):
-            row.separator()
-        row.operator('gret.property_add', icon='ADD', text="")
-    row.prop(settings, 'properties_show_edit', icon='SETTINGS', text="")
+    @classmethod
+    def poll(cls, context):
+        return True
 
-    properties = obj.get('properties')
-    if properties:
-        col = box.column(align=True)
+    def draw_header(self, context):
+        layout = self.layout
+        layout.label(text="", icon='PROPERTIES')
 
-        for idx, data_path in enumerate(properties):
-            row = col.row(align=True)
-            prop_wrapper = PropertyWrapper.from_path(obj, data_path)
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.gret
+        obj = context.active_object
 
-            if prop_wrapper:
-                row.prop(prop_wrapper.struct, prop_wrapper.data_path, text=prop_wrapper.title)
-            else:
-                row.alert = True
-                row.label(text=f"Missing: {data_path}")
+        col = layout.column(align=True)
 
-            if settings.properties_show_edit:
-                row.operator('gret.property_remove', icon='X', text="").index = idx
+        properties = obj.get('properties')
+        if properties:
+            col = layout.column(align=True)
+
+            for idx, data_path in enumerate(properties):
+                row = col.row(align=True)
+                prop_wrapper = PropertyWrapper.from_path(obj, data_path)
+
+                if prop_wrapper:
+                    row.prop(prop_wrapper.struct, prop_wrapper.data_path, text=prop_wrapper.title)
+                else:
+                    row.alert = True
+                    row.label(text=f"Missing: {data_path}")
+
+                if settings.properties_show_edit:
+                    row.operator('gret.property_remove', icon='X', text="").index = idx
+
+        row = col.row(align=True)
+        if properties:
+            row.split()
+        else:
+            row.label(text="There are no rig properties.")
+        if settings.properties_show_edit:
+            if draw_warning_if_not_overridable(row, obj, '["properties"]'):
+                row.separator()
+            row.operator('gret.property_add', icon='ADD', text="")
+        row.prop(settings, 'properties_show_edit', icon='SETTINGS', text="")
 
 classes = (
     GRET_OT_property_add,
     GRET_OT_property_remove,
+    GRET_PT_properties,
 )
 
 def register(settings, prefs):

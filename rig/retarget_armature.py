@@ -191,66 +191,76 @@ Doubles the input vertex count, don't enable if not necessary""",
 
         return {'FINISHED'}
 
-def draw_panel(self, context):
-    if context.mode != 'EDIT_ARMATURE':
-        return
+class GRET_PT_retarget_armature(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "gret"
+    bl_label = "Retarget Armature"
+    bl_parent_id = 'GRET_PT_rig'
 
-    layout = self.layout
-    settings = context.scene.gret
-    obj = context.object
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'EDIT_ARMATURE'
 
-    box = layout.box()
-    box.label(text="Retarget Armature", icon='MOD_MESHDEFORM')
-    col = box.column(align=False)
+    def draw_header(self, context):
+        layout = self.layout
+        layout.label(text="", icon='MOD_MESHDEFORM')
 
-    row = col.row(align=True)
-    row.prop(settings, 'retarget_src', text="")
-    icon = 'BACK' if settings.retarget_invert else 'FORWARD'
-    row.prop(settings, 'retarget_invert', text="", icon=icon, emboss=settings.retarget_invert)
-    row.prop(settings, 'retarget_dst', text="")
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.gret
+        obj = context.object
 
-    row = col.row()
-    row.alignment = 'LEFT'
-    icon = 'DOWNARROW_HLT' if settings.retarget_show_advanced else 'RIGHTARROW'
-    row.prop(settings, 'retarget_show_advanced', icon=icon, emboss=False)
+        col = layout.column(align=False)
 
-    if settings.retarget_show_advanced:
         row = col.row(align=True)
-        row.prop(settings, 'retarget_function', text="")
-        row.prop(settings, 'retarget_radius', text="")
+        row.prop(settings, 'retarget_src', text="")
+        icon = 'BACK' if settings.retarget_invert else 'FORWARD'
+        row.prop(settings, 'retarget_invert', text="", icon=icon, emboss=settings.retarget_invert)
+        row.prop(settings, 'retarget_dst', text="")
 
-        col.prop(settings, 'retarget_use_selection')
-        col.prop(settings, 'retarget_high_quality')
-        col.prop(settings, 'retarget_use_mirror_x')
-        col.prop(settings, 'retarget_lock_length')
-        col.prop(settings, 'retarget_lock_direction')
+        row = col.row()
+        row.alignment = 'LEFT'
+        icon = 'DOWNARROW_HLT' if settings.retarget_show_advanced else 'RIGHTARROW'
+        row.prop(settings, 'retarget_show_advanced', icon=icon, emboss=False)
 
-    col.separator()
+        if settings.retarget_show_advanced:
+            row = col.row(align=True)
+            row.prop(settings, 'retarget_function', text="")
+            row.prop(settings, 'retarget_radius', text="")
 
-    if obj and obj.data and getattr(obj.data, 'use_mirror_x', False):
-        col.label(text="X-Axis Mirror is enabled.")
+            col.prop(settings, 'retarget_use_selection')
+            col.prop(settings, 'retarget_high_quality')
+            col.prop(settings, 'retarget_use_mirror_x')
+            col.prop(settings, 'retarget_lock_length')
+            col.prop(settings, 'retarget_lock_direction')
 
-    row = col.row(align=True)
-    if context.mode == 'EDIT_ARMATURE':
-        text = "Retarget Bones"
-    else:
-        text = "Retarget Armature"
-    op = row.operator('gret.retarget_armature', icon='CHECKMARK', text=text)
-    if settings.retarget_src and settings.retarget_dst != 'NONE':
-        op.source = settings.retarget_src.name
-        op.use_shape_key = settings.retarget_dst.startswith('s_')
-        op.destination = settings.retarget_dst[2:]
-        op.invert = settings.retarget_invert
-        op.function = settings.retarget_function
-        op.radius = settings.retarget_radius
-        op.use_object_transform = settings.retarget_use_object_transform
-        op.use_selection = settings.retarget_use_selection
-        op.high_quality = settings.retarget_high_quality
-        op.use_mirror_x = settings.retarget_use_mirror_x
-        op.lock_length = settings.retarget_lock_length
-        op.lock_direction = settings.retarget_lock_direction
-    else:
-        row.enabled = False
+        col.separator()
+
+        if obj and obj.data and getattr(obj.data, 'use_mirror_x', False):
+            col.label(text="X-Axis Mirror is enabled.")
+
+        row = col.row(align=True)
+        if context.mode == 'EDIT_ARMATURE':
+            text = "Retarget Bones"
+        else:
+            text = "Retarget Armature"
+        op = row.operator('gret.retarget_armature', icon='CHECKMARK', text=text)
+        if settings.retarget_src and settings.retarget_dst != 'NONE':
+            op.source = settings.retarget_src.name
+            op.use_shape_key = settings.retarget_dst.startswith('s_')
+            op.destination = settings.retarget_dst[2:]
+            op.invert = settings.retarget_invert
+            op.function = settings.retarget_function
+            op.radius = settings.retarget_radius
+            op.use_object_transform = settings.retarget_use_object_transform
+            op.use_selection = settings.retarget_use_selection
+            op.high_quality = settings.retarget_high_quality
+            op.use_mirror_x = settings.retarget_use_mirror_x
+            op.lock_length = settings.retarget_lock_length
+            op.lock_direction = settings.retarget_lock_direction
+        else:
+            row.enabled = False
 
 def retarget_src_update(self, context):
     # On changing the source object, reset the destination object
@@ -274,11 +284,17 @@ def retarget_dst_items(self, context):
                 items.append(('s_' + sk.name, sk.name, f"Shape Key '{sk.name}'", 'SHAPEKEY_DATA', len(items)))
     return items
 
+classes = (
+    GRET_OT_retarget_armature,
+    GRET_PT_retarget_armature,
+)
+
 def register(settings, prefs):
     if not prefs.retarget__enable:
         return False
 
-    bpy.utils.register_class(GRET_OT_retarget_armature)
+    for cls in classes:
+        bpy.utils.register_class(cls)
 
     settings.add_property('retarget_src', bpy.props.PointerProperty(
         name="Mesh Retarget Source",
@@ -312,4 +328,5 @@ Expected to share topology and vertex order with the source mesh""",
     settings.add_property('retarget_lock_direction', retarget_props['lock_direction'])
 
 def unregister():
-    bpy.utils.unregister_class(GRET_OT_retarget_armature)
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)

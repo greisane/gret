@@ -171,56 +171,65 @@ Doubles the input vertex count, don't enable if not necessary""",
 
         return {'FINISHED'}
 
-def draw_panel(self, context):
-    layout = self.layout
-    settings = context.scene.gret
-    obj = context.object
+class GRET_PT_retarget_mesh(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "gret"
+    bl_label = "Retarget Mesh"
+    bl_parent_id = 'GRET_PT_mesh'
 
-    box = layout.box()
-    box.label(text="Retarget Mesh", icon='MOD_MESHDEFORM')
-    col = box.column(align=False)
+    def draw_header(self, context):
+        layout = self.layout
+        layout.label(text="", icon='MOD_MESHDEFORM')
 
-    row = col.row(align=True)
-    row.prop(settings, 'retarget_src', text="")
-    icon = 'BACK' if settings.retarget_invert else 'FORWARD'
-    row.prop(settings, 'retarget_invert', text="", icon=icon, emboss=settings.retarget_invert)
-    row.prop(settings, 'retarget_dst', text="")
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.gret
+        obj = context.object
 
-    row = col.row()
-    row.alignment = 'LEFT'
-    icon = 'DOWNARROW_HLT' if settings.retarget_show_advanced else 'RIGHTARROW'
-    row.prop(settings, 'retarget_show_advanced', icon=icon, emboss=False)
+        col = layout.column(align=False)
 
-    if settings.retarget_show_advanced:
         row = col.row(align=True)
-        row.prop(settings, 'retarget_function', text="")
-        row.prop(settings, 'retarget_radius', text="")
+        row.prop(settings, 'retarget_src', text="")
+        icon = 'BACK' if settings.retarget_invert else 'FORWARD'
+        row.prop(settings, 'retarget_invert', text="", icon=icon, emboss=settings.retarget_invert)
+        row.prop(settings, 'retarget_dst', text="")
 
-        col.prop(settings, 'retarget_use_object_transform')
-        col.prop(settings, 'retarget_use_selection')
-        col.prop(settings, 'retarget_high_quality')
-        col.prop(settings, 'retarget_use_mirror_x')
+        row = col.row()
+        row.alignment = 'LEFT'
+        icon = 'DOWNARROW_HLT' if settings.retarget_show_advanced else 'RIGHTARROW'
+        row.prop(settings, 'retarget_show_advanced', icon=icon, emboss=False)
 
-    col.separator()
+        if settings.retarget_show_advanced:
+            row = col.row(align=True)
+            row.prop(settings, 'retarget_function', text="")
+            row.prop(settings, 'retarget_radius', text="")
 
-    row = col.row(align=True)
-    op1 = row.operator('gret.retarget_mesh', icon='CHECKMARK', text="Retarget")
-    op2 = row.operator('gret.retarget_mesh', icon='SHAPEKEY_DATA', text="To Shape Key")
-    if settings.retarget_src and settings.retarget_dst != 'NONE':
-        op1.source = op2.source = settings.retarget_src.name
-        op1.use_shape_key = op2.use_shape_key = settings.retarget_dst.startswith('s_')
-        op1.destination = op2.destination = settings.retarget_dst[2:]
-        op1.invert = op2.invert = settings.retarget_invert
-        op1.function = op2.function = settings.retarget_function
-        op1.radius = op2.radius = settings.retarget_radius
-        op1.use_object_transform = op2.use_object_transform = settings.retarget_use_object_transform
-        op1.use_selection = op2.use_selection = settings.retarget_use_selection
-        op1.high_quality = op2.high_quality = settings.retarget_high_quality
-        op1.use_mirror_x = op2.use_mirror_x = settings.retarget_use_mirror_x
-        op1.as_shape_key = False
-        op2.as_shape_key = True
-    else:
-        row.enabled = False
+            col.prop(settings, 'retarget_use_object_transform')
+            col.prop(settings, 'retarget_use_selection')
+            col.prop(settings, 'retarget_high_quality')
+            col.prop(settings, 'retarget_use_mirror_x')
+
+        col.separator()
+
+        row = col.row(align=True)
+        op1 = row.operator('gret.retarget_mesh', icon='CHECKMARK', text="Retarget")
+        op2 = row.operator('gret.retarget_mesh', icon='SHAPEKEY_DATA', text="To Shape Key")
+        if settings.retarget_src and settings.retarget_dst != 'NONE':
+            op1.source = op2.source = settings.retarget_src.name
+            op1.use_shape_key = op2.use_shape_key = settings.retarget_dst.startswith('s_')
+            op1.destination = op2.destination = settings.retarget_dst[2:]
+            op1.invert = op2.invert = settings.retarget_invert
+            op1.function = op2.function = settings.retarget_function
+            op1.radius = op2.radius = settings.retarget_radius
+            op1.use_object_transform = op2.use_object_transform = settings.retarget_use_object_transform
+            op1.use_selection = op2.use_selection = settings.retarget_use_selection
+            op1.high_quality = op2.high_quality = settings.retarget_high_quality
+            op1.use_mirror_x = op2.use_mirror_x = settings.retarget_use_mirror_x
+            op1.as_shape_key = False
+            op2.as_shape_key = True
+        else:
+            row.enabled = False
 
 def retarget_src_update(self, context):
     # On changing the source object, reset the destination object
@@ -244,11 +253,17 @@ def retarget_dst_items(self, context):
                 items.append(('s_' + sk.name, sk.name, f"Shape Key '{sk.name}'", 'SHAPEKEY_DATA', len(items)))
     return items
 
+classes = (
+    GRET_OT_retarget_mesh,
+    GRET_PT_retarget_mesh,
+)
+
 def register(settings, prefs):
     if not prefs.retarget__enable:
         return False
 
-    bpy.utils.register_class(GRET_OT_retarget_mesh)
+    for cls in classes:
+        bpy.utils.register_class(cls)
 
     settings.add_property('retarget_src', bpy.props.PointerProperty(
         name="Mesh Retarget Source",
@@ -280,4 +295,5 @@ Expected to share topology and vertex order with the source mesh""",
     settings.add_property('retarget_use_mirror_x', retarget_props['use_mirror_x'])
 
 def unregister():
-    bpy.utils.unregister_class(GRET_OT_retarget_mesh)
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
