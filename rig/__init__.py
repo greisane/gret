@@ -22,7 +22,7 @@ class GRET_PT_rig(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.active_object and context.active_object.type == 'ARMATURE'
+        return cls.bl_category and context.active_object and context.active_object.type == 'ARMATURE'
 
     def draw(self, context):
         for draw_func in __class__.draw_funcs:
