@@ -1,5 +1,6 @@
 from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
 from bpy.ops import op_as_string
+from contextlib import contextmanager
 from functools import wraps, lru_cache
 from itertools import islice
 from mathutils import Matrix
@@ -257,32 +258,28 @@ def get_modifier_mask(obj, key=None):
         mask = [True] * len(obj.modifiers)
     return mask[:32] + [False] * (32 - len(mask))
 
-class TempModifier:
-    """Convenient modifier wrapper to use in a `with` block to be automatically applied at the end."""
+@contextmanager
+def instant_modifier(obj, type):
+    """Create a modifier and automatically apply it when leaving scope."""
 
-    def __init__(self, obj, type):
-        self.obj = obj
-        self.type = type
+    saved_mode = bpy.context.mode
+    if bpy.context.mode == 'EDIT_MESH':
+        bpy.ops.object.editmode_toggle()
 
-    def __enter__(self):
-        self.saved_mode = bpy.context.mode
-        if bpy.context.mode == 'EDIT_MESH':
-            bpy.ops.object.editmode_toggle()
-
-        self.modifier = self.obj.modifiers.new(type=self.type, name="")
+    try:
+        modifier = obj.modifiers.new(type=type, name="")
         # Move first to avoid the warning on applying
-        with_object(bpy.ops.object.modifier_move_to_index, self.obj, modifier=self.modifier.name, index=0)
+        with_object(bpy.ops.object.modifier_move_to_index, obj, modifier=modifier.name, index=0)
 
-        return self.modifier
+        yield modifier
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        if self.obj.data.shape_keys and self.obj.data.shape_keys.key_blocks:
-            with_object(bpy.ops.gret.shape_key_apply_modifiers, self.obj,
-                modifier_mask=get_modifier_mask(self.obj, key=lambda mod: mod == self.modifier))
+        if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+            with_object(bpy.ops.gret.shape_key_apply_modifiers, obj,
+                modifier_mask=get_modifier_mask(obj, key=lambda mod: mod == modifier))
         else:
-            with_object(bpy.ops.object.modifier_apply, self.obj, modifier=self.modifier.name)
-
-        if self.saved_mode == 'EDIT_MESH':
+            with_object(bpy.ops.object.modifier_apply, obj, modifier=modifier.name)
+    finally:
+        if saved_mode == 'EDIT_MESH':
             bpy.ops.object.editmode_toggle()
 
 def swap_names(bid1, bid2, /):

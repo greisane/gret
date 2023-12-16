@@ -12,7 +12,7 @@ from ..math import (
     get_range_pct,
 )
 from .helpers import clear_object_data, clear_mesh_customdata
-from ..helpers import get_collection, TempModifier
+from ..helpers import get_collection, instant_modifier
 
 # make_collision TODO:
 # - Non-axis aligned boxes
@@ -447,7 +447,7 @@ class GRET_OT_collision_make(bpy.types.Operator):
         bm.free()
 
         # Decimate (no bmesh op for this currently?)
-        with TempModifier(col_obj, type='DECIMATE') as dec_mod:
+        with instant_modifier(col_obj, type='DECIMATE') as dec_mod:
             dec_mod.ratio = self.decimate_ratio
             dec_mod.use_symmetry = self.use_symmetry
             dec_mod.symmetry_axis = self.symmetry_axis

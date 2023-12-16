@@ -18,11 +18,11 @@ from ..helpers import (
     get_name_safe,
     get_nice_export_report,
     gret_operator_exists,
+    instant_modifier,
     namedtupleish,
     partition,
-    TempModifier,
-    with_object,
     viewport_reveal_all,
+    with_object,
 )
 from ..rig.helpers import (
     copy_drivers,
@@ -259,7 +259,7 @@ def _rig_export(context, job, rig, save, results):
                 # Meshes can deform unpredictably if weights weren't normalized before subdivision
                 # with_object(bpy.ops.object.vertex_group_normalize_all, item.obj,
                     # group_select_mode='BONE_DEFORM', lock_active=False)
-                with TempModifier(item.obj, type='SUBSURF') as subd_mod:
+                with instant_modifier(item.obj, type='SUBSURF') as subd_mod:
                     subd_mod.levels = item.subd_level
                     subd_mod.use_creases = True
                     subd_mod.use_custom_normals = True
@@ -279,6 +279,7 @@ def _rig_export(context, job, rig, save, results):
         obj = item.obj
         logger.indent += 1
 
+        #
         if job.subdivide_faces and obj.face_maps and obj.data.face_maps:
             for face_map_name in shlex.split(job.subdivide_face_map_names):
                 if face_map_name in obj.face_maps:

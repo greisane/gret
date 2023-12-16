@@ -6,7 +6,7 @@ import bpy
 import numpy as np
 
 from ..cache import lru_cache, hash_key
-from ..helpers import get_collection, get_vgroup, with_object, TempModifier, select_only
+from ..helpers import get_collection, get_vgroup, with_object, instant_modifier, select_only
 from ..math import get_direction_safe, grid_snap
 from .helpers import bmesh_vertex_group_bleed_internal
 
@@ -46,7 +46,7 @@ def do_union(context, objs, dst_obj):
         bm.free()
 
     # Boolean merge
-    with TempModifier(dst_obj, type='BOOLEAN') as bool_mod:
+    with instant_modifier(dst_obj, type='BOOLEAN') as bool_mod:
         bool_mod.operation = 'UNION'
         bool_mod.operand_type = 'COLLECTION'
         bool_mod.collection = collection

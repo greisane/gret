@@ -1,7 +1,7 @@
 import bmesh
 import bpy
 
-from ..helpers import with_object, TempModifier
+from ..helpers import with_object, instant_modifier
 
 class GRET_OT_cut_faces_smooth(bpy.types.Operator):
     """Subdivide selected faces and join the result with the surrounding geometry"""
@@ -45,7 +45,7 @@ class GRET_OT_cut_faces_smooth(bpy.types.Operator):
         new_obj.matrix_world = obj.matrix_world
         context.scene.collection.objects.link(new_obj)
 
-        with TempModifier(new_obj, type='SUBSURF') as subd_mod:
+        with instant_modifier(new_obj, type='SUBSURF') as subd_mod:
             subd_mod.levels = 1
             subd_mod.use_creases = True
             subd_mod.use_custom_normals = False

@@ -5,7 +5,7 @@ import bpy
 
 from ..math import get_dist_sq
 from .helpers import edit_mesh_elements, bmesh_vertex_group_bleed
-from ..helpers import with_object, get_modifier, get_vgroup, select_only, TempModifier
+from ..helpers import with_object, get_modifier, get_vgroup, select_only, instant_modifier
 from ..operator import SaveContext
 
 # TODO Detect multiple source mesh boundaries and fail with a helpful message
@@ -131,7 +131,7 @@ def do_graft(context, save, obj, dst_obj, expand=0, cuts=0, blend_distance=0.0, 
         obj.data.auto_smooth_angle = pi
         with_object(bpy.ops.mesh.customdata_custom_splitnormals_clear, obj)
 
-        with TempModifier(obj, type='DATA_TRANSFER') as data_mod:
+        with instant_modifier(obj, type='DATA_TRANSFER') as data_mod:
             data_mod.object = dst_obj
             data_mod.vertex_group = blend_vg.name
             data_mod.use_object_transform = True
@@ -140,7 +140,7 @@ def do_graft(context, save, obj, dst_obj, expand=0, cuts=0, blend_distance=0.0, 
             data_mod.loop_mapping = 'POLYINTERP_NEAREST'
 
     if copy_vertex_groups or copy_uv_layers:
-        with TempModifier(obj, type='DATA_TRANSFER') as data_mod:
+        with instant_modifier(obj, type='DATA_TRANSFER') as data_mod:
             data_mod.object = dst_obj
             data_mod.use_object_transform = True
             if copy_vertex_groups:
