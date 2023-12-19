@@ -236,9 +236,15 @@ Mesh smoothing: Normals only"""),
         default=True,
         update=registered_updated,
     )
-    mesh__sculpt_selection: bpy.props.BoolProperty(
+    mesh__enable_sculpt_selection: bpy.props.BoolProperty(
         name="Enable \"Sculpt Selection\"",
         description="Set the sculpt mask from the current edit-mode vertex selection",
+        default=True,
+        update=registered_updated,
+    )
+    mesh__enable_attribute_selection: bpy.props.BoolProperty(
+        name="Enable \"Attribute Selection\"",
+        description="Boolean attribute selection operators as replacement for Face Maps",
         default=True,
         update=registered_updated,
     )

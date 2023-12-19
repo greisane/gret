@@ -4,6 +4,7 @@ module_names = [
     'helpers',
     'graft',  # So it appears at the top, fix this later
     'merge',
+    'attribute_selection',
     'collision',
     'cut_faces_smooth',
     'extra_objects',

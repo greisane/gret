@@ -36,7 +36,7 @@ def draw_menu(self, context):
     self.layout.operator(GRET_OT_sculpt_selection.bl_idname)
 
 def register(settings, prefs):
-    if not prefs.mesh__sculpt_selection:
+    if not prefs.mesh__enable_sculpt_selection:
         return False
 
     bpy.utils.register_class(GRET_OT_sculpt_selection)
