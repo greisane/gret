@@ -11,7 +11,7 @@ class GRET_OT_attribute_to_selection(bpy.types.Operator):
     """Set the current face selection from a boolean face attribute"""
 
     bl_idname = 'gret.attribute_to_selection'
-    bl_label = "Select Faces By Values"
+    bl_label = "Select Faces by Values"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -50,7 +50,7 @@ class GRET_OT_attribute_from_selection(bpy.types.Operator):
     """Update or create a boolean face attribute from the current edit mode face selection"""
 
     bl_idname = 'gret.attribute_from_selection'
-    bl_label = "Face Selection To Values"
+    bl_label = "Face Selection to Values"
     bl_context = 'mesh_edit'
     bl_options = {'REGISTER', 'UNDO'}
 

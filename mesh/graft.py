@@ -2,9 +2,10 @@ from itertools import dropwhile, chain
 from math import pi
 import bmesh
 import bpy
+import numpy as np
 
 from ..math import get_dist_sq
-from .helpers import edit_mesh_elements, bmesh_vertex_group_bleed
+from .helpers import edit_mesh_elements, bmesh_vertex_group_bleed, get_face_map_attribute
 from ..helpers import with_object, get_modifier, get_vgroup, select_only, instant_modifier
 from ..operator import SaveContext
 
@@ -95,19 +96,12 @@ def do_graft(context, save, obj, dst_obj, expand=0, cuts=0, blend_distance=0.0, 
     try:
         ret = bmesh.ops.bridge_loops(bm, edges=edges1+edges2, use_pairs=False,
             use_cyclic=False, use_merge=False, merge_factor=0.5, twist_offset=0)
-        new_faces = ret['faces']
+        new_face_indices = [face.index for face in ret['faces']]
         # for face in new_faces:
         #     face.smooth = True
     except RuntimeError:
         bm.free()
         raise GraftError("Couldn't bridge loops.")
-
-    # If requested, fill a face map with the new faces
-    # Disabled for 4.0 since there is no actual replacement for face-based selection haha
-    # if face_map_name:
-    #     face_map = obj.face_maps.get(face_map_name) or obj.face_maps.new(name=face_map_name)
-    #     for face in new_faces:
-    #         face[fm_layer] = face_map.index
 
     if cuts > 0:
         bmesh.ops.subdivide_edges(bm, edges=ret['edges'], smooth=1.0, smooth_falloff='LINEAR', cuts=cuts)
@@ -124,6 +118,14 @@ def do_graft(context, save, obj, dst_obj, expand=0, cuts=0, blend_distance=0.0, 
     # Apply the result
     bm.to_mesh(obj.data)
     bm.free()
+
+    # If requested, fill a face map with the new faces
+    if face_map_name:
+        attr = get_face_map_attribute(obj, face_map_name)
+        values = np.empty(len(attr.data), dtype=bool)
+        attr.data.foreach_get('value', values)
+        values[new_face_indices] = True
+        attr.data.foreach_set('value', values)
 
     # Transfer stuff
     if copy_normals:
@@ -195,8 +197,8 @@ class GRET_OT_graft(bpy.types.Operator):
     )
     face_map_name: bpy.props.StringProperty(
         name="Face Map Name",
-        description="Optional name of a face map that contains the new geometry",
-        default="Grafts",
+        description="Optional name of a boolean face attribute that contains the new geometry",
+        default="",
     )
     vertex_group_name: bpy.props.StringProperty(
         name="Vertex Group Name",
@@ -312,7 +314,7 @@ class GRET_OT_graft(bpy.types.Operator):
 
         # layout.prop_search(self, 'vertex_group_name', obj, 'vertex_groups')
         layout.prop(self, 'vertex_group_name', icon='GROUP_VERTEX')
-        # layout.prop(self, 'face_map_name', icon='FACE_MAPS')
+        layout.prop(self, 'face_map_name', icon='FACE_MAPS')
 
         row = layout.row(align=True, heading="Copy")
         row.prop(self, 'copy_normals', text="Norms.", toggle=1)

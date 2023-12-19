@@ -117,6 +117,15 @@ def refresh_active_color_attribute(mesh):
     if mesh.color_attributes.render_color_index < 0:
         mesh.color_attributes.render_color_index = 0
 
+def get_face_map_attribute(obj, name):
+    """Ensures that a boolean face attribute with the given name exists."""
+
+    assert obj.type == 'MESH'
+    attr = obj.data.attributes.get(name)
+    if not attr or attr.domain != 'FACE' or attr.data_type != 'BOOLEAN':
+        attr = obj.data.attributes.new(name, type='BOOLEAN', domain='FACE')
+    return attr
+
 def clear_object_data(obj, vertex_groups=True, shape_keys=True, face_maps=True, constraints=True,
     custom_properties=True, uv_layers=True, vertex_colors=True, attributes=True, materials=True):
     # Clear object data
