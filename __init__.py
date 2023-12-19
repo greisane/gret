@@ -244,7 +244,7 @@ Mesh smoothing: Normals only"""),
     )
     mesh__enable_attribute_selection: bpy.props.BoolProperty(
         name="Enable \"Attribute Selection\"",
-        description="Boolean attribute selection operators as replacement for Face Maps",
+        description="Boolean attribute selection operators as a stand-in for Face Maps",
         default=True,
         update=registered_updated,
     )

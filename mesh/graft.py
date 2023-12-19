@@ -76,7 +76,7 @@ def do_graft(context, save, obj, dst_obj, expand=0, cuts=0, blend_distance=0.0, 
 
     # The target edge loop is the boundary of the intersection. Recreate it in working bmesh.
     # This part takes a while, could use some optimization
-    edit_mesh_elements(dst_obj, 'FACE', intersection_face_indices)
+    edit_mesh_elements(dst_obj, 'FACE', indices=intersection_face_indices)
     for _ in range(expand):
         bpy.ops.mesh.select_more()
     bpy.ops.object.editmode_toggle()

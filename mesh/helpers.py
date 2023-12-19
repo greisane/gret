@@ -24,6 +24,26 @@ one_vector = Vector((1, 1, 1))
 half_vector = Vector((0.5, 0.5, 0.5))
 fmt_shape_key = lambda sk: (sk.name if sk.value == 1.0 else f"{sk.name} ({fmt_fraction(sk.value, 1.0)})")
 
+def _select_mesh_elements(collection, select=True, indices=None, key=None):
+    falses = np.zeros(len(collection), dtype=bool)
+    collection.foreach_set('hide', falses)
+    values = falses
+    result = len(values)
+
+    if select:
+        if key is None and indices is None:
+            values.fill(True)
+        elif key is None:
+            values[indices] = True
+        elif indices is None:
+            values = [bool(key(el)) for el in collection]
+        else:
+            for index in indices:
+                values[index] = bool(key(collection[index]))
+
+    collection.foreach_set('select', values)
+    return sum(values)
+
 def edit_mesh_elements(obj, type='VERT', indices=None, key=None):
     """
     Enters edit mode and selects elements of a mesh to be operated on.
@@ -34,36 +54,20 @@ def edit_mesh_elements(obj, type='VERT', indices=None, key=None):
     Returns the number of elements selected.
     """
 
+    assert obj.type == 'MESH' and obj.mode == 'OBJECT'
     mesh = obj.data
-    num_selected = 0
 
     select_only(bpy.context, obj)
-    bpy.ops.object.mode_set(mode='EDIT')
-    bpy.ops.mesh.reveal()
-    bpy.ops.mesh.select_mode(type='FACE')
-    bpy.ops.mesh.select_all(action='DESELECT')
+    num_verts_selected = _select_mesh_elements(mesh.vertices, type == 'VERT', indices, key)
+    num_edges_selected = _select_mesh_elements(mesh.edges, type == 'EDGE', indices, key)
+    num_faces_selected = _select_mesh_elements(mesh.polygons, type == 'FACE', indices, key)
+
+    bpy.ops.object.editmode_toggle()
     bpy.ops.mesh.select_mode(type=type)
-    bpy.ops.object.mode_set(mode='OBJECT')
 
-    if type == 'VERT':
-        elements = (mesh.vertices if indices is None else (mesh.vertices[i] for i in indices))
-    elif type == 'EDGE':
-        elements = (mesh.edges if indices is None else (mesh.edges[i] for i in indices))
-    elif type == 'FACE':
-        elements = (mesh.polygons if indices is None else (mesh.polygons[i] for i in indices))
-
-    if key is None:
-        for el in elements:
-            el.select = True
-            num_selected += 1
-    else:
-        for el in elements:
-            el.select = bool(key(el))
-            num_selected += el.select
-
-    bpy.ops.object.mode_set(mode='EDIT')
-
-    return num_selected
+    return (num_verts_selected if type == 'VERT'
+        else num_edges_selected if type == 'EDGE'
+        else num_faces_selected)
 
 def edit_face_map_elements(obj, face_map_name):
     """
@@ -73,9 +77,9 @@ def edit_face_map_elements(obj, face_map_name):
     """
 
     assert obj.type == 'MESH' and obj.mode == 'OBJECT'
-
     mesh = obj.data
     attr = mesh.attributes.get(face_map_name)
+
     values = np.zeros(len(mesh.polygons), dtype=bool)
     if attr and attr.domain == 'FACE' and attr.data_type == 'BOOLEAN':
         attr.data.foreach_get('value', values)
