@@ -375,7 +375,10 @@ def draw_job(layout, jobs, job_index):
     op.index = job_index
     op = row2.operator('gret.export_job_duplicate', icon='DUPLICATE', text="", emboss=False)
     op.index = job_index
-    op = row.operator('gret.export', icon='PLAY', text="")
+    row2 = row.row(align=True)
+    op = row2.operator('gret.export', icon='PLAY', text="")
+    op.index = job_index
+    op = row2.operator('gret.export_job_result', icon='TEXT', text="")
     op.index = job_index
 
     if not job.show_expanded:
