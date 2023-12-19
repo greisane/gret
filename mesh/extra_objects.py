@@ -284,7 +284,7 @@ class GRET_OT_rope_add(bpy.types.Operator):
             face.use_smooth = self.use_smooth_shade
         mesh.use_auto_smooth = True
         mesh.auto_smooth_angle = pi
-        crease_data = mesh.attributes.new('crease_edge', type='FLOAT', domain='EDGE').data
+        crease_data = mesh.attributes.new('crease_edge', domain='EDGE', type='FLOAT').data
         for edge in (mesh.edges[4], mesh.edges[8]):
             edge.use_edge_sharp = True
             crease_data[edge.index].value = 1.0

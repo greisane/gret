@@ -279,15 +279,15 @@ def _rig_export(context, job, rig, save, results):
         obj = item.obj
         logger.indent += 1
 
-        #
-        if job.subdivide_faces and obj.face_maps and obj.data.face_maps:
+        if job.subdivide_faces:
             for face_map_name in shlex.split(job.subdivide_face_map_names):
-                if face_map_name in obj.face_maps:
-                    num_selected = edit_face_map_elements(obj, face_map_name)
-                    if num_selected:
-                        log(f"Subdividing face map {face_map_name} ({num_selected} faces)")
-                        with_object(bpy.ops.gret.cut_faces_smooth, obj)
-                    bpy.ops.object.editmode_toggle()
+                num_selected = edit_face_map_elements(obj, face_map_name)
+                if num_selected:
+                    log(f"Subdividing face map {face_map_name} ({num_selected} faces)")
+                    with_object(bpy.ops.gret.cut_faces_smooth, obj)
+                else:
+                    log(f"Face map {face_map_name} doesn't exist or has no faces for subdivision")
+                bpy.ops.object.editmode_toggle()
 
         if job.encode_shape_keys:
             encode_shape_keys(obj, "*_UV")

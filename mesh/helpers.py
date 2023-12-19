@@ -3,6 +3,7 @@ from math import cos
 from mathutils import Vector
 import bmesh
 import bpy
+import numpy as np
 import re
 
 from .. import prefs
@@ -71,27 +72,28 @@ def edit_face_map_elements(obj, face_map_name):
     Returns the number of elements selected.
     """
 
-    face_map_index = obj.face_maps.find(face_map_name)
+    assert obj.type == 'MESH' and obj.mode == 'OBJECT'
+
     mesh = obj.data
-    num_selected = 0
+    attr = mesh.attributes.get(face_map_name)
+    values = np.zeros(len(mesh.polygons), dtype=bool)
+    if attr and attr.domain == 'FACE' and attr.data_type == 'BOOLEAN':
+        attr.data.foreach_get('value', values)
 
-    select_only(bpy.context, obj)
-    bpy.ops.object.mode_set(mode='EDIT')
-    bpy.ops.mesh.reveal()
+    falses = np.zeros(len(mesh.vertices), dtype=bool)
+    mesh.vertices.foreach_set('hide', falses)
+    mesh.vertices.foreach_set('select', falses)
+    falses = np.zeros(len(mesh.edges), dtype=bool)
+    mesh.edges.foreach_set('hide', falses)
+    mesh.edges.foreach_set('select', falses)
+    falses = np.zeros(len(mesh.polygons), dtype=bool)
+    mesh.polygons.foreach_set('hide', falses)
+    mesh.polygons.foreach_set('select', values)
+
+    bpy.ops.object.editmode_toggle()
     bpy.ops.mesh.select_mode(type='FACE')
-    bpy.ops.mesh.select_all(action='DESELECT')
 
-    bm = bmesh.from_edit_mesh(mesh)
-    fm_layer = bm.faces.layers.face_map.active
-
-    if fm_layer and face_map_index >= 0:
-        for face in bm.faces:
-            face.select = (face[fm_layer] == face_map_index)
-            num_selected += face.select
-
-    bmesh.update_edit_mesh(mesh, loop_triangles=False, destructive=False)
-
-    return num_selected
+    return sum(values)
 
 def get_vcolor(obj, name):
     """Ensures that a vertex color layer with the given name exists."""
@@ -121,8 +123,6 @@ def clear_object_data(obj, vertex_groups=True, shape_keys=True, face_maps=True, 
             pass  # Most objects have vertex groups but only a few support them
     if shape_keys:
         obj.shape_key_clear()
-    if face_maps and hasattr(obj, 'face_maps'):
-        obj.face_maps.clear()
     if custom_properties:
         for key in list(obj.keys()):
             del obj[key]
@@ -140,6 +140,8 @@ def clear_object_data(obj, vertex_groups=True, shape_keys=True, face_maps=True, 
         for attribute in reversed(data.attributes):
             if attribute.domain == 'CORNER' and attribute.data_type == 'FLOAT2':
                 should_delete = uv_layers
+            elif attribute.domain == 'FACE' and attribute.data_type == 'BOOLEAN':
+                should_delete = face_maps
             elif (attribute.domain in {'POINT', 'CORNER'}
                 and attribute.data_type in {'BYTE_COLOR', 'FLOAT_COLOR'}):
                 should_delete = vertex_colors
