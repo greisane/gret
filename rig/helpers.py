@@ -56,35 +56,18 @@ arp_ik_bone_names = [
     "ik_hand.l",
     "ik_hand.r"
 ]
-arp_pose_keys = {
-    'ik_fk_switch',
-}
 # Collect values by calling gret.rig.helpers.collect_custom_values()
 # ARP doesn't set default_value for these properties and zeroing these would be undesirable
-arp_default_pose_values = {
-    'arm_twist': 0.0,
+arp_nondefault_pose_values = {
     'auto_eyelid': 0.1,
-    'auto_stretch': 0.0,
-    'autolips': None,  # Different values
-    'bend_all': 0.0,
-    'elbow_pin': 0.0,
+    'autolips': None,  # Different values, don't change them
     'eye_target': 1.0,
-    'fingers_grasp': 0.0,
-    'fix_roll': 0.0,
-    'head_free': 0,
-    'ik_tip': 0,
-    'leg_pin': 0.0,
-    'lips_retain': 0.0,
     'lips_stretch': 1.0,
     'pole_parent': 1,
-    'stretch_length': 1.0,
     'stretch_mode': 1,  # Bone original
-    'thigh_twist': 0.0,
-    'twist': 0.0,
     'volume_variation': 0.0,
     'y_scale': 2,  # Bone original
 }
-default_pose_values = {}
 
 def get_arp_version():
     arp_module = sys.modules.get('auto_rig_pro')
@@ -128,11 +111,10 @@ def clear_pose(obj, clear_gret_props=True, clear_armature_props=False, clear_bon
     if clear_gret_props:
         for data_path in obj.get('properties', []):
             try:
-                prop_wrapper = PropertyWrapper.from_path(obj, data_path)
-                if prop_wrapper:
+                if prop_wrapper := PropertyWrapper.from_path(obj, data_path):
                     prop_wrapper.value = prop_wrapper.default_value
             except Exception as e:
-                logd(f"Couldn't clear property \"{data_path}\": {e}")
+                logd(f"Couldn't clear property {data_path!r}: {e}")
 
     if clear_armature_props:
         for prop_name, prop_value in obj.items():
@@ -142,21 +124,16 @@ def clear_pose(obj, clear_gret_props=True, clear_armature_props=False, clear_bon
     is_arp = is_object_arp(obj)
     for pose_bone in obj.pose.bones:
         if clear_bone_props:
-            for prop_name, prop_value in pose_bone.items():
-                value = None
-                if is_arp and prop_name in arp_pose_keys:
-                    value = pose_bone.id_properties_ui(prop_name).as_dict()['default']
-                elif is_arp and prop_name in arp_default_pose_values:
-                    value = arp_default_pose_values[prop_name]
-                elif prop_name in default_pose_values:
-                    value = default_pose_values[prop_name]
-                elif prop_name.startswith("_"):
+            for prop_name in pose_bone.keys():
+                if prop_name.startswith("_"):
                     continue
+                if is_arp and prop_name in arp_nondefault_pose_values:
+                    value = arp_nondefault_pose_values[prop_name]
                 else:
                     try:
-                        pose_bone[prop_name] = type(prop_value)()
+                        value = pose_bone.id_properties_ui(prop_name).as_dict()['default']
                     except TypeError:
-                        pass
+                        value = None
                 if value is not None:
                     pose_bone[prop_name] = value
         pose_bone.location = Vector()
