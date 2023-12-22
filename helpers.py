@@ -635,7 +635,7 @@ def get_data_collection(bid_or_type, /):
     return getattr(bpy.data, bpy_type_to_data_collection_name.get(bid_or_type, ''), None)
 
 def link_properties(from_bid, from_data_path, to_bid, to_data_path, invert=False):
-    """Creates a simple driver linking properties between two IDs."""
+    """Create a simple driver linking properties between two IDs."""
 
     if not to_bid.animation_data:
         to_bid.animation_data_create()

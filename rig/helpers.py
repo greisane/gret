@@ -12,7 +12,7 @@ from ..helpers import intercept, select_only, titlecase
 from ..operator import PropertyWrapper, SaveContext
 from ..patcher import FunctionWrapper
 
-export_presets = {
+arp_export_presets = {
     'UE4': {
         'arp_ue4': True,
         'arp_engine_type': 'UNREAL',
@@ -34,20 +34,20 @@ export_presets = {
         'mesh_smooth_type': 'OFF',
     },
 }
-non_humanoid_bone_names = [
+arp_non_humanoid_bone_names = [
     'thigh_b_ref.l',
     'thigh_b_ref.r',
 ]
-humanoid_bone_names = [
+arp_humanoid_bone_names = [
     'c_root_master.x',
 ]
-humanoid_limb_bone_names_max_num = [
+arp_humanoid_limb_bone_names_max_num = [
     ('shoulder_ref', 2),
     ('thigh_ref', 2),
     ('neck_ref', 1),
     ('ear_01_ref', 2),
 ]
-ik_bone_names = [
+arp_ik_bone_names = [
     "ik_foot_root",
     "ik_foot.l",
     "ik_foot.r",
@@ -56,7 +56,11 @@ ik_bone_names = [
     "ik_hand.l",
     "ik_hand.r"
 ]
-# Collect keys by calling gret.rig.helpers.collect_custom_values()
+arp_pose_keys = {
+    'ik_fk_switch',
+}
+# Collect values by calling gret.rig.helpers.collect_custom_values()
+# ARP doesn't set default_value for these properties and zeroing these would be undesirable
 arp_default_pose_values = {
     'arm_twist': 0.0,
     'auto_eyelid': 0.1,
@@ -68,7 +72,6 @@ arp_default_pose_values = {
     'fingers_grasp': 0.0,
     'fix_roll': 0.0,
     'head_free': 0,
-    'ik_fk_switch': 1.0,  # TODO should be configurable
     'ik_tip': 0,
     'leg_pin': 0.0,
     'lips_retain': 0.0,
@@ -98,11 +101,11 @@ def is_object_arp_humanoid(obj):
 
     if not is_object_arp(obj):
         return False
-    if any(bname in obj.data.bones for bname in non_humanoid_bone_names):
+    if any(bname in obj.data.bones for bname in arp_non_humanoid_bone_names):
         return False
-    if not all(bname in obj.data.bones for bname in humanoid_bone_names):
+    if not all(bname in obj.data.bones for bname in arp_humanoid_bone_names):
         return False
-    for limb_bone_name, max_num in humanoid_limb_bone_names_max_num:
+    for limb_bone_name, max_num in arp_humanoid_limb_bone_names_max_num:
         if sum(b.name.startswith(limb_bone_name) for b in obj.data.bones) > max_num:
             return False
     if obj.rig_spine_count < 3:
@@ -140,14 +143,13 @@ def clear_pose(obj, clear_gret_props=True, clear_armature_props=False, clear_bon
     for pose_bone in obj.pose.bones:
         if clear_bone_props:
             for prop_name, prop_value in pose_bone.items():
-                if is_arp and prop_name in arp_default_pose_values:
+                value = None
+                if is_arp and prop_name in arp_pose_keys:
+                    value = pose_bone.id_properties_ui(prop_name).as_dict()['default']
+                elif is_arp and prop_name in arp_default_pose_values:
                     value = arp_default_pose_values[prop_name]
-                    if value is not None:
-                        pose_bone[prop_name] = value
                 elif prop_name in default_pose_values:
                     value = default_pose_values[prop_name]
-                    if value is not None:
-                        pose_bone[prop_name] = value
                 elif prop_name.startswith("_"):
                     continue
                 else:
@@ -155,6 +157,8 @@ def clear_pose(obj, clear_gret_props=True, clear_armature_props=False, clear_bon
                         pose_bone[prop_name] = type(prop_value)()
                     except TypeError:
                         pass
+                if value is not None:
+                    pose_bone[prop_name] = value
         pose_bone.location = Vector()
         pose_bone.rotation_quaternion = Quaternion()
         pose_bone.rotation_euler = Euler()
@@ -269,18 +273,18 @@ def export_autorig(filepath, context, rig, objects=[], action=None,
     humanoid=False, export_twist=True,  # ARP options
     minimize_bones=False, remove_bone_names=[], rename_bone_pairs=[]):
     scn = context.scene
-    preset = export_presets.get(prefs.jobs__export_preset, {})
+    preset = arp_export_presets.get(prefs.jobs__export_preset, {})
     arp_version = get_arp_version()
     arp_engine_type = preset.get('arp_engine_type', 'UNREAL')
 
     add_ik_bones = False
     if humanoid and arp_engine_type == 'UNREAL':
-        ik_bones_not_found = [s for s in ik_bone_names if
+        ik_bones_not_found = [s for s in arp_ik_bone_names if
             s not in rig.pose.bones or 'custom_bone' not in rig.pose.bones[s]]
         if not ik_bones_not_found:
             # All IK bones accounted for
             add_ik_bones = False
-        elif len(ik_bones_not_found) == len(ik_bone_names):
+        elif len(ik_bones_not_found) == len(arp_ik_bone_names):
             # No IK bones present, let ARP create them
             log("IK bones will be created")
             add_ik_bones = True
@@ -454,7 +458,7 @@ def export_autorig(filepath, context, rig, objects=[], action=None,
 @intercept(error_result={'CANCELLED'})
 def export_fbx(filepath, context, rig, objects=[], action=None,
     minimize_bones=False, remove_bone_names=[], rename_bone_pairs=[]):
-    preset = export_presets.get(prefs.jobs__export_preset, {})
+    preset = arp_export_presets.get(prefs.jobs__export_preset, {})
 
     with SaveContext(context, "export_fbx") as save:
         if action:

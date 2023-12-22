@@ -46,7 +46,7 @@ class GRET_OT_pose_set(bpy.types.Operator):
             return self.execute(context)
 
 class GRET_OT_pose_make(bpy.types.Operator):
-    """Creates a pose marker for every frame in the action"""
+    """Create a pose marker for every frame in the action"""
 
     bl_idname = 'gret.pose_make'
     bl_label = "Make Poses"
