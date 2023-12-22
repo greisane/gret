@@ -12,7 +12,7 @@ from ..helpers import intercept, select_only, titlecase
 from ..operator import PropertyWrapper, SaveContext
 from ..patcher import FunctionWrapper
 
-arp_export_presets = {
+export_presets = {
     'UE4': {
         'arp_ue4': True,
         'arp_engine_type': 'UNREAL',
@@ -273,7 +273,7 @@ def export_autorig(filepath, context, rig, objects=[], action=None,
     humanoid=False, export_twist=True,  # ARP options
     minimize_bones=False, remove_bone_names=[], rename_bone_pairs=[]):
     scn = context.scene
-    preset = arp_export_presets.get(prefs.jobs__export_preset, {})
+    preset = export_presets.get(prefs.jobs__export_preset, {})
     arp_version = get_arp_version()
     arp_engine_type = preset.get('arp_engine_type', 'UNREAL')
 
@@ -458,7 +458,7 @@ def export_autorig(filepath, context, rig, objects=[], action=None,
 @intercept(error_result={'CANCELLED'})
 def export_fbx(filepath, context, rig, objects=[], action=None,
     minimize_bones=False, remove_bone_names=[], rename_bone_pairs=[]):
-    preset = arp_export_presets.get(prefs.jobs__export_preset, {})
+    preset = export_presets.get(prefs.jobs__export_preset, {})
 
     with SaveContext(context, "export_fbx") as save:
         if action:
