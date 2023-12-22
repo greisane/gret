@@ -119,6 +119,12 @@ class GretAddonPreferences(bpy.types.AddonPreferences):
         default=True,
         update=registered_updated,
     )
+    animation__enable_channels_delete_redundant: bpy.props.BoolProperty(
+        name="Enable \"Delete Redundant Channels\"",
+        description="Delete empty channels and non-contributing channels where all keys are default",
+        default=True,
+        update=registered_updated,
+    )
     animation__show_action_frame_range: bpy.props.BoolProperty(
         name="Show Action Frame Range",
         description="Show custom frame range controls in the action panel",

@@ -3,6 +3,7 @@ import bpy
 module_names = [
     'actions',
     'channels_auto_group',
+    'channels_delete_redundant',
     'channels_delete_unavailable',
     'pose_blender',
     'pose_markers',
