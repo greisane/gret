@@ -229,7 +229,8 @@ class GRET_OT_search_modifier_tags(bpy.types.Operator):
         if obj_names:
             s = "objects match" if len(obj_names) > 1 else "object matches"
             self.report({'INFO'}, f"{len(obj_names)} {s}: {', '.join(obj_names)}.")
-            context.view_layer.objects.active = context.selected_objects[0]
+            if context.selected_objects:
+                context.view_layer.objects.active = context.selected_objects[0]
         else:
             self.report({'INFO'}, f"No objects match these tags.")
 

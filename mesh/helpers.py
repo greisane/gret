@@ -171,6 +171,8 @@ def clear_object_data(obj, /, *, vertex_groups=True, shape_keys=True, materials=
                 should_delete = sharp_edge
             elif attribute.name == 'sharp_face':
                 should_delete = sharp_face
+            elif attribute.name == 'face_maps':
+                should_delete = face_maps
             elif attribute.domain == 'FACE' and attribute.data_type == 'BOOLEAN':
                 should_delete = face_maps
             elif attribute.domain == 'CORNER' and attribute.data_type == 'FLOAT2':
