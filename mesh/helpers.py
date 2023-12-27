@@ -126,35 +126,55 @@ def get_face_map_attribute(obj, name):
         attr = obj.data.attributes.new(name, type='BOOLEAN', domain='FACE')
     return attr
 
-def clear_object_data(obj, vertex_groups=True, shape_keys=True, face_maps=True, constraints=True,
-    custom_properties=True, uv_layers=True, vertex_colors=True, attributes=True, materials=True):
+def clear_object_data(obj, /, *, vertex_groups=True, shape_keys=True, materials=True,
+    constraints=True, custom_properties=True, bevel_weight_edge=True, bevel_weight_vert=True,
+    crease_edge=True, crease_vert=True, sharp_edge=True, sharp_face=True, face_maps=True,
+    uv_layers=True, vertex_colors=True, attributes=True, sculpt_mask_data=True, skin_data=True,
+    custom_split_normals=True):
+
     # Clear object data
     if vertex_groups and hasattr(obj, 'vertex_groups'):
         try:
             obj.vertex_groups.clear()
         except RuntimeError:
             pass  # Most objects have vertex groups but only a few support them
+
     if shape_keys:
         obj.shape_key_clear()
-    if custom_properties:
-        for key in list(obj.keys()):
-            del obj[key]
+
     if constraints:
         try_with_object(bpy.ops.rigidbody.constraint_remove, obj)
         try_with_object(bpy.ops.rigidbody.object_remove, obj)
         # bpy.ops.object.forcefield_toggle(obj)  # Didn't bother
 
+    if custom_properties:
+        for key in list(obj.keys()):
+            del obj[key]
+
     # Clear data data
     data = obj.data
     if materials and hasattr(data, 'materials'):
         data.materials.clear()  # This should also clear object material slots
+
     if hasattr(data, 'attributes'):
         # Iterating backwards seems to fix an issue where color layers just refuse to be removed
         for attribute in reversed(data.attributes):
-            if attribute.domain == 'CORNER' and attribute.data_type == 'FLOAT2':
-                should_delete = uv_layers
+            if attribute.name == 'bevel_weight_edge':
+                should_delete = bevel_weight_edge
+            elif attribute.name == 'bevel_weight_vert':
+                should_delete = bevel_weight_vert
+            elif attribute.name == 'crease_edge':
+                should_delete = crease_edge
+            elif attribute.name == 'crease_vert':
+                should_delete = crease_vert
+            elif attribute.name == 'sharp_edge':
+                should_delete = sharp_edge
+            elif attribute.name == 'sharp_face':
+                should_delete = sharp_face
             elif attribute.domain == 'FACE' and attribute.data_type == 'BOOLEAN':
                 should_delete = face_maps
+            elif attribute.domain == 'CORNER' and attribute.data_type == 'FLOAT2':
+                should_delete = uv_layers
             elif (attribute.domain in {'POINT', 'CORNER'}
                 and attribute.data_type in {'BYTE_COLOR', 'FLOAT_COLOR'}):
                 should_delete = vertex_colors
@@ -165,35 +185,19 @@ def clear_object_data(obj, vertex_groups=True, shape_keys=True, face_maps=True, 
                     data.attributes.remove(attribute)
                 except RuntimeError:
                     pass
-    if face_maps and hasattr(data, 'face_maps'):
-        # Note these are not the same as object face maps
-        while data.face_maps.active:
-            data.face_maps.remove(data.face_maps.active)
+
     if custom_properties:
         for key in list(data.keys()):
             del data[key]
 
-def clear_mesh_customdata(obj, sculpt_mask_data=True, skin_data=True, custom_split_normals=True,
-    edge_bevel_weight=True, vertex_bevel_weight=True, edge_crease=True, vertex_crease=True,
-    face_sharp=True, edge_sharp=True):
     if sculpt_mask_data:
         try_with_object(bpy.ops.mesh.customdata_mask_clear, obj)
+
     if skin_data:
         try_with_object(bpy.ops.mesh.customdata_skin_clear, obj)
+
     if custom_split_normals:
         try_with_object(bpy.ops.mesh.customdata_custom_splitnormals_clear, obj)
-    if edge_bevel_weight and (attr := obj.data.attributes.get('bevel_weight_edge')):
-        obj.data.attributes.remove(attr)
-    if vertex_bevel_weight and (attr := obj.data.attributes.get('bevel_weight_vert')):
-        obj.data.attributes.remove(attr)
-    if edge_crease and (attr := obj.data.attributes.get('crease_edge')):
-        obj.data.attributes.remove(attr)
-    if vertex_crease and (attr := obj.data.attributes.get('crease_vert')):
-        obj.data.attributes.remove(attr)
-    if edge_sharp and (attr := obj.data.attributes.get('sharp_edge')):
-        obj.data.attributes.remove(attr)
-    if face_sharp and (attr := obj.data.attributes.get('sharp_face')):
-        obj.data.attributes.remove(attr)
 
 def merge_vertex_groups(obj, src_name, dst_name, remove_src=True):
     """Merges the source vertex group into the destination vertex group."""

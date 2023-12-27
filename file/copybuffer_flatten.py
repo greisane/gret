@@ -1,7 +1,7 @@
 import bpy
 
 from ..helpers import select_only
-from ..mesh.helpers import clear_object_data, clear_mesh_customdata
+from ..mesh.helpers import clear_object_data
 from ..operator import SaveContext
 
 # TODO
@@ -86,22 +86,22 @@ Modifiers and shape keys are applied, optionally other data may be removed"""
                 clear_object_data(obj,
                     vertex_groups=self.clear_vertex_groups,
                     shape_keys=True,
-                    face_maps=self.clear_face_maps,
+                    materials=self.clear_materials,
+                    constraints=True,
                     custom_properties=self.clear_custom_properties,
+                    bevel_weight_edge=False,
+                    bevel_weight_vert=False,
+                    crease_edge=False,
+                    crease_vert=False,
+                    sharp_edge=False,
+                    sharp_face=False,
+                    face_maps=self.clear_face_maps,
                     uv_layers=self.clear_uv_layers,
                     vertex_colors=self.clear_vertex_colors,
                     attributes=self.clear_attributes,
-                    materials=self.clear_materials)
-                clear_mesh_customdata(obj,
                     sculpt_mask_data=True,
                     skin_data=False,
-                    custom_split_normals=False,
-                    edge_bevel_weight=False,
-                    vertex_bevel_weight=False,
-                    edge_crease=False,
-                    vertex_crease=False,
-                    face_sharp=False,
-                    edge_sharp=False)
+                    custom_split_normals=False)
 
                 # Sever all remaining references
                 # TODO Armatures will still copy custom bone shapes, need to check in pose mode
