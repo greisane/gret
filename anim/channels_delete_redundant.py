@@ -3,6 +3,7 @@ import re
 
 from ..helpers import sentence_join
 from ..operator import PropertyWrapper
+from ..rig.helpers import is_object_arp, arp_nondefault_pose_values
 
 class GRET_OT_channels_delete_redundant(bpy.types.Operator):
     """Delete empty channels and non-contributing channels where all keys are default"""
@@ -21,6 +22,7 @@ class GRET_OT_channels_delete_redundant(bpy.types.Operator):
         if not action:
             return {'CANCELLED'}
 
+        is_arp = is_object_arp(obj)
         remove_fcurves = []
         num_empty = num_redundant = 0
 
@@ -35,10 +37,13 @@ class GRET_OT_channels_delete_redundant(bpy.types.Operator):
                 continue
 
             if prop := PropertyWrapper.from_path(obj, fc.data_path):
-                try:
-                    default_value = prop.default_value[fc.array_index]
-                except TypeError:
-                    default_value = prop.default_value
+                if is_arp and prop.prop_name in arp_nondefault_pose_values:
+                    default_value = arp_nondefault_pose_values[prop.prop_name]
+                else:
+                    try:
+                        default_value = prop.default_value[fc.array_index]
+                    except TypeError:
+                        default_value = prop.default_value
 
                 if all(kf.co.y == default_value for kf in fc.keyframe_points):
                     remove_fcurves.append(fc)
