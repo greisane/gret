@@ -85,7 +85,7 @@ Existing layers are reordered or renamed. Missing UVs are created and extra laye
 
     def execute(self, context):
         src_uv_layers = context.active_object.data.uv_layers
-        active_render_name = next((uv.name for uv in src_uv_layers if uv.active_render), None)
+        active_render_name = next((uv.name for uv in src_uv_layers if uv.active_render), "")
         num_moved = num_renamed = num_created = num_removed = 0
 
         for obj in context.selected_objects:
