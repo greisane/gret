@@ -176,9 +176,61 @@ class WeldModifierHandler(ModifierHandler):
         self.weld_map = {src.index: dst.index for src, dst in targetmap.items()}
         bm.free()
 
+class DecimateModifierHandler(ModifierHandler):
+    # Only works with "collapse" decimate type. There are no operators for the other types as far as i'm aware.
+    modifier_type = "DECIMATE"
+
+    def __init__(self, modifier):
+        super().__init__(modifier)
+        self.ratio = modifier.ratio
+        self.vertex_group = modifier.vertex_group
+        self.invert_vertex_group = modifier.invert_vertex_group
+        self.vertex_group_factor = modifier.vertex_group_factor
+        self.use_symmetry = modifier.use_symmetry
+        self.symmetry_axis = modifier.symmetry_axis
+
+    @classmethod
+    def poll(cls, modifier):
+        return super().poll(modifier) and modifier.decimate_type == "COLLAPSE"
+
+    def apply(self, obj):
+        print("wow")
+        modifier = obj.modifiers[self.modifier_name]
+        # There are special EDIT modes depending on object type, but mode_set only accepts EDIT.
+        mode = bpy.context.mode if not bpy.context.mode.count('EDIT') else 'EDIT'
+        active_obj = bpy.context.view_layer.objects.active
+        selected_objs = bpy.context.selected_objects
+        shapekey_index = obj.active_shape_key_index
+
+        obj.active_shape_key_index = 0
+        if self.vertex_group:
+            obj.vertex_groups.active_index = obj.vertex_groups.get(self.vertex_group).index
+
+        # Makes sure everything is deselected first.
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.select_all(action='DESELECT')
+
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.reveal()
+        bpy.ops.mesh.select_all(action='SELECT')
+
+        with_object(bpy.ops.mesh.decimate, obj, ratio=self.ratio, use_vertex_group=True if self.vertex_group else False, vertex_group_factor=self.vertex_group_factor, invert_vertex_group=self.invert_vertex_group, use_symmetry=self.use_symmetry, symmetry_axis=self.symmetry_axis)
+        obj.modifiers.remove(modifier)
+
+        # Reassigns the selected objects, active object and mode, as well as the active shapekey in the object.
+        obj.active_shape_key_index = shapekey_index
+        for obj in selected_objs:
+            obj.select_set(True)
+        bpy.context.view_layer.objects.active = active_obj
+        bpy.ops.object.mode_set(mode=mode)
+
+
+
 modifier_handler_classes = (
     MirrorModifierHandler,
     WeldModifierHandler,
+    DecimateModifierHandler,
     ModifierHandler,
 )
 
@@ -335,11 +387,18 @@ class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
         # Handle modifiers accordingly. This means recording welded vertex pairs for mirrors and such
         obj.shape_key_clear()
         modifier_handlers = []
+        post_modifier_handlers = []
         for modifier, mask in zip(obj.modifiers[:], self.modifier_mask):
             if mask:
                 for modifier_handler_cls in modifier_handler_classes:
                     if modifier_handler_cls.poll(modifier):
                         modifier_handler = modifier_handler_cls(modifier)
+
+                        # Hardcoded. if more special handlers are added later a bool check in the Handler class would be better
+                        if modifier_handler.modifier_name == "Decimate":
+                            post_modifier_handlers.append(modifier_handler)
+                            break
+
                         modifier_handler.apply(obj)
                         modifier_handlers.append(modifier_handler)
                         break
@@ -371,6 +430,12 @@ class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
                     "the shape key will be lost.")
                 continue
             shape_key_info.put_coords_into(shape_key.data)
+
+        # For modifiers that should be applied after all the shapekeys are sorted.
+        # The Decimate modifier is special in the sense that it already exists as an operator, which can be used while preserving the shapekeys,
+        # so instead of wastefully applying it for every single copy, do it at the ending.
+        for modifier_handler in post_modifier_handlers:
+            modifier_handler.apply(obj)
 
         # Recreate drivers
         if mesh_copy.shape_keys and mesh_copy.shape_keys.animation_data:
