@@ -194,7 +194,6 @@ class DecimateModifierHandler(ModifierHandler):
         return super().poll(modifier) and modifier.decimate_type == "COLLAPSE"
 
     def apply(self, obj):
-        print("wow")
         modifier = obj.modifiers[self.modifier_name]
         # There are special EDIT modes depending on object type, but mode_set only accepts EDIT.
         mode = bpy.context.mode if not bpy.context.mode.count('EDIT') else 'EDIT'
