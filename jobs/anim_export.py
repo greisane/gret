@@ -9,9 +9,9 @@ from ..log import logger, log, logd
 from ..helpers import (
     beep,
     fail_if_invalid_export_path,
+    get_bid_filepath,
     get_export_path,
     get_nice_export_report,
-    get_bid_filepath,
 )
 from ..rig.helpers import (
     export_autorig,

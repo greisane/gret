@@ -25,10 +25,8 @@ half_vector = Vector((0.5, 0.5, 0.5))
 fmt_shape_key = lambda sk: (sk.name if sk.value == 1.0 else f"{sk.name} ({fmt_fraction(sk.value, 1.0)})")
 
 def _select_mesh_elements(collection, select=True, indices=None, key=None):
-    falses = np.zeros(len(collection), dtype=bool)
-    collection.foreach_set('hide', falses)
-    values = falses
-    result = len(values)
+    values = np.zeros(len(collection), dtype=bool)
+    collection.foreach_set('hide', values)
 
     if select:
         if key is None and indices is None:
@@ -42,7 +40,7 @@ def _select_mesh_elements(collection, select=True, indices=None, key=None):
                 values[index] = bool(key(collection[index]))
 
     collection.foreach_set('select', values)
-    return sum(values)
+    return np.sum(values)
 
 def edit_mesh_elements(obj, type='VERT', indices=None, key=None):
     """

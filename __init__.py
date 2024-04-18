@@ -425,12 +425,12 @@ UE4 -- "(R={lr:f},G={lg:f},B={lb:f},A={a:f})\"""",
         layout.use_property_split = True
 
         if self.categories is None:
-            # Cache grouped props by category (the part left of the double underscore "__")
+            # Cache grouped props by category (the part left of the double underscore)
             from .helpers import titlecase
             d = defaultdict(list)
             unnamed_category_name = "Miscellaneous"
             for prop_name in self.__annotations__:
-                cpos = prop_name.find("__")
+                cpos = prop_name.find('__')
                 category_name = titlecase(prop_name[:cpos]) if cpos > 0 else unnamed_category_name
                 d[category_name].append(prop_name)
             def get_prop_title(prop_name):
@@ -438,7 +438,7 @@ UE4 -- "(R={lr:f},G={lg:f},B={lb:f},A={a:f})\"""",
                     return self.__annotations__[prop_name].keywords['name']
                 except:
                     return prop_name
-            prop_sort_key = lambda s: "" if s.endswith("__enable") else get_prop_title(s)  # Toggles first
+            prop_sort_key = lambda s: "" if s.endswith('__enable') else get_prop_title(s)  # Toggles first
             category_sort_key = lambda s: "ZZ" if s == unnamed_category_name else s  # Unnamed last
             category_icons = {
                 "Animation": 'CAMERA_DATA',

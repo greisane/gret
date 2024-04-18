@@ -2,7 +2,6 @@ from bpy.app.handlers import persistent
 from collections import namedtuple
 from itertools import chain
 from mathutils import Euler
-from numbers import Number
 import bpy
 import json
 import re
@@ -10,7 +9,7 @@ import re
 from ..helpers import flip_name
 from ..math import saturate, Transform
 
-Pose = namedtuple('Pose', ('name', 'transforms'))
+Pose = namedtuple('Pose', 'name transforms')
 
 class GRET_OT_pose_blender_clear(bpy.types.Operator):
     """Clear weights for all poses"""
@@ -228,7 +227,7 @@ Use the Pose Markers panel to create the pose markers""",
     base_pose_name: bpy.props.StringProperty(
         name="Base Pose",
         description="""Optional, other poses are made relative to this pose.
-A base pose is useful if the rest pose is not neutral (e.g. has an open mouth)""",
+A base pose is useful if the rest pose is not neutral (e.g. mouth is open)""",
         default="",
         options=set(),
         override={'LIBRARY_OVERRIDABLE'},
@@ -274,8 +273,8 @@ A base pose is useful if the rest pose is not neutral (e.g. has an open mouth)""
             pose_transforms.append(transforms)
 
             for fc in self.action.fcurves:
-                pb_match = re.match(r'^pose\.bones\["(.+)"\]\.(\w+)$', fc.data_path)
-                if pb_match:
+                if pb_match := re.fullmatch(r'pose\.bones\["(.+)"\]\.(\w+)', fc.data_path):
+                    # TODO non-XYZ euler and axis angle
                     # Handle bone curves
                     bone_name, prop_name = pb_match[1], pb_match[2]
                     array_index, value = fc.array_index, fc.evaluate(marker.frame)
@@ -341,7 +340,7 @@ A base pose is useful if the rest pose is not neutral (e.g. has an open mouth)""
 
         # Pair up symmetric poses. This is mostly for layout
         def get_pose_name_tuple(pose_name):
-            return pose_name, pose_name.removesuffix("_pose")
+            return pose_name, pose_name.removesuffix('_pose')
 
         data.pose_pairs.clear()
         pose_names = [pose.name for pose in reversed(data.poses)]
@@ -437,8 +436,7 @@ A base pose is useful if the rest pose is not neutral (e.g. has an open mouth)""
 
         pose_bones = obj.pose.bones
         for bone_name, transform in zip(data.relevant_bones, current_pose):
-            pb = pose_bones.get(bone_name)
-            if pb:
+            if pb := pose_bones.get(bone_name):
                 if pb.rotation_mode == 'QUATERNION':
                     pb.rotation_quaternion = transform.rotation
                 elif pb.rotation_mode == 'AXIS_ANGLE':

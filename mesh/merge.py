@@ -271,7 +271,6 @@ Use to leave normals intact on hair ends and crevices""",
         else:
             col = layout.column(align=True)
             col.label(text="One or more objects have no UV layers.", icon='ERROR')
-            col.label(text="Using regular welding. Bad for hair since it destroys seams.")
             layout.prop(self, 'weld_distance', text="Distance")
         layout.prop(self, 'delete_non_manifold', text="Delete Non-Manifold")
 
