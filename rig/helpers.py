@@ -132,7 +132,7 @@ def clear_pose(obj, clear_gret_props=True, clear_armature_props=False, clear_bon
                 else:
                     try:
                         value = pose_bone.id_properties_ui(prop_name).as_dict()['default']
-                    except TypeError:
+                    except (KeyError, TypeError):
                         value = None
                 if value is not None:
                     pose_bone[prop_name] = value
