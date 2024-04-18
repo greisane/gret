@@ -16,6 +16,13 @@ safediv = lambda x, y: x / y if y != 0.0 else 0.0
 fmt_pct = lambda pct: f"{pct:.0f}%" if int(pct) == pct else f"{pct:.1f}%"
 fmt_fraction = lambda x, y: fmt_pct(safediv(x, y) * 100.0)
 
+class ConstantCurve:
+    """Mimics FCurve and always returns the same value on evaluation."""
+    def __init__(self, value=0.0):
+        self.value = value
+    def evaluate(self, frame_index):
+        return self.value
+
 class namedtupleish:
     """Functions similarly to a mutable namedtuple. Not terribly tested."""
 

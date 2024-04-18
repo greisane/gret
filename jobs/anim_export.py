@@ -8,6 +8,7 @@ from .. import prefs
 from ..log import logger, log, logd
 from ..helpers import (
     beep,
+    ConstantCurve,
     fail_if_invalid_export_path,
     get_bid_filepath,
     get_export_path,
@@ -20,13 +21,6 @@ from ..rig.helpers import (
     is_object_arp_humanoid,
 )
 from ..operator import SaveContext
-
-class ConstantCurve:
-    """Mimics FCurve and always returns the same value on evaluation."""
-    def __init__(self, value=0.0):
-        self.value = value
-    def evaluate(self, frame_index):
-        return self.value
 
 def _anim_export(context, job, rig, save, results):
     rig_filepath = get_bid_filepath(rig)
