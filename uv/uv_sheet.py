@@ -276,7 +276,7 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
         image = bpy.data.images.get(self.image)
 
         # Cover the viewport
-        rect = Rect.from_size(region.x, region.y, region.width, region.height)
+        rect = Rect.from_corner(region.x, region.y, region.width, region.height)
         draw_box_fill(0, 0, region.width, region.height, theme.background)
 
         with gpu.matrix.push_pop():
@@ -406,8 +406,8 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
         # Reset state
         max_size = min(region.width * 0.6, region.height * 0.8)
         scale = image.size[0] / max(image.size), image.size[1] / max(image.size)
-        region_rect = Rect.from_size(region.x, region.y, region.width, region.height)
-        view_rect = region_rect.resize(max_size * scale[0], max_size * scale[1])
+        region_rect = Rect.from_corner(region.x, region.y, region.width, region.height)
+        view_rect = region_rect.with_size(max_size * scale[0], max_size * scale[1])
         self.matrix_view = _MTS(view_rect.x0 - region_rect.x0, view_rect.y0 - region_rect.y0,
             view_rect.width, view_rect.height)
         self.mouse_pos = (0, 0)

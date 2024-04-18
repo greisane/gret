@@ -149,7 +149,7 @@ class UVPickerSelectorControl(UVPickerBaseControl):
         else:
             scale_x, scale_y = 1.0, 1.0
         size = self.owner.size
-        return Rect.from_size(*self.owner.position, size * scale_x, size * scale_y)
+        return Rect.from_corner(*self.owner.position, size * scale_x, size * scale_y)
 
     def get_target_rect(self):
         quad = bpy.context.scene.gret.uv_picker_quad
@@ -246,12 +246,12 @@ class UVPickerSelectorControl(UVPickerBaseControl):
 class UVPickerQuadControl(UVPickerBaseControl):
     def get_rect(self, image):
         picker_rect = self.owner.picker.get_rect(image)
-        return Rect.from_size(picker_rect.x0, picker_rect.y1 + 4.0, *icon_size)
+        return Rect.from_corner(picker_rect.x0, picker_rect.y1 + 4.0, *icon_size)
 
     def draw(self, context, image):
         rect = self.get_rect(image)
         w, h = rect.width, rect.height
-        rect = rect.resize(w * 0.5, h * 0.5).expand(-1)
+        rect = rect.with_size(w * 0.5, h * 0.5).expand(-1)
         quad = context.scene.gret.uv_picker_quad
         draw_box_fill(*rect.move(w * -0.25, h * +0.25), theme.hovered if quad == 0 else theme.border)
         draw_box_fill(*rect.move(w * +0.25, h * +0.25), theme.hovered if quad == 1 else theme.border)
@@ -266,7 +266,7 @@ class UVPickerQuadControl(UVPickerBaseControl):
 class UVPickerGridControl(UVPickerBaseControl):
     def get_rect(self, image):
         picker_rect = self.owner.picker.get_rect(image)
-        return Rect.from_size(picker_rect.x1 - icon_size[0], picker_rect.y1 + 4.0, *icon_size)
+        return Rect.from_corner(picker_rect.x1 - icon_size[0], picker_rect.y1 + 4.0, *icon_size)
 
     def draw(self, context, image):
         draw_icon(*self.get_rect(image), 'GRID', theme.hovered if self.is_active else theme.border)
@@ -279,7 +279,7 @@ class UVPickerGridControl(UVPickerBaseControl):
 class UVPickerResizeControl(UVPickerBaseControl):
     def get_rect(self, image):
         picker_rect = self.owner.picker.get_rect(image)
-        return Rect.from_size(picker_rect.x1 + 4.0, picker_rect.y1 + 4.0, *icon_size)
+        return Rect.from_corner(picker_rect.x1 + 4.0, picker_rect.y1 + 4.0, *icon_size)
 
     def draw(self, context, image):
         draw_icon(*self.get_rect(image), 'RESIZE', theme.hovered if self.is_active else theme.border)
@@ -338,7 +338,7 @@ class UVPickerHelpControl(UVPickerBaseControl):
 
     def get_rect(self, image):
         picker_rect = self.owner.picker.get_rect(image)
-        return Rect.from_size(picker_rect.x1 + 4.0, picker_rect.y1 - icon_size[1], *icon_size)
+        return Rect.from_corner(picker_rect.x1 + 4.0, picker_rect.y1 - icon_size[1], *icon_size)
 
     def draw(self, context, image):
         rect = self.get_rect(image)

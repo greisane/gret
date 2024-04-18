@@ -19,16 +19,23 @@ clamp = lambda x, mn, mx: min(mx, max(mn, x))
 grid_snap = lambda x, grid: x if grid == 0.0 else floor((x + (grid * 0.5)) / grid) * grid
 equals = lambda a, b, threshold=SMALL_NUMBER: abs(a - b) <= threshold
 lerp = lambda a, b, t: t * b + (1.0 - t) * a
+lerp_array = lambda a, b, x: tuple(lerp(a, b, x) for a, b in zip(a, b))
 invlerp = lambda a, b, x: (x - a) / (b - a)  # Safe version in get_range_pct
 avg = lambda l, f: sum(f(el) for el in l) / len(l)
 frac = lambda x: x - int(x)
+sigmoid = lambda x: 1.0 / (np.exp(-x) + 1.0)
 
-class Rect(namedtuple("Rect", ["x0", "y0", "x1", "y1"])):
+class Rect(namedtuple('Rect', 'x0 y0 x1 y1')):
     __slots__ = ()
 
     @classmethod
-    def from_size(cls, x, y, width, height):
+    def from_corner(cls, x, y, /, width, height):
         return cls(x, y, x + width, y + height)
+
+    @classmethod
+    def from_center(cls, x, y, /, width, height):
+        hw, hh = width * 0.5, height * 0.5
+        return cls(x - hw, y - hh, x + hw, y + hh)
 
     @property
     def width(self):
@@ -39,6 +46,10 @@ class Rect(namedtuple("Rect", ["x0", "y0", "x1", "y1"])):
         return self.y1 - self.y0
 
     @property
+    def area(self):
+        return self.width * self.height
+
+    @property
     def center(self):
         return self.x0 + (self.x1 - self.x0) * 0.5, self.y0 + (self.y1 - self.y0) * 0.5
 
@@ -46,21 +57,26 @@ class Rect(namedtuple("Rect", ["x0", "y0", "x1", "y1"])):
     def corners(self):
         return (self.x0, self.y0), (self.x1, self.y0), (self.x0, self.y1), (self.x1, self.y1)
 
+    @property
+    def size(self):
+        return self.width, self.height
+
+    def with_size(self, width, height, /):
+        hw, hh = width * 0.5, height * 0.5
+        cx, cy = self.center
+        return Rect(cx - hw, cy - hh, cx + hw, cy + hh)
+
     def contains(self, x, y):
         return self.x0 < x < self.x1 and self.y0 < y < self.y1
 
     def intersects(self, other):
         return self.x0 <= other.x1 and other.x0 <= self.x1 and self.y0 <= other.y1 and other.y0 <= self.y1
 
-    def expand(self, w):
-        return Rect(self.x0 - w, self.y0 - w, self.x1 + w, self.y1 + w)
+    def expand(self, w, h=None, /):
+        h = w if h is None else h
+        return Rect(self.x0 - w, self.y0 - h, self.x1 + w, self.y1 + h)
 
-    def resize(self, width, height):
-        w, h = width * 0.5, height * 0.5
-        cx, cy = self.center
-        return Rect(cx - w, cy - h, cx + w, cy + h)
-
-    def move(self, x, y):
+    def move(self, x, y, /):
         return Rect(self.x0 + x, self.y0 + y, self.x1 + x, self.y1 + y)
 
     def to_screen(self, view2d):
@@ -68,16 +84,40 @@ class Rect(namedtuple("Rect", ["x0", "y0", "x1", "y1"])):
         x1, y1 = view2d.view_to_region(self.x1, self.y1, clip=False)
         return Rect(x0, y0, x1, y1)
 
-    def to_trs_matrix(self):
-        m = Matrix()
-        m[0][3], m[1][3], m[0][0], m[1][1] = self.x0, self.y0, self.width, self.height
-        return m
+    def to_matrix(self):
+        mat = Matrix()
+        mat[0][3], mat[1][3], mat[0][0], mat[1][1] = self.x0, self.y0, self.width, self.height
+        return mat
 
-    def transform_point(self, x, y):
+    def transform_point(self, x, y, /):
         return x * self.width + self.x0, y * self.height + self.y0
 
-    def inverse_transform_point(self, x, y):
+    def inverse_transform_point(self, x, y, /):
         return (x - self.x0) / self.width, (y - self.y0) / self.height
+
+    def __mul__(self, other):
+        if isinstance(other, Number):
+            return Rect(self[0] * other, self[1] * other, self[2] * other, self[3] * other)
+        if not isinstance(other, str):
+            if len(other) == 4:
+                return Rect(self[0] * other[0], self[1] * other[1], self[2] * other[2], self[3] * other[3])
+            elif len(other) == 2:
+                return Rect(self[0] * other[0], self[1] * other[1], self[2] * other[0], self[3] * other[1])
+            elif len(other) == 1:
+                return Rect(self[0] * other[0], self[1] * other[0], self[2] * other[0], self[3] * other[0])
+        return NotImplemented
+
+    def __truediv__(self, other):
+        if isinstance(other, Number):
+            return Rect(self[0] / other, self[1] / other, self[2] / other, self[3] / other)
+        if not isinstance(other, str):
+            if len(other) == 4:
+                return Rect(self[0] / other[0], self[1] / other[1], self[2] / other[2], self[3] / other[3])
+            elif len(other) == 2:
+                return Rect(self[0] / other[0], self[1] / other[1], self[2] / other[0], self[3] / other[1])
+            elif len(other) == 1:
+                return Rect(self[0] / other[0], self[1] / other[0], self[2] / other[0], self[3] / other[0])
+        return NotImplemented
 
 class Transform:
     __slots__ = ('location', 'rotation', 'scale')
@@ -92,6 +132,9 @@ class Transform:
             self.location.copy(),
             self.rotation.copy(),
             self.scale.copy())
+
+    def to_matrix(self):
+        return Matrix.LocRotScale(self.location, self.rotation, self.scale)
 
     def equals(self, other, tolerance=0.00001):
         return (abs(self.location.x - other.location.x) <= tolerance
@@ -213,6 +256,12 @@ and accumulates that into a destination transform."""
 
     def __pos__(self):
         return Transform(+self.location, +self.rotation, +self.scale)
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
 
 def calc_bounds(points):
     xs, ys, zs = zip(*points)
