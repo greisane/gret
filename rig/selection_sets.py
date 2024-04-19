@@ -133,6 +133,11 @@ class GRET_OT_selection_set_add(bpy.types.Operator):
             if bone.name not in new_sel_set.bone_ids:
                 bone_id = new_sel_set.bone_ids.add()
                 bone_id.name = bone.name
+
+        # Update user interface
+        if context.area:
+            context.area.tag_redraw()
+
         return {'FINISHED'}
 
     def invoke(self, context, event):

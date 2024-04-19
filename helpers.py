@@ -524,7 +524,7 @@ def fail_if_invalid_export_path(path, allowed_field_names):
 def gret_operator_exists(bl_idname, /):
     """Returns whether the operator is available."""
 
-    return hasattr(bpy.types, "GRET_OT_" + bl_idname.removeprefix("gret."))
+    return hasattr(bpy.types, 'GRET_OT_' + bl_idname.removeprefix('gret.'))
 
 def get_nice_export_report(filepaths, elapsed):
     """Returns text informing the user of the files that were exported."""

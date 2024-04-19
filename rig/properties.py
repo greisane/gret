@@ -43,6 +43,10 @@ class GRET_OT_property_add(bpy.types.Operator):
         properties.sort(key=get_property_title)
         obj['properties'] = properties
 
+        # Update user interface
+        if context.area:
+            context.area.tag_redraw()
+
         return {'FINISHED'}
 
     def invoke(self, context, event):
