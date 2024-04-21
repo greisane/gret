@@ -32,7 +32,7 @@ simple_nodes = (Node('OutputMaterial')
 
 is_color_none = lambda c: c[0] == 0.0 and c[1] == 0.0 and c[2] == 0.0 and c[3] == 0.0
 
-class Quad(namedtuple("Quad", ["uv_sheet", "x0", "y0", "x1", "y1", "rotation"])):
+class Quad(namedtuple("Quad", 'uv_sheet x0 y0 x1 y1 rotation')):
     __slots__ = ()
 
     @classmethod
@@ -358,36 +358,36 @@ class GRET_TT_uv_paint(bpy.types.WorkSpaceTool):
     bl_space_type = 'VIEW_3D'
     bl_context_mode = 'OBJECT'
 
-    bl_idname = "gret.uv_paint"
+    bl_idname = 'gret.uv_paint'
     bl_label = "UV Paint"
     bl_description = """Assign UVs from a previously configured tileset or trim sheet.
 \u2022 Click on mesh faces to paint.
 \u2022 Ctrl+Click to sample.
 \u2022 Shift+Click to fill.
 \u2022 Shift+Ctrl+Click to replace similar"""
-    bl_icon = "brush.paint_texture.draw"
-    bl_widget = "GRET_GGT_uv_picker_gizmo_group"
+    bl_icon = 'brush.paint_texture.draw'
+    bl_widget = 'GRET_GGT_uv_picker_gizmo_group'
     bl_cursor = 'PAINT_BRUSH'
     bl_keymap = (
         (
             GRET_OT_uv_paint.bl_idname,
-            {"type": 'LEFTMOUSE', "value": 'PRESS'},
+            {'type': 'LEFTMOUSE', 'value': 'PRESS'},
             None,
         ),
         (
             GRET_OT_uv_paint.bl_idname,
-            {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True},
-            {"properties": [("mode", 'SAMPLE')]},
+            {'type': 'LEFTMOUSE', 'value': 'PRESS', 'ctrl': True},
+            {'properties': [('mode', 'SAMPLE')]},
         ),
         (
             GRET_OT_uv_paint.bl_idname,
-            {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
-            {"properties": [("mode", 'FILL')]},
+            {'type': 'LEFTMOUSE', 'value': 'PRESS', 'shift': True},
+            {'properties': [('mode', 'FILL')]},
         ),
         (
             GRET_OT_uv_paint.bl_idname,
-            {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True, "ctrl": True},
-            {"properties": [("mode", 'REPLACE')]},
+            {'type': 'LEFTMOUSE', 'value': 'PRESS', 'shift': True, 'ctrl': True},
+            {'properties': [('mode', 'REPLACE')]},
         ),
     )
 
@@ -401,8 +401,9 @@ class GRET_TT_uv_paint(bpy.types.WorkSpaceTool):
         col.use_property_split = True
         col.use_property_decorate = False
         row = col.row(align=True)
-        row.prop_search(props, "image", bpy.data, "images", text="")
-        row.operator('image.reload', icon='FILE_REFRESH', text="")  # TODO this reloads what?
+        row.prop_search(props, 'image', bpy.data, 'images', text="")
+        op = row.operator('gret.image_reload', icon='FILE_REFRESH', text="")
+        op.image = image.name if image else ""
         row.operator('image.open', icon='ADD', text="")
 
         col.separator()
@@ -428,7 +429,24 @@ class GRET_TT_uv_paint(bpy.types.WorkSpaceTool):
         if has_uv_sheet:
             col.prop(image.uv_sheet, 'use_palette_uv')
 
+class GRET_OT_image_reload(bpy.types.Operator):
+    """Reload current image from disk"""
+
+    bl_idname = 'gret.image_reload'
+    bl_label = "Reload Image"
+    bl_options = {'INTERNAL'}
+
+    image: bpy.props.StringProperty()
+
+    def execute(self, context):
+        if image := bpy.data.images.get(self.image):
+            image.reload()
+            return {'FINISHED'}
+
+        return {'CANCELLED'}
+
 classes = (
+    GRET_OT_image_reload,
     GRET_OT_uv_paint,
 )
 

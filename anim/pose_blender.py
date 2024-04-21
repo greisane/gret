@@ -441,10 +441,7 @@ A base pose is useful if the rest pose is not neutral (e.g. mouth is open)""",
                     pb.rotation_quaternion = transform.rotation
                 elif pb.rotation_mode == 'AXIS_ANGLE':
                     axis, angle = transform.rotation.to_axis_angle()
-                    pb.rotation_axis_angle[0] = angle
-                    pb.rotation_axis_angle[1] = axis[0]
-                    pb.rotation_axis_angle[2] = axis[1]
-                    pb.rotation_axis_angle[3] = axis[2]
+                    pb.rotation_axis_angle = angle, *axis
                 else:
                     pb.rotation_euler = transform.rotation.to_euler(pb.rotation_mode)
                 pb.location = transform.location
