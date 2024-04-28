@@ -202,7 +202,7 @@ class DecimateModifierHandler(ModifierHandler):
         shapekey_index = obj.active_shape_key_index
 
         obj.active_shape_key_index = 0
-        if self.vertex_group and obj.vertex_groups.get(self.vertex_group):
+        if self.vertex_group:
             obj.vertex_groups.active_index = obj.vertex_groups.get(self.vertex_group).index
 
         # Makes sure everything is deselected first.
@@ -394,7 +394,7 @@ class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
                         modifier_handler = modifier_handler_cls(modifier)
 
                         # Hardcoded. if more special handlers are added later a bool check in the Handler class would be better
-                        if modifier_handler.modifier_type == "DECIMATE":
+                        if modifier_handler.modifier_name == "Decimate":
                             post_modifier_handlers.append(modifier_handler)
                             break
 
