@@ -9,6 +9,7 @@ import bpy
 import io
 import os
 import re
+import textwrap
 
 from . import prefs
 
@@ -277,23 +278,18 @@ def dump_node_group(node_group_or_name, abbreviated=True):
                     return socket_idx
             return -1
 
-        text += "\t# Links\n"
-        line = "\tfor from_node, from_index, to_node, to_index in ["
-        chunk = ""
-
-        for link in grp.links:
+        def link_to_string(link):
             from_socket_index = find_socket_index(link.from_node.outputs, link.from_socket.identifier)
             to_socket_index = find_socket_index(link.to_node.inputs, link.to_socket.identifier)
-            chunk += f"({node_names[link.from_node]}, {from_socket_index}, " \
-                f"{node_names[link.to_node]}, {to_socket_index})"
-            if len(line) + len(chunk) >= 100:
-                text += line + ",\n"
-                line = "\t\t"
-                chunk = chunk.removeprefix(", ")
-            line += chunk
-            chunk = ", "
+            return f"({node_names[link.from_node]},\xa0{from_socket_index},\xa0" \
+                f"{node_names[link.to_node]},\xa0{to_socket_index})"
 
-        text += line + "]:\n"
+        text += "\t# Links\n"
+        line = ("for from_node, from_index, to_node, to_index in ["
+            + ", ".join(map(link_to_string, grp.links)) + "]:")
+        line = "\n".join(textwrap.wrap(line, width=100, break_long_words=False,
+            break_on_hyphens=False, initial_indent='\t', subsequent_indent='\t\t')) + "\n"
+        text += line.replace('\xa0', ' ')
         text += "\t\tlinks.new(from_node.outputs[from_index], to_node.inputs[to_index])\n"
 
     text += "\treturn grp\n"
