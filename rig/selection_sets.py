@@ -224,7 +224,7 @@ class GRET_PT_selection_sets(bpy.types.Panel):
             op = layout.operator('gret.selection_set_toggle', text=name, depress=sel_set.is_selected)
             op.name = name
             if settings.selection_sets_show_edit:
-                layout.operator('gret.selection_set_overwrite', icon='ADD', text="").name = name
+                layout.operator('gret.selection_set_overwrite', icon='BACK', text="").name = name
                 layout.operator('gret.selection_set_remove', icon='X', text="").name = name
 
         if selection_sets := OrderedDict(reversed(obj.selection_sets.items())):
