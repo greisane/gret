@@ -3,9 +3,11 @@ import numpy as np
 import bmesh
 import bpy
 
-from ..math import get_dist_sq
-from ..log import log, logd
 from ..helpers import with_object, get_modifier_mask
+from ..log import log, logd
+from ..math import get_dist_sq
+from ..operator import SaveContext
+from .helpers import edit_mesh_elements
 
 # shape_key_apply_modifiers TODO:
 # - Specialcase more merging modifiers, solidify for example
@@ -67,7 +69,7 @@ class ModifierHandler:
 
     modifier_type = None
     modifier_name = None
-    apply_post = False
+    apply_post = False  # Apply after shape keys have been merged back?
 
     def __init__(self, modifier):
         self.modifier_name = modifier.name
@@ -177,10 +179,8 @@ class WeldModifierHandler(ModifierHandler):
         self.weld_map = {src.index: dst.index for src, dst in targetmap.items()}
         bm.free()
 
-class DecimateModifierHandler(ModifierHandler):
-    # Only works with "collapse" decimate type. There are no operators for the other types as far as i'm aware.
-    modifier_type = "DECIMATE"
-    # Since an operator exists that preserves all shapekeys, it's applied after every other operation a single time.
+class CollapseDecimateModifierHandler(ModifierHandler):
+    modifier_type = 'DECIMATE'
     apply_post = True
 
     def __init__(self, modifier):
@@ -194,45 +194,27 @@ class DecimateModifierHandler(ModifierHandler):
 
     @classmethod
     def poll(cls, modifier):
-        return super().poll(modifier) and modifier.decimate_type == "COLLAPSE"
+        return super().poll(modifier) and modifier.decimate_type == 'COLLAPSE'
 
     def apply(self, obj):
-        modifier = obj.modifiers[self.modifier_name]
-        # There are special EDIT modes depending on object type, but mode_set only accepts EDIT.
-        mode = bpy.context.mode if not bpy.context.mode.count('EDIT') else 'EDIT'
-        active_obj = bpy.context.view_layer.objects.active
-        selected_objs = bpy.context.selected_objects
-        shapekey_index = obj.active_shape_key_index
-
-        obj.active_shape_key_index = 0
-        if self.vertex_group and obj.vertex_groups.get(self.vertex_group):
-            obj.vertex_groups.active_index = obj.vertex_groups.get(self.vertex_group).index
-
-        # Makes sure everything is deselected first.
-        bpy.ops.object.mode_set(mode='OBJECT')
-        bpy.ops.object.select_all(action='DESELECT')
-
-        bpy.context.view_layer.objects.active = obj
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.reveal()
-        bpy.ops.mesh.select_all(action='SELECT')
-
-        with_object(bpy.ops.mesh.decimate, obj, ratio=self.ratio, use_vertex_group=True if self.vertex_group else False, vertex_group_factor=self.vertex_group_factor, invert_vertex_group=self.invert_vertex_group, use_symmetry=self.use_symmetry, symmetry_axis=self.symmetry_axis)
-        obj.modifiers.remove(modifier)
-
-        # Reassigns the selected objects, active object and mode, as well as the active shapekey in the object.
-        obj.active_shape_key_index = shapekey_index
-        for obj in selected_objs:
-            obj.select_set(True)
-        bpy.context.view_layer.objects.active = active_obj
-        bpy.ops.object.mode_set(mode=mode)
-
-
+        with SaveContext(bpy.context, self.__class__.__name__) as save:
+            save.mode()
+            save.prop(obj, 'active_shape_key_index', 0)
+            save.prop(obj.vertex_groups, 'active_index', obj.vertex_groups.find(self.vertex_group))
+            edit_mesh_elements(obj, 'VERT')
+            with_object(bpy.ops.mesh.decimate, obj,
+                ratio=self.ratio,
+                use_vertex_group=bool(self.vertex_group),
+                vertex_group_factor=self.vertex_group_factor,
+                invert_vertex_group=self.invert_vertex_group,
+                use_symmetry=self.use_symmetry,
+                symmetry_axis=self.symmetry_axis)
+        with_object(bpy.ops.object.modifier_remove, obj, modifier=self.modifier_name)
 
 modifier_handler_classes = (
     MirrorModifierHandler,
     WeldModifierHandler,
-    DecimateModifierHandler,
+    CollapseDecimateModifierHandler,
     ModifierHandler,
 )
 
@@ -432,7 +414,7 @@ class GRET_OT_shape_key_apply_modifiers(bpy.types.Operator):
                 continue
             shape_key_info.put_coords_into(shape_key.data)
 
-        # For modifiers that should be applied after all the shapekeys are sorted.
+        # For modifiers that should be applied after all the shapekeys are sorted
         for modifier_handler in post_modifier_handlers:
             modifier_handler.apply(obj)
 
