@@ -343,6 +343,14 @@ Defaults can be changed in addon preferences""",
 
         select_only(context, obj)
 
+        if bpy.app.version >= (4, 1) and bpy.app.version < (4, 2):
+            # Low effort workaround for a bug where right after duplicating an object,
+            # the new object's UVs are still shared with the original. See issue #121666.
+            hit_face_idx = hit_face.index
+            bpy.ops.object.editmode_toggle()
+            bpy.ops.object.editmode_toggle()
+            hit_face = obj.data.polygons[hit_face_idx]
+
         if self.mode == 'DRAW':
             self.do_draw(context, obj, hit_face, quadrant)
         elif self.mode == 'SAMPLE':
