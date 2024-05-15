@@ -325,8 +325,11 @@ Use to leave normals intact on hair ends and crevices""",
         clean_bm.to_mesh(dst_mesh)
 
         # Normals post-processing and transfer
-        dst_mesh.use_auto_smooth = True
-        dst_mesh.auto_smooth_angle = pi
+        if hasattr(dst_mesh, "use_auto_smooth"):
+            dst_mesh.use_auto_smooth = True
+            dst_mesh.auto_smooth_angle = pi
+        else:
+            dst_mesh.shade_smooth()
         with_object(bpy.ops.mesh.customdata_custom_splitnormals_clear, dst_obj)
 
         if self.smooth_iterations > 0:
