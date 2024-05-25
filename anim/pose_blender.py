@@ -456,6 +456,7 @@ class GRET_PT_pose_blender(bpy.types.Panel):
     bl_category = "gret"
     bl_label = "Pose Blender"
     bl_parent_id = 'GRET_PT_animation'
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
