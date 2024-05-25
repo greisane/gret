@@ -411,11 +411,12 @@ class GRET_OT_collision_make(bpy.types.Operator):
         bm.free()
 
     def make_capsule_collision(self, context, obj):
-        mat = Matrix.Translation(self.location) @ self.cap_rotation.to_matrix().to_4x4()
+        bm_mat = Matrix.Rotation(pi * 0.5, 4, 'X')
+        mat = Matrix.Translation(self.location) @ self.cap_rotation.to_matrix().to_4x4() @ bm_mat
 
         bm = bmesh.new()
-        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=8,
-            radius1=self.cap_radius, radius2=self.cap_radius, depth=self.cap_depth, calc_uvs=False)
+        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=8, radius1=self.cap_radius,
+            radius2=self.cap_radius, depth=self.cap_depth, calc_uvs=False, matrix=bm_mat)
         bm.faces.ensure_lookup_table()
         caps = [bm.faces[-1], bm.faces[-4]]
         bmesh.ops.poke(bm, faces=caps, offset=self.cap_radius)
