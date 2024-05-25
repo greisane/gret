@@ -222,13 +222,13 @@ class CollectionOp(namedtuple('CollectionOp', 'id_data collection remove_func_na
         assert isinstance(collection, bpy.types.bpy_prop_collection)
 
         # Find out if there's a remove-like function available
-        for func_name in ('remove', 'unlink', ''):
+        for func_name in ('remove', 'unlink'):
             func = collection.bl_rna.functions.get(func_name)
             if (func is not None
                 and sum(param.is_required for param in func.parameters) == 1
                 and func.parameters[0].type == 'POINTER'):
                 break
-        if not func_name:
+        else:
             raise RuntimeError(f"'{collection.bl_rna.name}' is not supported")
 
         id_data = collection.id_data
