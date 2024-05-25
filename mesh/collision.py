@@ -124,17 +124,16 @@ class GRET_OT_collision_make(bpy.types.Operator):
         name="Shape",
         description="Selects the collision shape",
         items=[
-            ('AABB', "AABB", "Axis-aligned box collision.", 'MESH_PLANE', 0),
-            ('CYLINDER', "Cylinder", "Cylinder collision.", 'MESH_CYLINDER', 1),
-            ('CAPSULE', "Capsule", "Capsule collision.", 'MESH_CAPSULE', 2),
-            ('SPHERE', "Sphere", "Sphere collision.", 'MESH_UVSPHERE', 3),
-            ('CONVEX', "Convex", "Convex collision.", 'MESH_ICOSPHERE', 4),
-            ('WALL', "Wall", "Wall collision.", 'MOD_SOLIDIFY', 5),
+            ('AABB', "AABB", "Axis-aligned box collision", 'MESH_PLANE', 0),
+            ('CYLINDER', "Cylinder", "Cylinder collision", 'MESH_CYLINDER', 1),
+            ('CAPSULE', "Capsule", "Capsule collision", 'MESH_CAPSULE', 2),
+            ('SPHERE', "Sphere", "Sphere collision", 'MESH_UVSPHERE', 3),
+            ('CONVEX', "Convex", "Convex collision", 'MESH_ICOSPHERE', 4),
         ],
     )
     output: bpy.props.EnumProperty(
         name="Output",
-        description="How to output collision objects",
+        description="Where to output collision objects",
         items=[
             ('CHILD', "As Child", "Parent collision objects to the mesh"),
             ('SIBLING', "As Sibling", "Put collision objects next to the mesh"),
@@ -474,27 +473,6 @@ class GRET_OT_collision_make(bpy.types.Operator):
             decimate_mod.use_symmetry = self.use_symmetry
             decimate_mod.symmetry_axis = self.symmetry_axis
 
-    def make_wall_collision(self, context, obj):
-        if context.mode == 'EDIT_MESH':
-            bm = bmesh.from_edit_mesh(obj.data).copy()
-            bm.verts.ensure_lookup_table()
-            bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.select], context='VERTS')
-        else:
-            bm = bmesh.new()
-            dg = context.evaluated_depsgraph_get()
-            bm.from_object(obj, dg)
-
-        if self.wall_fill_holes:
-            result = bmesh.ops.holes_fill(bm, edges=bm.edges, sides=4)
-            hole_edges = list(chain.from_iterable(f.edges for f in result['faces']))
-            bmesh.ops.dissolve_edges(bm, edges=hole_edges, use_verts=True)
-        bmesh.ops.split_edges(bm, edges=bm.edges)
-        bmesh.ops.dissolve_limit(bm, angle_limit=radians(5.0),
-            verts=bm.verts, edges=bm.edges, use_dissolve_boundaries=False, delimit=set())
-
-        self.create_split_col_object_from_bm(context, obj, bm, self.thickness, self.offset)
-        bm.free()
-
     def execute(self, context):
         obj = context.active_object
 
@@ -514,8 +492,6 @@ class GRET_OT_collision_make(bpy.types.Operator):
             self.make_sphere_collision(context, obj)
         elif self.shape == 'CONVEX':
             self.make_convex_collision(context, obj)
-        elif self.shape == 'WALL':
-            self.make_wall_collision(context, obj)
 
         return {'FINISHED'}
 
@@ -629,10 +605,6 @@ class GRET_OT_collision_make(bpy.types.Operator):
             row = col.row(align=True, heading="Symmetrize")
             row.prop(self, 'use_symmetry', text="")
             row.prop(self, 'symmetry_axis', expand=True)
-        elif self.shape == 'WALL':
-            col.prop(self, 'thickness')
-            col.prop(self, 'offset')
-            col.prop(self, 'wall_fill_holes')
 
 def draw_panel(self, context):
     layout = self.layout
