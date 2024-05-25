@@ -132,14 +132,25 @@ class GRET_OT_collision_make(bpy.types.Operator):
             ('WALL', "Wall", "Wall collision.", 'MOD_SOLIDIFY', 5),
         ],
     )
+    output: bpy.props.EnumProperty(
+        name="Output",
+        description="How to output collision objects",
+        items=[
+            ('CHILD', "As Child", "Parent collision objects to the mesh"),
+            ('SIBLING', "As Sibling", "Put collision objects next to the mesh"),
+            ('COLLECTION', "To Collection", "Move collision objects to a new collection"),
+            ('SCENE', "To Scene Collection", "Move collision objects to the scene collection"),
+        ],
+        default='COLLECTION',
+    )
     collection: bpy.props.StringProperty(
         name="Collection",
-        description="Name of the collection for the collision objects",
+        description="Name of the new collection",
         default="Collision",
     )
     wire: bpy.props.BoolProperty(
         name="Wire",
-        description="How to display the collision objects in viewport",
+        description="How to display collision objects in viewport",
         default=False,
     )
     hollow: bpy.props.BoolProperty(
@@ -307,21 +318,29 @@ class GRET_OT_collision_make(bpy.types.Operator):
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
         bm.to_mesh(data)
 
+        parent = None
+        if self.output == 'COLLECTION' and self.collection:
+            collection = get_collection(context, self.collection, allow_duplicate=True, clean=False)
+            collection.color_tag = 'COLOR_04'
+        elif self.output in 'CHILD':
+            collection = obj.users_collection[0]
+            parent = obj
+        elif self.output == 'SIBLING':
+            collection = obj.users_collection[0]
+            parent = obj.parent
+        else:
+            collection = context.scene.collection
+
         col_obj = bpy.data.objects.new(name, data)
+        col_obj.parent = parent
         col_obj.matrix_world = obj.matrix_world
         col_obj.show_wire = True
         col_obj.display_type = 'WIRE' if self.wire else 'SOLID'
         col_obj.display.show_shadows = False
         # bmeshes created with from_mesh or from_object may have some UVs or customdata
         clear_object_data(col_obj)
-
-        # Link to scene
-        if not self.collection:
-            collection = context.scene.collection
-        else:
-            collection = get_collection(context, self.collection, allow_duplicate=True, clean=False)
-            collection.color_tag = 'COLOR_04'
         collection.objects.link(col_obj)
+
         return col_obj
 
     def create_split_col_object_from_bm(self, context, obj, bm, thickness, offset=0.0):
@@ -573,6 +592,10 @@ class GRET_OT_collision_make(bpy.types.Operator):
         row = col.row(align=True)
         row.prop(self, 'shape')
         row.prop(self, 'wire', icon='MOD_WIREFRAME', text="")
+        col.prop(self, 'output')
+        if self.output == 'COLLECTION':
+            col.prop(self, 'collection')
+
         if self.shape in {'AABB', 'CYLINDER'}:
             col.separator()
             col.prop(self, 'hollow')
