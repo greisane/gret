@@ -92,12 +92,23 @@ class Quad(namedtuple("Quad", 'uv_sheet x0 y0 x1 y1 rotation')):
 
 Quad.invalid = Quad(None, 0.0, 0.0, 0.0, 0.0, -1)
 
-def get_uv_sheet_from_material(mat):
-    if mat and mat.use_nodes:
-        # Find the "active" image node that will be visible in viewport texture mode
-        for node in mat.node_tree.nodes:
-            if node.show_texture and node.type == 'TEX_IMAGE':
-                return node.image.uv_sheet
+def get_image_from_material(material):
+    """Returns the texture that will be visible in viewport textured mode."""
+    # Exploting the fact nodes are always sorted in hierarchical order. Even if there is no node for
+    # which show_texture is True, the first visited node will be connected to the graph, if any are.
+    image_node = None
+    if material and material.use_nodes:
+        for node in material.node_tree.nodes:
+            if node.type == 'TEX_IMAGE':
+                if node.show_texture:
+                    return node.image
+                if image_node is None:
+                    image_node = node
+    return image_node.image if image_node else None
+
+def get_uv_sheet_from_material(material):
+    if image := get_image_from_material(material):
+        return image.uv_sheet
     return None
 
 def set_face_uvs(face, uvs, quad):
