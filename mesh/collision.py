@@ -20,7 +20,7 @@ from ..helpers import get_collection, instant_modifier
 # - Wall collision should try to decompose into boxes
 # - Convex decomposition with v-hacd?
 
-collision_prefixes = ("UCX", "UBX", "UCP", "USP")
+collision_prefixes = ('UCX', 'UBX', 'UCP', 'USP')
 
 def get_collision_objects(context, obj):
     pattern = r"^(?:%s)_%s_\d+$" % ('|'.join(collision_prefixes), obj.name)
@@ -308,10 +308,10 @@ class GRET_OT_collision_make(bpy.types.Operator):
         obj = context.active_object
         return obj and obj.type == 'MESH' and obj.mode in {'OBJECT', 'EDIT'}
 
-    def create_col_object_from_bm(self, context, obj, bm, prefix=None):
+    def create_col_object_from_bm(self, context, obj, bm, matrix, prefix=None):
         if not prefix:
             # Autodetect (should detect sphere too)
-            prefix = "UBX" if is_box(bm) else "UCX"
+            prefix = 'UBX' if is_box(bm) else 'UCX'
 
         name = find_free_col_name(prefix, obj.name)
         data = bpy.data.meshes.new(name)
@@ -333,7 +333,7 @@ class GRET_OT_collision_make(bpy.types.Operator):
 
         col_obj = bpy.data.objects.new(name, data)
         col_obj.parent = parent
-        col_obj.matrix_world = obj.matrix_world
+        col_obj.matrix_world = obj.matrix_world @ matrix
         col_obj.show_wire = True
         col_obj.display_type = 'WIRE' if self.wire else 'SOLID'
         col_obj.display.show_shadows = False
@@ -343,91 +343,92 @@ class GRET_OT_collision_make(bpy.types.Operator):
 
         return col_obj
 
-    def create_split_col_object_from_bm(self, context, obj, bm, thickness, offset=0.0):
+    def create_split_col_object_from_bm(self, context, obj, bm, mat, thickness, offset=0.0):
         # Based on https://github.com/blender/blender-addons/blob/master/mesh_tools/split_solidify.py
         # by zmj100, updated by zeffii to BMesh
         distance = thickness * (offset + 1.0) * 0.5
-        src_bm = bm
-        src_bm.faces.ensure_lookup_table()
-        src_bm.verts.ensure_lookup_table()
-        src_bm.normal_update()
-        for src_f in src_bm.faces:
-            bm = bmesh.new()
+        bm = bm
+        bm.faces.ensure_lookup_table()
+        bm.verts.ensure_lookup_table()
+        bm.normal_update()
+
+        for face in bm.faces:
+            bm2 = bmesh.new()
+
             # Add new vertices
-            vs1 = []
-            vs2 = []
-            for v in src_f.verts:
-                p1 = v.co + src_f.normal * distance  # Out
-                p2 = v.co + src_f.normal * (distance - thickness)  # In
-                vs1.append(bm.verts.new(p1))
-                vs2.append(bm.verts.new(p2))
+            verts1, verts2 = [], []
+            for vert in face.verts:
+                p1 = vert.co + face.normal * distance  # Out
+                p2 = vert.co + face.normal * (distance - thickness)  # In
+                verts1.append(bm2.verts.new(p1))
+                verts2.append(bm2.verts.new(p2))
 
             # Add new faces
-            n = len(vs1)
-            bm.faces.new(vs1)
+            n = len(verts1)
+            bm2.faces.new(verts1)
             for i in range(n):
                 j = (i + 1) % n
-                vseq = vs1[i], vs2[i], vs2[j], vs1[j]
-                bm.faces.new(vseq)
-            vs2.reverse()
-            bm.faces.new(vs2)
+                vseq = verts1[i], verts2[i], verts2[j], verts1[j]
+                bm2.faces.new(vseq)
+            verts2.reverse()
+            bm2.faces.new(verts2)
 
-            self.create_col_object_from_bm(context, obj, bm)
-            bm.free()
+            self.create_col_object_from_bm(context, obj, bm2, mat)
+            bm2.free()
 
     def make_aabb_collision(self, context, obj):
-        v = Vector((self.aabb_depth, self.aabb_width, self.aabb_height)) * 0.5
+        mat = Matrix.Translation(self.location)
+        half_extents = Vector((self.aabb_depth, self.aabb_width, self.aabb_height)) * 0.5
 
         bm = bmesh.new()
         verts = bmesh.ops.create_cube(bm, calc_uvs=False)['verts']
-        verts[0].co = self.location.x - v.x, self.location.y - v.y, self.location.z - v.z
-        verts[1].co = self.location.x - v.x, self.location.y - v.y, self.location.z + v.z
-        verts[2].co = self.location.x - v.x, self.location.y + v.y, self.location.z - v.z
-        verts[3].co = self.location.x - v.x, self.location.y + v.y, self.location.z + v.z
-        verts[4].co = self.location.x + v.x, self.location.y - v.y, self.location.z - v.z
-        verts[5].co = self.location.x + v.x, self.location.y - v.y, self.location.z + v.z
-        verts[6].co = self.location.x + v.x, self.location.y + v.y, self.location.z - v.z
-        verts[7].co = self.location.x + v.x, self.location.y + v.y, self.location.z + v.z
-
+        verts[0].co = -half_extents.x, -half_extents.y, -half_extents.z
+        verts[1].co = -half_extents.x, -half_extents.y, +half_extents.z
+        verts[2].co = -half_extents.x, +half_extents.y, -half_extents.z
+        verts[3].co = -half_extents.x, +half_extents.y, +half_extents.z
+        verts[4].co = +half_extents.x, -half_extents.y, -half_extents.z
+        verts[5].co = +half_extents.x, -half_extents.y, +half_extents.z
+        verts[6].co = +half_extents.x, +half_extents.y, -half_extents.z
+        verts[7].co = +half_extents.x, +half_extents.y, +half_extents.z
         if self.hollow:
-            self.create_split_col_object_from_bm(context, obj, bm, self.thickness, self.offset)
+            self.create_split_col_object_from_bm(context, obj, bm, mat, self.thickness, self.offset)
         else:
-            self.create_col_object_from_bm(context, obj, bm)
+            self.create_col_object_from_bm(context, obj, bm, mat)
         bm.free()
 
     def make_cylinder_collision(self, context, obj):
         mat = Matrix.Translation(self.location)
         if self.cyl_rotate:
             mat @= Matrix.Rotation(pi / self.cyl_sides, 4, 'Z')
+
         bm = bmesh.new()
         cap_ends = not self.hollow or self.cyl_caps
         bmesh.ops.create_cone(bm, cap_ends=cap_ends, cap_tris=False, segments=self.cyl_sides,
-            radius1=self.cyl_radius1, radius2=self.cyl_radius2, depth=self.cyl_height,
-            calc_uvs=False, matrix=mat)
+            radius1=self.cyl_radius1, radius2=self.cyl_radius2, depth=self.cyl_height, calc_uvs=False)
         if self.hollow:
-            self.create_split_col_object_from_bm(context, obj, bm, self.thickness, self.offset)
+            self.create_split_col_object_from_bm(context, obj, bm, mat, self.thickness, self.offset)
         else:
-            self.create_col_object_from_bm(context, obj, bm)
+            self.create_col_object_from_bm(context, obj, bm, mat)
         bm.free()
 
     def make_capsule_collision(self, context, obj):
         mat = Matrix.Translation(self.location) @ self.cap_rotation.to_matrix().to_4x4()
+
         bm = bmesh.new()
         bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=8,
-            radius1=self.cap_radius, radius2=self.cap_radius, depth=self.cap_depth,
-            calc_uvs=False, matrix=mat)
+            radius1=self.cap_radius, radius2=self.cap_radius, depth=self.cap_depth, calc_uvs=False)
         bm.faces.ensure_lookup_table()
         caps = [bm.faces[-1], bm.faces[-4]]
         bmesh.ops.poke(bm, faces=caps, offset=self.cap_radius)
-        self.create_col_object_from_bm(context, obj, bm, "UCP")
+        self.create_col_object_from_bm(context, obj, bm, mat, prefix='UCP')
         bm.free()
 
     def make_sphere_collision(self, context, obj):
         mat = Matrix.Translation(self.location)
+
         bm = bmesh.new()
-        bmesh.ops.create_icosphere(bm, subdivisions=2, radius=self.sph_radius*0.5,
-            calc_uvs=False, matrix=mat)
-        self.create_col_object_from_bm(context, obj, bm, "USP")
+        bmesh.ops.create_icosphere(bm, subdivisions=2, radius=self.sph_radius*0.5, calc_uvs=False)
+        self.create_col_object_from_bm(context, obj, bm, mat, prefix='USP')
         bm.free()
 
     def make_convex_collision(self, context, obj):
@@ -461,14 +462,17 @@ class GRET_OT_collision_make(bpy.types.Operator):
         bmesh.ops.dissolve_limit(bm, angle_limit=self.planar_angle,
             verts=bm.verts, edges=bm.edges, use_dissolve_boundaries=False, delimit=set())
         bmesh.ops.triangulate(bm, faces=bm.faces)
-        col_obj = self.create_col_object_from_bm(context, obj, bm, "UCX")
+        median = sum((vert.co for vert in bm.verts), Vector()) / len(bm.verts)
+        bmesh.ops.translate(bm, verts=bm.verts, vec=-median)
+        mat = Matrix.Translation(median)
+        col_obj = self.create_col_object_from_bm(context, obj, bm, mat, prefix='UCX')
         bm.free()
 
         # Decimate (no bmesh op for this currently?)
-        with instant_modifier(col_obj, type='DECIMATE') as dec_mod:
-            dec_mod.ratio = self.decimate_ratio
-            dec_mod.use_symmetry = self.use_symmetry
-            dec_mod.symmetry_axis = self.symmetry_axis
+        with instant_modifier(col_obj, type='DECIMATE') as decimate_mod:
+            decimate_mod.ratio = self.decimate_ratio
+            decimate_mod.use_symmetry = self.use_symmetry
+            decimate_mod.symmetry_axis = self.symmetry_axis
 
     def make_wall_collision(self, context, obj):
         if context.mode == 'EDIT_MESH':
