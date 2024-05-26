@@ -106,7 +106,7 @@ def get_object_context_override(active_obj, selected_objs=[]):
     return {
         'object': active_obj,
         'active_object': active_obj,
-        'selected_objs': selected_objs,
+        'selected_objects': selected_objs,
         'selected_editable_objects': selected_objs,
     }
 
