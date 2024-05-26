@@ -99,8 +99,10 @@ def is_valid(bid, /):
 
 def get_object_context_override(active_obj, selected_objs=[]):
     selected_objs = list(selected_objs)
-    if active_obj not in selected_objs:
+    if active_obj and active_obj not in selected_objs:
         selected_objs.append(active_obj)
+    elif not active_obj and selected_objs:
+        active_obj = selected_objs[0]
     return {
         'object': active_obj,
         'active_object': active_obj,
@@ -108,8 +110,14 @@ def get_object_context_override(active_obj, selected_objs=[]):
         'selected_editable_objects': selected_objs,
     }
 
-def with_object(operator, active_obj, selected_objs=[], /, *args, **kwargs):
-    with bpy.context.temp_override(**get_object_context_override(active_obj, selected_objs)):
+def with_object(operator, active_obj, /, *args, **kwargs):
+    """Run operator on a single active object, which will also be the only selected object."""
+    with bpy.context.temp_override(**get_object_context_override(active_obj)):
+        operator(*args, **kwargs)
+
+def with_objects(operator, objs, active_obj=None, /, *args, **kwargs):
+    """Run operator on many selected objects. Active object does not need to be specified."""
+    with bpy.context.temp_override(**get_object_context_override(active_obj, objs)):
         operator(*args, **kwargs)
 
 def try_with_object(operator, active_obj, selected_objs=[], /, *args, **kwargs):

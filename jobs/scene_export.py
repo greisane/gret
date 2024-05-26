@@ -19,6 +19,7 @@ from ..helpers import (
     select_only,
     viewport_reveal_all,
     with_object,
+    with_objects,
 )
 from ..rig.helpers import export_presets
 from ..mesh.helpers import (
@@ -151,7 +152,7 @@ def _scene_export(context, job, save, results):
             with_object(bpy.ops.object.duplicates_make_real, obj, use_base_parent=True)
             set_parent_keep_parent_inverse(original_children, item.original)
             if obj.children:
-                with_object(bpy.ops.object.join, obj, obj.children)
+                with_objects(bpy.ops.object.join, obj.children, obj)
                 log(f"Joined {len(obj.children)} instanced objects")
 
         # Remap materials, any objects or faces with no material won't be exported

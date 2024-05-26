@@ -1,7 +1,7 @@
 import bmesh
 import bpy
 
-from ..helpers import with_object, instant_modifier
+from ..helpers import with_objects, instant_modifier
 
 class GRET_OT_cut_faces_smooth(bpy.types.Operator):
     """Subdivide selected faces and join the result with the surrounding geometry"""
@@ -62,7 +62,7 @@ class GRET_OT_cut_faces_smooth(bpy.types.Operator):
         bm.to_mesh(new_mesh)
 
         # Join and delete temporary mesh
-        with_object(bpy.ops.object.join, obj, [obj, new_obj])
+        with_objects(bpy.ops.object.join, [obj, new_obj], obj)
         bpy.data.meshes.remove(new_mesh)
 
         bpy.ops.object.editmode_toggle()

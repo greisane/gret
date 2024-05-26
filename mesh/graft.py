@@ -6,7 +6,7 @@ import numpy as np
 
 from ..math import get_dist_sq
 from .helpers import edit_mesh_elements, bmesh_vertex_group_bleed, get_face_map_attribute
-from ..helpers import with_object, get_modifier, get_vgroup, select_only, instant_modifier
+from ..helpers import with_object, with_objects, get_modifier, get_vgroup, select_only, instant_modifier
 from ..operator import SaveContext
 
 # TODO Detect multiple source mesh boundaries and fail with a helpful message
@@ -291,7 +291,7 @@ class GRET_OT_graft(bpy.types.Operator):
 
                 # Rejoin loose parts
                 if len(src_objs) > 1:
-                    with_object(bpy.ops.object.join, obj, src_objs)
+                    with_object(bpy.ops.object.join, src_objs, obj)
 
         # Transfer more stuff
         for obj in objs:
@@ -302,7 +302,7 @@ class GRET_OT_graft(bpy.types.Operator):
                 obj.matrix_world = obj_matrix_world
 
         if self.copy_modifiers:
-            with_object(bpy.ops.object.make_links_data, orig_dst_obj, objs, type='MODIFIERS')
+            with_objects(bpy.ops.object.make_links_data, objs, orig_dst_obj, type='MODIFIERS')
 
         return {'FINISHED'}
 
