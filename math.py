@@ -1,5 +1,5 @@
 from collections import namedtuple
-from math import floor, sqrt
+from math import floor, sqrt, copysign
 from mathutils import Vector, Quaternion, Matrix
 from numbers import Number
 from numpy.polynomial import polynomial as pl
@@ -24,6 +24,8 @@ invlerp = lambda a, b, x: (x - a) / (b - a)  # Safe version in get_range_pct
 avg = lambda l, f: sum(f(el) for el in l) / len(l)
 frac = lambda x: x - int(x)
 sigmoid = lambda x: 1.0 / (np.exp(-x) + 1.0)
+wrap = lambda x, y: x % y if x >= 0 else (x % y + y) % y
+abs_max = lambda x, y: copysign(y, x) if abs(x) >= y else x
 
 class Rect(namedtuple('Rect', 'x0 y0 x1 y1')):
     __slots__ = ()

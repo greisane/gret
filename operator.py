@@ -1,6 +1,7 @@
 from collections import namedtuple
 from functools import partial
 from itertools import count, groupby, zip_longest
+import bmesh
 import bpy
 import numpy as np
 import re
@@ -10,6 +11,7 @@ from .helpers import (
     ensure_iterable,
     get_data_collection,
     get_layers_recursive,
+    get_object_context_override,
     is_valid,
     load_property,
     reshape,
@@ -23,6 +25,15 @@ from .helpers import (
 logs = partial(log, category="SAVE")
 custom_prop_pattern = re.compile(r'(.+)?\["([^"]+)"\]')
 prop_pattern = re.compile(r'(?:(.+)\.)?([^"\.]+)')
+
+def flatten_materials(obj):
+    """Moves any object materials to mesh materials."""
+    # Not imported from gret.material.helpers because it would cause a dependency
+
+    for material_index, material_slot in enumerate(obj.material_slots):
+        if material_slot.link == 'OBJECT':
+            obj.data.materials[material_index] = material_slot.material
+            obj.material_slots[material_index].link = 'DATA'
 
 class GRET_OT_property_warning(bpy.types.Operator):
     """Changes won't be saved"""
@@ -403,34 +414,91 @@ class SaveState:
 
         self._push_op(RenameOp, bid, name)
 
-    def clone_obj(self, obj, /, *, to_mesh=False, evaluated=False, parent=None, reset_origin=False):
+    def clone_obj(self, obj, /, *, parent=None):
         """Returns a temporary copy of an object, with unique data and guaranteed to be editable."""
 
-        if to_mesh and evaluated:
+        new_name = obj.name + "_"
+        new_obj = obj.copy()
+        new_obj.name = new_name
+        self.temporary_bids(new_obj)
+
+        if obj.data:
+            new_data = obj.data.copy()
+            new_data.name = new_name
+            self.temporary_bids(new_data)
+            new_obj.data = new_data
+            assert new_data.users == 1
+
+        if obj.type == 'MESH':
+            flatten_materials(obj)
+
+        # New objects are moved to the scene collection, ensuring they're visible
+        self.context.scene.collection.objects.link(new_obj)
+        new_obj.hide_set(False)
+        new_obj.hide_viewport = False
+        new_obj.hide_render = False
+        new_obj.hide_select = False
+        new_obj.parent = parent
+
+        return new_obj
+
+    def clone_obj_to_mesh(self, obj, /, *, evaluated=False, parent=None, reset_origin=False):
+        """Returns an object converted to mesh, with unique data and guaranteed to be editable."""
+
+        new_name = obj.name + "_"
+        if obj.type == 'EMPTY' and obj.instance_type == 'COLLECTION' and obj.instance_collection:
+            bm = bmesh.new()
+            temp_obj = obj.copy()
+            self.temporary_bids(temp_obj)
+            self.context.scene.collection.objects.link(temp_obj)
+
+            # temp_override is silly, it's not possible to know which objects are new after make real:
+            # - Within the context override, selected_objects never gets updated
+            # - Exiting the context manager, selected_objects is reverted
+            # - Not overriding selected_objects obviously causes the operator to act on whatever
+            with self.context.temp_override(**get_object_context_override(temp_obj)):
+                bpy.ops.object.duplicates_make_real(use_base_parent=True)
+                self.temporary_bids(temp_obj.children)
+
+                dg = self.context.evaluated_depsgraph_get() if evaluated else None
+                for temp_obj in temp_obj.children:
+                    temp_obj = temp_obj.evaluated_get(dg) if dg else temp_obj
+                    try:
+                        temp_mesh = temp_obj.to_mesh()
+                        temp_mesh.transform(temp_obj.matrix_local)
+                        bm.from_mesh(temp_mesh)
+                        temp_obj.to_mesh_clear()
+                    except RuntimeError:
+                        pass
+
+            new_data = bpy.data.meshes.new(name=new_name)
+            bm.to_mesh(new_data)
+            bm.free()
+            new_obj = bpy.data.objects.new(name=new_name, object_data=new_data)
+        elif evaluated:
             dg = self.context.evaluated_depsgraph_get()
             eval_obj = obj.evaluated_get(dg)
             new_data = bpy.data.meshes.new_from_object(eval_obj)
-            new_obj = bpy.data.objects.new(obj.name + "_", new_data)
-        elif to_mesh and obj.type != 'MESH':
+            new_data.name = new_name
+            new_obj = bpy.data.objects.new(name=new_name, object_data=new_data)
+        elif obj.type != 'MESH':
             dg = self.context.evaluated_depsgraph_get()
             new_data = bpy.data.meshes.new_from_object(obj,
                 preserve_all_data_layers=True, depsgraph=dg)
-            new_obj = bpy.data.objects.new(obj.name + "_", new_data)
+            new_data.name = new_name
+            new_obj = bpy.data.objects.new(name=new_name, object_data=new_data)
         else:
             new_data = obj.data.copy()
+            new_data.name = new_name
             new_obj = obj.copy()
-            new_obj.name = obj.name + "_"
+            new_obj.name = new_name
             new_obj.data = new_data
         self.temporary_bids(new_data)
         self.temporary_bids(new_obj)
         assert new_data.users == 1
 
         if obj.type == 'MESH':
-            # Move object materials to mesh
-            for mat_index, mat_slot in enumerate(obj.material_slots):
-                if mat_slot.link == 'OBJECT':
-                    new_data.materials[mat_index] = mat_slot.material
-                    new_obj.material_slots[mat_index].link = 'DATA'
+            flatten_materials(obj)
 
         # New objects are moved to the scene collection, ensuring they're visible
         self.context.scene.collection.objects.link(new_obj)

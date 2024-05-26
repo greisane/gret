@@ -116,7 +116,7 @@ def get_material(obj, material):
     return slot_index
 
 def get_material_at_index(obj, material_index):
-    """Get the material at the given index respecting slot linking."""
+    """Gets the material at the given index respecting slot linking."""
 
     if material_index < 0 or material_index >= len(obj.material_slots):
         return None
@@ -129,7 +129,7 @@ def get_material_at_index(obj, material_index):
     return None
 
 def set_material_at_index(obj, material_index, material):
-    """Set the material at the given index respecting slot linking. Will add new slots if necessary."""
+    """Sets the material at the given index respecting slot linking. Will add new slots if necessary."""
 
     if material_index < 0:
         return

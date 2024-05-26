@@ -160,7 +160,7 @@ def _texture_bake(context, texture_bake, save, results):
     save.prop(context.scene, 'cycles.samples', 16)
 
     # Clone all the objects that contribute to the bake
-    objs = [save.clone_obj(obj, to_mesh=True, reset_origin=True)
+    objs = [save.clone_obj_to_mesh(obj, reset_origin=True)
         for obj in texture_bake.get_bake_objects(context)]
 
     log(f"Baking {mat.name} with {len(objs)} contributing objects")
@@ -339,7 +339,7 @@ class GRET_OT_texture_bake_preview(bpy.types.Operator):
             save.prop(context.scene, 'cycles.preview_samples', 8)
 
             # Clone all the objects that contribute to the bake
-            objs = [save.clone_obj(obj, to_mesh=True, reset_origin=False)
+            objs = [save.clone_obj_to_mesh(obj, reset_origin=False)
                 for obj in texture_bake.get_bake_objects(context)]
 
             preview_mat = bpy.data.materials.new(name=f"_preview_{baker.enum}")

@@ -248,7 +248,7 @@ class GRET_OT_graft(bpy.types.Operator):
             save.selection()
 
             if self.use_viewport_modifiers:
-                dst_obj = save.clone_obj(orig_dst_obj, to_mesh=True, evaluated=True)
+                dst_obj = save.clone_obj_to_mesh(orig_dst_obj, evaluated=True)
             else:
                 dst_obj = orig_dst_obj
                 save.prop_foreach(dst_obj.modifiers, 'show_viewport', False)
