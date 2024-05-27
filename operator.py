@@ -26,14 +26,14 @@ logs = partial(log, category="SAVE")
 custom_prop_pattern = re.compile(r'(.+)?\["([^"]+)"\]')
 prop_pattern = re.compile(r'(?:(.+)\.)?([^"\.]+)')
 
-def flatten_materials(obj):
+def flatten_materials(from_obj, to_obj):
     """Moves any object materials to mesh materials."""
     # Not imported from gret.material.helpers because it would cause a dependency
 
-    for material_index, material_slot in enumerate(obj.material_slots):
+    for material_index, material_slot in enumerate(from_obj.material_slots):
         if material_slot.link == 'OBJECT':
-            obj.data.materials[material_index] = material_slot.material
-            obj.material_slots[material_index].link = 'DATA'
+            to_obj.data.materials[material_index] = material_slot.material
+            to_obj.material_slots[material_index].link = 'DATA'
 
 class GRET_OT_property_warning(bpy.types.Operator):
     """Changes won't be saved"""
@@ -430,7 +430,7 @@ class SaveState:
             assert new_data.users == 1
 
         if obj.type == 'MESH':
-            flatten_materials(obj)
+            flatten_materials(obj, new_obj)
 
         # New objects are moved to the scene collection, ensuring they're visible
         self.context.scene.collection.objects.link(new_obj)
@@ -439,6 +439,7 @@ class SaveState:
         new_obj.hide_render = False
         new_obj.hide_select = False
         new_obj.parent = parent
+        new_obj.matrix_world = obj.matrix_world
 
         return new_obj
 
@@ -498,7 +499,7 @@ class SaveState:
         assert new_data.users == 1
 
         if obj.type == 'MESH':
-            flatten_materials(obj)
+            flatten_materials(obj, new_obj)
 
         # New objects are moved to the scene collection, ensuring they're visible
         self.context.scene.collection.objects.link(new_obj)
