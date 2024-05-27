@@ -120,9 +120,9 @@ def with_objects(operator, objs, active_obj=None, /, *args, **kwargs):
     with bpy.context.temp_override(**get_object_context_override(active_obj, objs)):
         operator(*args, **kwargs)
 
-def try_with_object(operator, active_obj, selected_objs=[], /, *args, **kwargs):
+def try_with_object(operator, active_obj, /, *args, **kwargs):
     try:
-        return with_object(operator, active_obj, selected_objs, *args, **kwargs)
+        return with_object(operator, active_obj, *args, **kwargs)
     except RuntimeError:
         pass
 
