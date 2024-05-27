@@ -11,7 +11,6 @@ from .helpers import (
     ensure_iterable,
     get_data_collection,
     get_layers_recursive,
-    get_object_context_override,
     is_valid,
     load_property,
     reshape,
@@ -457,36 +456,33 @@ class SaveState:
             # - Within the context override, selected_objects never gets updated
             # - Exiting the context manager, selected_objects is reverted
             # - Not overriding selected_objects obviously causes the operator to act on whatever
-            with self.context.temp_override(**get_object_context_override(temp_obj)):
-                bpy.ops.object.duplicates_make_real(use_base_parent=True)
-                self.temporary_bids(temp_obj.children)
+            with_object(bpy.ops.object.duplicates_make_real, temp_obj, use_base_parent=True)
+            self.temporary_bids(temp_obj.children)
 
-                dg = self.context.evaluated_depsgraph_get() if evaluated else None
-                for temp_obj in temp_obj.children:
-                    temp_obj = temp_obj.evaluated_get(dg) if dg else temp_obj
-                    try:
-                        temp_mesh = temp_obj.to_mesh()
-                        temp_mesh.transform(temp_obj.matrix_local)
-                        bm.from_mesh(temp_mesh)
-                        temp_obj.to_mesh_clear()
-                    except RuntimeError:
-                        pass
+            dg = self.context.evaluated_depsgraph_get() if evaluated else None
+            for temp_obj in temp_obj.children:
+                temp_obj = temp_obj.evaluated_get(dg) if dg else temp_obj
+                try:
+                    temp_mesh = temp_obj.to_mesh()
+                    temp_mesh.transform(temp_obj.matrix_local)
+                    bm.from_mesh(temp_mesh)
+                    temp_obj.to_mesh_clear()
+                except RuntimeError:
+                    pass
 
             new_data = bpy.data.meshes.new(name=new_name)
             bm.to_mesh(new_data)
             bm.free()
             new_obj = bpy.data.objects.new(name=new_name, object_data=new_data)
-        elif evaluated:
+        elif evaluated or obj.type != 'MESH':
             dg = self.context.evaluated_depsgraph_get()
-            eval_obj = obj.evaluated_get(dg)
-            new_data = bpy.data.meshes.new_from_object(eval_obj)
-            new_data.name = new_name
-            new_obj = bpy.data.objects.new(name=new_name, object_data=new_data)
-        elif obj.type != 'MESH':
-            dg = self.context.evaluated_depsgraph_get()
-            new_data = bpy.data.meshes.new_from_object(obj,
-                preserve_all_data_layers=True, depsgraph=dg)
-            new_data.name = new_name
+            eval_obj = obj.evaluated_get(dg) if evaluated else obj
+            try:
+                new_data = bpy.data.meshes.new_from_object(obj,
+                    preserve_all_data_layers=True, depsgraph=dg)
+                new_data.name = new_name
+            except RuntimeError:
+                new_data = bpy.data.meshes.new(name=new_name)
             new_obj = bpy.data.objects.new(name=new_name, object_data=new_data)
         else:
             new_data = obj.data.copy()
