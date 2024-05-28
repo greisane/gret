@@ -97,7 +97,7 @@ def edit_face_map_elements(obj, face_map_name):
 
     return sum(values)
 
-def get_vcolor(obj, name="", domain='FACE_CORNER', data_type='BYTE_COLOR'):
+def get_vcolor(obj, name="", domain=None, data_type=None):
     """Ensures that a vertex color layer with the given name and format exists."""
 
     assert obj.type == 'MESH'
@@ -105,11 +105,12 @@ def get_vcolor(obj, name="", domain='FACE_CORNER', data_type='BYTE_COLOR'):
         vcol = obj.data.color_attributes.get(name)
     else:
         vcol = obj.data.color_attributes.active_color
-    if vcol and (vcol.domain != domain or vcol.data_type != data_type):
+    if vcol and (domain and domain != vcol.domain or data_type and data_type != vcol.data_type):
         obj.data.color_attributes.remove(vcol)
         vcol = None
     if not vcol:
-        vcol = obj.data.color_attributes.new(name=name, domain=domain, type=data_type)
+        vcol = obj.data.color_attributes.new(name=name,
+            domain=domain or 'CORNER', type=data_type or 'FLOAT_COLOR')
     return vcol
 
 def refresh_active_color_attribute(mesh):

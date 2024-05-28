@@ -54,7 +54,7 @@ def copy_mapping(obj, other_obj):
                 property_name = f'{prefix}_{suffix}' if suffix else prefix
                 setattr(other_mapping, property_name, getattr(mapping, property_name))
 
-def values_to_vcol(mesh, src_values, dst_vcol, channel_idx, loops=False, invert=False):
+def values_to_vcol(mesh, src_values, dst_vcol, channel_idx, invert=False):
     assert len(src_values) in (len(mesh.loops), len(mesh.vertices)), "Wrong number of elements"
     is_loops = len(src_values) == len(mesh.loops)
 
@@ -268,7 +268,8 @@ def update_vcols(obj, invert=False):
     if not mapping:
         return
 
-    vcol = get_vcolor(obj, mapping.vertex_color_layer_name)
+    # TODO don't force domain
+    vcol = get_vcolor(obj, mapping.vertex_color_layer_name, domain='CORNER')
     invert = invert != mapping.invert
     update_vcol_from(obj, mapping, 'r', vcol, vcol, 0, invert)
     update_vcol_from(obj, mapping, 'g', vcol, vcol, 1, invert)
