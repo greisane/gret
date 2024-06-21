@@ -11,17 +11,19 @@ class GRET_OT_sculpt_selection(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.mode == 'EDIT_MESH'
+        return context.active_object and context.mode == 'EDIT_MESH'
 
     def execute(self, context):
         # Set the sculpt mask from the current edit-mode vertex selection
-        obj = context.object
+        obj = context.active_object
+        obj.data.vertex_paint_mask_ensure()
+
         bpy.ops.object.mode_set(mode='SCULPT')
 
         bm = bmesh.new()
         bm.from_mesh(obj.data)
 
-        mask = bm.verts.layers.paint_mask.verify()
+        mask = bm.verts.layers.float['.sculpt_mask']
         bm.verts.ensure_lookup_table()
         for vert in obj.data.vertices:
             bm.verts[vert.index][mask] = 0.0 if vert.select else 1.0

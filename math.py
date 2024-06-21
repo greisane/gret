@@ -11,13 +11,14 @@ SMALL_NUMBER = 1e-8
 KINDA_SMALL_NUMBER = 1e-4
 
 zero_vector = Vector((0.0, 0.0, 0.0))
+half_vector = Vector((0.5, 0.5, 0.5))
 one_vector = Vector((1.0, 1.0, 1.0))
 
 saturate = lambda x: min(1.0, max(0.0, x))
 saturate2 = lambda x: min(1.0 - SMALL_NUMBER, max(0.0, x))
 clamp = lambda x, mn, mx: min(mx, max(mn, x))
 grid_snap = lambda x, grid: x if grid == 0.0 else floor((x + (grid * 0.5)) / grid) * grid
-equals = lambda a, b, threshold=SMALL_NUMBER: abs(a - b) <= threshold
+equals = lambda a, b, threshold=SMALL_NUMBER: np.max(np.abs(a - b)) <= threshold
 lerp = lambda a, b, t: t * b + (1.0 - t) * a
 lerp_array = lambda a, b, x: tuple(lerp(a, b, x) for a, b in zip(a, b))
 invlerp = lambda a, b, x: (x - a) / (b - a)  # Safe version in get_range_pct

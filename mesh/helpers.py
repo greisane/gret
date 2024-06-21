@@ -18,10 +18,8 @@ from ..helpers import (
     with_object,
 )
 from ..log import logger, log, logd
-from ..math import lerp
+from ..math import lerp, one_vector, half_vector
 
-one_vector = Vector((1, 1, 1))
-half_vector = Vector((0.5, 0.5, 0.5))
 fmt_shape_key = lambda sk: (sk.name if sk.value == 1.0 else f"{sk.name} ({fmt_fraction(sk.value, 1.0)})")
 
 def _select_mesh_elements(collection, select=True, indices=None, key=None):
