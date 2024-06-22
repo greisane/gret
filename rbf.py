@@ -100,7 +100,7 @@ def get_mesh_points(obj, matrix=None, shape_key=None, mask=None, stride=1, x_mir
         mesh.transform(matrix)
 
     shape_key = mesh.shape_keys.key_blocks[shape_key] if shape_key else None
-    points = np.zeros(len(mesh.vertices)*3, dtype=np.float)
+    points = np.zeros(len(mesh.vertices)*3, dtype=float)
     if shape_key and shape_key.vertex_group:
         bm = bmesh.new()
         bm.from_mesh(mesh)
