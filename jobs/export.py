@@ -883,7 +883,7 @@ SmileTweak->Smile
 Discard all shape keys:
 *->_
 
-Separate patterns with spaces, using quotes if necessary.""",
+Separate patterns with spaces, using quotes if necessary""",
         default='"Key [0-9]*" b_*',
         options=set(),
     )

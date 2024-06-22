@@ -23,6 +23,7 @@ from ..helpers import (
     partition,
     viewport_reveal_all,
     with_object,
+    with_objects,
 )
 from ..rig.helpers import (
     copy_drivers,
@@ -232,7 +233,7 @@ def _rig_export(context, job, rig, save, results):
         if merged_item is None:
             merged_item = max(items, key=lambda it: len(it.obj.data.vertices))
 
-        with_object(bpy.ops.object.join, merged_item.obj, [item.obj for item in items])
+        with_objects(bpy.ops.object.join, [item.obj for item in items], merged_item.obj)
         log(f"Merged {', '.join(it.original.name for it in items if it is not merged_item)} "
             f"into {merged_item.original.name}")
 
