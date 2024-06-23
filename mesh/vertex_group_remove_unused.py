@@ -30,7 +30,7 @@ class GRET_OT_vertex_group_remove_unused(bpy.types.Operator):
             # Mark mirror vertex groups as used
             for vg_idx, used in vg_idx_used.items():
                 if used:
-                    flipped_name = flip_name(vgroups[vg_idx].name, suffix_only=True)
+                    flipped_name = flip_name(vgroups[vg_idx].name)
                     if flipped_name:
                         other_vg_idx = vgroups.find(flipped_name)
                         if other_vg_idx >= 0:

@@ -18,7 +18,7 @@ class GRET_OT_vertex_group_create_mirrored(bpy.types.Operator):
         obj.update_from_editmode()
 
         for name in [vg.name for vg in obj.vertex_groups]:
-            flipped_name = flip_name(name, suffix_only=True)
+            flipped_name = flip_name(name)
             if flipped_name and flipped_name not in obj.vertex_groups:
                 obj.vertex_groups.new(name=flipped_name)
 
