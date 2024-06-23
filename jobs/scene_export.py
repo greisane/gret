@@ -105,7 +105,7 @@ def _scene_export(context, job, save, results):
             # Never export collision objects by themselves
             continue
         obj.hide_render = False
-        new_obj = save.clone_obj(obj, parent=None)
+        new_obj = save.clone_obj_to_mesh(obj, parent=None)
         items.append(ExportItem(obj, new_obj, job_cl, [], []))
 
     # Process individual meshes
