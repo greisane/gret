@@ -428,11 +428,14 @@ def flip_name(s, /, suffix_only=False):
 
     if not suffix_only:
         # Prefix with no delimiter, case sensitive (lBone -> rBone)
-        if match := re.match(r"^([lr]|[lL]eft|[rR]ight)[A-Z]", s):
+        if match := re.match(r"^([lr]|[lL]eft|[rR]ight)[A-Z0-9]", s):
             return lr[match[1]] + s[len(match[1]):]
         # Prefix with delimiter
         if re.match(r"^[LlRr][_.].", s):
             return lr[s[0]] + s[1:]
+    # Suffix with no delimiter, capitalized
+    if match := re.match(r".*[a-z0-9]([LR]|Left|Right)$", s):
+        return s[:-len(match[1])] + lr[match[1]]
     # Suffix with delimiter
     if re.match(r".+[_.][LlRr]$", s):
         return s[:-1] + lr[s[-1]]
@@ -442,9 +445,11 @@ def flip_names(s, /):
     """Flips all names with side affixes found in the string."""
 
     # Prefix with no delimiter, case sensitive (lBone -> rBone)
-    s = re.sub(r"\b([lr]|[lL]eft|[rR]ight)[A-Z]", lambda m: lr[m[1]] + m[0][len(m[1]):], s)
+    s = re.sub(r"\b([lr]|[lL]eft|[rR]ight)[A-Z0-9]", lambda m: lr[m[1]] + m[0][len(m[1]):], s)
     # Prefix with delimiter
     s = re.sub(r"\b[LlRr][_.].", lambda m: lr[m[0][0]] + m[0][1:], s)
+    # Suffix with no delimiter, capitalized
+    s = re.sub(r"[a-z0-9]([LR]|Left|Right)\b", lambda m: m[0][:-len(m[1])] + lr[m[1]], s)
     # Suffix with delimiter
     s = re.sub(r".[_.][LlRr]\b", lambda m: m[0][:-1] + lr[m[0][-1]], s)
     return s
