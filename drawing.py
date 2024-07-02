@@ -7,30 +7,39 @@ import bpy
 import gpu
 import numpy as np
 
-shader_image = gpu.shader.from_builtin('IMAGE')
-shader_solid = gpu.shader.from_builtin('UNIFORM_COLOR')
-shader_image_alpha = gpu.types.GPUShader("""
-uniform mat4 ModelViewProjectionMatrix;
-/* Keep in sync with intern/opencolorio/gpu_shader_display_transform_vertex.glsl */
-in vec2 texCoord;
-in vec2 pos;
-out vec2 texCoord_interp;
+# Create the shader to draw the texture
+vertex_out = gpu.types.GPUStageInterfaceInfo("my_interface")
+vertex_out.smooth('VEC2', "texCoord_interp")
+shader_info = gpu.types.GPUShaderCreateInfo()
+shader_info.push_constant('MAT4', "ModelViewProjectionMatrix")
+shader_info.push_constant('VEC4', "color")
+shader_info.sampler(0, 'FLOAT_2D', "image")
+shader_info.vertex_in(0, 'VEC2', "pos")
+shader_info.vertex_in(1, 'VEC2', "texCoord")
+shader_info.vertex_out(vertex_out)
+shader_info.fragment_out(0, 'VEC4', "fragColor")
+
+shader_info.vertex_source("""
+/* keep in sync with intern/opencolorio/gpu_shader_display_transform_vertex.glsl */
 void main()
 {
-    gl_Position = ModelViewProjectionMatrix * vec4(pos.xy, 0.0f, 1.0f);
-    gl_Position.z = 1.0;
-    texCoord_interp = texCoord;
-}
-""", """
-in vec2 texCoord_interp;
-out vec4 fragColor;
-uniform sampler2D image;
-uniform vec4 color;
-void main()
-{
-    fragColor = texture(image, texCoord_interp) * color;
+  gl_Position = ModelViewProjectionMatrix * vec4(pos.xy, 0.0f, 1.0f);
+  gl_Position.z = 1.0;
+  texCoord_interp = texCoord;
 }
 """)
+
+shader_info.fragment_source("""
+void main()
+{
+  fragColor = texture(image, texCoord_interp) * color;
+}
+""")
+
+shader_image = gpu.shader.from_builtin('IMAGE')
+shader_solid = gpu.shader.from_builtin('UNIFORM_COLOR')
+shader_image_alpha = gpu.shader.create_from_info(shader_info)
+del shader_info
 
 h1_font_size = 17
 p_font_size = 13
