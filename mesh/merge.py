@@ -131,7 +131,7 @@ def do_curvature_mask(clean_bm, factor, distance):
         return None
 
     # Shell factor starts at 1.0, not sure about the upper bound. Sort of like curvature
-    vnor_mask = np.fromiter((vert.calc_shell_factor() for vert in clean_bm.verts), np.float,
+    vnor_mask = np.fromiter((vert.calc_shell_factor() for vert in clean_bm.verts), dtype=float,
         count=len(clean_bm.verts))
     # vnor_mask = (vnor_mask - 1.0) / (max(vnor_mask) - 1.0)  # Normalize
 
