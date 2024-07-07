@@ -882,3 +882,21 @@ def bmesh_find_coplanar(bm, angle_limit, faces=[]):
         set_tag(island, False)
         faces -= island
     return ret
+
+def bmloop_uv_share_edge_check(bmloop0, bmloop1, uv_layer):
+    assert bmloop0.edge == bmloop1.edge
+    uv00 = bmloop0[uv_layer]
+    uv01 = bmloop0.link_loop_next[uv_layer]
+    uv10 = bmloop1[uv_layer]
+    uv11 = bmloop1.link_loop_next[uv_layer]
+    if bmloop0.vert != bmloop1.vert:
+        uv10, uv11 = uv11, uv10
+    return uv00.uv == uv10.uv and uv01.uv == uv11.uv
+
+def bmloop_iter_radial(bmloop):
+    bmloop_first = bmloop
+    while True:
+        bmloop = bmloop.link_loop_radial_next
+        yield bmloop
+        if bmloop == bmloop_first:
+            break

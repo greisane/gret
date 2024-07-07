@@ -7,8 +7,8 @@ import numpy as np
 
 from ..cache import lru_cache, hash_key
 from ..helpers import get_collection, get_vgroup, with_object, instant_modifier, select_only
-from ..math import get_direction_safe, grid_snap
-from .helpers import bmesh_vertex_group_bleed_internal
+from ..math import get_direction_safe, grid_snap, lerp, normalized
+from .helpers import bmesh_vertex_group_bleed_internal, bmloop_uv_share_edge_check, bmloop_iter_radial
 
 normal_mask_vg_name = "_merge_mask"
 temp_collection_name = "__merge"
@@ -37,10 +37,23 @@ def do_union(context, objs, dst_obj):
         bm = bmesh.new()
         bm.from_mesh(obj.data)
         id_layer = bm.verts.layers.float.new('id')
+        uv_layer = bm.loops.layers.uv.active
 
+        # Close curve tips first
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
         hole_faces = bmesh.ops.holes_fill(bm, edges=bm.edges)['faces']
         # Don't use center mode MEAN_WEIGHTED, breaks when face is too small (probably div by zero)
         bmesh.ops.poke(bm, faces=hole_faces, offset=1.0, center_mode='MEAN', use_relative_offset=True)
+
+        if uv_layer:
+            # Equivalent to bpy.ops.uv.seams_from_islands()
+            for bmface in bm.faces:
+                for bmloop0 in bmface.loops:
+                    for bmloop1 in bmloop_iter_radial(bmloop0.link_loop_radial_next):
+                        if not bmloop_uv_share_edge_check(bmloop0, bmloop1, uv_layer):
+                            bmloop1.edge.smooth = True
+                            bmloop1.edge.seam = True
+                            break
 
         bm.to_mesh(obj.data)
         bm.free()
@@ -60,7 +73,7 @@ def do_union(context, objs, dst_obj):
 
 @lru_cache(maxsize=20)
 def do_clean(union_bm, weld_distance=0.0, weld_uv_direction='XY', weld_uv_distance=0.0,
-    weld_iterations=0, delete_non_manifold=False):
+    weld_iterations=0, delete_non_manifold=False, sharpen=False):
     """Reduce bmesh excess geometry and ensure it is watertight. Returns the resulting bmesh."""
 
     bm = union_bm.copy()
@@ -119,6 +132,18 @@ def do_clean(union_bm, weld_distance=0.0, weld_uv_direction='XY', weld_uv_distan
     # Delete loose geometry
     bmesh.ops.delete(bm, geom=[f for f in bm.faces if all(e.is_boundary for e in f.edges)], context='FACES')
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces])
+
+    if uv_layer and sharpen:
+        # bpy.ops.uv.seams_from_islands() but mark it as sharp except on existing seams
+        for bmedge in bm.edges:
+            bmedge.tag = bmedge.seam
+        for bmface in bm.faces:
+            for bmloop0 in bmface.loops:
+                for bmloop1 in bmloop_iter_radial(bmloop0.link_loop_radial_next):
+                    if not bmloop_uv_share_edge_check(bmloop0, bmloop1, uv_layer):
+                        bmloop1.edge.smooth = bmloop1.edge.tag
+                        bmloop1.edge.seam = True
+                        break
 
     return bm
 
@@ -230,6 +255,11 @@ Used to simplify the mesh along, and not across when merging hair strands""",
         description="Delete non manifold vertices. Uncheck if parts of the mesh disappear on merging",
         default=True,
     )
+    sharpen: bpy.props.BoolProperty(
+        name="Sharpen",
+        description="Mark joining edges as sharp",
+        default=False,
+    )
     smooth_iterations: bpy.props.IntProperty(
         name="Smooth Normal Iterations",
         description="Number of times to smooth normals",
@@ -250,8 +280,16 @@ Use to leave normals intact on hair ends and crevices""",
         name="Curvature Distance",
         description="Extend curvature mask",
         subtype='DISTANCE',
-        default=0.05,
+        default=0.2,
         min=0.0,
+    )
+    smooth_mix: bpy.props.FloatProperty(
+        name="Smooth Normal Mix",
+        description="Smoothing ",
+        subtype='FACTOR',
+        default=0.5,
+        min=0.0,
+        max=1.0,
     )
     show_weld_by_uv = False  # Not a property because it shouldn't be saved with presets
 
@@ -275,10 +313,14 @@ Use to leave normals intact on hair ends and crevices""",
         layout.prop(self, 'delete_non_manifold', text="Delete Non-Manifold")
 
         layout.label(text="Normals:")
+        if self.show_weld_by_uv:
+            layout.prop(self, 'sharpen')
         layout.prop(self, 'smooth_iterations', text="Smooth")
-        row = layout.row(align=True)
-        layout.prop(self, 'curvature_mask')
-        layout.prop(self, 'curvature_distance')
+        col = layout.column(align=False)
+        col.enabled = self.smooth_iterations > 0
+        col.prop(self, 'smooth_mix')
+        col.prop(self, 'curvature_mask')
+        col.prop(self, 'curvature_distance')
 
     def cache_clear(self):
         do_union.cache_clear()
@@ -307,11 +349,13 @@ Use to leave normals intact on hair ends and crevices""",
                 weld_uv_direction=self.weld_uv_direction,
                 weld_uv_distance=self.weld_uv_distance,
                 weld_iterations=self.weld_iterations,
-                delete_non_manifold=self.delete_non_manifold)
+                delete_non_manifold=self.delete_non_manifold,
+                sharpen=self.sharpen)
         else:
             clean_bm = do_clean(union_bm,
                 weld_distance=self.weld_distance,
-                delete_non_manifold=self.delete_non_manifold)
+                delete_non_manifold=self.delete_non_manifold,
+                sharpen=self.sharpen)
 
         curvature_mask = grid_snap(self.curvature_mask, 0.05)  # Less precision, less cache misses
         vnor_mask = do_curvature_mask(clean_bm, curvature_mask, self.curvature_distance)
@@ -325,20 +369,32 @@ Use to leave normals intact on hair ends and crevices""",
         clean_bm.to_mesh(dst_mesh)
 
         # Normals post-processing and transfer
-        if hasattr(dst_mesh, "use_auto_smooth"):
+        if hasattr(dst_mesh, 'use_auto_smooth'):
             dst_mesh.use_auto_smooth = True
             dst_mesh.auto_smooth_angle = pi
         else:
             dst_mesh.shade_smooth()
         with_object(bpy.ops.mesh.customdata_custom_splitnormals_clear, dst_obj)
 
-        if self.smooth_iterations > 0:
+        if self.smooth_iterations > 0 and self.smooth_mix > 0.0:
             vnors_orig, vnors_smooth = do_smooth_normals(clean_bm, self.smooth_iterations, dst_mesh)
             if vnor_mask is not None:
                 # Mix based on curvature mask
                 vnors_smooth = vnors_orig + (vnors_smooth - vnors_orig) * vnor_mask
 
-            dst_mesh.normals_split_custom_set_from_vertices(vnors_smooth)
+            # Convert smooth vertex normals to loop normals
+            num_loops = len(dst_mesh.loops)
+            loop_vert_indices = np.empty(num_loops, dtype=int)
+            dst_mesh.loops.foreach_get('vertex_index', loop_vert_indices)
+            nors_smooth = vnors_smooth[loop_vert_indices]
+
+            # Mix with original loop normals
+            nors_orig = np.empty(num_loops * 3)
+            dst_mesh.loops.foreach_get('normal', nors_orig)
+            nors_orig = nors_orig.reshape(-1, 3)
+            nors_new = normalized(lerp(nors_orig, nors_smooth, self.smooth_mix))
+
+            dst_mesh.normals_split_custom_set(nors_new)
             dst_mesh.update()
 
         # Clean up

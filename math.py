@@ -300,6 +300,12 @@ def get_direction_safe(a, b):
         return Vector()
     return Vector((x/k, y/k, z/k))
 
+def normalized(a, axis=-1, order=2):
+    # From https://stackoverflow.com/a/21032099
+    l2 = np.atleast_1d(np.linalg.norm(a, order, axis))
+    l2[l2 == 0] = 1
+    return a / np.expand_dims(l2, axis)
+
 def get_range_pct(min_value, max_value, value):
     """Calculates the percentage along a line from min_value to max_value."""
 
