@@ -29,6 +29,10 @@ class GRET_OT_shape_key_select(bpy.types.Operator):
         obj = context.active_object
         sk_data = obj.active_shape_key.data
         sq_dist = self.distance * self.distance
+
+        if context.mode == 'EDIT_MESH':
+            bpy.ops.object.editmode_toggle()
+
         num = edit_mesh_elements(obj, key=lambda v: get_dist_sq(v.co, sk_data[v.index].co) > sq_dist)
         if num > 0:
             self.report({'INFO'}, f"Selected {num} vertices.")
