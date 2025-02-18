@@ -117,11 +117,7 @@ def _rig_export(context, job, rig, save, results):
 
         # Ensure mesh has custom normals so that they won't be recalculated on masking
         with_object(bpy.ops.mesh.customdata_custom_splitnormals_add, obj)
-        if hasattr(mesh, "use_auto_smooth"):
-            mesh.use_auto_smooth = True
-            mesh.auto_smooth_angle = pi
-        else:
-            mesh.shade_smooth()
+        mesh.shade_smooth()
 
         # Remove vertex group filtering from shapekeys before merging
         apply_shape_keys_with_vertex_groups(obj)
@@ -353,14 +349,6 @@ def _rig_export(context, job, rig, save, results):
             if clean_vertex_groups:
                 for vg_index in reversed(get_operator_target_vertex_groups(obj, 'BONE_NOT_DEFORM')):
                     obj.vertex_groups.remove(obj.vertex_groups[vg_index])
-
-            # Auto-smooth has a noticeable impact in performance while animating,
-            # disable unless the user explicitly enabled it in the previous build result
-            if hasattr(obj.data, "use_auto_smooth"):
-                # Auto-smooth doesn't exist since 4.1
-                obj.data.use_auto_smooth = False
-                if old_obj and old_obj.type == 'MESH':
-                    obj.data.use_auto_smooth = old_obj.data.use_auto_smooth
 
             results.extend([obj, obj.data])
 

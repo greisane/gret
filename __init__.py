@@ -1,9 +1,9 @@
 bl_info = {
     'name': "gret",
-    'author': "greisane",
+    'author': "greisane (& DevianDice)",
     'description': "Collection of Blender tools",
-    'version': (1, 4, 0),
-    'blender': (4, 0, 1),
+    'version': (1, 4, 2),
+    'blender': (4, 2, 0),
     'location': "3D View > Tools",
     'category': "Object",
     'doc_url': "https://github.com/greisane/gret#readme",

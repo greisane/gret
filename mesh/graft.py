@@ -129,11 +129,7 @@ def do_graft(context, save, obj, dst_obj, expand=0, cuts=0, blend_distance=0.0, 
 
     # Transfer stuff
     if copy_normals:
-        if hasattr(obj.data, "use_auto_smooth"):
-            obj.data.use_auto_smooth = True
-            obj.data.auto_smooth_angle = pi
-        else:
-            obj.data.shade_smooth()
+        obj.data.shade_smooth()
         with_object(bpy.ops.mesh.customdata_custom_splitnormals_clear, obj)
 
         with instant_modifier(obj, type='DATA_TRANSFER') as data_mod:

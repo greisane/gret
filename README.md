@@ -7,6 +7,7 @@ A collection of Blender tools I've written for myself over the years. I use thes
 # Installation
 
 Blender 4.1 or later required.
+> This tool has been updated to work with blender 4.2.0 -> 4.3.2
 
 1. Download the [latest release](https://github.com/greisane/gret/releases/latest).
 

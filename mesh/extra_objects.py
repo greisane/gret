@@ -281,16 +281,10 @@ class GRET_OT_rope_add(bpy.types.Operator):
         vertices.extend([Vector((v.x, v.y, cut_height)) for v in vertices])
         mesh.from_pydata(vertices, [], faces)
 
-        if hasattr(mesh, "use_auto_smooth"):
-            for face in mesh.polygons:
-                face.use_smooth = self.use_smooth_shade
-            mesh.use_auto_smooth = True
-            mesh.auto_smooth_angle = pi
+        if self.use_smooth_shade:
+            mesh.shade_smooth()
         else:
-            if self.use_smooth_shade:
-                mesh.shade_smooth()
-            else:
-                mesh.shade_flat()
+            mesh.shade_flat()
 
         crease_data = mesh.attributes.new('crease_edge', domain='EDGE', type='FLOAT').data
         for edge in (mesh.edges[4], mesh.edges[8]):
