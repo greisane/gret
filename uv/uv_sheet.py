@@ -293,7 +293,7 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
             except Exception as e:
                 traceback.print_exc()
                 self.wants_quit = True  # Avoid flooding the console
-                self.report({'ERROR'}, f"An exception ocurred: {e}")
+                self.report({'ERROR'}, f"An exception occurred: {e}")
 
         draw_help_box(30.0, 30.0, self.help_texts, self.help_title, width=280.0)
 
@@ -376,7 +376,7 @@ class GRET_OT_uv_sheet_edit(bpy.types.Operator, StateMachineMixin, DrawHooksMixi
                 self.pop_state()  # Exit the offending state
                 if not self.state:
                     self.wants_quit = True
-                self.report({'ERROR'}, f"An exception ocurred: {e}")
+                self.report({'ERROR'}, f"An exception occurred: {e}")
 
             if not handled:
                 if is_event_single_press(event, {'ESC', 'RIGHTMOUSE'}):
